@@ -10,8 +10,6 @@ skills_lint:
           severity: error
           exclude: ".*-workspace"
       ignore_file: ".agents/skills/ignore.json"
-    - path: "../../skills"
-      ignore_file: ".agents/skills/flutter_skills_ignore.json"
     - path: "skills"
       rules:
         check-trailing-whitespace: error
