@@ -1,4 +1,4 @@
-# dart_skills_lint
+# skills_lint
 
 A static analysis linter for Agent Skills to ensure they meet the specification in presubmit checks. This project is a Dart package and can be run as a CLI tool to validate your skills directory before committing.
 
@@ -15,7 +15,7 @@ A static analysis linter for Agent Skills to ensure they meet the specification 
 
 An **Agent Skill** is a portable, self-contained directory that extends an AI agent's capabilities. Pre-submit linting ensures that your skill definitions are valid and ready for consumption by agent platforms.
 
-`dart_skills_lint` validates:
+`skills_lint` validates:
 - Presence of mandatory `SKILL.md` file.
 - YAML frontmatter constraints (naming, length, etc.).
 - Directory structure (flat, no deep nesting).
@@ -25,12 +25,12 @@ For a full definition of the skill standard, see the [Agent Skills Specification
 
 ## Installation
 
-`dart_skills_lint` ships as both a standalone native binary (no Dart
+`skills_lint` ships as both a standalone native binary (no Dart
 SDK required) and as a Dart package on pub.dev. Pick the path that
 matches your environment.
 
 > **Homebrew note.** A `brew install dart-skills-lint` path is on the
-> roadmap; it will land after `dart_skills_lint` migrates to its own
+> roadmap; it will land after `skills_lint` migrates to its own
 > dedicated repository. Until then, the install paths below cover all
 > supported platforms.
 
@@ -44,7 +44,7 @@ still work and are unchanged.
 Add to your `pubspec.yaml`:
 ```yaml
 dev_dependencies:
-  dart_skills_lint: ^0.5.0
+  skills_lint: ^0.5.0
 ```
 
 Then:
@@ -56,7 +56,7 @@ dart pub get
 
 For multiple projects without per-project pubspec entries:
 ```bash
-dart pub global activate dart_skills_lint
+dart pub global activate skills_lint
 ```
 
 ### 2. `install.sh` — Linux + macOS, no Dart required
@@ -67,13 +67,13 @@ Release, verifies its SHA256, and installs to `/usr/local/bin` (with a
 `sudo` fallback). Supports macOS arm64 + x64 and Linux x64 + arm64.
 
 ```bash
-curl -fsSL https://github.com/flutter/agent-plugins/releases/latest/download/install.sh | bash
+curl -fsSL https://github.com/google/skills_lint.dart/releases/latest/download/install.sh | bash
 ```
 
 Optional env vars (set before the `bash` part):
 - `INSTALL_DIR` — install destination (default `/usr/local/bin`).
 - `VERSION` — pin a specific release like `0.4.0` (default `latest`).
-- `REPO` — alternate source repo (default `flutter/agent-plugins`).
+- `REPO` — alternate source repo (default `google/skills_lint.dart`).
 
 #### macOS first-launch note
 
@@ -82,7 +82,7 @@ binary, macOS Gatekeeper will block it ("cannot be opened because the
 developer cannot be verified"). Remove the quarantine flag once:
 
 ```bash
-xattr -d com.apple.quarantine "$(which dart_skills_lint)"
+xattr -d com.apple.quarantine "$(which skills_lint)"
 ```
 
 This step goes away once notarized builds ship.
@@ -91,26 +91,26 @@ This step goes away once notarized builds ship.
 
 For environments where piping a script to `bash` isn't acceptable.
 Grab the tarball for your platform from
-[the latest GitHub Release](https://github.com/flutter/agent-plugins/releases/latest)
+[the latest GitHub Release](https://github.com/google/skills_lint.dart/releases/latest)
 and verify its SHA256 against the release's `SHA256SUMS` asset.
 
 ```bash
 TARGET="linux-x64"     # or: macos-arm64, macos-x64, linux-arm64
 VERSION="0.5.0"
-BASE="https://github.com/flutter/agent-plugins/releases/download/dart_skills_lint-v${VERSION}"
-curl -fsSLO "${BASE}/dart_skills_lint-${TARGET}.tar.gz"
+BASE="https://github.com/google/skills_lint.dart/releases/download/skills_lint-v${VERSION}"
+curl -fsSLO "${BASE}/skills_lint-${TARGET}.tar.gz"
 curl -fsSLO "${BASE}/SHA256SUMS"
-grep " dart_skills_lint-${TARGET}.tar.gz$" SHA256SUMS | sha256sum -c -
-tar -xzf "dart_skills_lint-${TARGET}.tar.gz"
-sudo install -m 0755 "dart_skills_lint-${TARGET}" /usr/local/bin/dart_skills_lint
+grep " skills_lint-${TARGET}.tar.gz$" SHA256SUMS | sha256sum -c -
+tar -xzf "skills_lint-${TARGET}.tar.gz"
+sudo install -m 0755 "skills_lint-${TARGET}" /usr/local/bin/skills_lint
 ```
 
 On macOS, replace `sha256sum -c -` with `shasum -a 256 -c -`.
 
 ## Usage
 
-`dart_skills_lint` runs as a command-line tool, configured by flags or by
-a `dart_skills_lint.yaml` file. The CLI is the user-facing surface; it
+`skills_lint` runs as a command-line tool, configured by flags or by
+a `skills_lint.yaml` file. The CLI is the user-facing surface; it
 also has a programmatic API for contributors who need to embed the
 linter in their own test suite — see
 [`CONTRIBUTING.md`](CONTRIBUTING.md#embedding-the-linter-in-tests).
@@ -119,17 +119,17 @@ linter in their own test suite — see
 Run the linter against your skills or root skills directories by passing arguments.
 
 ```bash
-dart run dart_skills_lint --skills-directory ./path/to/skills-root
+dart run skills_lint --skills-directory ./path/to/skills-root
 ```
 
 Multiple root directories can be specified:
 ```bash
-dart run dart_skills_lint --skills-directory ./path/to/root-a --skills-directory ./path/to/root-b
+dart run skills_lint --skills-directory ./path/to/root-a --skills-directory ./path/to/root-b
 ```
 
 Validate Individual Skills directly using `--skill` or `-s`:
 ```bash
-dart run dart_skills_lint --skill ./path/to/my-single-skill
+dart run skills_lint --skill ./path/to/my-single-skill
 ```
 
 If no directory is specified, it automatically checks `.claude/skills` and `.agents/skills` relative to your workspace root.
@@ -147,13 +147,13 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `--fix-apply`: *Deprecated* alias for `--fix`. Prints a deprecation notice on use.
 
 ### 2. As a Command Line Tool with a YAML Configuration File
-You can configure the linter using a configuration file (defaulting to `dart_skills_lint.yaml` in the current directory).
+You can configure the linter using a configuration file (defaulting to `skills_lint.yaml` in the current directory).
 
-Create `dart_skills_lint.yaml` in the root of your repository:
+Create `skills_lint.yaml` in the root of your repository:
 
 ```yaml
-# dart_skills_lint.yaml
-dart_skills_lint:
+# skills_lint.yaml
+skills_lint:
   rules:
     check-relative-paths: error
     check-absolute-paths: error
@@ -169,20 +169,20 @@ dart_skills_lint:
 
 Then you can simply run:
 ```bash
-dart run dart_skills_lint
+dart run skills_lint
 ```
 
 ### Rule Precedence
 
-When resolving which severity and parameters to apply for a rule, `dart_skills_lint` evaluates settings in the following order of precedence (highest to lowest):
+When resolving which severity and parameters to apply for a rule, `skills_lint` evaluates settings in the following order of precedence (highest to lowest):
 
 1. **CLI Flags / API Overrides**:
    - Rule severity overrides: Explicit flags passed to the CLI (e.g., `--check-trailing-whitespace` or `--no-check-trailing-whitespace`).
    - Rule parameter overrides: Namespaced command-line parameter flags (e.g., `--path-does-not-exist-exclude=".*-workspace"`). Passing an empty string (e.g. `--path-does-not-exist-exclude=""`) explicitly clears the custom parameter.
-2. **Path-Specific Config**: Rules defined under `directories:` or `individual_skills:` in `dart_skills_lint.yaml` for a matching path.
+2. **Path-Specific Config**: Rules defined under `directories:` or `individual_skills:` in `skills_lint.yaml` for a matching path.
    - If a target config specifies a **map** (e.g. `path-does-not-exist: { severity: error, exclude: "..." }`), the parameters map completely overrides any global parameters for that rule.
    - If a target config specifies a **simple string** severity (e.g. `path-does-not-exist: error`), the severity is overridden, but the global parameters map is inherited/preserved.
-3. **Global Config**: Rules and parameters defined under the top-level `rules:` in `dart_skills_lint.yaml`.
+3. **Global Config**: Rules and parameters defined under the top-level `rules:` in `skills_lint.yaml`.
 4. **Defaults**: The hardcoded defaults for each rule.
 
 This ensures that you can always override configuration file settings for a specific run by using CLI flags.
@@ -206,7 +206,7 @@ diagnostic shapes, auto-fix behavior, and how to disable each — see
 
 ## Recipes
 
-Drop-in snippets for the two most common ways to wire `dart_skills_lint`
+Drop-in snippets for the two most common ways to wire `skills_lint`
 into a project's quality gates. Each recipe is exercised by
 [`test/recipe_drift_test.dart`](test/recipe_drift_test.dart), so if a
 flag here goes stale, CI fails.
@@ -214,7 +214,7 @@ flag here goes stale, CI fails.
 ### Recipe: GitHub Actions
 
 Save the following as `.github/workflows/lint-skills.yml`. It runs on
-every push and PR, installs `dart_skills_lint` globally on the runner,
+every push and PR, installs `skills_lint` globally on the runner,
 and validates every skill under `.claude/skills/`. Adjust the path to
 match where your skills live.
 
@@ -234,14 +234,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dart-lang/setup-dart@v1
-      - run: dart pub global activate dart_skills_lint
-      - run: dart pub global run dart_skills_lint --skills-directory ./.claude/skills
+      - run: dart pub global activate skills_lint
+      - run: dart pub global run skills_lint --skills-directory ./.claude/skills
 ```
 
 To validate a single skill directory instead, swap the last step:
 
 ```yaml
-      - run: dart pub global run dart_skills_lint --skill ./.claude/skills/my-skill
+      - run: dart pub global run skills_lint --skill ./.claude/skills/my-skill
 ```
 
 ### Recipe: Dart-native pre-commit hook
@@ -253,7 +253,7 @@ Python `pre-commit` framework, just Dart and the existing
 Activate the linter once per machine:
 
 ```bash
-dart pub global activate dart_skills_lint
+dart pub global activate skills_lint
 ```
 
 Then install the hook into the repository (run from the repo root):
@@ -264,7 +264,7 @@ cat > .git/hooks/pre-commit <<'HOOK'
 set -e
 # Lint every skill under .claude/skills before each commit.
 # Add --skill arguments for other locations as needed.
-exec dart pub global run dart_skills_lint --skills-directory ./.claude/skills --quiet
+exec dart pub global run skills_lint --skills-directory ./.claude/skills --quiet
 HOOK
 chmod +x .git/hooks/pre-commit
 ```
@@ -277,14 +277,14 @@ invocation.
 
 If you're using Claude Code, Gemini, or another agent that can read
 repository-local skills, paste the following prompt to have the agent
-install and validate `dart_skills_lint` for you. The agent will
+install and validate `skills_lint` for you. The agent will
 follow the
 [`dart-skills-lint-setup`](skills/dart-skills-lint-setup/SKILL.md)
 skill for first-time wiring, then the
 [`dart-skills-lint-validation`](skills/dart-skills-lint-validation/SKILL.md)
 skill to run the linter and resolve any failures.
 
-> Set up dart_skills_lint in this project. Use the skill at
+> Set up skills_lint in this project. Use the skill at
 > `skills/dart-skills-lint-setup/SKILL.md`
 > to add it as a dev_dependency, create the configuration file,
 > and wire it into CI. Then use the skill at

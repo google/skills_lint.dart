@@ -44,17 +44,17 @@ you edit an existing file, you shouldn't update the year.
 
 ## Embedding the linter in tests
 
-If your project already uses `dart_skills_lint`, you can also call it
+If your project already uses `skills_lint`, you can also call it
 from your own test suite — handy when you want skill validation to fail
 the same Dart-test pipeline that already gates the rest of your code:
 
 ```dart
-import 'package:dart_skills_lint/dart_skills_lint.dart';
+import 'package:skills_lint/skills_lint.dart';
 import 'package:test/test.dart';
 
 void main() {
   test('Run skills linter', () async {
-    // Load whatever's in dart_skills_lint.yaml so the CLI and tests
+    // Load whatever's in skills_lint.yaml so the CLI and tests
     // share configuration. Pass `customRules: [...]` to inject any
     // custom SkillRule implementations.
     final config = await ConfigParser.loadConfig();
@@ -76,7 +76,7 @@ skill.
 
 ## Testing and coverage
 
-Run the test suite from the package root (`tool/dart_skills_lint`):
+Run the test suite from the package root (`packages/skills_lint`):
 
 ```bash
 dart test
@@ -99,7 +99,7 @@ CI feeds `coverage/lcov.info` to the
 [`very_good_coverage`](https://github.com/VeryGoodOpenSource/very_good_coverage)
 GitHub Action, which fails the build when coverage falls below the threshold.
 The threshold ratchets against regressions: when you raise overall coverage,
-bump `min_coverage` in `.github/workflows/dart_skills_lint_workflow.yaml` to
+bump `min_coverage` in `.github/workflows/skills_lint_workflow.yaml` to
 lock in the gain. To inspect coverage locally, render `coverage/lcov.info` with
 `genhtml` or an editor LCOV viewer.
 
@@ -113,7 +113,7 @@ We pledge to maintain an open and welcoming environment. For details, see our
 
 ## Rule-stability policy (SemVer)
 
-Lint rules are part of `dart_skills_lint`'s public API. Adopters wire
+Lint rules are part of `skills_lint`'s public API. Adopters wire
 the linter into pre-commit hooks and CI gates, so a rule that silently
 flips from "warning" to "error" can break a downstream build with no
 code change of their own. We version rule changes the same way we
@@ -140,7 +140,7 @@ version code changes:
   Releases bump the major version and the CHANGELOG calls out the
   exact rules affected.
 
-Rationale: adopters should be able to set `dart_skills_lint: ^1.0.0`
+Rationale: adopters should be able to set `skills_lint: ^1.0.0`
 in `pubspec.yaml` and trust that a `dart pub upgrade` never turns
 green CI red without their consent. Surprises belong in major
 releases, and only there.
