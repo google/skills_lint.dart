@@ -1,5 +1,9 @@
 # skills_lint
 
+This is not an officially supported Google product. This project is not
+eligible for the [Google Open Source Software Vulnerability Rewards Program](https://bughunters.google.com/open-source-security).
+
+
 A static analysis linter for Agent Skills to ensure they meet the specification in presubmit checks. This project is a Dart package and can be run as a CLI tool to validate your skills directory before committing.
 
 ## Table of Contents
