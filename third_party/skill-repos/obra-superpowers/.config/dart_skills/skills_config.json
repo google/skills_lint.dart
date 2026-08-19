@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "installations": {
+    "generic": {
+      "https://github.com/obra/superpowers.git": {
+        "skills": [
+          {
+            "name": "test-driven-development",
+            "installedAt": "2026-08-18T17:27:53.864197Z",
+            "contentHash": "PCdssGu3iJFLGNY7FvIIYA==",
+            "path": "skills/test-driven-development"
+          }
+        ]
+      }
+    }
+  }
+}

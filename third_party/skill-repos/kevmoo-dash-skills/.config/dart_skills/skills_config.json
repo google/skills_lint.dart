@@ -1,0 +1,59 @@
+{
+  "version": 2,
+  "installations": {
+    "generic": {
+      "https://github.com/kevmoo/dash_skills.git": {
+        "skills": [
+          {
+            "name": "dart-long-lines",
+            "installedAt": "2026-08-18T17:27:49.436543Z",
+            "contentHash": "0Ow+sE4/e0GP4e0lgVpI9Q==",
+            "path": "skills/dart-long-lines"
+          },
+          {
+            "name": "dart-doc-validation",
+            "installedAt": "2026-08-18T17:27:49.438564Z",
+            "contentHash": "n2IqfdFOc9Gvr6Hc+ncRbA==",
+            "path": "skills/dart-doc-validation"
+          },
+          {
+            "name": "dart-test-coverage",
+            "installedAt": "2026-08-18T17:36:39.025422Z",
+            "contentHash": "3o+cHW7PINj+cVkKQ/hj9g==",
+            "path": "skills/dart-test-coverage"
+          },
+          {
+            "name": "dart-modern-features",
+            "installedAt": "2026-08-18T17:36:39.026875Z",
+            "contentHash": "AnrNPoAjYf3jrPsLb2FHXA==",
+            "path": "skills/dart-modern-features"
+          },
+          {
+            "name": "dart-matcher-best-practices",
+            "installedAt": "2026-08-18T17:27:49.440200Z",
+            "contentHash": "gj8wmAmQa/OoLAkNFUjhdw==",
+            "path": "skills/dart-matcher-best-practices"
+          },
+          {
+            "name": "dart-best-practices",
+            "installedAt": "2026-08-18T17:27:49.441665Z",
+            "contentHash": "xQp+0QhvcC1FKY6hf/YUIQ==",
+            "path": "skills/dart-best-practices"
+          },
+          {
+            "name": "dart-package-maintenance",
+            "installedAt": "2026-08-18T17:27:49.443160Z",
+            "contentHash": "0H+7OSgyv3E0/rjt8kwlEQ==",
+            "path": "skills/dart-package-maintenance"
+          },
+          {
+            "name": "dart-test-fundamentals",
+            "installedAt": "2026-08-18T17:36:39.028109Z",
+            "contentHash": "2HW6ObOpIuGZPyW7BMmXTA==",
+            "path": "skills/dart-test-fundamentals"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,55 +1,14 @@
-# Dart Skills Lint - Agent Skills
+# Agent Skills
 
-This directory (`packages/skills_lint/.agents/skills/`) contains skills and configurations for agents working on the skills_lint package.
+This directory (`packages/skills_lint/.agents/skills/`) contains skills and configurations for agents working on the `skills_lint` package.
 
-## Setup Instructions
+All skills in this directory are available immediately without running an installation or fetch step:
+* **Internal Skills:** Skills specific to `skills_lint` development are authored and tracked directly in this directory with `metadata: internal: true`.
+* **Third-Party Skills:** Common Dart and agent development practices are vendored under the repository root at `third_party/skill-repos/` and linked here via relative symlinks.
 
-To set up this directory for development, you must install the remote skills using the Dart `skills` package (`dart install skills@^1.0.0`). These include general Dart development practices, testing fundamentals, and productivity tools that agents rely on.
+## Managing External Skills
 
-Run the following commands from the `packages/skills_lint/` directory to fetch the dependencies:
-
-```sh
-# Ensure the skills CLI is globally installed (version 1.0.0 or higher)
-dart install skills@^1.0.0
-
-# Core Dart Skills
-skills add kevmoo/dash_skills \
-  --skill dart-best-practices \
-  --skill dart-doc-validation \
-  --skill dart-long-lines \
-  --skill dart-matcher-best-practices \
-  --skill dart-modern-features \
-  --skill dart-package-maintenance \
-  --skill dart-test-coverage \
-  --skill dart-test-fundamentals \
-  --agent generic
-
-skills add dart-lang/skills \
-  --skill dart-migrate-to-checks-package \
-  --skill dart-build-cli-app \
-  --skill dart-collect-coverage \
-  --skill dart-add-unit-test \
-  --skill dart-use-pattern-matching \
-  --agent generic
-
-# Productivity and Workflows
-skills add mattpocock/skills --skill grill-me --agent generic
-skills add obra/superpowers --skill test-driven-development --agent generic
-skills add anthropics/skills --skill skill-creator --agent generic
-```
-
-## Overview and Philosophy
-
-* **Remote Dependencies:** We prefer to leverage community-maintained skills from upstream repositories rather than duplicating them locally. This ensures we stay aligned with the broader ecosystem's best practices.
-* **Internal Skills:** We maintain a few local skills directly in this repository (e.g., `add-dart-lint-validation-rule` and `dart-skills-lint-integration`). These are explicitly marked with `internal: true` in their frontmatter to prevent them from being accidentally published to the global registry, as they are specific to our local tools.
-
-## Contributing and Maintenance
-
-When adding new external skills to this directory, follow these guidelines:
-
-1. Use `skills add <repo> --skill <name> --agent generic` to pull them from upstream.
-2. Add the generated skill folder name to `.gitignore` inside this directory (`.agents/skills/.gitignore`) to prevent checking third-party content into version control.
-3. Commit the updated configuration file located at `.config/dart_skills/skills_config.json` to track dependency versions across the team.
+To add, update, or vendor external skills from upstream repositories, see the maintenance guide in [`third_party/skill-repos/README.md`](../../../../third_party/skill-repos/README.md).
 
 ## Running Evaluations (Evals)
 
@@ -83,11 +42,11 @@ Spawn a grader subagent of type `self` using the [Anthropic grader guidelines](h
 
 ---
 
-### 🖥️ Viewing the Eval Reports
+### 🖥️ Viewing Eval Reports
 
-We use the Anthropic static evaluation viewer to inspect the runs and grades:
+To view evaluation reports using the static eval viewer:
 
-1.  Download and install the `skill-creator` tool (which contains the viewer scripts) into the ignored `.agents/skills/` directory:
+1.  Optionally install `skill-creator` into the ignored `.agents/skills/` directory for local use:
     ```sh
     skills add anthropics/skills --skill skill-creator --agent generic
     ```
