@@ -55,7 +55,7 @@ see the [`Recipes` section of the README](../../../../README.md#recipes).
    want to fix immediately:
 
    ```bash
-   dart run skills_lint:cli --skills-directory=.agents/skills --generate-baseline
+   dart run skills_lint --skills-directory=.agents/skills --generate-baseline
    ```
 
    This writes the current set of failures into an ignore file so
