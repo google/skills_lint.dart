@@ -1,0 +1,32 @@
+{
+  "repo_criteria": [
+    "evals/code_quality_rubric.json"
+  ],
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Draft a pull request description for a bug fix that prevents an uncaught exception in RelativePathsRule when a skill references an unresolvable symlink.",
+      "expected_chat_output": [
+        "The agent drafts a PR description following the template with Summary, Motivation and Context, What changed, and Testing Instructions sections.",
+        "The Summary clearly describes the bug fix without vague statements like 'fixed the bug'.",
+        "The Testing Instructions include running the test suite with `dart test`."
+      ],
+      "expected_repo_state": [
+        "No unwanted files are modified."
+      ],
+      "agent_config": "reidbaker-agent"
+    },
+    {
+      "id": 2,
+      "prompt": "Prepare a pull request submission for adding a new lint rule `DisallowedFieldRule`. Verify your identity and include the PR description.",
+      "expected_chat_output": [
+        "The agent verifies or mentions checking GitHub authentication identity (e.g., gh auth status / reidbaker-agent) before submission.",
+        "The PR description contains clear Motivation, Summary, and Testing Instructions."
+      ],
+      "expected_repo_state": [
+        "No unwanted files are modified."
+      ],
+      "agent_config": "reidbaker-agent"
+    }
+  ]
+}

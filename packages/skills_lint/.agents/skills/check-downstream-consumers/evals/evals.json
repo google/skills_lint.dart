@@ -1,0 +1,20 @@
+{
+  "repo_criteria": [
+    "evals/code_quality_rubric.json"
+  ],
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Evaluate a potential breaking change in skills_lint against downstream consumer flutter/flutter. Check if the consumer compiles and passes tests, and verify no downstream changes are committed.",
+      "expected_chat_output": [
+        "The agent checks the downstream consumer against the in-progress commit hash.",
+        "The agent highlights that downstream modifications are diagnostic and must never be committed or pushed.",
+        "The agent restores or cleans up the downstream workspace after verification."
+      ],
+      "expected_repo_state": [
+        "No permanent commits or uncommitted changes remain in the downstream repository."
+      ],
+      "agent_config": "reidbaker-agent"
+    }
+  ]
+}

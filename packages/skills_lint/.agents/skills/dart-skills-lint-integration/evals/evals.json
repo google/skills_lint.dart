@@ -1,0 +1,32 @@
+{
+  "repo_criteria": [
+    "evals/code_quality_rubric.json"
+  ],
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Update the pinned skills_lint dependency in a downstream consumer's pubspec.yaml to commit hash 'e4497873950727ee781fa411c1a2f624b1ec50c6' and configure centralized validation testing.",
+      "expected_chat_output": [
+        "The agent updates the git ref in pubspec.yaml to the specified commit hash.",
+        "The agent writes a test file using ConfigParser.loadConfig and validateSkills.",
+        "The agent outputs a formatted gh pr create command with descriptive title and body."
+      ],
+      "expected_repo_state": [
+        "The test uses dynamic path resolution or config inheritance without hardcoded directory assumptions."
+      ],
+      "agent_config": "reidbaker-agent"
+    },
+    {
+      "id": 2,
+      "prompt": "Configure skills_lint in a downstream Flutter repository, including updating hashes with flutter update-packages and running validate_skills_test.dart.",
+      "expected_chat_output": [
+        "The agent mentions running flutter update-packages --update-hashes to fix pubspec checksums.",
+        "The agent references running flutter test dev/tools/test/validate_skills_test.dart."
+      ],
+      "expected_repo_state": [
+        "All commands use bin/flutter instead of pure dart where required."
+      ],
+      "agent_config": "reidbaker-agent"
+    }
+  ]
+}
