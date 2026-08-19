@@ -1,4 +1,4 @@
-# Agent Skills
+# Skills Lint
 
 This directory (`packages/skills_lint/.agents/skills/`) contains skills and configurations for agents working on the `skills_lint` package.
 
@@ -44,9 +44,9 @@ Spawn a grader subagent of type `self` using the [Anthropic grader guidelines](h
 
 ### 🖥️ Viewing Eval Reports
 
-To view evaluation reports using the static eval viewer:
+We use the Anthropic static evaluation viewer to inspect the runs and grades:
 
-1.  Optionally install `skill-creator` into the ignored `.agents/skills/` directory for local use:
+1.  Download and install the `skill-creator` tool (which contains the viewer scripts) into the ignored `.agents/skills/` directory:
     ```sh
     skills add anthropics/skills --skill skill-creator --agent generic
     ```
