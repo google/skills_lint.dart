@@ -21,16 +21,16 @@ fixability) lives in [`RULES.md`](../../RULES.md).
 If `skills_lint` is in `pubspec.yaml`:
 
 ```bash
-dart run skills_lint:cli -d .agents/skills
+dart run skills_lint -d .agents/skills
 ```
 
-If it's installed globally with `dart pub global activate`:
+If it's installed globally with `dart install`:
 
 ```bash
-dart pub global run skills_lint:cli -d .agents/skills
+skills_lint -d .agents/skills
 ```
 
-Run `dart run skills_lint:cli --help` for the full flag list
+Run `dart run skills_lint --help` (or `skills_lint --help`) for the full flag list
 (skip the inline duplicate so it never goes stale).
 
 ## Workflow for a failing run

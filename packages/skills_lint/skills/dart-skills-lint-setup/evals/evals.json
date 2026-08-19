@@ -31,7 +31,7 @@
       "expected_repo_state": [
         "skills_lint is configured under dev_dependencies in pubspec.yaml and skills_lint.yaml is created at the repository root.",
         "Configures check-relative-paths: error in skills_lint.yaml to enforce portable path references.",
-        "The CLI command dart run skills_lint:cli is run with --skills-directory=.agents/skills --generate-baseline to write legacy failures to an ignore file.",
+        "The CLI command dart run skills_lint is run with --skills-directory=.agents/skills --generate-baseline to write legacy failures to an ignore file.",
         "An explanation is provided that pre-existing violations exit clean while violations introduced after baseline generation will still fail validation.",
         "Does NOT modify, delete, or reformat any pre-existing SKILL.md files in .agents/skills during baseline generation.",
         "Does NOT pass --fix during baseline generation, keeping legacy skill files intact."

@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "installations": {
+    "generic": {
+      "https://github.com/mattpocock/skills.git": {
+        "skills": [
+          {
+            "name": "grill-me",
+            "installedAt": "2026-08-18T17:27:52.556434Z",
+            "contentHash": "UyaCrrVTk67EppsVYI30/g==",
+            "path": "skills/productivity/grill-me"
+          }
+        ]
+      }
+    }
+  }
+}
