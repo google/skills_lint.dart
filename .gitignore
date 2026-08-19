@@ -14,8 +14,8 @@ build/
 # OS files
 .DS_Store
 
-# You might want to ignore pubspec.lock if this is a library package
-# pubspec.lock
+# Package library lockfiles
+pubspec.lock
 
 # Logs and local agent tool directories
 .agents/*.log
