@@ -43,7 +43,7 @@ dart test test/skills_evals_test.dart
 ```
 
 ### 2. Running Evals via Agent Orchestration
-You should use the `/run-evals` skill to run evaluations. The bulk of the execution logic and prompts are located within the `run-evals` skill itself (`.agents/skills/run-evals/SKILL.md`). The environment, model, and harness are determined by the `agent_config` specified in the corresponding `evals.json` file.
+You should use the `/run-evals` skill to run evaluations. All execution logic, pre-flight workspace verification, and subagent isolation rules are defined directly in [`run-evals/SKILL.md`](../.agents/skills/run-evals/SKILL.md). The environment, model, and harness are determined by the `agent_config` specified in the target `evals.json` file.
 
 ### 3. Testing Meta-Evals (Testing the Rubrics)
 To ensure our universal rubrics correctly catch anti-patterns (and permit clean code), we use meta-evaluations. Standalone cross-skill evaluations are defined as `evals/*_evals.json` files (e.g., `evals/code_quality_rubric_evals.json`). These files contain evals strictly intended to grade static fixtures located in `evals/test_data/`.
