@@ -7,6 +7,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+const int _maxCognitiveComplexityThreshold = 20;
+
 void main() {
   group('CI workflow consistency', () {
     test('CI workflow cognitive complexity fail-threshold does not exceed 20', () {
@@ -23,7 +25,7 @@ void main() {
         reason: 'CI workflow must run cognitive_complexity with --fail-threshold <N>',
       );
       final int threshold = int.parse(match!.group(1)!);
-      expect(threshold, lessThanOrEqualTo(20));
+      expect(threshold, lessThanOrEqualTo(_maxCognitiveComplexityThreshold));
 
       final List<String> targets = match.group(2)!.trim().split(RegExp(r'\s+'));
       expect(
