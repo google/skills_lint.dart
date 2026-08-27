@@ -25,7 +25,7 @@ An **Agent Skill** is a portable, self-contained directory that extends an AI ag
 - Directory structure (flat, no deep nesting).
 - Relative path integrity.
 
-For a full definition of the skill standard, see the [Agent Skills Specification](documentation/knowledge/SPECIFICATION.md).
+For a full definition of the skill standard, see the [Agent Skills Specification](https://agentskills.io/specification).
 
 ## Installation
 
@@ -202,8 +202,7 @@ rule into the linter.
 
 ## Specification Validation
 
-The linter checks each skill against the spec at
-[`documentation/knowledge/SPECIFICATION.md`](documentation/knowledge/SPECIFICATION.md).
+The linter checks each skill against the [Agent Skills Specification](https://agentskills.io/specification).
 For the full list of built-in rules — default severities, exact
 diagnostic shapes, auto-fix behavior, and how to disable each — see
 [`RULES.md`](RULES.md).
@@ -297,5 +296,5 @@ skill to run the linter and resolve any failures.
 
 ## Contributing
 
-Contributions are welcome! Please ensure that any PRs pass the linter themselves and align with the `documentation/knowledge/SPECIFICATION.md`.
+Contributions are welcome! Please ensure that any PRs pass the linter themselves and align with the [Agent Skills Specification](https://agentskills.io/specification).
 
