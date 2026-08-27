@@ -2,6 +2,9 @@
 
 name: Publish
 
+permissions:
+  contents: read
+
 on:
   pull_request:
   push:
@@ -12,7 +15,7 @@ on:
 jobs:
   publish:
     if: ${{ github.repository_owner == 'google' }}
-    uses: dart-lang/ecosystem/.github/workflows/publish.yaml@main
+    uses: dart-lang/ecosystem/.github/workflows/publish.yaml@60fca9f1270a0819b3ee9caf74b08fb0a212e4cb # main
     permissions:
       id-token: write # Required for authentication using OIDC
       pull-requests: write # Required for writing the pull request note
