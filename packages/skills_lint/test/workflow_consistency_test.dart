@@ -33,6 +33,8 @@ void main() {
       expect(targets.contains('test'), isTrue, reason: 'Must include test directory');
       expect(targets.contains('bin'), isTrue, reason: 'Must include bin directory');
       expect(targets.contains('example'), isTrue, reason: 'Must include example directory');
+      expect(targets.contains('skills'), isTrue, reason: 'Must include skills directory');
+      expect(targets.contains('.agents/skills'), isTrue, reason: 'Must include .agents/skills directory');
     });
   });
 }
