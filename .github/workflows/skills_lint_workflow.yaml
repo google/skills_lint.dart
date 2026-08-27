@@ -40,18 +40,24 @@ jobs:
           sdk: stable
 
       - run: dart pub get
+        working-directory: packages/skills_lint
 
       - run: dart analyze --fatal-infos
+        working-directory: packages/skills_lint
 
       - name: Run cognitive complexity check
+        working-directory: packages/skills_lint
         run: dart run cognitive_complexity --fail-threshold 20 bin lib test example skills .agents/skills
 
       - run: dart test
+        working-directory: packages/skills_lint
 
       - name: Verify example
+        working-directory: packages/skills_lint
         run: dart run example/main.dart
 
       - name: Verify API boundary runner
+        working-directory: packages/skills_lint
         run: |
           dart analyze --fatal-infos example/api_boundary_runner
           dart run example/api_boundary_runner/bin/main.dart
