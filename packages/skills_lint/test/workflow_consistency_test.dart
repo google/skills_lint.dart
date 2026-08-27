@@ -14,7 +14,7 @@ void main() {
       expect(workflowFile.existsSync(), isTrue, reason: 'CI workflow file missing');
       final String content = workflowFile.readAsStringSync();
       final regex = RegExp(
-        r'dart\s+run\s+cognitive_complexity\s+--fail-threshold\s+(\d+)',
+        r'dart\s+run\s+cognitive_complexity\s+--fail-threshold\s+(\d+)\s+([^\n]+)',
       );
       final RegExpMatch? match = regex.firstMatch(content);
       expect(
@@ -28,6 +28,11 @@ void main() {
         lessThanOrEqualTo(20),
         reason: 'cognitive complexity fail-threshold in CI ($threshold) should not exceed 20',
       );
+      final String targets = match.group(2)!;
+      expect(targets.contains('lib'), isTrue, reason: 'Must include lib directory');
+      expect(targets.contains('test'), isTrue, reason: 'Must include test directory');
+      expect(targets.contains('bin'), isTrue, reason: 'Must include bin directory');
+      expect(targets.contains('example'), isTrue, reason: 'Must include example directory');
     });
   });
 }

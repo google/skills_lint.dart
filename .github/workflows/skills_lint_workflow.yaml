@@ -41,7 +41,7 @@ jobs:
       - run: dart analyze --fatal-infos
 
       - name: Run cognitive complexity check
-        run: dart run cognitive_complexity --fail-threshold 20 lib test example
+        run: dart run cognitive_complexity --fail-threshold 20 bin lib test example
 
       - run: dart test
 
