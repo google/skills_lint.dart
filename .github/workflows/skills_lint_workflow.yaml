@@ -46,8 +46,7 @@ jobs:
         working-directory: packages/skills_lint
 
       - name: Run cognitive complexity check
-        working-directory: packages/skills_lint
-        run: dart run cognitive_complexity --fail-threshold 20 bin lib test example skills .agents/skills
+        run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/example packages/skills_lint/skills packages/skills_lint/.agents/skills
 
       - run: dart test
         working-directory: packages/skills_lint

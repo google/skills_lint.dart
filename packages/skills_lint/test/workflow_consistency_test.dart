@@ -26,7 +26,17 @@ void main() {
       expect(threshold, lessThanOrEqualTo(20));
 
       final List<String> targets = match.group(2)!.trim().split(RegExp(r'\s+'));
-      expect(targets, containsAll(['bin', 'lib', 'test', 'example', 'skills', '.agents/skills']));
+      expect(
+        targets,
+        containsAll([
+          'packages/skills_lint/bin',
+          'packages/skills_lint/lib',
+          'packages/skills_lint/test',
+          'packages/skills_lint/example',
+          'packages/skills_lint/skills',
+          'packages/skills_lint/.agents/skills',
+        ]),
+      );
     });
   });
 }
