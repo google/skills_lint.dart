@@ -8,15 +8,8 @@ import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 import 'package:test/test.dart';
 
-/// Validates the public API contract exposed by `package:skills_lint/skills_lint.dart`.
-///
-/// This test ensures that consumers can embed and execute the linter programmatically
-/// without needing internal implementation imports (`package:skills_lint/src/...`),
-/// guarding against accidental API leakage or missing public exports.
-///
-/// Originally introduced as `example/api_boundary_runner` (see
-/// https://github.com/flutter/agent-plugins/pull/183), this test exercises the
-/// public API boundary with `implementation_imports` enforced by static analysis.
+/// Validates that the public library (`package:skills_lint/skills_lint.dart`)
+/// exposes everything needed for programmatic use without internal `src/` imports.
 void main() {
   group('Public API boundary validation', () {
     late String validSkillPath;
