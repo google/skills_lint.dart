@@ -23,18 +23,10 @@ void main() {
         reason: 'CI workflow must run cognitive_complexity with --fail-threshold <N>',
       );
       final int threshold = int.parse(match!.group(1)!);
-      expect(
-        threshold,
-        lessThanOrEqualTo(20),
-        reason: 'cognitive complexity fail-threshold in CI ($threshold) should not exceed 20',
-      );
-      final String targets = match.group(2)!;
-      expect(targets.contains('lib'), isTrue, reason: 'Must include lib directory');
-      expect(targets.contains('test'), isTrue, reason: 'Must include test directory');
-      expect(targets.contains('bin'), isTrue, reason: 'Must include bin directory');
-      expect(targets.contains('example'), isTrue, reason: 'Must include example directory');
-      expect(targets.contains('skills'), isTrue, reason: 'Must include skills directory');
-      expect(targets.contains('.agents/skills'), isTrue, reason: 'Must include .agents/skills directory');
+      expect(threshold, lessThanOrEqualTo(20));
+
+      final List<String> targets = match.group(2)!.trim().split(RegExp(r'\s+'));
+      expect(targets, containsAll(['bin', 'lib', 'test', 'example', 'skills', '.agents/skills']));
     });
   });
 }
