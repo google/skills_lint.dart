@@ -11,7 +11,7 @@ A static analysis linter for Agent Skills to ensure they meet the specification 
 - [Installation](#installation)
 - [Usage](#usage)
   - [Rule Precedence](#rule-precedence)
-- [Specification Validation](#specification-validation)
+- [Built-in Rules](#built-in-rules)
 - [Recipes](#recipes)
 - [Contributing](#contributing)
 
@@ -25,7 +25,7 @@ An **Agent Skill** is a portable, self-contained directory that extends an AI ag
 - Directory structure (flat, no deep nesting).
 - Relative path integrity.
 
-For a full definition of the skill standard, see the [Agent Skills Specification](documentation/knowledge/SPECIFICATION.md).
+For a full definition of the skill standard, see the [Agent Skills Specification](https://agentskills.io/specification).
 
 ## Installation
 
@@ -200,12 +200,10 @@ Custom rule authoring lives in the
 skill — that skill walks through extending `SkillRule` and passing the
 rule into the linter.
 
-## Specification Validation
+## Built-in Rules
 
-The linter checks each skill against the spec at
-[`documentation/knowledge/SPECIFICATION.md`](documentation/knowledge/SPECIFICATION.md).
-For the full list of built-in rules — default severities, exact
-diagnostic shapes, auto-fix behavior, and how to disable each — see
+For the full list of built-in validation rules — default severities, exact
+diagnostic shapes, auto-fix behavior, and configuration options — see
 [`RULES.md`](RULES.md).
 
 ## Recipes
@@ -297,5 +295,5 @@ skill to run the linter and resolve any failures.
 
 ## Contributing
 
-Contributions are welcome! Please ensure that any PRs pass the linter themselves and align with the `documentation/knowledge/SPECIFICATION.md`.
+Contributions are welcome! Please ensure that any PRs pass the linter and test suite.
 

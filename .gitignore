@@ -16,6 +16,7 @@ build/
 
 # Workspace root lockfile (excluded for published package library)
 /pubspec.lock
+packages/skills_lint/example/api_boundary_runner/pubspec.lock
 
 # Logs and local agent tool directories
 .agents/*.log

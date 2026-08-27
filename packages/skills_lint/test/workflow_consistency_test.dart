@@ -7,6 +7,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+const int _maxCognitiveComplexityThreshold = 20;
+
 void main() {
   group('CI workflow consistency', () {
     test('CI workflow cognitive complexity fail-threshold does not exceed 20', () {
@@ -14,7 +16,7 @@ void main() {
       expect(workflowFile.existsSync(), isTrue, reason: 'CI workflow file missing');
       final String content = workflowFile.readAsStringSync();
       final regex = RegExp(
-        r'dart\s+run\s+cognitive_complexity\s+--fail-threshold\s+(\d+)\s+packages/skills_lint/lib\s+packages/skills_lint/test',
+        r'dart\s+run\s+cognitive_complexity\s+--fail-threshold\s+(\d+)\s+([^\n]+)',
       );
       final RegExpMatch? match = regex.firstMatch(content);
       expect(
@@ -23,10 +25,19 @@ void main() {
         reason: 'CI workflow must run cognitive_complexity with --fail-threshold <N>',
       );
       final int threshold = int.parse(match!.group(1)!);
+      expect(threshold, lessThanOrEqualTo(_maxCognitiveComplexityThreshold));
+
+      final List<String> targets = match.group(2)!.trim().split(RegExp(r'\s+'));
       expect(
-        threshold,
-        lessThanOrEqualTo(20),
-        reason: 'cognitive complexity fail-threshold in CI ($threshold) should not exceed 20',
+        targets,
+        containsAll([
+          'packages/skills_lint/bin',
+          'packages/skills_lint/lib',
+          'packages/skills_lint/test',
+          'packages/skills_lint/example',
+          'packages/skills_lint/skills',
+          'packages/skills_lint/.agents/skills',
+        ]),
       );
     });
   });
