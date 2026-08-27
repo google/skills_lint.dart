@@ -28,9 +28,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        working-directory: packages/skills_lint
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -40,32 +37,24 @@ jobs:
           sdk: stable
 
       - run: dart pub get
-        working-directory: packages/skills_lint
 
       - run: dart analyze --fatal-infos
-        working-directory: packages/skills_lint
 
       - name: Run cognitive complexity check
         run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/example packages/skills_lint/skills packages/skills_lint/.agents/skills
 
       - run: dart test
-        working-directory: packages/skills_lint
 
       - name: Verify example
-        working-directory: packages/skills_lint
         run: dart run example/main.dart
 
       - name: Verify API boundary runner
-        working-directory: packages/skills_lint
         run: |
           dart analyze --fatal-infos example/api_boundary_runner
           dart run example/api_boundary_runner/bin/main.dart
 
   coverage:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/skills_lint
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -93,9 +82,6 @@ jobs:
 
   formatting:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/skills_lint
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -110,9 +96,6 @@ jobs:
 
   pana_score:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/skills_lint
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
