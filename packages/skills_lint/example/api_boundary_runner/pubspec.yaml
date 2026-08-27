@@ -1,10 +1,10 @@
 name: api_boundary_runner
 description: An example code runner that validates the public API boundary.
 publish_to: none
+resolution: workspace
 environment:
   sdk: ^3.10.8
 dependencies:
   path: ^1.9.1
   logging: ^1.2.0
   skills_lint:
-    path: ../../
