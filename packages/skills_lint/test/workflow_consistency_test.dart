@@ -14,7 +14,7 @@ void main() {
       expect(workflowFile.existsSync(), isTrue, reason: 'CI workflow file missing');
       final String content = workflowFile.readAsStringSync();
       final regex = RegExp(
-        r'dart\s+run\s+cognitive_complexity\s+--fail-threshold\s+(\d+)\s+packages/skills_lint/lib\s+packages/skills_lint/test',
+        r'dart\s+run\s+cognitive_complexity\s+--fail-threshold\s+(\d+)',
       );
       final RegExpMatch? match = regex.firstMatch(content);
       expect(

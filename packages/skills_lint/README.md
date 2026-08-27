@@ -11,7 +11,7 @@ A static analysis linter for Agent Skills to ensure they meet the specification 
 - [Installation](#installation)
 - [Usage](#usage)
   - [Rule Precedence](#rule-precedence)
-- [Specification Validation](#specification-validation)
+- [Built-in Rules](#built-in-rules)
 - [Recipes](#recipes)
 - [Contributing](#contributing)
 
@@ -200,11 +200,10 @@ Custom rule authoring lives in the
 skill — that skill walks through extending `SkillRule` and passing the
 rule into the linter.
 
-## Specification Validation
+## Built-in Rules
 
-The linter checks each skill against the [Agent Skills Specification](https://agentskills.io/specification).
-For the full list of built-in rules — default severities, exact
-diagnostic shapes, auto-fix behavior, and how to disable each — see
+For the full list of built-in validation rules — default severities, exact
+diagnostic shapes, auto-fix behavior, and configuration options — see
 [`RULES.md`](RULES.md).
 
 ## Recipes
@@ -296,5 +295,5 @@ skill to run the linter and resolve any failures.
 
 ## Contributing
 
-Contributions are welcome! Please ensure that any PRs pass the linter themselves and align with the [Agent Skills Specification](https://agentskills.io/specification).
+Contributions are welcome! Please ensure that any PRs pass the linter and test suite.
 
