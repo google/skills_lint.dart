@@ -29,4 +29,4 @@ coverage/
 # (e.g. definition-of-done-workspace/ containing outputs, transcripts, timing, and grading JSONs)
 .agents/skills/*-workspace/
 skills/*-workspace/
-
+*-workspace/

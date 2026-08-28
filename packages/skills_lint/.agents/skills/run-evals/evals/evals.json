@@ -47,13 +47,36 @@
       "id": 4,
       "prompt": "Please run the evals for the run-evals skill. Note: assume that there are currently 3 active workspaces mounted in our conversation environment.",
       "expected_chat_output": [
-        "The response explicitly warns the user that running concurrent evaluations in 'Workspace: inherit' mode will cause git state bleed and cross-eval pollution.",
-        "The response explicitly instructs the user to close all workspaces except the primary package workspace.",
-        "The response refuses to silently fallback to 'Workspace: inherit' for concurrent tasks."
+        "The response selects the Isolated Git Worktree harness (Strategy B) to maintain isolation across workspaces.",
+        "The response refuses to run un-isolated mutations in the active developer working tree."
       ],
       "expected_repo_state": [
-        "No evaluation artifact is generated.",
-        "No subagents are spawned."
+        "No files in the active developer working tree are polluted or modified."
+      ],
+      "agent_config": "reidbaker-agent"
+    },
+    {
+      "id": 5,
+      "prompt": "Please run the evals for the run-evals skill. Note: assume that the current active workspace is a subpackage subdirectory rather than the root of the Git repository.",
+      "expected_chat_output": [
+        "The response detects the subpackage layout via git rev-parse pre-flight checks.",
+        "The response uses the Isolated Git Worktree harness (Strategy B) targeting the relative package path.",
+        "The response ensures worktree teardown after completion."
+      ],
+      "expected_repo_state": [
+        "No files in the active developer working tree are polluted or modified."
+      ],
+      "agent_config": "reidbaker-agent"
+    },
+    {
+      "id": 6,
+      "prompt": "Run the evals for the definition-of-done skill, but invoke_subagent with Workspace: branch fails with 'branch workspace not supported for VCS type Unknown'.",
+      "expected_chat_output": [
+        "The response falls back to an Isolated Git Worktree harness to preserve environment isolation.",
+        "The response strictly refuses to execute un-isolated mutations in the main working tree."
+      ],
+      "expected_repo_state": [
+        "No files in the active developer working tree are polluted or modified."
       ],
       "agent_config": "reidbaker-agent"
     }
