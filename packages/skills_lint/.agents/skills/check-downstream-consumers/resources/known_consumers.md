@@ -40,3 +40,10 @@ When evaluating the impact of pull requests on downstream repositories, check ag
 - **Repository URL**: [kevmoo/dash_skills](https://github.com/kevmoo/dash_skills)
 - **Primary Consumer Location**: `tool/`
 - **Tooling Engine**: `dart pub get` and `dart test`
+
+
+### 7. `flutter/dash-evals`
+- **Repository URL**: [flutter/dash-evals](https://github.com/flutter/dash-evals)
+- **Primary Consumer Location**: `tool/`
+- **Tooling Engine**: `dart pub get` and `dart test`
+- **Focus Areas**: Agent skill evaluation benchmarks and prompt validation harnesses.
