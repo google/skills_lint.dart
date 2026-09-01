@@ -19,7 +19,10 @@ void main() {
     // are exempt so they can be published without friction.
 
     // 1. Get tracked files using git ls-files
-    final ProcessResult processResult = await Process.run('git', ['ls-files', '.agents/skills']);
+    final ProcessResult processResult = await Process.run('git', [
+      'ls-files',
+      '../../.agents/skills',
+    ]);
     expect(processResult.exitCode, 0, reason: 'git ls-files should succeed');
 
     final output = processResult.stdout as String;
@@ -28,10 +31,9 @@ void main() {
     final trackedSkillDirs = <String>{};
     for (final line in lines) {
       final List<String> parts = line.split('/');
-      // We look for files inside .agents/skills/<skill-name>/
-      // parts[0] is .agents, parts[1] is skills
-      if (parts.length >= 4 && parts[0] == '.agents' && parts[1] == 'skills') {
-        trackedSkillDirs.add(parts[2]);
+      final int agentsIdx = parts.indexOf('.agents');
+      if (agentsIdx != -1 && parts.length >= agentsIdx + 4 && parts[agentsIdx + 1] == 'skills') {
+        trackedSkillDirs.add(parts[agentsIdx + 2]);
       }
     }
 
@@ -52,7 +54,7 @@ void main() {
     );
 
     for (final skillDir in trackedSkillDirs) {
-      final expectedPath = '.agents/skills/$skillDir';
+      final expectedPath = '../../.agents/skills/$skillDir';
       final Map<String, RuleConfig> resolvedConfigs = session.resolveRuleConfigsForPath(
         expectedPath,
       );

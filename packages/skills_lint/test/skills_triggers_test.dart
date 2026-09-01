@@ -61,6 +61,9 @@ Future<List<File>> _getTriggerFiles() async {
   return [
     ..._findTriggerFiles(Directory(p.join(packageRoot, 'skills'))),
     ..._findTriggerFiles(Directory(p.join(packageRoot, '.agents', 'skills'))),
+    ..._findTriggerFiles(
+      Directory(p.normalize(p.join(packageRoot, '..', '..', '.agents', 'skills'))),
+    ),
   ]..sort((a, b) => a.path.compareTo(b.path));
 }
 
