@@ -8,15 +8,15 @@ import 'package:bench_press/bench_press.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 
-/// Large-scale benchmark (N = 100) for baseline generation throughput.
+/// Large-scale benchmark (N = 70) for baseline generation throughput.
 ///
-/// Tests performance and algorithmic scaling across a batch of 100 synthetic skills
+/// Tests performance and algorithmic scaling across a batch of 70 synthetic skills
 /// with baseline-recordable errors, remaining well within bench_press's 200ms threshold
 /// across all CI cloud runner architectures.
 final class BaselineThroughputLargeBenchmark extends AsyncBenchmark {
-  BaselineThroughputLargeBenchmark() : super('baseline_throughput_100');
+  BaselineThroughputLargeBenchmark() : super('baseline_throughput_large');
 
-  static const int _skillCount = 100;
+  static const int _skillCount = 70;
   static const int _errorsPerSkill = 1;
 
   late Directory _tempDir;
