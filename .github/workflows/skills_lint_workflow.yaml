@@ -5,12 +5,16 @@ permissions:
 on:
   pull_request:
     paths:
+      - '.agents/**'
+      - 'skills_lint.yaml'
       - 'skills/**'
       - 'packages/skills_lint/**'
       - '.github/workflows/skills_lint_workflow.yaml'
   push:
     branches: [ main ]
     paths:
+      - '.agents/**'
+      - 'skills_lint.yaml'
       - 'skills/**'
       - 'packages/skills_lint/**'
       - '.github/workflows/skills_lint_workflow.yaml'
