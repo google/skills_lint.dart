@@ -1,15 +1,15 @@
 {
   "skill": "dart-skills-lint-setup",
   "positive_triggers": [
-    "Set up skills_lint validation for the first time in our Dart project",
-    "Add skills_lint to dev_dependencies and create the initial config",
-    "Configure CI workflow for linting skills in .agents/skills",
-    "Generate an ignore baseline for legacy skills in our repo"
+    "Initialize skills_lint in our Dart repository for the first time",
+    "Add skills_lint to dev_dependencies and generate the initial skills_lint.yaml config",
+    "Set up GitHub Actions CI workflow to run skills_lint on pull requests",
+    "Generate an ignore baseline file for pre-existing legacy skills in our repo"
   ],
   "distractors": [
-    "Set up a PostgreSQL database connection with connection pooling in a Node.js Express server",
-    "How do I configure Swift Package Manager dependencies in Xcode?",
-    "Convert our UserService.java file to Kotlin",
-    "Write a unit test for a Flutter widget using Mocktail"
+    "Run skills_lint across all skills in .agents/skills and fix errors",
+    "Write a custom SkillRule in Dart to enforce metadata tags",
+    "Configure analysis_options.yaml with core Flutter lint rules",
+    "Add dart_test.yaml to configure concurrency in CI tests"
   ]
 }

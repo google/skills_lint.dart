@@ -1,9 +1,8 @@
 ---
 name: dart-skills-lint-validation
 description: |-
-  Use this skill when you need to validate AI agent skills with skills_lint — running the linter, interpreting failures, fixing violations, and authoring custom rules.
-metadata:
-  internal: true
+  Use this skill to execute skills_lint validation and resolve rule violations across AI agent skills.
+  Covers running the CLI validator, analyzing diagnostic failures, applying automated fixes with --fix, and authoring custom SkillRule classes in Dart.
 ---
 
 # Validating Skills with skills_lint
