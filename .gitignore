@@ -30,3 +30,7 @@ coverage/
 .agents/skills/*-workspace/
 skills/*-workspace/
 *-workspace/
+
+# Benchmark results
+*benchmark_results*.json
+
