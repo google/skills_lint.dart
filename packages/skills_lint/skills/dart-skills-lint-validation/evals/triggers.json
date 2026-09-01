@@ -1,0 +1,15 @@
+{
+  "skill": "dart-skills-lint-validation",
+  "positive_triggers": [
+    "Run skills_lint checks against our skills directory and report any failures",
+    "Execute skills_lint with --fix to automatically repair lint violations in our skills",
+    "Analyze and fix failing skills_lint diagnostic errors in our agent skill files",
+    "Author a custom SkillRule class in Dart to validate skill frontmatter fields"
+  ],
+  "distractors": [
+    "Install and configure skills_lint in pubspec.yaml for the first time",
+    "Generate a baseline ignore file for skills with legacy errors",
+    "Run dart analyze --fatal-infos on our Dart package source files",
+    "Create a new agent skill directory with a template SKILL.md"
+  ]
+}

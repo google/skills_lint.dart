@@ -13,7 +13,6 @@ skills_lint:
     - path: "skills"
       rules:
         check-trailing-whitespace: error
-        prevent-skills-sh-publishing: error
     - path: "example/skills/invalid"
       rules:
         prevent-skills-sh-publishing: error
