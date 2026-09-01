@@ -17,17 +17,23 @@ Architecture, rubrics, and instructions for evaluating AI agent skills authored 
 
 ## Core Principles & Architecture
 
-Evaluations in this repository use a **Two-Tiered Architecture** to separate domain-specific skill requirements from universal skill quality standards.
+Evaluations in this repository use a **Two-Tiered Architecture** to evaluate both intent routing and workflow completion:
 
-### 1. Per-Skill Evals (`<skill_dir>/evals/evals.json`)
-Each skill maintains an `evals/evals.json` file containing target task prompts and expectations:
+### Tier 1: Resolver Trigger Evals (`<skill_dir>/evals/triggers.json`)
+Evaluates **Phase 1 (Resolver / Intent Routing)**: tests how AI agent intent routers discover and select skills from the active skills catalog before full workflow execution begins.
+- **`skill`**: Name of the target skill.
+- **`positive_triggers`**: Array of in-domain user prompts that MUST activate this skill.
+- **`distractors`**: Array of out-of-domain or boundary prompts that must NOT activate this skill.
+
+### Tier 2: Workflow Execution Evals (`<skill_dir>/evals/evals.json`)
+Evaluates **Phase 2 (Workflow Execution)**: tests multi-turn sandbox sessions to verify the agent produces expected chat outputs and repository mutations.
 - **`prompt`**: Realistic user prompt testing primary or edge-case workflows.
 - **`expected_chat_output`**: High-level narrative summary of what the LLM should say/give to the user.
 - **`expected_repo_state`**: Array of discrete, testable assertions regarding the end state of the repository and tracked files.
 - **`repo_criteria`**: Array of relative file paths to shared universal quality rubrics (e.g., `["evals/code_quality_rubric.json"]`).
-- **`agent_config`**: The model configuration/harness used when executing the eval against the skill. For published skills, use `"bare-agent"`. For internal contributor skills, use the internal agent profile (e.g., `"reidbaker-agent"`).
+- **`agent_config`**: The model configuration/harness used when executing the eval against the skill.
 
-### 2. Cross-Skill Evals (`evals/*_rubric.json`)
+### Cross-Skill Rubrics (`evals/*_rubric.json`)
 Universal skill quality expectations are structured into modular rubric classes that apply broadly across skills.
 
 ## Cross-Cutting Rules
@@ -35,17 +41,24 @@ Skills that author or modify code MUST adhere to the universal code quality expe
 
 ## 🚀 Running & Validating Evals Locally
 
-### 1. Validate Evals Structural Consistency
-Run the unit test that checks all `evals.json` files for structural consistency across the repository:
+### 1. Validate Evals & Triggers Structural Consistency
+Run the unit tests that check all `triggers.json` and `evals.json` files for structural consistency across the repository:
 
 ```bash
+# Validate Phase 1 triggers.json files
+dart test test/skills_triggers_test.dart
+
+# Validate Phase 2 evals.json files
 dart test test/skills_evals_test.dart
 ```
 
-### 2. Running Evals via Agent Orchestration
-You should use the `/run-evals` skill to run evaluations. All execution logic, pre-flight workspace verification, and subagent isolation rules are defined directly in [`run-evals/SKILL.md`](../.agents/skills/run-evals/SKILL.md). The environment, model, and harness are determined by the `agent_config` specified in the target `evals.json` file.
+### 2. Running Evals via Agent Orchestration (`/run-evals`)
+Use the `/run-evals` skill to run evaluations. All execution logic, subagent dispatch, and Turn-1 interception rules are defined directly in [`run-evals/SKILL.md`](../.agents/skills/run-evals/SKILL.md).
+
+* **Run Trigger Evaluations**: `/run-evals triggers [target_dir]`
+* **Run Workflow Evaluations**: `/run-evals workflows [target_dir]`
 
 ### 3. Testing Meta-Evals (Testing the Rubrics)
-To ensure our universal rubrics correctly catch anti-patterns (and permit clean code), we use meta-evaluations. Standalone cross-skill evaluations are defined as `evals/*_evals.json` files (e.g., `evals/code_quality_rubric_evals.json`). These files contain evals strictly intended to grade static fixtures located in `evals/test_data/`.
+To ensure our universal rubrics correctly catch anti-patterns (and permit clean code), standalone cross-skill evaluations are defined as `evals/*_evals.json` files (e.g., `evals/code_quality_rubric_evals.json`). These files contain evals strictly intended to grade static fixtures located in `evals/test_data/`.
 
-To run the meta-evals and verify the rubrics, invoke the `/run-evals` skill and ask the agent to run the standalone `code_quality_rubric_evals.json` file.
+To run the meta-evals and verify the rubrics, invoke `/run-evals workflows` on the standalone `code_quality_rubric_evals.json` file.

@@ -1,0 +1,15 @@
+{
+  "skill": "dart-skills-lint-validation",
+  "positive_triggers": [
+    "Run skills_lint checks against our skills directory and fix any errors",
+    "Validate our AI agent skill files for syntax and formatting errors",
+    "How do I write a custom lint rule for skills_lint?",
+    "Execute skills_lint with --fix on example/skills/invalid"
+  ],
+  "distractors": [
+    "Validate JWT authentication tokens in a Go REST API handler",
+    "How do I calculate test coverage in a Dart package?",
+    "Configure build flavors in an Android Gradle project",
+    "Review pull request code changes for styling violations"
+  ]
+}

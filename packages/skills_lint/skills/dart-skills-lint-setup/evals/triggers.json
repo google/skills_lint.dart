@@ -1,0 +1,15 @@
+{
+  "skill": "dart-skills-lint-setup",
+  "positive_triggers": [
+    "Set up skills_lint validation for the first time in our Dart project",
+    "Add skills_lint to dev_dependencies and create the initial config",
+    "Configure CI workflow for linting skills in .agents/skills",
+    "Generate an ignore baseline for legacy skills in our repo"
+  ],
+  "distractors": [
+    "Set up a PostgreSQL database connection with connection pooling in a Node.js Express server",
+    "How do I configure Swift Package Manager dependencies in Xcode?",
+    "Convert our UserService.java file to Kotlin",
+    "Write a unit test for a Flutter widget using Mocktail"
+  ]
+}
