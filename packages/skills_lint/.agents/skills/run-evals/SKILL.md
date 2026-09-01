@@ -1,21 +1,29 @@
 ---
 name: run-evals
 description: |-
-  Run evaluations for one, multiple, or all skills using the agent orchestration framework. Supports Phase 1 Resolver Trigger Evaluations (triggers.json) and Phase 2 Workflow Sandbox Evaluations (evals.json).
+  Run evaluations for one, multiple, or all skills using the agent orchestration framework. Supports two test types: trigger evaluations (triggers.json) and content evaluations (evals.json). Runs both test types by default when unspecified.
 metadata:
   internal: true
 ---
 
 # Run Skill Evals
 
-This skill executes evaluations for AI agent skills maintained in this repository. It supports two distinct evaluation tiers:
+This skill executes evaluations for AI agent skills maintained in this repository. It supports two distinct test types:
 
-1. **Phase 1: Resolver Trigger Evaluations (`evals/triggers.json`)** — Verifies intent routing, trigger sensitivity, and distractor rejection before workflow execution.
-2. **Phase 2: Workflow Sandbox Evaluations (`evals/evals.json`)** — Verifies multi-turn tool execution, repo state mutations, and code quality rubrics in isolated workspaces.
+1. **Trigger Evaluations (`evals/triggers.json`)** — Verifies intent routing, trigger sensitivity, and distractor rejection before workflow execution.
+2. **Content Evaluations (`evals/evals.json`)** — Verifies multi-turn tool execution, repo state mutations, and code quality rubrics in isolated workspaces.
+
+## Invocation Modes
+
+- `/run-evals [target]` (Default): Runs **both** Trigger Evaluations and Content Evaluations sequentially against the target skill(s).
+- `/run-evals triggers [target]`: Runs only Trigger Evaluations.
+- `/run-evals content [target]`: Runs only Content Evaluations.
+
+When running both test types (the default), Trigger Evaluations execute first. After intercepting and grading Turn-1 routing, Content Evaluations execute in isolated environments, followed by a consolidated evaluation report.
 
 ---
 
-## Phase 1: Resolver Trigger Evaluations (`/run-evals triggers`)
+## Trigger Evaluations (`/run-evals triggers`)
 
 1. **Locate Triggers**: Find target `evals/triggers.json` files within `skills/` and/or `.agents/skills/`.
 2. **Batch Dispatch**: For each positive trigger and distractor across the catalog, spawn a subagent in parallel:
@@ -25,7 +33,7 @@ This skill executes evaluations for AI agent skills maintained in this repositor
    - Set `Workspace` to `inherit`.
 3. **Turn-1 Interception & Cutoff**:
    - Inspect Step 2 (`PLANNER_RESPONSE`) `tool_calls` in the subagent's `transcript.jsonl`.
-   - Immediately terminate all subagents via `manage_subagents(Action: 'kill_all')` before Phase 2 tool calls or shell commands execute.
+   - Immediately terminate all subagents via `manage_subagents(Action: 'kill_all')` before subsequent tool calls or shell commands execute.
 4. **Outcome Classification**:
    - **Positive Trigger**: PASS if target `SKILL.md` is loaded via `view_file`. FAIL if another skill is loaded (Collision), plain text/unrelated tool is emitted (Under-Trigger), or multiple skills are loaded (Multi-Trigger).
    - **Distractor**: PASS if target skill is not loaded (Rejected / Permitted Divergence). FAIL if target skill is loaded (Over-Trigger).
@@ -33,7 +41,7 @@ This skill executes evaluations for AI agent skills maintained in this repositor
 
 ---
 
-## Phase 2: Workflow Sandbox Evaluations (`/run-evals workflows`)
+## Content Evaluations (`/run-evals content`)
 
 1. **Read Framework**: Read `<target-package-root>/evals/README.md` for understanding the difference between per-skill evals and cross-skill evals (where `<target-package-root>` is the directory containing the `.agents` or `skills` folder).
 2. **Locate Targets**: Find target `evals/evals.json` files inside `.agents/skills/` and/or `skills/`. For cross-skill evaluations, look for `*_evals.json` files directly in `<target-package-root>/evals/`.
