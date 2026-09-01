@@ -92,5 +92,4 @@ final class BaselineThroughputLargeBenchmark extends AsyncBenchmark {
   }
 }
 
-void main(List<String> args) =>
-    mainAsyncBenchmark(BaselineThroughputLargeBenchmark(), args);
+void main(List<String> args) => mainAsyncBenchmark(BaselineThroughputLargeBenchmark(), args);
