@@ -2,36 +2,37 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:async';
 import 'dart:io';
 
-import 'package:logging/logging.dart';
-import 'package:skills_lint/skills_lint.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
   test('Run skills linter mirroring config', () async {
-    final Level oldLevel = Logger.root.level;
-    Logger.root.level = Level.ALL;
-    final StreamSubscription<LogRecord> subscription = Logger.root.onRecord.listen(
-      (record) => stdout.writeln(record.message),
-    );
+    final File configFile = _getConfigFile();
+    expect(configFile.existsSync(), isTrue, reason: 'skills_lint.yaml missing');
 
-    try {
-      // Load configuration from the default file (skills_lint.yaml)
-      // to mirror what is configured in the repository.
-      final Configuration config = await ConfigParser.loadConfig();
-      expect(
-        config.directoryConfigs,
-        isNotEmpty,
-        reason: 'Configuration directoryConfigs should not be empty.',
-      );
+    final String cliPath = p.normalize(p.absolute('bin/skills_lint.dart'));
+    final ProcessResult result = await Process.run('dart', [
+      cliPath,
+    ], workingDirectory: configFile.parent.path);
 
-      final bool isValid = await validateSkills(config: config);
-      expect(isValid, isTrue, reason: 'Skills validation failed. See above for details.');
-    } finally {
-      Logger.root.level = oldLevel;
-      await subscription.cancel();
+    if (result.exitCode != 0) {
+      stdout.write(result.stdout);
+      stderr.write(result.stderr);
     }
+    expect(result.exitCode, 0, reason: 'Skills validation failed. See output above.');
   });
+}
+
+File _getConfigFile() {
+  Directory dir = Directory.current;
+  while (dir.path != '/' && dir.path.isNotEmpty) {
+    final configFile = File(p.join(dir.path, 'skills_lint.yaml'));
+    if (configFile.existsSync()) {
+      return configFile;
+    }
+    dir = dir.parent;
+  }
+  return File(p.normalize(p.absolute('../../skills_lint.yaml')));
 }

@@ -42,6 +42,7 @@ void main() {
         'bin/skills_lint.dart',
         '-s',
         skillDir.path,
+        '--check-relative-paths',
         '--generate-baseline',
       ]);
       await process.shouldExit(0);
@@ -68,6 +69,7 @@ void main() {
         'bin/skills_lint.dart',
         '-s',
         skillDir.path,
+        '--check-relative-paths',
         '--generate-baseline',
       ]);
       await genProcess.shouldExit(0);
@@ -79,6 +81,7 @@ void main() {
         'bin/skills_lint.dart',
         '-s',
         skillDir.path,
+        '--check-relative-paths',
       ]);
       await runProcess.shouldExit(0);
     });

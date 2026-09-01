@@ -4,6 +4,7 @@
 
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
@@ -18,11 +19,14 @@ void main() {
     // to prevent accidental publishing (or explicitly disabled). Un-tracked / local dev skills (which are git-ignored)
     // are exempt so they can be published without friction.
 
-    // 1. Get tracked files using git ls-files
+    final File configFile = _getConfigFile();
+    expect(configFile.existsSync(), isTrue, reason: 'skills_lint.yaml missing');
+
+    // 1. Get tracked files using git ls-files from repo root
     final ProcessResult processResult = await Process.run('git', [
       'ls-files',
-      '../../.agents/skills',
-    ]);
+      '.agents/skills',
+    ], workingDirectory: configFile.parent.path);
     expect(processResult.exitCode, 0, reason: 'git ls-files should succeed');
 
     final output = processResult.stdout as String;
@@ -31,16 +35,17 @@ void main() {
     final trackedSkillDirs = <String>{};
     for (final line in lines) {
       final List<String> parts = line.split('/');
-      final int agentsIdx = parts.indexOf('.agents');
-      if (agentsIdx != -1 && parts.length >= agentsIdx + 4 && parts[agentsIdx + 1] == 'skills') {
-        trackedSkillDirs.add(parts[agentsIdx + 2]);
+      // We look for files inside .agents/skills/<skill-name>/
+      // parts[0] is .agents, parts[1] is skills
+      if (parts.length >= 4 && parts[0] == '.agents' && parts[1] == 'skills') {
+        trackedSkillDirs.add(parts[2]);
       }
     }
 
     expect(trackedSkillDirs, isNotEmpty, reason: 'Should find at least one tracked skill');
 
     // 2. Parse configuration
-    final Configuration config = await ConfigParser.loadConfig();
+    final Configuration config = await ConfigParser.loadConfig(path: configFile.path);
     final session = ValidationSession(
       config: config,
       ignoreFileOverride: null,
@@ -54,7 +59,7 @@ void main() {
     );
 
     for (final skillDir in trackedSkillDirs) {
-      final expectedPath = '../../.agents/skills/$skillDir';
+      final expectedPath = '.agents/skills/$skillDir';
       final Map<String, RuleConfig> resolvedConfigs = session.resolveRuleConfigsForPath(
         expectedPath,
       );
@@ -67,4 +72,16 @@ void main() {
       );
     }
   });
+}
+
+File _getConfigFile() {
+  Directory dir = Directory.current;
+  while (dir.path != '/' && dir.path.isNotEmpty) {
+    final configFile = File(p.join(dir.path, 'skills_lint.yaml'));
+    if (configFile.existsSync()) {
+      return configFile;
+    }
+    dir = dir.parent;
+  }
+  return File(p.normalize(p.absolute('../../skills_lint.yaml')));
 }
