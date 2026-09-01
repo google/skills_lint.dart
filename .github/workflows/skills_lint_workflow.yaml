@@ -51,6 +51,10 @@ jobs:
       - name: Verify API boundary runner
         run: dart run example/api_boundary_runner/bin/main.dart
 
+      - name: Validate benchmarks (smoke test)
+        run: dart run bench_press validate -t jit,aot benchmark/
+
+
   coverage:
     runs-on: ubuntu-latest
     steps:
