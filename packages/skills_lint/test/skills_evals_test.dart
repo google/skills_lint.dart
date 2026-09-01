@@ -9,9 +9,13 @@ import 'dart:isolate';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+/// Optional item keys permitted across all `evals.json` and rubric files.
+/// Maintainers can add optional keys to this set.
+const Set<String> optionalItemKeys = {'agent_config'};
+
 void main() {
   group('Evals structure consistency', () {
-    // Ensures all evals.json files dynamically share the exact same JSON schema.
+    // Ensures all evals.json files dynamically share consistent JSON schema.
     // Keys are not hardcoded to ensure enforcement remains schema-agnostic and flexible.
     test('all evals.json files across skills share consistent structure and keys', () async {
       final Uri? packageUri = await Isolate.resolvePackageUri(Uri.parse('package:skills_lint/'));
@@ -29,11 +33,11 @@ void main() {
         reason: 'Should find at least one evals.json file in skills or .agents/skills.',
       );
 
-      _verifyStructuralConsistency(evalsFiles, 'evals');
+      _verifyStructuralConsistency(evalsFiles, 'evals', optionalItemKeys: optionalItemKeys);
     });
 
     // Note: We intentionally only require an evals.json file for published skills.
-    // Contributor skills in .agents/skills/ are not currently required to have one.
+    // Contributor skills in .agents/skills/ are not required to have one.
     test('all published skills have an evals.json file', () async {
       final Uri? packageUri = await Isolate.resolvePackageUri(Uri.parse('package:skills_lint/'));
       final String packageRoot = packageUri!.resolve('..').toFilePath();
@@ -82,10 +86,14 @@ void main() {
   });
 }
 
-void _verifyStructuralConsistency(List<File> files, String itemsKey) {
+void _verifyStructuralConsistency(
+  List<File> files,
+  String itemsKey, {
+  Set<String> optionalItemKeys = const {},
+}) {
   Set<String>? expectedRootKeys;
   String? expectedRootKeysFilePath;
-  Set<String>? expectedItemKeys;
+  Set<String>? expectedRequiredItemKeys;
   String? expectedItemFilePath;
 
   for (final file in files) {
@@ -119,18 +127,28 @@ void _verifyStructuralConsistency(List<File> files, String itemsKey) {
         _ => fail('Item in $itemsKey list in ${file.path} must be a JSON map.'),
       };
       final Set<String> itemKeys = itemMap.keys.toSet();
-      if (expectedItemKeys == null) {
-        expectedItemKeys = itemKeys;
+      final Set<String> requiredItemKeys = itemKeys.difference(optionalItemKeys);
+      if (expectedRequiredItemKeys == null) {
+        expectedRequiredItemKeys = requiredItemKeys;
         expectedItemFilePath = file.path;
       } else {
         expect(
-          itemKeys,
-          equals(expectedItemKeys),
+          requiredItemKeys,
+          equals(expectedRequiredItemKeys),
           reason:
               'Item in ${file.path} keys do not match consistency pattern. '
-              'Expected item keys to match the first processed file ($expectedItemFilePath).',
+              'Expected required item keys to match the first processed file ($expectedItemFilePath).',
         );
       }
+
+      final Set<String> extraKeys = itemKeys.difference(expectedRequiredItemKeys);
+      expect(
+        extraKeys.difference(optionalItemKeys),
+        isEmpty,
+        reason:
+            'Item in ${file.path} contains unrecognized keys: '
+            '${extraKeys.difference(optionalItemKeys)}',
+      );
     }
   }
 }

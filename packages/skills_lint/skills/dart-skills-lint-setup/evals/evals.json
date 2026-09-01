@@ -19,8 +19,7 @@
         "NOT placed inside .agents/skills/ or a sub-folder where root CLI commands will fail to locate the config.",
         "No deprecated code from skills_lint is used in the generated code.",
         "There is a dart test created that fails when a skill defined in skills_lint.yaml has an error."
-      ],
-      "agent_config": "bare-agent"
+      ]
     },
     {
       "id": 2,
@@ -35,8 +34,7 @@
         "An explanation is provided that pre-existing violations exit clean while violations introduced after baseline generation will still fail validation.",
         "Does NOT modify, delete, or reformat any pre-existing SKILL.md files in .agents/skills during baseline generation.",
         "Does NOT pass --fix during baseline generation, keeping legacy skill files intact."
-      ],
-      "agent_config": "bare-agent"
+      ]
     },
     {
       "id": 3,
@@ -50,8 +48,7 @@
         "Configures check-relative-paths: error in skills_lint.yaml to enforce portable path references.",
         "NOT placed inside tool/, which would prevent root-level CLI invocations from discovering the configuration file.",
         "NOT added to the root pubspec.yaml dependencies or dev_dependencies."
-      ],
-      "agent_config": "bare-agent"
+      ]
     }
   ]
 }

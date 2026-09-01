@@ -31,7 +31,7 @@ Evaluates **Workflow Execution & Workspace Mutations**: tests multi-turn sandbox
 - **`expected_chat_output`**: High-level narrative summary of what the LLM should say/give to the user.
 - **`expected_repo_state`**: Array of discrete, testable assertions regarding the end state of the repository and tracked files.
 - **`repo_criteria`**: Array of relative file paths to shared universal quality rubrics (e.g., `["evals/code_quality_rubric.json"]`).
-- **`agent_config`**: The model configuration/harness used when executing the eval against the skill.
+- **`agent_config`** *(Optional, Deprecated)*: The model configuration/profile to spawn. When omitted, the `/run-evals` harness automatically inherits the active runner's environment configuration.
 
 ### Cross-Skill Rubrics (`evals/*_rubric.json`)
 Universal skill quality expectations are structured into modular rubric classes that apply broadly across skills.
@@ -58,6 +58,9 @@ Use the `/run-evals` skill to run evaluations. All execution logic, subagent dis
 * **Run Both (Default)**: `/run-evals [target_dir]`
 * **Run Trigger Evaluations Only**: `/run-evals triggers [target_dir]`
 * **Run Content Evaluations Only**: `/run-evals content [target_dir]`
+
+#### Agent Configuration & Evaluation Metadata
+The evaluation runner automatically inherits the agent configuration/profile used in the chat where `/run-evals` was triggered (with fallback to `agent_config` if explicitly specified in an `evals.json` entry). Evaluation results artifacts record execution metadata, including the model name, effort level, and agent configuration when available.
 
 ### 3. Testing Meta-Evals (Testing the Rubrics)
 To ensure our universal rubrics correctly catch anti-patterns (and permit clean code), standalone cross-skill evaluations are defined as `evals/*_evals.json` files (e.g., `evals/code_quality_rubric_evals.json`). These files contain evals strictly intended to grade static fixtures located in `evals/test_data/`.

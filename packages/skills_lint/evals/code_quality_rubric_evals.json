@@ -14,8 +14,7 @@
         "The evaluation artifact explicitly flags a failure for effective Dart idioms.",
         "The evaluation artifact explicitly flags a failure for cross platform compatibility.",
         "The evaluation artifact explicitly flags a failure for lint cheating."
-      ],
-      "agent_config": "reidbaker-agent"
+      ]
     },
     {
       "id": 2,
@@ -25,8 +24,7 @@
       ],
       "expected_repo_state": [
         "The evaluation artifact explicitly flags that all code quality criteria passed successfully without any failures."
-      ],
-      "agent_config": "reidbaker-agent"
+      ]
     }
   ]
 }
