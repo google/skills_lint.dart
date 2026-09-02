@@ -36,6 +36,7 @@ void main() {
       await File('${skillDir.path}/SKILL.md').writeAsString(
         '${buildFrontmatter(name: 'test-skill')}[Link 1](missing1.md)\n[Link 2](missing2.md)\n',
       );
+      // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/18
       final configFile = File('${tempDir.path}/skills_lint.yaml');
       await configFile.writeAsString('''
 skills_lint:
@@ -69,6 +70,7 @@ skills_lint:
       await File(
         '${skillDir.path}/SKILL.md',
       ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
+      // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/18
       final configFile = File('${tempDir.path}/skills_lint.yaml');
       await configFile.writeAsString('''
 skills_lint:

@@ -11,8 +11,7 @@ import 'package:skills_lint/skills_lint.dart';
 /// Large-scale benchmark for baseline generation throughput.
 ///
 /// Tests performance and algorithmic scaling across a batch of synthetic skills
-/// with baseline-recordable errors, remaining well within bench_press's 200ms threshold
-/// across all CI cloud runner architectures.
+/// with baseline-recordable errors across CI runner architectures.
 final class BaselineThroughputLargeBenchmark extends AsyncBenchmark {
   BaselineThroughputLargeBenchmark() : super('baseline_throughput_large');
 
