@@ -44,4 +44,4 @@ Model discovery is architected around the `ModelDiscoveryStrategy` pipeline in [
 
 If the environment databases are inaccessible, locked, or running in an unsupported runtime harness:
 - Do **NOT** guess or assume the model name or effort level.
-- Record the field as `Active session model (unspecified)` or omit the field entirely from evaluation results.
+- Record the field as `Active session model (unspecified)`. Do **NOT** omit the field.

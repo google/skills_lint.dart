@@ -6,6 +6,7 @@
     {
       "id": 1,
       "prompt": "Grade the evaluation suite in 'evals/test_data/redundant_evals/evals.json' using eval_quality_rubric.json.",
+      "test_data": "evals/test_data/redundant_evals/evals.json",
       "expected_chat_output": [
         "Any natural language output summarizing the completed work is acceptable."
       ],
@@ -16,6 +17,7 @@
     {
       "id": 2,
       "prompt": "Grade the evaluation suite in 'evals/test_data/clean_evals/evals.json' using eval_quality_rubric.json.",
+      "test_data": "evals/test_data/clean_evals/evals.json",
       "expected_chat_output": [
         "Any natural language output summarizing the completed work is acceptable."
       ],
@@ -26,6 +28,7 @@
     {
       "id": 3,
       "prompt": "Grade the evaluation suite in 'evals/test_data/subjective_evals/evals.json' using eval_quality_rubric.json.",
+      "test_data": "evals/test_data/subjective_evals/evals.json",
       "expected_chat_output": [
         "Any natural language output summarizing the completed work is acceptable."
       ],

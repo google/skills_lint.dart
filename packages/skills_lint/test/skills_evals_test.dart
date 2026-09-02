@@ -11,7 +11,7 @@ import 'package:test/test.dart';
 
 /// Optional item keys permitted across all `evals.json` and rubric files.
 /// Maintainers can add optional keys to this set.
-const Set<String> optionalItemKeys = {'agent_config'};
+const Set<String> optionalItemKeys = {'agent_config', 'test_data'};
 
 void main() {
   group('Evals structure consistency', () {
@@ -84,6 +84,47 @@ void main() {
       }
 
       _verifyStructuralConsistency(rubricFiles, 'evals');
+    });
+
+    test('all test_data references point to files or directories that exist', () async {
+      final Uri? packageUri = await Isolate.resolvePackageUri(Uri.parse('package:skills_lint/'));
+      final String packageRoot = packageUri!.resolve('..').toFilePath();
+
+      final List<File> evalsFiles = [
+        ..._findEvalsFiles(Directory(p.join(packageRoot, 'skills'))),
+        ..._findEvalsFiles(
+          Directory(p.normalize(p.join(packageRoot, '..', '..', '.agents', 'skills'))),
+        ),
+        ..._findEvalsFiles(Directory(p.join(packageRoot, 'evals'))),
+      ];
+
+      for (final file in evalsFiles) {
+        final decoded = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+        final items = decoded['evals'] as List<dynamic>;
+        for (final item in items) {
+          final itemMap = item as Map<String, dynamic>;
+          final Object? testData = itemMap['test_data'];
+          if (testData is String) {
+            final String targetPath = p.normalize(p.join(packageRoot, testData));
+            expect(
+              FileSystemEntity.typeSync(targetPath) != FileSystemEntityType.notFound,
+              isTrue,
+              reason:
+                  'File ${file.path} references test_data "$testData" which does not exist at $targetPath',
+            );
+          } else if (testData is List) {
+            for (final String path in testData.whereType<String>()) {
+              final String targetPath = p.normalize(p.join(packageRoot, path));
+              expect(
+                FileSystemEntity.typeSync(targetPath) != FileSystemEntityType.notFound,
+                isTrue,
+                reason:
+                    'File ${file.path} references test_data "$path" which does not exist at $targetPath',
+              );
+            }
+          }
+        }
+      }
     });
   });
 }

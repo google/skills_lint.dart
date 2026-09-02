@@ -32,6 +32,7 @@ Evaluates **Workflow Execution & Workspace Mutations**: tests multi-turn sandbox
 - **`expected_chat_output`**: High-level narrative summary of what the LLM should say/give to the user.
 - **`expected_repo_state`**: Array of discrete, testable assertions regarding the end state of the repository and tracked files.
 - **`repo_criteria`**: Array of relative file paths to shared universal quality rubrics (e.g., `["evals/code_quality_rubric.json"]`).
+- **`test_data`** *(Optional)*: Relative file path or directory containing static test fixtures or mock inputs used during evaluation.
 - **`agent_config`** *(Deprecated)*: Ignored by evaluation runners.
 
 #### Minimal & Orthogonal Evaluations
@@ -61,13 +62,13 @@ dart test test/skills_evals_test.dart
 ```
 
 ### 2. Running Evals via Agent Orchestration (`/run-evals`)
-Use the `/run-evals` skill to run evaluations. All execution logic, subagent dispatch, and Turn-1 interception rules are defined directly in [`run-evals/SKILL.md`](../../.agents/skills/run-evals/SKILL.md).
+Use the `/run-evals` skill to run evaluations. All execution logic, subagent dispatch, and Turn-1 interception rules are defined directly in [`run-evals/SKILL.md`](../../../.agents/skills/run-evals/SKILL.md).
 
 * **Run Both (Default)**: `/run-evals [target_dir]`
 * **Run Trigger Evaluations Only**: `/run-evals triggers [target_dir]`
 * **Run Content Evaluations Only**: `/run-evals content [target_dir]`
 
 ### 3. Testing Meta-Evals (Testing the Rubrics)
-To ensure our universal rubrics correctly catch anti-patterns (and permit clean code), standalone cross-skill evaluations are defined as `evals/*_evals.json` files (e.g., `evals/code_quality_rubric_evals.json`). These files contain evals strictly intended to grade static fixtures located in `evals/test_data/`.
+To ensure our universal rubrics correctly catch anti-patterns (and permit clean code), standalone cross-skill evaluations are defined as `evals/*_evals.json` files (e.g., `evals/code_quality_rubric_evals.json`, `evals/eval_quality_rubric_evals.json`). These files contain evals specifying `test_data` fields targeting static fixtures located in `evals/test_data/`.
 
 Note: Default `/run-evals` discovery explicitly ignores `evals/test_data/**` fixtures so that fixture evals are never executed as live skill tests. To run meta-evals and verify rubrics, explicitly target the standalone rubric evaluation file: `/run-evals content evals/code_quality_rubric_evals.json` or `/run-evals content evals/eval_quality_rubric_evals.json`.
