@@ -3,9 +3,9 @@
     {
       "id": "eval_redundancy_and_consolidation",
       "expected_repo_state": [
-        "Compares prompts and scenarios within the same evals.json file.",
-        "If two evals share the same target action without introducing distinct scenario conditions (such as different isolation strategies, failure mocks, or flags), flags a failure asking whether they should be consolidated.",
-        "When an eval requirement applies universally to an existing workflow, updates the existing eval assertions instead of creating a duplicate scenario."
+        "All evaluation entries within the target evals.json file are orthogonal and test distinct scenarios.",
+        "No evals.json file contains duplicate evaluation scenarios that share the same target action without introducing distinct scenario conditions (such as different isolation strategies, failure mocks, or flags).",
+        "Universal evaluation requirements (such as metadata recording or general invariants) are integrated into existing baseline eval assertions rather than duplicated across multiple eval entries."
       ]
     }
   ]
