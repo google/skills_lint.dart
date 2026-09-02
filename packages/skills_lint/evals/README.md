@@ -38,6 +38,7 @@ Evaluates **Workflow Execution & Workspace Mutations**: tests multi-turn sandbox
 - **Extend Existing Evals**: When an evaluation requirement applies across existing workflows (such as artifact metadata or output formatting), update the assertions on existing evals rather than creating a duplicate scenario.
 - **Create New Evals**: Only create a new eval entry when testing a distinct scenario or behavior not covered by existing evals.
 - **Avoid Duplication**: Do NOT author multiple eval cases that test the same scenario without distinct conditions.
+- **Concrete vs. Flexible Assertions**: `expected_repo_state` assertions must be concrete, binary statements that are definitively true or false based on verifiable files, diffs, or command outputs (avoiding open-ended or subjective criteria). `expected_chat_output` should remain flexible to natural language variations unless a strict output structure or checklist format is required.
 
 ### Cross-Skill Rubrics (`evals/*_rubric.json`)
 Universal skill quality expectations are structured into modular rubric classes that apply broadly across skills.
