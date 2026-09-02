@@ -1,5 +1,6 @@
 {
   "repo_criteria": [],
+  "test_data": true,
   "evals": [
     {
       "id": 1,

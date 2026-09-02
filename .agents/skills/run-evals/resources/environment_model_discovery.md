@@ -18,6 +18,41 @@ dart run .agents/skills/run-evals/scripts/discover_environment_model.dart
 dart run .agents/skills/run-evals/scripts/discover_environment_model.dart <conversation_id>
 ```
 
+### Example Output
+
+```json
+{
+  "conversation_id": "627fed6a-adfe-4c00-b62f-6ac832a6d573",
+  "active_model": {
+    "name": "Gemini 3.7 Flash (High)",
+    "slug": "gemini-3.7-flash-high",
+    "effort_level": "high",
+    "source": "Jetski Global State Database"
+  },
+  "discovery_sources": {
+    "Jetski Global State Database": {
+      "strategy": "Jetski Global State Database",
+      "name": "Gemini 3.7 Flash (High)",
+      "slug": "gemini-3.7-flash-high",
+      "effort_level": "high",
+      "attributes": {
+        "database_path": "/Users/reidbaker/Library/Application Support/Jetski/User/globalStorage/state.vscdb",
+        "selected_model_id": 1298
+      }
+    },
+    "Jetski Conversation Metadata Database": {
+      "strategy": "Jetski Conversation Metadata Database",
+      "slug": "gemini-3.7-flash-high",
+      "attributes": {
+        "database_path": "/Users/reidbaker/.gemini/jetski/conversations/627fed6a-adfe-4c00-b62f-6ac832a6d573.db",
+        "conversation_id": "627fed6a-adfe-4c00-b62f-6ac832a6d573",
+        "model_enum": "MODEL_PLACEHOLDER_M298"
+      }
+    }
+  }
+}
+```
+
 ---
 
 ## 🧩 Strategy-Based Discovery Architecture
@@ -33,7 +68,7 @@ Model discovery is architected around the `ModelDiscoveryStrategy` pipeline in [
    - Inspects the active session's SQLite database (`~/.gemini/jetski/conversations/<id>.db`).
    - Reads the latest generation metadata payload from table `gen_metadata` to extract runtime model slugs and enum tokens.
 3. **Environment Variables (`EnvironmentVariableStrategy`)**:
-   - Checks well-known environment variables (e.g., `ANTIGRAVITY_MODEL`, `GEMINI_MODEL`, `LLM_MODEL`).
+   - Checks well-known environment variables (such as `ANTIGRAVITY_MODEL`, `GEMINI_MODEL`, or `LLM_MODEL`).
 
 > [!NOTE]
 > Detailed byte offset parsing, protobuf varint decoding (LEB128), and database query implementations are fully encapsulated and documented with DartDocs directly in [`../scripts/discover_environment_model.dart`](../scripts/discover_environment_model.dart).

@@ -19,13 +19,16 @@ class DiscoveredModelInfo {
   /// The name of the discovery strategy that identified this model.
   final String strategyName;
 
-  /// The human-readable display name of the model (e.g. `Gemini 3.7 Flash (High)`).
+  /// The human-readable display name of the model in the format
+  /// '<Model Family> <Version> <Tier> (<Effort>)', such as
+  /// 'Gemini 3.7 Flash (High)'.
   final String? modelName;
 
-  /// The machine-readable identifier/slug of the model (e.g. `gemini-3.7-flash-high`).
+  /// The machine-readable hyphen-separated model identifier, such as
+  /// 'gemini-3.7-flash-high'.
   final String? modelSlug;
 
-  /// The configured reasoning/effort tier (e.g. `high`, `medium`, `low`).
+  /// The configured reasoning effort level ('low', 'medium', or 'high').
   final String? effortLevel;
 
   /// Additional diagnostic attributes extracted during discovery.
@@ -64,8 +67,8 @@ class DiscoveryContext {
 
 /// Contract for environment model discovery strategies.
 ///
-/// New discovery providers (e.g. IDE state, session databases, environment
-/// variables, or remote APIs) implement this interface to plug into the
+/// Implementations for IDE state databases, conversation metadata, or
+/// environment variables implement this interface to plug into the
 /// [EnvironmentModelDiscovery] pipeline.
 abstract interface class ModelDiscoveryStrategy {
   /// Unique, human-readable name of this discovery strategy.
@@ -85,9 +88,9 @@ abstract interface class ModelDiscoveryStrategy {
 ///
 /// ### Storage Mechanics
 /// Jetski stores workspace and global state in an SQLite database located at:
-/// - **macOS**: `~/Library/Application Support/Jetski/User/globalStorage/state.vscdb`
-/// - **Linux**: `~/.config/Jetski/User/globalStorage/state.vscdb`
-/// - **Windows**: `%APPDATA%\Jetski\User\globalStorage\state.vscdb`
+/// - macOS: `~/Library/Application Support/Jetski/User/globalStorage/state.vscdb`
+/// - Linux: `~/.config/Jetski/User/globalStorage/state.vscdb`
+/// - Windows: `%APPDATA%\Jetski\User\globalStorage\state.vscdb`
 ///
 /// The database contains key-value entries in table `ItemTable`:
 /// 1. `antigravityUnifiedStateSync.modelPreferences`: Contains a base64-encoded
@@ -164,10 +167,24 @@ class JetskiGlobalStateStrategy implements ModelDiscoveryStrategy {
       final Uint8List protoBytes = base64.decode(rawBase64);
       final textPrefs = latin1.decode(protoBytes);
 
-      // Sentinel key followed by length-delimited string payload.
-      final match = RegExp(
-        r'last_selected_agent_model_sentinel_key\x12[\x80-\xff]*[\x00-\x7f]\n[\x80-\xff]*[\x00-\x7f]([A-Za-z0-9+/=]+)',
-      ).firstMatch(textPrefs);
+      // Matches the protobuf field header for `last_selected_agent_model_sentinel_key`:
+      // - Field tag: 'last_selected_agent_model_sentinel_key'
+      // - Wire tag 0x12: Field #2 (wire type 2: length-delimited envelope)
+      // - Varint length: [\x80-\xff]*[\x00-\x7f] (LEB128 varint)
+      // - Wire tag 0x0A (\n): Field #1 (wire type 2: length-delimited string)
+      // - Varint length: [\x80-\xff]*[\x00-\x7f] (LEB128 payload length)
+      // - Group 1: Base64-encoded inner protobuf data ([A-Za-z0-9+/=]+)
+      const varintPattern = r'[\x80-\xff]*[\x00-\x7f]';
+      final modelPrefsPattern = RegExp(
+        'last_selected_agent_model_sentinel_key'
+        r'\x12' // Wire tag 0x12 (length-delimited envelope)
+        '$varintPattern' // Envelope length prefix
+        r'\n' // Wire tag 0x0A (string payload)
+        '$varintPattern' // Payload length prefix
+        r'([A-Za-z0-9+/=]+)', // Group 1: Base64 payload
+      );
+
+      final match = modelPrefsPattern.firstMatch(textPrefs);
       if (match == null) return null;
 
       final Uint8List payloadBytes = base64.decode(match.group(1)!);
@@ -195,30 +212,59 @@ class JetskiGlobalStateStrategy implements ModelDiscoveryStrategy {
       final Uint8List protoBytes = base64.decode(rawBase64);
       final textStatus = latin1.decode(protoBytes);
 
-      final statusMatch = RegExp(
-        r'userStatusSentinelKey\x12[\x80-\xff]*[\x00-\x7f]\n[\x80-\xff]*[\x00-\x7f]([A-Za-z0-9+/=]+)',
-      ).firstMatch(textStatus);
+      // Matches the protobuf field header for `userStatusSentinelKey`:
+      // - Field tag: 'userStatusSentinelKey'
+      // - Wire tag 0x12: Field #2 (wire type 2: length-delimited envelope)
+      // - Varint length: [\x80-\xff]*[\x00-\x7f]
+      // - Wire tag 0x0A (\n): Field #1 (wire type 2: string payload)
+      // - Varint length: [\x80-\xff]*[\x00-\x7f]
+      // - Group 1: Base64-encoded inner status data ([A-Za-z0-9+/=]+)
+      const varintPattern = r'[\x80-\xff]*[\x00-\x7f]';
+      final statusPayloadPattern = RegExp(
+        'userStatusSentinelKey'
+        r'\x12' // Wire tag 0x12 (length-delimited envelope)
+        '$varintPattern' // Envelope length prefix
+        r'\n' // Wire tag 0x0A (string payload)
+        '$varintPattern' // Payload length prefix
+        r'([A-Za-z0-9+/=]+)', // Group 1: Base64 payload
+      );
+
+      final statusMatch = statusPayloadPattern.firstMatch(textStatus);
       if (statusMatch == null) return null;
 
       final Uint8List userStatusBytes = base64.decode(statusMatch.group(1)!);
       final userStatusText = latin1.decode(userStatusBytes);
 
-      // Scan for Gemini model declarations and map their varint ID.
-      final modelRegex = RegExp(
-        r'\n([\x01-\xff])Gemini([^\x00-\x1f]+)\x12\x03\x08([\x80-\xff]*[\x00-\x7f])',
+      // Matches Gemini model catalog declarations in the userStatus protobuf:
+      // - Wire tag 0x0A (\n): Field #1 (string display name)
+      // - Byte [\x01-\xff]: Display name length prefix
+      // - 'Gemini': Model family prefix
+      // - Group 1: Model title/tier (such as " 3.7 Flash (High)")
+      // - Bytes \x12\x03\x08: Model ID container (tag 0x12, length 3, tag 0x08 for varint)
+      // - Group 2: Varint-encoded model ID bytes ([\x80-\xff]*[\x00-\x7f])
+      final geminiModelEntryPattern = RegExp(
+        r'\n' // Field tag 0x0A
+        r'[\x01-\xff]' // Name length prefix
+        r'Gemini' // Model family prefix
+        r'([^\x00-\x1f]+)' // Group 1: Model title/tier
+        r'\x12\x03\x08' // Model ID header
+        r'([\x80-\xff]*[\x00-\x7f])', // Group 2: Varint ID bytes
       );
 
-      for (final Match match in modelRegex.allMatches(userStatusText)) {
-        final displayName = 'Gemini${match.group(2)}';
-        final idBytes = Uint8List.fromList(match.group(3)!.codeUnits);
+      // Matches standard hyphenated model slugs in adjacent bytes (such as "gemini-3.7-flash-high").
+      final slugPattern = RegExp(r'(gemini-[a-z0-9\.\-]+)');
+
+      for (final Match match
+          in geminiModelEntryPattern.allMatches(userStatusText)) {
+        final displayName = 'Gemini${match.group(1)}';
+        final idBytes = Uint8List.fromList(match.group(2)!.codeUnits);
         final modelId = _decodeVarint(idBytes, offset: 0);
 
         if (modelId == targetId) {
           final searchEnd =
               (match.end + 100).clamp(0, userStatusText.length);
           final searchChunk = userStatusText.substring(match.start, searchEnd);
-          final slugMatch =
-              RegExp(r'(gemini-[a-z0-9\.\-]+)').firstMatch(searchChunk);
+          final slugMatch = slugPattern.firstMatch(searchChunk);
 
           return (name: displayName, slug: slugMatch?.group(1));
         }
@@ -309,11 +355,23 @@ class JetskiConversationDbStrategy implements ModelDiscoveryStrategy {
       }
       final payloadText = latin1.decode(bytes);
 
-      final slugMatch =
-          RegExp(r'(gemini-[a-z0-9\.\-]+)').firstMatch(payloadText);
-      final enumMatch =
-          RegExp(r'model_enum\x12[\x01-\x7f]([A-Za-z0-9_]+)')
-              .firstMatch(payloadText);
+      // Matches standard hyphenated model slugs, such as "gemini-3.7-flash-high".
+      final modelSlugPattern = RegExp(r'(gemini-[a-z0-9\.\-]+)');
+
+      // Matches protobuf field for `model_enum`:
+      // - Field identifier: 'model_enum'
+      // - Wire tag 0x12: Field #2 (wire type 2: length-delimited string)
+      // - Length byte: [\x01-\x7f] (1-byte length prefix)
+      // - Group 1: Enum identifier token ([A-Za-z0-9_]+)
+      final modelEnumPattern = RegExp(
+        r'model_enum'
+        r'\x12' // Wire tag 0x12 (length-delimited)
+        r'[\x01-\x7f]' // String length prefix
+        r'([A-Za-z0-9_]+)', // Group 1: Enum token
+      );
+
+      final slugMatch = modelSlugPattern.firstMatch(payloadText);
+      final enumMatch = modelEnumPattern.firstMatch(payloadText);
 
       final slug = slugMatch?.group(1);
       final modelEnum = enumMatch?.group(1);
@@ -346,7 +404,7 @@ class EnvironmentVariableStrategy implements ModelDiscoveryStrategy {
 
   @override
   String get description =>
-      'Checks standard environment variables (e.g. ANTIGRAVITY_MODEL, GEMINI_MODEL)';
+      'Checks standard environment variables in priority order: ANTIGRAVITY_MODEL, GEMINI_MODEL, LLM_MODEL, AI_MODEL';
 
   static const List<String> _candidateKeys = <String>[
     'ANTIGRAVITY_MODEL',
