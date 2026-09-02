@@ -1,6 +1,6 @@
 # Skill Evaluations
 
-Architecture, rubrics, and instructions for evaluating AI agent skills authored and maintained in this repository. 
+Architecture, rubrics, and instructions for evaluating AI agent skills authored and maintained in this repository.
 **Note:** These evaluations are essentially unit tests for the skills within the `skills_lint` package and its internal ecosystem. They are *not* intended to be a generic evaluation framework for other agent client plugins or tools outside of this specific domain.
 
 ## What Should (and Shouldn't) Be Evaluated
@@ -35,16 +35,16 @@ Evaluates **Workflow Execution & Workspace Mutations**: tests multi-turn sandbox
 - **`agent_config`** *(Deprecated)*: Ignored by evaluation runners.
 
 #### Minimal & Orthogonal Evaluations
-- **Extend Existing Cases**: When an evaluation requirement applies universally across standard workflows (e.g., verifying artifact metadata, checking status summaries, or asserting general state invariants), update the assertions on existing baseline evals rather than creating a duplicate scenario.
-- **Create New Evals**: Only create a new `evals.json` entry when testing a **distinct workflow branch, failure mode, isolation strategy, or CLI flag**.
-- **Avoid Duplication**: Do NOT author multiple eval cases that share the same target action without introducing distinct scenario conditions.
+- **Extend Existing Evals**: When an evaluation requirement applies across existing workflows (such as artifact metadata or output formatting), update the assertions on existing evals rather than creating a duplicate scenario.
+- **Create New Evals**: Only create a new eval entry when testing a distinct scenario or behavior not covered by existing evals.
+- **Avoid Duplication**: Do NOT author multiple eval cases that test the same scenario without distinct conditions.
 
 ### Cross-Skill Rubrics (`evals/*_rubric.json`)
 Universal skill quality expectations are structured into modular rubric classes that apply broadly across skills.
 
 ## Cross-Cutting Rules
 - **Code Quality**: Skills that author or modify code MUST adhere to the universal code quality expectations defined in `code_quality_rubric.json`. This ensures that generated code compiles cleanly, adheres to Effective Dart, works across platforms, and is placed in standard canonical directories.
-- **Evaluation Quality**: Skills that author or modify evaluation suites MUST adhere to `eval_quality_rubric.json`, ensuring evaluations remain minimal, orthogonal, and free of redundant duplicate scenarios.
+- **Evaluation Quality**: Skills that author or modify evaluation suites MUST adhere to `eval_quality_rubric.json`.
 
 ## 🚀 Running & Validating Evals Locally
 
