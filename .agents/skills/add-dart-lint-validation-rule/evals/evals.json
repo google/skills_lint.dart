@@ -1,6 +1,7 @@
 {
   "repo_criteria": [
-    "evals/code_quality_rubric.json"
+    "evals/code_quality_rubric.json",
+    "evals/eval_quality_rubric.json"
   ],
   "evals": [
     {
