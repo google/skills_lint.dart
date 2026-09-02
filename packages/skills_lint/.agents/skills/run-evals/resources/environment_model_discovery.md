@@ -1,6 +1,6 @@
 # Environment Model Discovery Guide
 
-This guide details supported, environment-specific methods to verify the active model, effort level, and runtime configuration during evaluation runs.
+This guide details supported, environment-specific methods to verify the active model, effort level, and runtime configuration during evaluation runs using Dart.
 
 ---
 
@@ -14,34 +14,41 @@ Each active agent session stores turn-by-turn generation metadata in a local con
 - **Schema**: Table `gen_metadata(idx integer, data blob, size integer, PRIMARY KEY(idx))`
 
 - **Resolution Steps**:
-  1. Query the latest row: `SELECT data FROM gen_metadata ORDER BY idx DESC LIMIT 1`.
-  2. Extract the model slug field (tag `\xe2\x01` or `model_enum`).
-  *(Note: Avoid broad un-anchored text regexes across `data` because the blob also contains prompt context, which may include skill descriptions or user text mentioning other model names).*
+  1. Query the latest row: `SELECT hex(data) FROM gen_metadata ORDER BY idx DESC LIMIT 1`.
+  2. Extract the model slug field (e.g. `gemini-3.7-flash-high`) or `model_enum` (e.g. `MODEL_PLACEHOLDER_M298`).
 
-- **Python Reference Snippet**:
-  ```python
-  import sqlite3, os, re
+- **Dart Reference Snippet**:
+  ```dart
+  import 'dart:convert';
+  import 'dart:io';
 
-  def get_conversation_model(conv_id):
-      db_path = os.path.expanduser(f"~/.gemini/jetski/conversations/{conv_id}.db")
-      if not os.path.exists(db_path):
-          return None
-      cur = sqlite3.connect(db_path).cursor()
-      cur.execute("SELECT data FROM gen_metadata ORDER BY idx DESC LIMIT 1")
-      row = cur.fetchone()
-      if not row or not row[0]:
-          return None
-      data = row[0]
-      
-      # Extract model slug (e.g. gemini-3.7-flash-high)
-      m_slug = re.search(rb"\xe2\x01[\x01-\x7f]([a-zA-Z0-9\.\-_]+)", data)
-      slug = m_slug.group(1).decode("ascii") if m_slug else None
-      
-      # Extract model enum (e.g. MODEL_PLACEHOLDER_M298)
-      m_enum = re.search(rb"model_enum\x12[\x01-\x7f]([A-Za-z0-9_]+)", data)
-      model_enum = m_enum.group(1).decode("ascii") if m_enum else None
-      
-      return {"slug": slug, "model_enum": model_enum}
+  Future<Map<String, String?>?> getConversationModel(String convId) async {
+    final home = Platform.environment['HOME'] ?? '';
+    final dbPath = '$home/.gemini/jetski/conversations/$convId.db';
+    if (!File(dbPath).existsSync()) return null;
+
+    final res = await Process.run('sqlite3', [
+      dbPath,
+      'SELECT hex(data) FROM gen_metadata ORDER BY idx DESC LIMIT 1;',
+    ]);
+
+    if (res.exitCode != 0 || res.stdout.toString().trim().isEmpty) return null;
+
+    final hex = res.stdout.toString().trim();
+    final bytes = <int>[];
+    for (var i = 0; i < hex.length; i += 2) {
+      bytes.add(int.parse(hex.substring(i, i + 2), radix: 16));
+    }
+    final text = latin1.decode(bytes);
+
+    final slugMatch = RegExp(r'(gemini-[a-z0-9\.\-]+)').firstMatch(text);
+    final enumMatch = RegExp(r'model_enum\x12[\x01-\x7f]([A-Za-z0-9_]+)').firstMatch(text);
+
+    return {
+      'slug': slugMatch?.group(1),
+      'model_enum': enumMatch?.group(1),
+    };
+  }
   ```
 
 ---
@@ -62,61 +69,78 @@ When running inside VS Code / Jetski, the active UI model selection and full mod
      - **Effort Level**: (e.g., `High`, `Medium`, `Low`, or `Standard`)
      - **Model Slug**: (e.g., `gemini-3.7-flash-high`)
 
-- **Python Reference Snippet**:
-  ```python
-  import sqlite3, base64, re
+- **Dart Reference Snippet**:
+  ```dart
+  import 'dart:convert';
+  import 'dart:io';
 
-  def get_active_model_from_global_state(db_path):
-      conn = sqlite3.connect(db_path)
-      cursor = conn.cursor()
-      
-      cursor.execute("SELECT value FROM ItemTable WHERE key = 'antigravityUnifiedStateSync.modelPreferences'")
-      row = cursor.fetchone()
-      if not row:
-          return None
-      proto_prefs = base64.b64decode(row[0])
-      m = re.search(rb"last_selected_agent_model_sentinel_key\x12[\x80-\xff]*[\x00-\x7f]\n[\x80-\xff]*[\x00-\x7f]([A-Za-z0-9+/=]+)", proto_prefs)
-      if not m:
-          return None
-      selected_bytes = base64.b64decode(m.group(1))
-      pos, varint, shift = 1, 0, 0
-      while pos < len(selected_bytes):
-          b = selected_bytes[pos]
-          pos += 1
-          varint |= (b & 0x7f) << shift
-          if not (b & 0x80):
-              break
-          shift += 7
-      selected_id = varint
+  Future<Map<String, dynamic>?> getGlobalStateModel(String dbPath) async {
+    if (!File(dbPath).existsSync()) return null;
 
-      cursor.execute("SELECT value FROM ItemTable WHERE key = 'antigravityUnifiedStateSync.userStatus'")
-      row = cursor.fetchone()
-      if not row:
-          return {"id": selected_id}
-      proto_status = base64.b64decode(row[0])
-      match = re.search(rb"userStatusSentinelKey\x12[\x80-\xff]*[\x00-\x7f]\n[\x80-\xff]*[\x00-\x7f]([A-Za-z0-9+/=]+)", proto_status)
-      if not match:
-          return {"id": selected_id}
-      user_status_bytes = base64.b64decode(match.group(1))
+    final prefRes = await Process.run('sqlite3', [
+      dbPath,
+      "SELECT value FROM ItemTable WHERE key = 'antigravityUnifiedStateSync.modelPreferences';",
+    ]);
+    if (prefRes.exitCode != 0 || prefRes.stdout.toString().trim().isEmpty) return null;
 
-      for m in re.finditer(rb"\n([\x01-\xff])Gemini([^\x00-\x1f]+)\x12\x03\x08([\x80-\xff]*[\x00-\x7f])", user_status_bytes):
-          name = "Gemini" + m.group(2).decode("latin1")
-          id_bytes = m.group(3)
-          v, s = 0, 0
-          for b in id_bytes:
-              v |= (b & 0x7f) << s
-              if not (b & 0x80):
-                  break
-              s += 7
-          if v == selected_id:
-              chunk = user_status_bytes[m.start():min(len(user_status_bytes), m.end() + 100)]
-              slug_match = re.search(rb"(gemini-[a-z0-9\.\-]+)", chunk)
-              return {
-                  "id": selected_id,
-                  "name": name,
-                  "slug": slug_match.group(1).decode("latin1") if slug_match else None
-              }
-      return {"id": selected_id}
+    final protoPrefs = base64.decode(prefRes.stdout.toString().trim());
+    final textPrefs = latin1.decode(protoPrefs);
+    final prefMatch = RegExp(r'last_selected_agent_model_sentinel_key\x12[\x80-\xff]*[\x00-\x7f]\n[\x80-\xff]*[\x00-\x7f]([A-Za-z0-9+/=]+)').firstMatch(textPrefs);
+    if (prefMatch == null) return null;
+
+    final selectedBytes = base64.decode(prefMatch.group(1)!);
+    var pos = 1;
+    var varint = 0;
+    var shift = 0;
+    while (pos < selectedBytes.length) {
+      final b = selectedBytes[pos++];
+      varint |= (b & 0x7f) << shift;
+      if ((b & 0x80) == 0) break;
+      shift += 7;
+    }
+    final selectedId = varint;
+
+    final statusRes = await Process.run('sqlite3', [
+      dbPath,
+      "SELECT value FROM ItemTable WHERE key = 'antigravityUnifiedStateSync.userStatus';",
+    ]);
+    if (statusRes.exitCode != 0 || statusRes.stdout.toString().trim().isEmpty) {
+      return {'id': selectedId};
+    }
+
+    final protoStatus = base64.decode(statusRes.stdout.toString().trim());
+    final textStatus = latin1.decode(protoStatus);
+    final statusMatch = RegExp(r'userStatusSentinelKey\x12[\x80-\xff]*[\x00-\x7f]\n[\x80-\xff]*[\x00-\x7f]([A-Za-z0-9+/=]+)').firstMatch(textStatus);
+    if (statusMatch == null) return {'id': selectedId};
+
+    final userStatusBytes = base64.decode(statusMatch.group(1)!);
+    final userStatusText = latin1.decode(userStatusBytes);
+
+    final modelRegex = RegExp(r'\n([\x01-\xff])Gemini([^\x00-\x1f]+)\x12\x03\x08([\x80-\xff]*[\x00-\x7f])');
+    for (final m in modelRegex.allMatches(userStatusText)) {
+      final name = 'Gemini${m.group(2)}';
+      final idBytes = m.group(3)!.codeUnits;
+      var v = 0;
+      var s = 0;
+      for (final b in idBytes) {
+        v |= (b & 0x7f) << s;
+        if ((b & 0x80) == 0) break;
+        s += 7;
+      }
+      if (v == selectedId) {
+        final matchEnd = m.end;
+        final searchChunk = userStatusText.substring(m.start, (matchEnd + 100).clamp(0, userStatusText.length));
+        final slugMatch = RegExp(r'(gemini-[a-z0-9\.\-]+)').firstMatch(searchChunk);
+        return {
+          'id': selectedId,
+          'name': name,
+          'slug': slugMatch?.group(1),
+        };
+      }
+    }
+
+    return {'id': selectedId};
+  }
   ```
 
 ---
