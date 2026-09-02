@@ -57,15 +57,5 @@ When running both test types (the default), Trigger Evaluations execute first. A
      - Instruct the subagent(s) to return their `git diff` and verification outputs (`dart pub get`, `dart format`, `dart analyze`, `dart test`) without committing. Ensure you instruct them to run these commands exclusively from within the `<target-package-root>` directory to avoid analyzing unrelated packages.
 5. **Grade**: Parse the combined rubric (resolving `repo_criteria` + `evals.json` expectations). Use the grading instructions in `resources/agent_judge_prompt.md`. When an expectation fails, you MUST explicitly list both the expectation and what was actually found that caused the failure.
 6. **Artifact & Teardown**: Grade the outputs and generate a Markdown artifact (e.g., `<skill>_eval_results.md`) containing the metadata, pass/fail rationale, and raw diffs/stdout.
-   - **Reporting Integrity & Metadata**: When recording execution metadata (model, effort level, agent configuration), ONLY record values verified through real environment/session data. NEVER guess, assume, or fabricate model names, effort levels, or configurations. If the exact model name or effort level cannot be verified from the environment, record it as `Active session model (unspecified)` or omit the field. Consult the [Environment Metadata Discovery](#environment-metadata-discovery) list below for supported environment inspection sources.
+   - **Reporting Integrity & Metadata**: When recording execution metadata (model, effort level, agent configuration), ONLY record values verified through real environment/session data. NEVER guess, assume, or fabricate model names, effort levels, or configurations. If the exact model name or effort level cannot be verified from the environment, record it as `Active session model (unspecified)` or omit the field. See `resources/environment_model_discovery.md` for environment-specific model discovery methods (e.g. VS Code / Jetski state database).
    - If an isolated worktree was used (Strategy B), clean it up via `git worktree remove --force <skill-name>-workspace`.
-
----
-
-## Environment Metadata Discovery
-
-When reporting execution metadata, consult these environment-specific sources (in priority order) to verify active session parameters:
-
-1. **VS Code / Jetski**:
-   - **Location**: Global state SQLite database at `<user-data-dir>/User/globalStorage/state.vscdb` (e.g., `~/Library/Application Support/Jetski/User/globalStorage/state.vscdb` on macOS).
-   - **Resolution**: Read the selected model ID from `antigravityUnifiedStateSync.modelPreferences` (`last_selected_agent_model_sentinel_key`) and resolve the model name, effort level, and slug from `antigravityUnifiedStateSync.userStatus`.
