@@ -45,7 +45,7 @@ When running both test types (the default), Trigger Evaluations execute first. A
 
 1. **Read Framework**: Read `<target-package-root>/evals/README.md` for understanding the difference between per-skill evals and cross-skill evals (where `<target-package-root>` is the directory containing the `.agents` or `skills` folder).
 2. **Locate Targets**: Find target `evals/evals.json` files inside `.agents/skills/` and/or `skills/`. For cross-skill evaluations, look for `*_evals.json` files directly in `<target-package-root>/evals/`.
-3. **Determine Agent Configuration**: The evaluation runner always inherits the active agent configuration/profile used in the chat where `/run-evals` was triggered (`TypeName: self`). When reporting metadata in output artifacts, record the human-readable active profile name (such as `"reidbaker-agent"` or `"Main Agent"`) rather than the literal parameter `"self"`. Any `agent_config` fields present in `evals.json` are ignored and have no effect on execution.
+3. **Determine Agent Configuration**: The evaluation runner always inherits the active agent configuration/profile used in the chat where `/run-evals` was triggered (`TypeName: self`). When reporting metadata in output artifacts, record the human-readable active profile name rather than the literal parameter `"self"`. Any `agent_config` fields present in `evals.json` are ignored and have no effect on execution.
 4. **Orchestrate & Isolate**:
    - **Pre-flight & Strategy Selection**: Run `git rev-parse --show-toplevel` and `git rev-parse --show-prefix` to determine repository layout:
      - **Strategy A (`Workspace: branch`)**: Use native branch workspaces when the active workspace is the Git root and a single workspace is mounted.
