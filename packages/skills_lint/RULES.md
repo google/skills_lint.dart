@@ -155,6 +155,16 @@ governs how changes to these rules ship.
   name entirely.
 - **Disable:** `--no-invalid-skill-name`.
 
+## published-skill-name
+
+- **Default severity:** disabled
+- **Fixable:** yes
+- **What it checks:** skills in a published Dart package's `skills/` directory follow the naming convention required by `package:skills`. The skill directory name and frontmatter `name:` must start with the package name (or the package name with underscores replaced by hyphens) followed by a hyphen (e.g., `skills-lint-` or `skills_lint-` for package `skills_lint`).
+- **Diagnostic shape:**
+  `Skill "<name>" does not follow the Dart package published skill naming convention for package "<package>". Published skills must start with "<hyphen-prefix>" or "<raw-prefix>". Suggested valid name: "<suggestion>" (see https://pub.dev/packages/skills#naming-convention)`
+- **Auto-fix behavior:** updates the frontmatter `name:` in `SKILL.md` to the suggested normalized package skill name.
+- **Disable:** `--no-published-skill-name` (also the default state).
+
 ## valid-yaml-metadata
 
 - **Default severity:** error

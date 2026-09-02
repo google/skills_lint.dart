@@ -13,6 +13,7 @@ import 'rules/disallowed_field_rule.dart';
 import 'rules/name_format_rule.dart';
 import 'rules/path_does_not_exist_rule.dart';
 import 'rules/prevent_skills_sh_publishing_rule.dart';
+import 'rules/published_skill_name_rule.dart';
 import 'rules/relative_paths_rule.dart';
 import 'rules/trailing_whitespace_rule.dart';
 import 'rules/valid_yaml_metadata_rule.dart';
@@ -52,6 +53,15 @@ class RuleRegistry {
       name: NameFormatRule.ruleName,
       defaultSeverity: NameFormatRule.defaultSeverity,
       help: 'Check if skill name is invalid.',
+    ),
+    const CheckType(
+      name: PublishedSkillNameRule.ruleName,
+      defaultSeverity: PublishedSkillNameRule.defaultSeverity,
+      help: 'Check if published skill name follows Dart package naming convention.',
+      parameterSchema: {
+        PublishedSkillNameRule.packageNameParameter: RuleParameterType.string,
+        PublishedSkillNameRule.pubspecPathParameter: RuleParameterType.string,
+      },
     ),
     const CheckType(
       name: RelativePathsRule.ruleName,
@@ -94,6 +104,12 @@ class RuleRegistry {
         return PreventSkillsShPublishingRule(severity: severity);
       case NameFormatRule.ruleName:
         return NameFormatRule(severity: severity);
+      case PublishedSkillNameRule.ruleName:
+        return PublishedSkillNameRule(
+          severity: severity,
+          packageName: parameters?.getString(PublishedSkillNameRule.packageNameParameter),
+          pubspecPath: parameters?.getString(PublishedSkillNameRule.pubspecPathParameter),
+        );
       case RelativePathsRule.ruleName:
         return RelativePathsRule(severity: severity);
       case TrailingWhitespaceRule.ruleName:

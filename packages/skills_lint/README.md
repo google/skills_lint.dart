@@ -146,6 +146,7 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `--fast-fail`: Halt execution immediately on the error.
 - `--ignore-config`: Ignore the YAML configuration file entirely.
 - `--[no-]check-trailing-whitespace`: Enable/disable checking for trailing whitespace. (Disabled by default).
+- `--[no-]published-skill-name`: Enable/disable checking that published package skills follow the package naming convention. (Disabled by default).
 - `--fix`: Write fixes for failing lints to disk.
 - `--dry-run`: When combined with `--fix`, prints the proposed diff without writing.
 - `--fix-apply`: *Deprecated* alias for `--fix`. Prints a deprecation notice on use.

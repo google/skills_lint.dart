@@ -727,5 +727,38 @@ Body''');
       final String content = await File('${skillDir.path}/SKILL.md').readAsString();
       expect(content, contains('name: wrong-name'));
     });
+
+    test('validates published-skill-name when enabled via CLI flag', () async {
+      final pkgDir = Directory('${tempDir.path}/test_pkg');
+      await pkgDir.create(recursive: true);
+      await File('${pkgDir.path}/pubspec.yaml').writeAsString('name: test_pkg\n');
+      final skillDir = Directory('${pkgDir.path}/skills/dart-test-pkg-setup');
+      await skillDir.create(recursive: true);
+      await File('${skillDir.path}/SKILL.md').writeAsString('''
+---
+name: dart-test-pkg-setup
+description: Setup skill
+---
+Body''');
+
+      final TestProcess process = await TestProcess.start('dart', [
+        'bin/skills_lint.dart',
+        '-s',
+        skillDir.path,
+        '--published-skill-name',
+        'error',
+      ]);
+
+      await process.shouldExit(1);
+      final List<String> stderr = await process.stderr.rest.toList();
+      final String stderrStr = stderr.join('\n');
+      expect(
+        stderrStr,
+        contains(
+          'Skill "dart-test-pkg-setup" does not follow the Dart package published skill naming convention',
+        ),
+      );
+      expect(stderrStr, contains('Suggested valid name: "test-pkg-setup"'));
+    });
   });
 }
