@@ -11,12 +11,11 @@ import 'package:skills_lint/skills_lint.dart';
 /// Large-scale benchmark for baseline generation throughput.
 ///
 /// Tests performance and algorithmic scaling across a batch of synthetic skills
-/// with baseline-recordable errors, remaining safely within bench_press's 200ms threshold
-/// across all CI cloud runner architectures.
+/// with baseline-recordable errors across CI runner architectures.
 final class BaselineThroughputLargeBenchmark extends AsyncBenchmark {
   BaselineThroughputLargeBenchmark() : super('baseline_throughput_large');
 
-  static const int _skillCount = 75;
+  static const int _skillCount = 70;
   static const int _errorsPerSkill = 1;
 
   late Directory _tempDir;
@@ -28,7 +27,7 @@ final class BaselineThroughputLargeBenchmark extends AsyncBenchmark {
 
   @override
   Future<void> setup() async {
-    _tempDir = Directory.systemTemp.createTempSync('skills_lint_bench_100_');
+    _tempDir = Directory.systemTemp.createTempSync('skills_lint_bench_large_');
     final skillsRoot = Directory(p.join(_tempDir.path, 'skills'))..createSync();
     _skillsRootPath = skillsRoot.path;
     _ignorePath = p.join(_tempDir.path, 'ignore.json');

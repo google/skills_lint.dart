@@ -36,14 +36,21 @@ void main() {
       await File('${skillDir.path}/SKILL.md').writeAsString(
         '${buildFrontmatter(name: 'test-skill')}[Link 1](missing1.md)\n[Link 2](missing2.md)\n',
       );
+      // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/18
+      final configFile = File('${tempDir.path}/skills_lint.yaml');
+      await configFile.writeAsString('''
+skills_lint:
+  rules:
+    check-relative-paths: error
+''');
 
       // Run with --generate-baseline
       final TestProcess process = await TestProcess.start('dart', [
-        'bin/skills_lint.dart',
+        p.normalize(p.absolute('bin/skills_lint.dart')),
         '-s',
-        skillDir.path,
+        'test-skill',
         '--generate-baseline',
-      ]);
+      ], workingDirectory: tempDir.path);
       await process.shouldExit(0);
 
       final ignoreFile = File('${skillDir.path}/$defaultIgnoreFileName');
@@ -63,23 +70,30 @@ void main() {
       await File(
         '${skillDir.path}/SKILL.md',
       ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
+      // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/18
+      final configFile = File('${tempDir.path}/skills_lint.yaml');
+      await configFile.writeAsString('''
+skills_lint:
+  rules:
+    check-relative-paths: error
+''');
 
       final TestProcess genProcess = await TestProcess.start('dart', [
-        'bin/skills_lint.dart',
+        p.normalize(p.absolute('bin/skills_lint.dart')),
         '-s',
-        skillDir.path,
+        'test-skill',
         '--generate-baseline',
-      ]);
+      ], workingDirectory: tempDir.path);
       await genProcess.shouldExit(0);
 
       final ignoreFile = File('${skillDir.path}/$defaultIgnoreFileName');
       expect(ignoreFile.existsSync(), isTrue);
 
       final TestProcess runProcess = await TestProcess.start('dart', [
-        'bin/skills_lint.dart',
+        p.normalize(p.absolute('bin/skills_lint.dart')),
         '-s',
-        skillDir.path,
-      ]);
+        'test-skill',
+      ], workingDirectory: tempDir.path);
       await runProcess.shouldExit(0);
     });
 

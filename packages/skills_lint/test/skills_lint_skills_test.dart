@@ -18,16 +18,24 @@ void main() {
     );
 
     try {
-      // Load configuration from the default file (skills_lint.yaml)
+      // Load configuration from the repository root skills_lint.yaml
       // to mirror what is configured in the repository.
-      final Configuration config = await ConfigParser.loadConfig();
+      final Configuration config = await ConfigParser.loadConfig(path: '../../skills_lint.yaml');
       expect(
         config.directoryConfigs,
         isNotEmpty,
         reason: 'Configuration directoryConfigs should not be empty.',
       );
 
-      final bool isValid = await validateSkills(config: config);
+      final bool isValid = await validateSkills(
+        skillDirPaths: [
+          '../../.agents/skills',
+          'skills',
+          'example/skills/invalid',
+          'example/skills/valid',
+        ],
+        config: config,
+      );
       expect(isValid, isTrue, reason: 'Skills validation failed. See above for details.');
     } finally {
       Logger.root.level = oldLevel;
