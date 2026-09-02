@@ -19,7 +19,6 @@ void main() {
 
       final List<File> evalsFiles = [
         ..._findEvalsFiles(Directory(p.join(packageRoot, 'skills'))),
-        ..._findEvalsFiles(Directory(p.join(packageRoot, '.agents', 'skills'))),
         ..._findEvalsFiles(
           Directory(p.normalize(p.join(packageRoot, '..', '..', '.agents', 'skills'))),
         ),
