@@ -22,6 +22,16 @@
       "expected_repo_state": [
         "The evaluation artifact explicitly flags that all eval quality criteria passed successfully without any failures."
       ]
+    },
+    {
+      "id": 3,
+      "prompt": "Grade the evaluation suite in 'evals/test_data/subjective_evals/evals.json' using eval_quality_rubric.json.",
+      "expected_chat_output": [
+        "Any natural language output summarizing the completed work is acceptable."
+      ],
+      "expected_repo_state": [
+        "The evaluation artifact explicitly flags a failure for binary repo state assertions due to vague, non-binary, or subjective criteria."
+      ]
     }
   ]
 }
