@@ -70,4 +70,4 @@ Use the `/run-evals` skill to run evaluations. All execution logic, subagent dis
 ### 3. Testing Meta-Evals (Testing the Rubrics)
 To ensure our universal rubrics correctly catch anti-patterns (and permit clean code), standalone cross-skill evaluations are defined as `evals/*_evals.json` files (e.g., `evals/code_quality_rubric_evals.json`). These files contain evals strictly intended to grade static fixtures located in `evals/test_data/`.
 
-To run the meta-evals and verify the rubrics, invoke `/run-evals content` on the standalone `code_quality_rubric_evals.json` file.
+Note: Default `/run-evals` discovery explicitly ignores `evals/test_data/**` fixtures so that fixture evals are never executed as live skill tests. To run meta-evals and verify rubrics, explicitly target the standalone rubric evaluation file: `/run-evals content evals/code_quality_rubric_evals.json` or `/run-evals content evals/eval_quality_rubric_evals.json`.
