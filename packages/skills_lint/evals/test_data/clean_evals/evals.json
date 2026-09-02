@@ -1,0 +1,25 @@
+{
+  "repo_criteria": [],
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Run the evals for the definition-of-done skill.",
+      "expected_chat_output": [
+        "Natural language summary."
+      ],
+      "expected_repo_state": [
+        "Results recorded in artifact."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Run an A/B benchmark evaluation comparing definition-of-done against baseline.",
+      "expected_chat_output": [
+        "Natural language summary."
+      ],
+      "expected_repo_state": [
+        "Both subagents spawned."
+      ]
+    }
+  ]
+}

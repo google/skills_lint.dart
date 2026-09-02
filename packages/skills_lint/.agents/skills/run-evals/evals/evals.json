@@ -74,20 +74,6 @@
       "expected_repo_state": [
         "No files in the active developer working tree are polluted or modified."
       ]
-    },
-    {
-      "id": 7,
-      "prompt": "Run the evals for the definition-of-done skill and verify that execution metadata is recorded in the output artifact.",
-      "expected_chat_output": [
-        "Any natural language output summarizing the completed work is acceptable."
-      ],
-      "expected_repo_state": [
-        "There is an artifact with the evaluation results.",
-        "The evaluation artifact records the model name used when available.",
-        "The evaluation artifact records the effort level when available.",
-        "The evaluation artifact records the agent configuration used when available.",
-        "No files are modified in the parent workspace after the eval is done running (all modifications must be confined to the isolated subagent worktree)."
-      ]
     }
   ]
 }

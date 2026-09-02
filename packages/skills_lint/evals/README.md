@@ -14,6 +14,7 @@ Architecture, rubrics, and instructions for evaluating AI agent skills authored 
 - Trivial syntax formatting that `dart format` already fixes perfectly.
 - Complete system architectures that take longer than a few minutes to generate and verify.
 - Skills that are outside the scope of `skills_lint` (e.g. general flutter app creation).
+- Duplicate evaluation scenarios without introducing distinct conditions (e.g., testing the exact same workflow multiple times with redundant assertions).
 
 ## Core Principles & Architecture
 
@@ -33,11 +34,17 @@ Evaluates **Workflow Execution & Workspace Mutations**: tests multi-turn sandbox
 - **`repo_criteria`**: Array of relative file paths to shared universal quality rubrics (e.g., `["evals/code_quality_rubric.json"]`).
 - **`agent_config`** *(Deprecated)*: Ignored by evaluation runners.
 
+#### Minimal & Orthogonal Evaluations
+- **Extend Existing Cases**: When an evaluation requirement applies universally across standard workflows (e.g., verifying artifact metadata, checking status summaries, or asserting general state invariants), update the assertions on existing baseline evals rather than creating a duplicate scenario.
+- **Create New Evals**: Only create a new `evals.json` entry when testing a **distinct workflow branch, failure mode, isolation strategy, or CLI flag**.
+- **Avoid Duplication**: Do NOT author multiple eval cases that share the same target action without introducing distinct scenario conditions.
+
 ### Cross-Skill Rubrics (`evals/*_rubric.json`)
 Universal skill quality expectations are structured into modular rubric classes that apply broadly across skills.
 
 ## Cross-Cutting Rules
-Skills that author or modify code MUST adhere to the universal code quality expectations defined in `code_quality_rubric.json`. This ensures that generated code compiles cleanly, adheres to Effective Dart, works across platforms, and is placed in standard canonical directories.
+- **Code Quality**: Skills that author or modify code MUST adhere to the universal code quality expectations defined in `code_quality_rubric.json`. This ensures that generated code compiles cleanly, adheres to Effective Dart, works across platforms, and is placed in standard canonical directories.
+- **Evaluation Quality**: Skills that author or modify evaluation suites MUST adhere to `eval_quality_rubric.json`, ensuring evaluations remain minimal, orthogonal, and free of redundant duplicate scenarios.
 
 ## 🚀 Running & Validating Evals Locally
 
