@@ -76,14 +76,14 @@ Future<void> _testAllEvalsShareConsistentStructure() async {
 
 Future<void> _testPublishedSkillsHaveEvals() async {
   final String packageRoot = await _resolvePackageRoot();
-  final Directory skillsDir = Directory(p.join(packageRoot, 'skills'));
+  final skillsDir = Directory(p.join(packageRoot, 'skills'));
   if (!skillsDir.existsSync()) {
     return;
   }
 
   final List<Directory> skillDirs = skillsDir.listSync().whereType<Directory>().toList();
-  for (final Directory skillDir in skillDirs) {
-    final File evalsFile = File(p.join(skillDir.path, 'evals', 'evals.json'));
+  for (final skillDir in skillDirs) {
+    final evalsFile = File(p.join(skillDir.path, 'evals', 'evals.json'));
     expect(
       evalsFile.existsSync(),
       isTrue,
@@ -95,7 +95,7 @@ Future<void> _testPublishedSkillsHaveEvals() async {
 
 Future<void> _testRubricsShareConsistentStructure() async {
   final String packageRoot = await _resolvePackageRoot();
-  final Directory rubricsDir = Directory(p.join(packageRoot, 'evals'));
+  final rubricsDir = Directory(p.join(packageRoot, 'evals'));
   if (!rubricsDir.existsSync()) {
     return;
   }
@@ -117,12 +117,11 @@ Future<void> _testTestDataReferencesExist() async {
   final String packageRoot = await _resolvePackageRoot();
   final List<File> evalsFiles = await _getAllEvalsFiles();
 
-  for (final File file in evalsFiles) {
-    final Map<String, dynamic> decoded =
-        jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-    final List<dynamic> items = decoded['evals'] as List<dynamic>;
-    for (final dynamic item in items) {
-      final Map<String, dynamic> itemMap = item as Map<String, dynamic>;
+  for (final file in evalsFiles) {
+    final decoded = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+    final items = decoded['evals'] as List<dynamic>;
+    for (final item in items) {
+      final itemMap = item as Map<String, dynamic>;
       final Object? testData = itemMap['test_data'];
       _verifyTestDataTarget(packageRoot, file.path, testData);
     }
@@ -151,9 +150,8 @@ void _verifyTestDataTarget(String packageRoot, String filePath, Object? testData
 
 Future<void> _testRootTestDataIsBoolean() async {
   final List<File> evalsFiles = await _getAllEvalsFiles();
-  for (final File file in evalsFiles) {
-    final Map<String, dynamic> decoded =
-        jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  for (final file in evalsFiles) {
+    final decoded = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
     if (decoded.containsKey('test_data')) {
       expect(
         decoded['test_data'],
