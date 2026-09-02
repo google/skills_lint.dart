@@ -53,7 +53,7 @@ dart test test/skills_evals_test.dart
 ```
 
 ### 2. Running Evals via Agent Orchestration (`/run-evals`)
-Use the `/run-evals` skill to run evaluations. All execution logic, subagent dispatch, and Turn-1 interception rules are defined directly in [`run-evals/SKILL.md`](../.agents/skills/run-evals/SKILL.md).
+Use the `/run-evals` skill to run evaluations. All execution logic, subagent dispatch, and Turn-1 interception rules are defined directly in [`run-evals/SKILL.md`](../../.agents/skills/run-evals/SKILL.md).
 
 * **Run Both (Default)**: `/run-evals [target_dir]`
 * **Run Trigger Evaluations Only**: `/run-evals triggers [target_dir]`

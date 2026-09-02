@@ -41,3 +41,13 @@ dart run bench_press run --save baseline.json benchmark/
 dart run bench_press run --diff baseline.json benchmark/
 ```
 
+## Authoring Benchmarks
+
+### Workload Invariants and Name Changes
+When comparing benchmarks across git revisions or saved baselines using `--diff`:
+- `bench_press` matches benchmarks across runs by their unique identifier (`super('<name>')`).
+- The benchmark workload (such as element count $N$, synthetic file structure, or error permutations) must remain constant for a given benchmark identifier.
+- **Do not modify the workload ($N$) of an existing benchmark without changing its identifier name.** Changing the workload under the same name creates an invalid comparison where execution latency and throughput differences reflect changes to the test fixture rather than performance differences in the code under test.
+- If a benchmark's workload or scaling factor must change, update the identifier name (e.g. creating a new benchmark or incrementing the name) so `bench_press` treats it as a new measurement rather than diffing mismatched workloads.
+
+

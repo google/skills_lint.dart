@@ -16,7 +16,7 @@ third_party/skill-repos/
 │           └── SKILL.md
 ```
 
-Skills vendored here are symlinked into `packages/skills_lint/.agents/skills/` so agents working on the package can access them directly without additional setup.
+Skills vendored here are symlinked into `.agents/skills/` so agents working on the package can access them directly without additional setup.
 
 ## Managing Vendored Skills
 
@@ -34,10 +34,10 @@ All skill operations use the official Dart `skills` package (`dart install skill
    skills add <upstream-repo> --skill <skill-name> --agent generic
    ```
 
-3. Create a relative symlink from `packages/skills_lint/.agents/skills/`:
+3. Create a relative symlink from `.agents/skills/`:
    ```bash
-   cd ../../packages/skills_lint/.agents/skills
-   ln -s ../../../../third_party/skill-repos/<repo-slug>/.agents/skills/<skill-name> <skill-name>
+   cd ../../.agents/skills
+   ln -s ../../third_party/skill-repos/<repo-slug>/.agents/skills/<skill-name> <skill-name>
    ```
 
 4. Stage and commit the vendored files, updated `.config/dart_skills/skills_config.json`, and the new symlink.
@@ -57,10 +57,10 @@ All skill operations use the official Dart `skills` package (`dart install skill
    skills add <upstream-repo> --skill <skill-name> --agent generic
    ```
 
-4. Create relative symlink(s) in `packages/skills_lint/.agents/skills/`:
+4. Create relative symlink(s) in `.agents/skills/`:
    ```bash
-   cd ../../packages/skills_lint/.agents/skills
-   ln -s ../../../../third_party/skill-repos/<new-repo-slug>/.agents/skills/<skill-name> <skill-name>
+   cd ../../.agents/skills
+   ln -s ../../third_party/skill-repos/<new-repo-slug>/.agents/skills/<skill-name> <skill-name>
    ```
 
 5. Stage and commit all newly added files and symlinks.

@@ -10,13 +10,13 @@ skills_lint:
           severity: error
           exclude: ".*-workspace"
       ignore_file: ".agents/skills/ignore.json"
-    - path: "skills"
+    - path: "packages/skills_lint/skills"
       rules:
         check-trailing-whitespace: error
-    - path: "example/skills/invalid"
+    - path: "packages/skills_lint/example/skills/invalid"
       rules:
         prevent-skills-sh-publishing: error
-    - path: "example/skills/valid"
+    - path: "packages/skills_lint/example/skills/valid"
       rules:
         prevent-skills-sh-publishing: error
   individual_skills:
