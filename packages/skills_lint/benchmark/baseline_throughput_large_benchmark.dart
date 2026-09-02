@@ -12,7 +12,7 @@ import 'package:skills_lint/skills_lint.dart';
 ///
 /// Tests performance and algorithmic scaling across a batch of synthetic skills
 /// with baseline-recordable errors, remaining safely within bench_press's 200ms threshold
-/// across all CI cloud runner architectures (including Windows).
+/// across all CI cloud runner architectures.
 final class BaselineThroughputLargeBenchmark extends AsyncBenchmark {
   BaselineThroughputLargeBenchmark() : super('baseline_throughput_large');
 
