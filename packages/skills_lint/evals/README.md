@@ -46,9 +46,9 @@ Evaluates **Workflow Execution & Workspace Mutations**: tests multi-turn sandbox
 ### Cross-Skill Rubrics (`evals/*_rubric.json`)
 Universal skill quality expectations are structured into modular rubric classes that apply broadly across skills.
 
-## Cross-Cutting Rules
-- **Code Quality**: Skills that author or modify code MUST adhere to the universal code quality expectations defined in `code_quality_rubric.json`. This ensures that generated code compiles cleanly, adheres to Effective Dart, works across platforms, and is placed in standard canonical directories.
+- **Universal Code Quality**: Skills that author or modify code MUST adhere to the universal code quality expectations defined in `code_quality_rubric.json`. This ensures that generated code compiles cleanly, adheres to Effective Dart, works across platforms, and is placed in standard canonical directories.
 - **Evaluation Quality**: Skills that author or modify evaluation suites MUST adhere to `eval_quality_rubric.json`.
+- **Dart-Only Implementation Policy**: All test fixtures, validation scripts, evaluation harnesses, benchmark scripts, and reference tooling across this repository must be authored exclusively in Dart. Python, JavaScript, TypeScript, or other scripting languages are strictly forbidden.
 
 ## 🚀 Running & Validating Evals Locally
 

@@ -1,64 +1,108 @@
 # Architecture Overview: Agent Skills Linter (`skills_lint`)
 
-This document provides a high-level architectural overview of the `skills_lint` codebase. It outlines the project's components, execution flow, and design patterns used to validate Agent Skill specifications.
+This document provides a high-level architectural overview of the `skills_lint` codebase. It outlines the core architectural boundaries, execution lifecycle, durable design patterns, and rejected anti-patterns.
 
-## 🧱 Key Components
+## 🧱 Architectural Boundaries
 
-The codebase is organized into standard Dart package layers, separating CLI handling, validation logic, and data models.
+The system is organized into decoupled layers, separating command-line orchestration, configuration management, pure validation logic, and suppression persistence.
 
-### 🚗 1. CLI Entry Point (`lib/src/entry_point.dart`)
-The `entry_point.dart` file serves as the command-line interface. 
-- **Argument Parsing:** Uses standard `package:args` to parse input flags (`--skills-directory`, `--generate-baseline`, rules toggles, etc.).
-- **Workspace Discovery:** Resolves target folders by searching standard locations (e.g., `.agents/skills`, `.claude/skills`) or parsing user arguments.
-- **Ignore System Integration:** Handlers for baseline ignore files (via `--ignore-file` or `skills_lint.yaml`) to filter out known failures without failing the build.
-- **Log Management:** Consumes validation reports and standardizes format for terminal display (stdout vs stderr).
+### 1. CLI & Orchestration Layer
+The orchestration layer manages the execution session from invocation to termination.
+- **Invocation & Environment Discovery:** Parses command-line inputs, discovers target skill directories (resolving workspace defaults when no explicit targets are provided), and manages process exit codes.
+- **Session Coordination:** Coordinates validation across multiple targets, manages execution flags (such as fast-fail and output verbosity), and oversees the lifecycle of automated fixes and baseline generation.
+- **Console Reporting:** Formats structured validation diagnostics into user-facing console output, diff previews, and exit signals.
 
-### ⚙️ 2. Configuration Parser (`lib/src/config_parser.dart`)
-- Loads user-defined custom settings from `skills_lint.yaml` if it exists.
-- Maps directory-specific rules overrides and toggles severity defaults.
+### 2. Configuration & Resolution Engine
+Responsible for loading, validating, and resolving user settings across different scopes.
+- **Schema & Target Parsing:** Loads repository-level configuration and parses per-directory or per-skill overrides.
+- **Hierarchical Precedence:** Resolves effective rule sets and parameter values deterministically by layering scopes: CLI overrides take highest precedence, followed by path-specific target configurations, global repository configurations, and built-in defaults.
 
-### 🛡️ 3. Validation Engine (`lib/src/validator.dart`)
-The core motor of the package.
-- Scans `SKILL.md` using regular expressions (`dotAll: true`) to extract Frontmatter.
-- Delegates to sub-routines for checking:
-  - **Directory structure:** Correct place and flat tree constraints.
-  - **Field constraints:** Descriptions vs name match.
-  - **Relational properties:** Verifies relative links resolve correctly on disk.
-- Outputs `ValidationResult` objects wrapping aggregates of `ValidationError`.
+### 3. Stateless Validation Engine
+The core analysis engine responsible for inspecting individual skills.
+- **Context Extraction:** Ingests skill directories, parses metadata frontmatter and Markdown content into structured representations, and captures low-level parsing or syntax errors.
+- **Rule Dispatch:** Iterates over the active rules for a given skill context and aggregates emitted diagnostic results.
+- **Purity & Isolation:** Operates as a pure analysis unit without side effects, remaining entirely decoupled from CLI arguments, terminal I/O, or session orchestration.
 
-### 📜 4. Predefined Rules templates (`lib/src/rule_registry.dart` and `lib/src/rules/`)
-Contains global definitions for standard checks. Uses standard types (`CheckType`) allowing toggling and severity states.
+### 4. Rule Subsystem & Extensibility
+The extensible framework for authoring and running skill checks.
+- **Diagnostic Rules:** Independent rule checkers that validate specific constraints (such as metadata schemas, directory layout, path portability, and naming conventions).
+- **Auto-Fix Interface:** Rules that support automated remediation define pure transformation operations, taking current file content and returning modified content without directly touching the filesystem.
 
-### 📦 5. Core Data Models (`lib/src/models/`)
-- **`ValidationError`:** Complex error object recording rule IDs, messages, severity contexts, and ignore statuses.
-- **`CheckType`:** A schema binding check descriptions to severity settings.
-- **`IgnoreEntry`:** Structure for serializing/deserializing file suppressions to/from JSON.
+### 5. Baseline & Suppression Subsystem
+The persistent suppression mechanism enabling incremental adoption and legacy skill management.
+- **Structured Suppressions:** Stores and matches ignored diagnostics using structured identifiers and file paths rather than brittle free-form string matching.
+- **Lifecycle Tracking:** Records new baseline entries when requested and tracks active suppression usage during lint runs to report stale or obsolete entries.
 
 ---
 
 ## ⏳ Execution Lifecycle
 
-A typical run of the linter follows this sequential graph:
+The high-level lifecycle follows a staged pipeline:
 
 ```mermaid
-graph TD
-    Start([CLI - runApp]) --> ArgParse[Parse ARGs & Load config.yaml]
-    ArgParse --> Discover[Resolve Target Directories]
-    Discover --> ValidatorLoad[Instantiate Validator w/ Settings]
-    ValidatorLoad --> DirLoop[Iterate Directories]
-    DirLoop --> Validation[Run validator.validate]
-    Validation --> ParseFront[YAML Frontmatter Parsing]
-    ParseFront --> RuleChecks[Run Field + Path Checks]
-    RuleChecks --> ResultAggregate[Compile ValidationError List]
-    ResultAggregate --> IgnoreFilter[Apply baseline ignore file filters]
-    IgnoreFilter --> LogOutput[Print to console & Set exitCode]
-    LogOutput --> Next{Next Dir?}
-    Next -- Yes --> DirLoop
-    Next -- No --> Finish([Exit Term])
+sequenceDiagram
+    autonumber
+    participant CLI as CLI & Orchestrator
+    participant Config as Config Engine
+    participant Engine as Validation Engine
+    participant Rules as Rule Subsystem
+    participant Baseline as Baseline Subsystem
+
+    CLI->>Config: Load and resolve configuration
+    Config-->>CLI: Effective configuration & target definitions
+    
+    loop For each Skill Target
+        CLI->>Baseline: Load baseline suppressions
+        CLI->>Engine: Run validation for skill target
+        Engine->>Rules: Execute active rules against skill context
+        Rules-->>Engine: Raw diagnostic violations
+        Engine-->>CLI: Validation results
+        CLI->>Baseline: Apply suppressions & track rule usage
+        
+        alt Fix Mode Enabled
+            CLI->>Rules: Compute proposed fixes in memory
+            Rules-->>CLI: Transformed content
+            alt Dry Run
+                CLI->>CLI: Render diff preview to stdout
+            else Apply
+                CLI->>CLI: Write updated files to disk
+                CLI->>Engine: Re-validate to verify fix correctness
+            end
+        end
+    end
+
+    alt Baseline Generation Mode
+        CLI->>Baseline: Persist unsuppressed violations to baseline file
+    end
+
+    CLI->>CLI: Output diagnostic report & determine process exit code
 ```
 
-## 🧠 Design Principles
+---
 
-- **Separation of Concerns:** CLI runners are isolated from pure validation units. The `Validator` takes objects and doesn't know about `ArgResults`.
-- **Stateless Configuration vs Overrides:** When running against a workspace with specific subdirectory traits, the `Validator` instances are re-instantiated with isolated context bindings so properties do not leak.
-- **Context Preservation:** Standardizing lint exceptions (Ignore Systems) as structural objects rather than ad-hoc string matches prevent brittle regressions.
+## 🧠 Durable Design Patterns
+
+1. **Separation of Validation from Orchestration**  
+   The validation engine and individual rules are pure, deterministic functions of a skill's filesystem state. They never interact with terminal streams, environment variables, or process lifecycles. All output formatting, fix persistence, diff rendering, and exit code determination belong exclusively to the orchestrator.
+
+2. **Deterministic Layered Inheritance**  
+   Configuration settings and rule parameters merge cleanly across scopes. Narrower scopes (e.g., target-specific settings or CLI flags) override broader defaults without unintentionally resetting unrelated sibling parameters.
+
+3. **Two-Phase Fix & Verification Lifecycle**  
+   Remediation is always split into two distinct phases: in-memory transformation and subsequent re-validation. Rules produce candidate fixes as data rather than performing disk writes. When fixes are applied, the orchestrator immediately re-validates the target to ensure the fix resolved the error without introducing regressions.
+
+4. **Structured Baseline Auditing**  
+   Suppression baselines rely on stable rule identifiers and relative file paths rather than fragile log message matching. Baselines are actively audited during execution to identify stale suppressions when violations are fixed.
+
+---
+
+## 🚫 Rejected Anti-Patterns & Common Pitfalls
+
+The following patterns have been explicitly rejected in this codebase:
+
+- **Leaking CLI or Process State into Rules:** Rules must never inspect command-line arguments, environment variables, or global process state. All required context and configuration must be passed via structured context and parameter objects.
+- **In-Place File Mutations Inside Rules:** Rules must never perform raw disk writes, delete files, or execute subprocesses during validation. Auto-fixing rules must return proposed modifications to the orchestrator.
+- **Brittle Message Matching for Suppressions:** Never match error messages or log text to filter suppressions. Suppressions must always use structured rule IDs and file boundaries.
+- **Platform-Dependent Path Handling:** Hardcoded path separators (such as `/` or `\`) or assumptions about POSIX shell behavior break Windows compatibility. All path operations must use platform-agnostic path utilities.
+- **Non-Dart Tooling & Scripts:** Introducing Python, shell, or JavaScript scripts for test harnesses, evaluation fixtures, or developer automation violates the repository-wide Dart-only policy. All automation and tooling must be authored in Dart.
+- **Ad-Hoc Magic Literals:** Hardcoding CLI flags, YAML keys, configuration names, or diagnostic identifiers inline creates maintenance drift. All identifiers, options, and error codes must be defined as centralized constants.
