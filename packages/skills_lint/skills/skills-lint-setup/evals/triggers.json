@@ -1,5 +1,5 @@
 {
-  "skill": "dart-skills-lint-setup",
+  "skill": "skills-lint-setup",
   "positive_triggers": [
     "Initialize skills_lint in our Dart repository for the first time",
     "Add skills_lint to dev_dependencies and generate the initial skills_lint.yaml config",

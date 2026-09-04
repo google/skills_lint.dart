@@ -71,7 +71,7 @@ void main() {
 `Validator` and `ValidationResult` are also exposed for tests that
 need to inspect errors programmatically. Custom rule authoring lives
 in the
-[`dart-skills-lint-validation`](skills/dart-skills-lint-validation/SKILL.md)
+[`skills-lint-validation`](packages/skills_lint/skills/skills-lint-validation/SKILL.md)
 skill.
 
 ## Testing and coverage

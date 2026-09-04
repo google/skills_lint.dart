@@ -197,7 +197,7 @@ This ensures that you can always override configuration file settings for a spec
 ### 3. Custom Rules
 
 Custom rule authoring lives in the
-[`dart-skills-lint-validation`](skills/dart-skills-lint-validation/SKILL.md)
+[`skills-lint-validation`](skills/skills-lint-validation/SKILL.md)
 skill — that skill walks through extending `SkillRule` and passing the
 rule into the linter.
 
@@ -282,16 +282,16 @@ If you're using Claude Code, Gemini, or another agent that can read
 repository-local skills, paste the following prompt to have the agent
 install and validate `skills_lint` for you. The agent will
 follow the
-[`dart-skills-lint-setup`](skills/dart-skills-lint-setup/SKILL.md)
+[`skills-lint-setup`](skills/skills-lint-setup/SKILL.md)
 skill for first-time wiring, then the
-[`dart-skills-lint-validation`](skills/dart-skills-lint-validation/SKILL.md)
+[`skills-lint-validation`](skills/skills-lint-validation/SKILL.md)
 skill to run the linter and resolve any failures.
 
 > Set up skills_lint in this project. Use the skill at
-> `skills/dart-skills-lint-setup/SKILL.md`
+> `skills/skills-lint-setup/SKILL.md`
 > to add it as a dev_dependency, create the configuration file,
 > and wire it into CI. Then use the skill at
-> `skills/dart-skills-lint-validation/SKILL.md`
+> `skills/skills-lint-validation/SKILL.md`
 > to run the linter and resolve any failures.
 
 ## Contributing

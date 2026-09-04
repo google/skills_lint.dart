@@ -51,12 +51,12 @@ void main() {
       final String recipesSection = readme.substring(recipesIdx);
       expect(
         recipesSection,
-        contains('skills/dart-skills-lint-setup/SKILL.md'),
+        contains('skills/skills-lint-setup/SKILL.md'),
         reason: 'agent recipe lost its pointer to the setup skill',
       );
       expect(
         recipesSection,
-        contains('skills/dart-skills-lint-validation/SKILL.md'),
+        contains('skills/skills-lint-validation/SKILL.md'),
         reason: 'agent recipe lost its pointer to the validation skill',
       );
     });
