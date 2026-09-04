@@ -14,7 +14,7 @@ const Set<String> optionalRootKeys = {'repo_criteria', 'test_data', 'type'};
 
 /// Optional item keys permitted across all `evals.json` and rubric files.
 /// Maintainers can add optional keys to this set.
-const Set<String> optionalItemKeys = {'agent_config', 'test_data'};
+const Set<String> optionalItemKeys = {'test_data'};
 
 void main() {
   group('Evals structure consistency', () {
@@ -248,9 +248,9 @@ Future<void> _testTypeKeyValidValues() async {
     if (decoded.containsKey('type')) {
       expect(
         decoded['type'],
-        isIn(['audit', 'content', 'triggers']),
+        isIn(['audit', 'content']),
         reason:
-            'Root "type" in ${file.path} must be one of: "audit", "content", "triggers" '
+            'Root "type" in ${file.path} must be one of: "audit", "content" '
             '(found: ${decoded['type']}).',
       );
     }

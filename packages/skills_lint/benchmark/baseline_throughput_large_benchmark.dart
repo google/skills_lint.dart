@@ -8,11 +8,11 @@ import 'package:bench_press/bench_press.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 
+// TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/23 Disable in CI or replace microbenchmark calibration with macro-benchmarking to eliminate latency calibration flakiness.
 /// Large-scale benchmark for baseline generation throughput.
 ///
 /// Tests performance and algorithmic scaling across a batch of synthetic skills
 /// with baseline-recordable errors across CI runner architectures.
-// TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/23 Disable in CI or replace microbenchmark calibration with macro-benchmarking to eliminate latency calibration flakiness.
 final class BaselineThroughputLargeBenchmark extends AsyncBenchmark {
   BaselineThroughputLargeBenchmark() : super('baseline_throughput_large');
 

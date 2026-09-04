@@ -18,29 +18,35 @@ Architecture, rubrics, and instructions for evaluating AI agent skills authored 
 
 ## Core Principles & Architecture
 
-Evaluations in this repository support **two test types** to evaluate both intent routing and workflow completion:
+Evaluations in this repository support **three evaluation modes** across static quality audit, intent routing, and workflow completion:
 
-### 1. Trigger Evals (`<skill_dir>/evals/triggers.json`)
+### 1. Audit Evals (`evals/*_rubric.json` / `<skill_dir>/evals/evals.json`)
+Evaluates **Static Quality & Schema Consistency**: statically audits evaluation suites against quality rubrics declared in `repo_criteria` before task execution.
+
+### 2. Trigger Evals (`<skill_dir>/evals/triggers.json`)
 Evaluates **Intent Routing & Skill Discovery**: tests how AI agent intent routers discover and select skills from the active skills catalog before full workflow execution begins.
 - **`skill`**: Name of the target skill.
 - **`positive_triggers`**: Array of in-domain user prompts that MUST activate this skill.
 - **`distractors`**: Array of out-of-domain or boundary prompts that must NOT activate this skill.
 
-### 2. Content Evals (`<skill_dir>/evals/evals.json`)
+### 3. Content Evals (`<skill_dir>/evals/evals.json`)
 Evaluates **Workflow Execution & Workspace Mutations**: tests multi-turn sandbox sessions to verify the agent produces expected chat outputs and repository mutations.
 - **`prompt`**: Realistic user prompt testing primary or edge-case workflows.
 - **`expected_chat_output`**: High-level narrative summary of what the LLM should say/give to the user.
 - **`expected_repo_state`**: Array of discrete, testable assertions regarding the end state of the repository and tracked files.
+
+### Evaluation File & Rubric Schema
+Evaluation suites and shared rubrics share common configuration properties:
 - **`repo_criteria`**: Array of relative file paths to shared universal quality rubrics (such as `["evals/code_quality_rubric.json"]`).
-- **`type`** *(Optional)*: Evaluation mode (`"audit"`, `"content"`, or `"triggers"`). Declares the execution stage for the suite or rubric. If omitted, structural inference applies (`positive_triggers` -> triggers, `prompt` -> content, criteria assertions only -> content rubric).
+- **`type`** *(Optional)*: Evaluation mode (`"audit"` or `"content"`). Declares the execution stage for the suite or rubric. If omitted, structural inference applies (`positive_triggers` -> triggers, `prompt` -> content, criteria assertions only -> content rubric).
 - **`test_data`** *(Optional)*:
-  - At the root level of `evals.json`: A boolean (`true` or `false`). Setting `"test_data": true` marks the file as static fixture or meta-evaluation data, instructing runners to skip it during default discovery sweeps.
+  - At the root level of `evals.json` or rubric files: A boolean (`true` or `false`). Setting `"test_data": true` marks the file as static fixture or meta-evaluation data, instructing runners to skip it during default discovery sweeps.
   - Within an individual eval item: A relative file path or directory string pointing to static test fixture inputs used during that evaluation.
 - **`agent_config`** *(Deprecated)*: Ignored by evaluation runners.
 
 #### Minimal & Orthogonal Evaluations
-- **Extend Existing Evals**: When an evaluation requirement applies across existing workflows (such as artifact metadata or output formatting), update the assertions on existing evals rather than creating a duplicate scenario.
-- **Authoring Additional Evaluations**: Only create an evaluation entry when testing a distinct scenario or behavior not covered by existing evaluations.
+- **Extend Established Evals**: When an evaluation requirement applies across established workflows (such as artifact metadata or output formatting), update the assertions on established evals rather than creating a duplicate scenario.
+- **Authoring Additional Evaluations**: Only create an evaluation entry when testing a distinct scenario or behavior not covered by established evaluations.
 - **Avoid Duplication**: Do NOT author multiple eval cases that test the same scenario without distinct conditions.
 - **Concrete vs. Flexible Assertions**: `expected_repo_state` assertions must be concrete, binary statements that are definitively true or false based on verifiable files, diffs, or command outputs (avoiding open-ended or subjective criteria). `expected_chat_output` should remain flexible to natural language variations unless a strict output structure or checklist format is required.
 

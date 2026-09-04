@@ -33,12 +33,12 @@
     },
     {
       "id": 3,
-      "prompt": "/run-evals triggers definition-of-done",
+      "prompt": "/run-evals triggers dart-skills-lint-validation",
       "expected_chat_output": [
-        "The chat output summarizes trigger routing accuracy and distractor rejection for the definition-of-done skill with Turn-1 cutoff."
+        "The chat output summarizes trigger routing accuracy and distractor rejection for the dart-skills-lint-validation skill with Turn-1 cutoff."
       ],
       "expected_repo_state": [
-        "The agent triggered subagents to test definition-of-done trigger prompts and terminated them after Turn 1.",
+        "The agent triggered subagents to test dart-skills-lint-validation trigger prompts and terminated them after Turn 1.",
         "Trigger prompts for other skills were not executed.",
         "There is an artifact with the trigger evaluation results.",
         "No files are modified in the parent workspace after evaluation completes."

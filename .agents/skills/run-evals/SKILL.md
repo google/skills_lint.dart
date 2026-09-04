@@ -1,7 +1,7 @@
 ---
 name: run-evals
 description: |-
-  Run evaluations for one, multiple, or all skills using the agent orchestration framework. Supports three evaluation modes: audit evaluations (eval_quality_rubric.json), trigger evaluations (triggers.json), and content evaluations (evals.json). Runs all three modes and generates a comprehensive evaluation report across all stages.
+  Executes AI agent skill evaluations with staged execution pipelines and data-driven discovery. Requires a reserved keyword (content, triggers, audit, all, help); running without arguments displays the CLI usage guide.
 metadata:
   internal: true
 ---
@@ -38,7 +38,8 @@ The evaluation framework uses data structure, rather than directory layout or ha
    - **Fallback Inference**: If `"type"` is omitted, structural inference applies: suites containing `positive_triggers` run as triggers, suites containing `prompt` run as content, and files containing only criteria assertions run as content rubrics.
 2. **Pure Data-Driven Discovery (`"test_data": true`)**:
    - The root-level `"test_data": true` boolean in any JSON file marks it as test fixture or meta-evaluation data.
-   - Default discovery sweeps (`/run-evals content`, `/run-evals triggers`, `/run-evals audit`) without `all` skip any file containing `"test_data": true` at its root, regardless of directory location.
+   - **Discovery Scope**: Discovery searches only top-level skill directories (`<package>/skills/<skill>/evals/evals.json`, `.agents/skills/<skill>/evals/evals.json`) and top-level meta-eval files (`<package>/evals/*_evals.json`). Any nested files inside `test_data/` or `resources/` subdirectories are inert fixture inputs and are never discovered as test suites.
+   - Default discovery sweeps (`/run-evals content`, `/run-evals triggers`, `/run-evals audit`) without `all` skip any suite containing `"test_data": true` at its root.
    - **Full Pipeline (`/run-evals all [skill]`)**: Runs all evaluation stages (**Audit -> Triggers -> Content**) across all skills (or a specified target `<skill>`), including suites and meta-evals marked with `"test_data": true`.
    - **Mode-Specific Discovery (`/run-evals <mode> all`)**: Passing `all` to a single evaluation mode (such as `/run-evals content all`, `/run-evals triggers all`, or `/run-evals audit all`) runs **only** that specific mode, but expands discovery to also include suites and fixtures marked with `"test_data": true` for that mode.
    - **Explicit Target Invocations**: Specifying an explicit file target path (such as `/run-evals content packages/skills_lint/evals/code_quality_rubric_evals.json`) directly evaluates that targeted file, including files marked with `"test_data": true`.
@@ -55,9 +56,11 @@ When executing evaluation suites, the runner runs all stages across targeted ski
 ## Audit Evaluations (`/run-evals audit`)
 
 1. **Locate Targets**: Find target `evals/evals.json` files within `skills/` and `.agents/skills/`, or the specified explicit file path.
+   - **Target Resolution**: When given `<skill>`, resolve `.agents/skills/<skill>` first, falling back to `<target-package-root>/skills/<skill>`.
    - **Discovery Filter**: Exclude files marked with `"test_data": true` unless `all` or an explicit file target is provided.
-2. **Load Referenced Rubrics**: Inspect `repo_criteria` in each target `evals.json` and load only the referenced criteria files that declare `"type": "audit"` (or are structurally inferred as audit rubrics). If a target declares no audit rubrics in `repo_criteria`, skip static audit checks for that target.
-3. **Static Evaluation**: Statically inspect the target `evals.json` against the criteria assertions defined in the loaded audit rubric files without spawning execution subagents.
+2. **Load Referenced Rubrics**: Inspect `repo_criteria` in each target `evals.json` and load only the referenced criteria files that declare `"type": "audit"`. If a target declares no audit rubrics in `repo_criteria`, skip static audit checks for that target.
+3. **Static Evaluation**: Statically inspect the target `evals.json` against each criteria assertion defined in the loaded audit rubric files without spawning execution subagents.
+   - **Per-Item Test Data Meta-Evaluations**: If an eval item in a meta-eval suite (such as `eval_quality_rubric_evals.json`) specifies a per-item `"test_data"` file path, statically inspect the fixture file referenced in `test_data` against the audit rubric assertions.
 4. **Report Findings**: Output audit status. When running as part of a multi-stage pipeline, record all passed and failed assertions for each eval ID and proceed to the next stage.
 
 ---
@@ -65,6 +68,7 @@ When executing evaluation suites, the runner runs all stages across targeted ski
 ## Trigger Evaluations (`/run-evals triggers`)
 
 1. **Locate Triggers**: Find target `evals/triggers.json` files within `skills/` and/or `.agents/skills/`.
+   - **Target Resolution**: When given `<skill>`, resolve `.agents/skills/<skill>/evals/triggers.json` first, falling back to `<target-package-root>/skills/<skill>/evals/triggers.json`, and evaluate only that skill. When `all` or no skill is specified, discover all triggers across catalog.
 2. **Batch Dispatch**: For each positive trigger and distractor across the catalog, spawn a subagent in parallel:
    - Set `Role` to `Resolver-Eval-<SkillName>-<Idx>`.
    - Set `TypeName` to `self`.
@@ -83,7 +87,7 @@ When executing evaluation suites, the runner runs all stages across targeted ski
 ## Content Evaluations (`/run-evals content`)
 
 1. **Read Framework**: Read `<target-package-root>/evals/README.md` for understanding the difference between per-skill evals and cross-skill evals (where `<target-package-root>` is the directory containing the `.agents` or `skills` folder).
-2. **Locate Targets**: Find target `evals/evals.json` files inside `.agents/skills/` and/or `skills/`. For cross-skill evaluations, look for `*_evals.json` files directly in `<target-package-root>/evals/`. Note: Any evaluation suites marked with `"test_data": true` at the root of `evals.json` are static fixture data for meta-evaluations and are ignored by default `/run-evals` discovery.
+2. **Locate Targets**: Find target `evals/evals.json` files inside `.agents/skills/` and/or `skills/`. When given `<skill>`, resolve `.agents/skills/<skill>/evals/evals.json` first, falling back to `<target-package-root>/skills/<skill>/evals/evals.json`. For cross-skill evaluations, look for `*_evals.json` files directly in `<target-package-root>/evals/`. Note: Any evaluation suites marked with `"test_data": true` at the root of `evals.json` are static fixture data for meta-evaluations and are ignored by default `/run-evals` discovery.
 3. **Determine Agent Configuration**: The evaluation runner always inherits the active agent configuration/profile used in the chat where `/run-evals` was triggered (`TypeName: self`). When reporting metadata in output artifacts, record the human-readable active profile name rather than the literal parameter `"self"`. Any `agent_config` fields present in `evals.json` are ignored and have no effect on execution.
 4. **Orchestrate & Isolate**:
    - **Pre-flight & Strategy Selection**: Run `git rev-parse --show-toplevel` and `git rev-parse --show-prefix` to determine repository layout:
@@ -94,7 +98,7 @@ When executing evaluation suites, the runner runs all stages across targeted ski
      - Provide the task prompt. See [resources/with_skill_execution_prompt.md](resources/with_skill_execution_prompt.md) for the template. When filling in `<path-to-skill>`, you MUST use a relative path from the repository root, not an absolute path. If you are running a cross-skill evaluation, fill in `<path-to-skill>` with `"none (cross-skill meta-eval)"`. Also, replace `<target-package-root>` with the actual directory path in both templates.
      - **Only if the user explicitly requests a comparison or benchmark**, also spawn a **Baseline** subagent. See [resources/baseline_execution_prompt.md](resources/baseline_execution_prompt.md) for the template.
      - Instruct the subagent(s) to return their `git diff` and verification outputs (`dart pub get`, `dart format`, `dart analyze`, `dart test`) without committing. Ensure you instruct them to run these commands exclusively from within the `<target-package-root>` directory to avoid analyzing unrelated packages.
-5. **Grade**: Parse the combined rubric (resolving `repo_criteria` + `evals.json` expectations). Use the grading instructions in [resources/agent_judge_prompt.md](resources/agent_judge_prompt.md). When an expectation fails, you MUST explicitly list both the expectation and what was actually found that caused the failure.
+5. **Grade**: Parse the combined rubric (resolving referenced `"type": "content"` rubrics from `repo_criteria` + `evals.json` expectations). Use the grading instructions in [resources/agent_judge_prompt.md](resources/agent_judge_prompt.md). When an expectation fails, you MUST explicitly list both the expectation and what was actually found that caused the failure.
 6. **Artifact & Teardown**: Grade the outputs and generate a Markdown artifact (e.g., `<skill>_eval_results.md`) containing the metadata, pass/fail rationale, and raw diffs/stdout.
    - **Reporting Integrity & Execution Metadata**: When recording execution metadata in evaluation artifacts and pull request comments:
      - **Commit Hash**: Record the HEAD commit hash (`git rev-parse HEAD`) active at the time the evaluation was executed.
