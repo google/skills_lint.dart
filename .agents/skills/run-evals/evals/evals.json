@@ -17,12 +17,13 @@
     },
     {
       "id": 2,
-      "prompt": "Run the content evaluations for the definition-of-done skill using /run-evals content.",
+      "prompt": "Run the content evaluations for the definition-of-done skill using /run-evals content definition-of-done.",
       "expected_chat_output": [
-        "The chat output summarizes multi-turn content evaluation and grading results."
+        "The chat output summarizes content evaluation and grading results and does not include trigger or audit results."
       ],
       "expected_repo_state": [
         "The agent triggered subagents to execute content evaluation test cases in isolated workspaces.",
+        "Trigger routing evaluations and static audit checks were not executed.",
         "Evaluation discovery excludes test suites and fixtures marked with root-level test_data: true.",
         "There is an artifact with the evaluation results.",
         "The evaluation artifact records execution metadata including commit hash, resolved model name, and active agent profile.",
@@ -32,21 +33,22 @@
     },
     {
       "id": 3,
-      "prompt": "Run the trigger evaluations for the skills catalog using /run-evals triggers.",
+      "prompt": "Run the trigger evaluations for the definition-of-done skill using /run-evals triggers definition-of-done.",
       "expected_chat_output": [
-        "The chat output summarizes trigger routing accuracy and distractor rejection with Turn-1 cutoff."
+        "The chat output summarizes trigger routing accuracy and distractor rejection for the definition-of-done skill with Turn-1 cutoff."
       ],
       "expected_repo_state": [
-        "The agent triggered subagents to test trigger prompts and terminated them after Turn 1.",
+        "The agent triggered subagents to test definition-of-done trigger prompts and terminated them after Turn 1.",
+        "Trigger prompts for other skills were not executed.",
         "There is an artifact with the trigger evaluation results.",
         "No files are modified in the parent workspace after evaluation completes."
       ]
     },
     {
       "id": 4,
-      "prompt": "Run the audit evaluations for the definition-of-done skill using /run-evals audit.",
+      "prompt": "Run the audit evaluations for the definition-of-done skill using /run-evals audit definition-of-done.",
       "expected_chat_output": [
-        "The chat output summarizes static audit findings against eval_quality_rubric.json."
+        "The chat output summarizes static audit findings against eval_quality_rubric.json and does not include trigger or content results."
       ],
       "expected_repo_state": [
         "The evaluation inspected the target evals.json statically against eval_quality_rubric.json.",
@@ -58,20 +60,20 @@
     },
     {
       "id": 5,
-      "prompt": "Run /run-evals all to execute the full evaluation pipeline across all skills and test data suites.",
+      "prompt": "Run /run-evals content packages/skills_lint/evals/code_quality_rubric_evals.json to execute meta-evaluations targeting test fixtures.",
       "expected_chat_output": [
-        "The chat output summarizes results across audit, trigger, and content stages for all active skills and test data suites."
+        "The chat output summarizes content evaluation results for the targeted test data suite."
       ],
       "expected_repo_state": [
-        "The evaluation included test suites marked with root-level test_data: true.",
-        "The agent executed the multi-stage evaluation pipeline across the test targets.",
+        "The evaluation executed the test data suite marked with root-level test_data: true.",
+        "The evaluation artifact records results for the code quality criteria meta-evaluations.",
         "There is an artifact with the evaluation results.",
         "No files are modified in the parent workspace after evaluation completes."
       ]
     },
     {
       "id": 6,
-      "prompt": "Run an A/B benchmark evaluation for the definition-of-done skill using /run-evals content, comparing it explicitly against a baseline without the skill.",
+      "prompt": "Run an A/B benchmark evaluation for the definition-of-done skill using /run-evals content definition-of-done, comparing it explicitly against a baseline without the skill.",
       "expected_chat_output": [
         "The chat output summarizes comparison results between the with-skill agent and the baseline agent."
       ],
@@ -85,7 +87,7 @@
     },
     {
       "id": 7,
-      "prompt": "Run the content evaluations for the definition-of-done skill when the active workspace is a subpackage subdirectory rather than the repository root.",
+      "prompt": "Run the content evaluations for the definition-of-done skill using /run-evals content definition-of-done when the active workspace is a subpackage subdirectory rather than the repository root.",
       "expected_chat_output": [
         "The response selects the Isolated Git Worktree harness (Strategy B) targeting the relative package directory."
       ],

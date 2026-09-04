@@ -21,10 +21,10 @@ The runner requires one of the **5 reserved keywords** (`content`, `triggers`, `
 | Command | Target Scope | Description |
 | :--- | :--- | :--- |
 | `/run-evals` | **Usage Guide** (Default) | Displays this command reference guide and exits. |
-| `/run-evals content [all \| <target>]` | **Multi-Turn Content** | Runs task execution in isolated workspaces and grades workspace state against code quality standards (`evals/code_quality_rubric.json`). Accepts `all` or a specific skill/file path. |
+| `/run-evals content [all \| <skill \| file_path>]` | **Multi-Turn Content** | Runs task execution in isolated workspaces and grades workspace state against code quality standards (`evals/code_quality_rubric.json`). Accepts `all` or a specific skill/file path. |
 | `/run-evals triggers [all \| <skill>]` | **Trigger Router Test** | Evaluates intent routing and distractor rejection across `triggers.json` files with Turn-1 cutoff. Accepts `all` or a specific skill. |
-| `/run-evals audit [all \| <target>]` | **Static Audit** | Statically audits evaluation suites against evaluation quality standards (`evals/eval_quality_rubric.json`). Accepts `all` or a specific skill/file path. |
-| `/run-evals all` | **All Skills + Test Data** | Runs the full **Audit -> Triggers -> Content** staged pipeline across all skills, including suites and meta-evals marked with `"test_data": true`. |
+| `/run-evals audit [all \| <skill \| file_path>]` | **Static Audit** | Statically audits evaluation suites against evaluation quality standards (`evals/eval_quality_rubric.json`). Accepts `all` or a specific skill/file path. |
+| `/run-evals all [skill]` | **All Skills + Test Data** | Runs the full **Audit -> Triggers -> Content** staged pipeline across all skills (or a specified `<skill>`), including suites and meta-evals marked with `"test_data": true`. |
 | `/run-evals help` | **Usage Guide** | Displays this command reference and exits. |
 
 ### Data-Driven Execution Architecture
@@ -38,8 +38,10 @@ The evaluation framework uses data structure, rather than directory layout or ha
    - **Fallback Inference**: If `"type"` is omitted, structural inference applies: suites containing `positive_triggers` run as triggers, suites containing `prompt` run as content, and files containing only criteria assertions run as content rubrics.
 2. **Pure Data-Driven Discovery (`"test_data": true`)**:
    - The root-level `"test_data": true` boolean in any JSON file marks it as test fixture or meta-evaluation data.
-   - Default discovery (`/run-evals content`, `/run-evals triggers`, `/run-evals audit`) skips any file containing `"test_data": true` at its root, regardless of directory location.
-   - Passing `all` (`/run-evals all`, `/run-evals content all`, `/run-evals audit all`) or providing an explicit target path (such as `/run-evals content packages/skills_lint/evals/code_quality_rubric_evals.json`) includes files marked with `"test_data": true`.
+   - Default discovery sweeps (`/run-evals content`, `/run-evals triggers`, `/run-evals audit`) without `all` skip any file containing `"test_data": true` at its root, regardless of directory location.
+   - **Full Pipeline (`/run-evals all [skill]`)**: Runs all evaluation stages (**Audit -> Triggers -> Content**) across all skills (or a specified target `<skill>`), including suites and meta-evals marked with `"test_data": true`.
+   - **Mode-Specific Discovery (`/run-evals <mode> all`)**: Passing `all` to a single evaluation mode (such as `/run-evals content all`, `/run-evals triggers all`, or `/run-evals audit all`) runs **only** that specific mode, but expands discovery to also include suites and fixtures marked with `"test_data": true` for that mode.
+   - **Explicit Target Invocations**: Specifying an explicit file target path (such as `/run-evals content packages/skills_lint/evals/code_quality_rubric_evals.json`) directly evaluates that targeted file, including files marked with `"test_data": true`.
 
 ### Multi-Stage Pipeline: `Audit -> Triggers -> Content`
 When executing evaluation suites, the runner runs all stages across targeted skills and generates a comprehensive aggregate report:
