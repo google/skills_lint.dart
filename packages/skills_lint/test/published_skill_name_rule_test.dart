@@ -70,7 +70,9 @@ void main() {
           'Skill "dart-skills-lint-setup" does not follow the Dart package published skill naming convention for package "skills_lint".',
         ),
       );
-      expect(errors.first.message, contains('Suggested valid name: "skills-lint-setup"'));
+      expect(errors.first.message, contains('Published skills must start with "skills-lint-"'));
+      expect(errors.first.message, contains('Suggested name: "skills-lint-setup"'));
+      expect(errors.first.message, contains('Fix with:\n`mv '));
     });
 
     test('flags skill name missing package prefix and suggests valid name', () async {
@@ -84,7 +86,8 @@ void main() {
 
       final List<ValidationError> errors = await rule.validate(context);
       expect(errors, hasLength(1));
-      expect(errors.first.message, contains('Suggested valid name: "skills-lint-setup"'));
+      expect(errors.first.message, contains('Suggested name: "skills-lint-setup"'));
+      expect(errors.first.message, contains('Fix with:\n`mv '));
     });
 
     test('auto-discovers package name from ancestor pubspec.yaml', () async {
@@ -99,7 +102,7 @@ void main() {
       final List<ValidationError> errors = await rule.validate(context);
       expect(errors, hasLength(1));
       expect(errors.first.message, contains('package "my_awesome_pkg"'));
-      expect(errors.first.message, contains('Suggested valid name: "my-awesome-pkg-setup"'));
+      expect(errors.first.message, contains('Suggested name: "my-awesome-pkg-setup"'));
     });
 
     test('flags error when pubspec.yaml cannot be found and no package_name parameter', () async {
@@ -113,9 +116,7 @@ void main() {
       expect(errors, hasLength(1));
       expect(
         errors.first.message,
-        contains(
-          'Unable to resolve enclosing Dart package name: no pubspec.yaml found in ancestor directories',
-        ),
+        contains('Unable to resolve enclosing Dart package name. Add a pubspec.yaml'),
       );
     });
 
@@ -134,7 +135,7 @@ void main() {
       final List<ValidationError> errors = await rule.validate(context);
       expect(errors, hasLength(1));
       expect(errors.first.message, contains('package "custom_pkg"'));
-      expect(errors.first.message, contains('Suggested valid name: "custom-pkg-setup"'));
+      expect(errors.first.message, contains('Suggested name: "custom-pkg-setup"'));
     });
 
     test('skips when parsedYaml is null or yamlParsingError is present', () async {

@@ -5,6 +5,7 @@
 import 'dart:io';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart';
+import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
@@ -172,9 +173,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
 
     final int yamlOffset = currentContent.indexOf(yamlStr, match.start);
-
-    // ignore: specify_nonobvious_local_variable_types
-    final span = nameNode.span;
+    final SourceSpan span = nameNode.span;
     final String before = currentContent.substring(0, yamlOffset + span.start.offset);
     final String after = currentContent.substring(yamlOffset + span.end.offset);
 

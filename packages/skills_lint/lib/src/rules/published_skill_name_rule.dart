@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
+import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
 import '../fixable_rule.dart';
@@ -73,9 +74,10 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
           severity: severity,
           file: _skillFileName,
           message:
-              'Unable to resolve enclosing Dart package name: no pubspec.yaml '
-              'found in ancestor directories and no package_name parameter '
-              'was provided. (see $_specUrl)',
+              'Unable to resolve enclosing Dart package name. Add a '
+              'pubspec.yaml in an ancestor directory, configure the '
+              'package_name parameter in skills_lint.yaml, or disable the '
+              'published-skill-name rule.',
         ),
       );
       return errors;
@@ -89,6 +91,11 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
 
     if (!startsWithValidPrefix) {
       final String suggestedName = suggestValidName(skillName, resolvedPackageName);
+      final String dirPath = context.directory.path;
+      final String targetPath = p.join(p.dirname(dirPath), suggestedName);
+      final fixCommand = p.basename(dirPath) == suggestedName
+          ? 'dart run skills_lint --fix'
+          : 'mv $dirPath $targetPath';
       errors.add(
         ValidationError(
           ruleId: name,
@@ -97,8 +104,11 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
           message:
               'Skill "$skillName" does not follow the Dart package published skill '
               'naming convention for package "$resolvedPackageName". Published skills '
-              'must start with "$hyphenPrefix" or "$rawPrefix". '
-              'Suggested valid name: "$suggestedName" (see $_specUrl)',
+              'must start with "$hyphenPrefix". '
+              'Suggested name: "$suggestedName".\n'
+              'Fix with:\n'
+              '`$fixCommand`\n'
+              '(see $_specUrl)',
         ),
       );
     }
@@ -161,38 +171,38 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     return null;
   }
 
+  static final _hyphenTrimRegex = RegExp(r'^-+|-+$');
+
   /// Suggests a valid skill name complying with the package published skill naming convention.
+  ///
+  /// Examples:
+  /// * `suggestValidName('setup', 'skills_lint')` -> `'skills-lint-setup'`
+  /// * `suggestValidName('dart-skills-lint-setup', 'skills_lint')` -> `'skills-lint-setup'`
+  /// * `suggestValidName('skills_lint', 'skills_lint')` -> `'skills-lint'`
   @visibleForTesting
   static String suggestValidName(String currentName, String packageName) {
     final String hyphenPkg = packageName.replaceAll('_', '-').toLowerCase();
     final String rawPkg = packageName.toLowerCase();
     final String cleanName = currentName.trim().toLowerCase();
 
+    var remainder = cleanName;
     if (cleanName.contains(hyphenPkg)) {
       final int idx = cleanName.indexOf(hyphenPkg);
-      final String remainder = cleanName.substring(idx + hyphenPkg.length);
-      final String suffix = remainder.replaceAll(RegExp(r'^-+|-+$'), '');
-      if (suffix.isNotEmpty) {
-        return '$hyphenPkg-$suffix';
-      }
-      return hyphenPkg;
+      remainder = cleanName.substring(idx + hyphenPkg.length);
     } else if (cleanName.contains(rawPkg)) {
       final int idx = cleanName.indexOf(rawPkg);
-      final String remainder = cleanName.substring(idx + rawPkg.length);
-      final String suffix = remainder.replaceAll(RegExp(r'^-+|-+$'), '');
-      if (suffix.isNotEmpty) {
-        return '$hyphenPkg-$suffix';
-      }
-      return hyphenPkg;
-    } else {
-      final String suffix = cleanName.replaceAll(RegExp(r'^-+|-+$'), '');
-      if (suffix.isNotEmpty) {
-        return '$hyphenPkg-$suffix';
-      }
-      return hyphenPkg;
+      remainder = cleanName.substring(idx + rawPkg.length);
     }
+
+    final String suffix = remainder.replaceAll(_hyphenTrimRegex, '');
+    if (suffix.isNotEmpty) {
+      return '$hyphenPkg-$suffix';
+    }
+    return hyphenPkg;
   }
 
+  /// Rewrites the frontmatter `name:` in `SKILL.md` to the suggested
+  /// normalized published skill name (`<package-name>-<suffix>`).
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
     if (filePath != _skillFileName) {
@@ -242,8 +252,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
 
     final String suggestedName = suggestValidName(currentSkillName, resolvedPackageName);
     final int yamlOffset = currentContent.indexOf(yamlStr, match.start);
-    // ignore: specify_nonobvious_local_variable_types
-    final span = nameNode.span;
+    final SourceSpan span = nameNode.span;
     final String before = currentContent.substring(0, yamlOffset + span.start.offset);
     final String after = currentContent.substring(yamlOffset + span.end.offset);
 

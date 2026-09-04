@@ -758,7 +758,8 @@ Body''');
           'Skill "dart-test-pkg-setup" does not follow the Dart package published skill naming convention',
         ),
       );
-      expect(stderrStr, contains('Suggested valid name: "test-pkg-setup"'));
+      expect(stderrStr, contains('Suggested name: "test-pkg-setup"'));
+      expect(stderrStr, contains('Fix with:\n`mv '));
     });
   });
 }
