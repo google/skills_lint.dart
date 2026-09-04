@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:yaml/yaml.dart';
 
+/// Generates a raw YAML frontmatter string delimited by `---`.
 String buildFrontmatter({
   String name = 'Skill-Name',
   String description = 'A test skill',
@@ -36,7 +37,13 @@ Future<void> withTempDir(FutureOr<void> Function(Directory tempDir) action) asyn
   }
 }
 
-/// Helper to create a dummy skill with specific SKILL.md contents.
+/// Creates a physical skill directory on the filesystem containing a `SKILL.md` file.
+///
+/// Use this helper for integration tests, CLI execution, or tests exercising
+/// [Validator] file discovery that require actual files on disk.
+///
+/// For fast, isolated unit tests that validate rules against in-memory models
+/// without disk I/O, use [createTestSkillContext] instead.
 Future<Directory> createDummySkill(
   Directory parentDir, {
   required String name,
@@ -47,7 +54,17 @@ Future<Directory> createDummySkill(
   return skillDir;
 }
 
-/// Helper to construct a [SkillContext] for unit tests.
+/// Constructs an in-memory [SkillContext] data object for unit testing [SkillRule]s.
+///
+/// This helper builds pre-parsed YAML metadata and raw content directly in
+/// memory without creating or writing files to the filesystem.
+///
+/// If [rawContent] or [parsedYaml] are omitted, valid frontmatter is
+/// automatically generated using [name] (defaulting to the basename of
+/// [directory]), [description], and optional [compatibility].
+///
+/// For integration tests that require physical directories and files on disk,
+/// use [createDummySkill] instead.
 SkillContext createTestSkillContext({
   required Directory directory,
   String? name,

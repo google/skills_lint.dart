@@ -129,10 +129,7 @@ void main() {
         severity: AnalysisSeverity.error,
         pubspecPath: customPubspec.path,
       );
-      final SkillContext context = createTestSkillContext(
-        directory: orphanDir,
-        name: 'setup',
-      );
+      final SkillContext context = createTestSkillContext(directory: orphanDir, name: 'setup');
 
       final List<ValidationError> errors = await rule.validate(context);
       expect(errors, hasLength(1));
