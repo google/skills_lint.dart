@@ -1,5 +1,5 @@
 ---
-name: dart-skills-lint-validation
+name: skills-lint-validation
 description: |-
   Use this skill to execute skills_lint validation and resolve rule violations across AI agent skills.
   Covers running the CLI validator, analyzing diagnostic failures, applying automated fixes with --fix, and authoring custom SkillRule classes in Dart.
@@ -11,7 +11,7 @@ This skill covers **day-to-day use**: running the linter, walking
 through a failing run, and writing a custom rule when defaults
 aren't enough. For first-time wiring (adding the dep, creating the
 config file, generating a baseline) see
-[`dart-skills-lint-setup`](../dart-skills-lint-setup/SKILL.md). The
+[`skills-lint-setup`](../skills-lint-setup/SKILL.md). The
 full rule reference (default severities, diagnostic shapes,
 fixability) lives in [`RULES.md`](../../RULES.md).
 
@@ -107,7 +107,7 @@ void main() {
 
 ## Related
 
-- [`dart-skills-lint-setup`](../dart-skills-lint-setup/SKILL.md) —
+- [`skills-lint-setup`](../skills-lint-setup/SKILL.md) —
   first-time wiring.
 - [`RULES.md`](../../RULES.md) — canonical rule reference.
 - [`README.md`](../../../../README.md) — installation, configuration,

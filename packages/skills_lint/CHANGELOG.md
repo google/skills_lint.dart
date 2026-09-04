@@ -1,3 +1,7 @@
+## 0.5.2
+
+- Added the `published-skill-name` lint rule to validate that published skills in a Dart package's `skills/` directory follow the package naming convention required by `package:skills`.
+
 ## 0.5.1
 
 - Migrated developer setup, integration recipes, and documentation to use `dart install skills@^1.0.0` and `dart install skills_lint`.

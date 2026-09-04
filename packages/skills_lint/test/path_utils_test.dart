@@ -29,4 +29,51 @@ void main() {
       expect(expandPath('/absolute/path'), equals('/absolute/path'));
     });
   });
+
+  group('normalizeSkillNameToken', () {
+    test('converts underscores to hyphens', () {
+      expect(normalizeSkillNameToken('skills_lint_setup'), 'skills-lint-setup');
+      expect(normalizeSkillNameToken('my_custom_rule'), 'my-custom-rule');
+    });
+
+    test('preserves hyphens and lowercases', () {
+      expect(normalizeSkillNameToken('skills-lint-setup'), 'skills-lint-setup');
+      expect(normalizeSkillNameToken('My-Skill-Name'), 'my-skill-name');
+    });
+
+    test('preserves digits and alphanumeric sequences', () {
+      expect(normalizeSkillNameToken('v2_api_3'), 'v2-api-3');
+      expect(normalizeSkillNameToken('step42_test'), 'step42-test');
+    });
+
+    test('deduplicates consecutive hyphens and underscores', () {
+      expect(normalizeSkillNameToken('skills___lint---setup'), 'skills-lint-setup');
+      expect(normalizeSkillNameToken('foo-_-bar'), 'foo-bar');
+    });
+
+    test('strips leading and trailing hyphens and underscores', () {
+      expect(normalizeSkillNameToken('---skills-lint---'), 'skills-lint');
+      expect(normalizeSkillNameToken('___my_skill___'), 'my-skill');
+      expect(normalizeSkillNameToken('-__foo-bar__-'), 'foo-bar');
+    });
+
+    test('replaces invalid characters with hyphens', () {
+      expect(normalizeSkillNameToken('skill@name#1!'), 'skill-name-1');
+      expect(normalizeSkillNameToken('foo.bar baz'), 'foo-bar-baz');
+    });
+
+    test('truncates to maxLength and strips trailing hyphen', () {
+      final String longInput = 'a' * 70;
+      final String normalized = normalizeSkillNameToken(longInput);
+      expect(normalized.length, 64);
+      expect(normalized, 'a' * 64);
+
+      // Truncation landing on a hyphen
+      final trailingHyphenInput = '${'a' * 63}-bbbb';
+      final String truncated = normalizeSkillNameToken(trailingHyphenInput);
+      expect(truncated.length, 63);
+      expect(truncated, 'a' * 63);
+      expect(truncated.endsWith('-'), isFalse);
+    });
+  });
 }

@@ -727,5 +727,154 @@ Body''');
       final String content = await File('${skillDir.path}/SKILL.md').readAsString();
       expect(content, contains('name: wrong-name'));
     });
+
+    test('validates published-skill-name when enabled via CLI flag', () async {
+      final pkgDir = Directory('${tempDir.path}/test_pkg');
+      await pkgDir.create(recursive: true);
+      await File('${pkgDir.path}/pubspec.yaml').writeAsString('name: test_pkg\n');
+      final skillDir = Directory('${pkgDir.path}/skills/dart-test-pkg-setup');
+      await skillDir.create(recursive: true);
+      await File('${skillDir.path}/SKILL.md').writeAsString('''
+---
+name: dart-test-pkg-setup
+description: Setup skill
+---
+Body''');
+
+      final TestProcess process = await TestProcess.start('dart', [
+        'bin/skills_lint.dart',
+        '-s',
+        skillDir.path,
+        '--published-skill-name',
+      ]);
+
+      await process.shouldExit(1);
+      final List<String> stderr = await process.stderr.rest.toList();
+      final String stderrStr = stderr.join('\n');
+      expect(
+        stderrStr,
+        contains(
+          'Skill "dart-test-pkg-setup" does not follow the Dart package published skill naming convention',
+        ),
+      );
+      expect(stderrStr, contains('Suggested name: "test-pkg-setup"'));
+      expect(stderrStr, contains('Fix by re-running your validation command with `--fix`'));
+    });
+
+    test('--fix on published-skill-name aligns frontmatter and renames directory', () async {
+      final pkgDir = Directory('${tempDir.path}/test_pkg_fix');
+      await pkgDir.create(recursive: true);
+      await File('${pkgDir.path}/pubspec.yaml').writeAsString('name: test_pkg\n');
+      final skillDir = Directory('${pkgDir.path}/skills/dart-test-pkg-setup');
+      await skillDir.create(recursive: true);
+      await File('${skillDir.path}/SKILL.md').writeAsString('''
+---
+name: dart-test-pkg-setup
+description: Setup skill
+---
+Body''');
+
+      final TestProcess process = await TestProcess.start('dart', [
+        'bin/skills_lint.dart',
+        '-s',
+        skillDir.path,
+        '--published-skill-name',
+        '--fix',
+      ]);
+
+      await process.shouldExit(0);
+      final List<String> stdout = await process.stdout.rest.toList();
+      final String stdoutStr = stdout.join('\n');
+      expect(stdoutStr, contains('Renamed skill directory: dart-test-pkg-setup -> test-pkg-setup'));
+
+      // Check that old directory is gone and new directory exists with updated SKILL.md
+      expect(skillDir.existsSync(), isFalse);
+      final newDir = Directory('${pkgDir.path}/skills/test-pkg-setup');
+      expect(newDir.existsSync(), isTrue);
+      final String content = await File('${newDir.path}/SKILL.md').readAsString();
+      expect(content, contains('name: test-pkg-setup'));
+    });
+
+    test(
+      '--fix --dry-run on published-skill-name previews proposed directory rename without renaming',
+      () async {
+        final pkgDir = Directory('${tempDir.path}/test_pkg_dry');
+        await pkgDir.create(recursive: true);
+        await File('${pkgDir.path}/pubspec.yaml').writeAsString('name: test_pkg\n');
+        final skillDir = Directory('${pkgDir.path}/skills/dart-test-pkg-setup');
+        await skillDir.create(recursive: true);
+        await File('${skillDir.path}/SKILL.md').writeAsString('''
+---
+name: dart-test-pkg-setup
+description: Setup skill
+---
+Body''');
+
+        final TestProcess process = await TestProcess.start('dart', [
+          'bin/skills_lint.dart',
+          '-s',
+          skillDir.path,
+          '--published-skill-name',
+          '--fix',
+          '--dry-run',
+        ]);
+
+        await process.shouldExit(1);
+        final List<String> stdout = await process.stdout.rest.toList();
+        final String stdoutStr = stdout.join('\n');
+        expect(
+          stdoutStr,
+          contains('[Dry Run] Proposed directory rename: dart-test-pkg-setup -> test-pkg-setup'),
+        );
+
+        // Verify directory was NOT renamed on disk
+        expect(skillDir.existsSync(), isTrue);
+        final String content = await File('${skillDir.path}/SKILL.md').readAsString();
+        expect(content, contains('name: dart-test-pkg-setup'));
+      },
+    );
+
+    test(
+      '--fix with trailing whitespace fix does not rename directory when invalid-skill-name is ignored',
+      () async {
+        final skillDir = Directory('${tempDir.path}/skill-dir-name');
+        await skillDir.create(recursive: true);
+        await File('${skillDir.path}/SKILL.md').writeAsString('''
+---
+name: ignored-frontmatter-name
+description: A description
+---
+Body with trailing space   
+''');
+        final ignoreFile = File('${tempDir.path}/$defaultIgnoreFileName');
+        await ignoreFile.writeAsString(
+          jsonEncode({
+            SkillsIgnores.skillsKey: {
+              'skill-dir-name': [
+                {IgnoreEntry.ruleIdKey: 'invalid-skill-name', IgnoreEntry.fileNameKey: 'SKILL.md'},
+              ],
+            },
+          }),
+        );
+
+        final TestProcess process = await TestProcess.start('dart', [
+          'bin/skills_lint.dart',
+          '-s',
+          skillDir.path,
+          '--check-trailing-whitespace',
+          '--ignore-file',
+          ignoreFile.path,
+          '--fix',
+        ]);
+
+        await process.shouldExit(0);
+
+        // Directory name must remain unchanged on disk
+        expect(skillDir.existsSync(), isTrue);
+        final String content = await File('${skillDir.path}/SKILL.md').readAsString();
+        expect(content, contains('name: ignored-frontmatter-name'));
+        expect(content, contains('Body with trailing space\n'));
+      },
+    );
   });
 }

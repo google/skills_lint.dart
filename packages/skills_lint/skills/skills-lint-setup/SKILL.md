@@ -1,5 +1,5 @@
 ---
-name: dart-skills-lint-setup
+name: skills-lint-setup
 description: |-
   Use this skill to initialize and configure skills_lint in a Dart project.
   Covers adding skills_lint to pubspec.yaml dev_dependencies, creating root skills_lint.yaml, generating baseline ignore files for legacy skills, and configuring CI workflows or pre-commit hooks.
@@ -10,7 +10,7 @@ description: |-
 This skill covers **first-time wiring** of `skills_lint` into a
 repository. For ongoing use — running the linter, interpreting
 output, and writing custom rules — see the
-[`dart-skills-lint-validation`](../dart-skills-lint-validation/SKILL.md)
+[`skills-lint-validation`](../skills-lint-validation/SKILL.md)
 skill. For copy-pasteable CI workflow and pre-commit hook recipes,
 see the [`Recipes` section of the README](../../../../README.md#recipes).
 
@@ -67,5 +67,5 @@ see the [`Recipes` section of the README](../../../../README.md#recipes).
 
 ## When you're done
 
-The dart-skills-lint-validation skill takes over from here for
+The skills-lint-validation skill takes over from here for
 day-to-day use.

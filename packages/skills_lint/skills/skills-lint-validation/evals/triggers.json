@@ -1,5 +1,5 @@
 {
-  "skill": "dart-skills-lint-validation",
+  "skill": "skills-lint-validation",
   "positive_triggers": [
     "Run skills_lint checks against our skills directory and report any failures",
     "Execute skills_lint with --fix to automatically repair lint violations in our skills",

@@ -5,12 +5,14 @@
 import 'dart:io';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart';
+import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/validation_error.dart';
+import '../path_utils.dart';
 
 /// Enforces constraints on the skill name field.
 class NameFormatRule extends SkillRule implements FixableRule {
@@ -123,17 +125,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
   /// This is intentionally a *suggestion* — the author still picks the final
   /// name. The output is not guaranteed to match a directory name.
   @visibleForTesting
-  static String suggestNormalizedName(String input) {
-    String s = input.toLowerCase();
-    s = s.replaceAll(RegExp(r'[^a-z0-9\-]+'), '-');
-    s = s.replaceAll(RegExp(r'-+'), '-');
-    s = s.replaceAll(RegExp(r'^-+|-+$'), '');
-    if (s.length > maxNameLength) {
-      s = s.substring(0, maxNameLength);
-      s = s.replaceAll(RegExp(r'-+$'), '');
-    }
-    return s;
-  }
+  static String suggestNormalizedName(String input) => normalizeSkillNameToken(input);
 
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
@@ -172,9 +164,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
 
     final int yamlOffset = currentContent.indexOf(yamlStr, match.start);
-
-    // ignore: specify_nonobvious_local_variable_types
-    final span = nameNode.span;
+    final SourceSpan span = nameNode.span;
     final String before = currentContent.substring(0, yamlOffset + span.start.offset);
     final String after = currentContent.substring(yamlOffset + span.end.offset);
 

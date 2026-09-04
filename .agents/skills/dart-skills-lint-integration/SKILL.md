@@ -6,7 +6,7 @@ description: >
   pinned commit refs in pubspec.yaml, configuring downstream test harnesses,
   managing package hashes, and generating submission pull requests. Do NOT use
   this skill for day-to-day skill validation or fixing skill markdown errors
-  (use dart-skills-lint-validation instead).
+  (use skills-lint-validation instead).
 metadata:
   internal: true
 ---
