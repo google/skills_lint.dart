@@ -1,6 +1,6 @@
 # Skill Evaluations
 
-Architecture, rubrics, and instructions for evaluating AI agent skills authored and maintained in this repository. 
+Architecture, rubrics, and instructions for evaluating AI agent skills authored and maintained in this repository.
 **Note:** These evaluations are essentially unit tests for the skills within the `skills_lint` package and its internal ecosystem. They are *not* intended to be a generic evaluation framework for other agent client plugins or tools outside of this specific domain.
 
 ## What Should (and Shouldn't) Be Evaluated
@@ -14,36 +14,51 @@ Architecture, rubrics, and instructions for evaluating AI agent skills authored 
 - Trivial syntax formatting that `dart format` already fixes perfectly.
 - Complete system architectures that take longer than a few minutes to generate and verify.
 - Skills that are outside the scope of `skills_lint` (e.g. general flutter app creation).
+- Duplicate evaluation scenarios without introducing distinct conditions (e.g., testing the exact same workflow multiple times with redundant assertions).
 
 ## Core Principles & Architecture
 
-Evaluations in this repository support **two test types** to evaluate both intent routing and workflow completion:
+Evaluations in this repository support **three evaluation modes** across static quality audit, intent routing, and workflow completion:
 
-### 1. Trigger Evals (`<skill_dir>/evals/triggers.json`)
+### 1. Audit Evals (`evals/*_rubric.json` / `<skill_dir>/evals/evals.json`)
+Evaluates **Static Quality & Schema Consistency**: statically audits evaluation suites against quality rubrics declared in `repo_criteria` before task execution.
+
+### 2. Trigger Evals (`<skill_dir>/evals/triggers.json`)
 Evaluates **Intent Routing & Skill Discovery**: tests how AI agent intent routers discover and select skills from the active skills catalog before full workflow execution begins.
 - **`skill`**: Name of the target skill.
 - **`positive_triggers`**: Array of in-domain user prompts that MUST activate this skill.
 - **`distractors`**: Array of out-of-domain or boundary prompts that must NOT activate this skill.
 
-### 2. Content Evals (`<skill_dir>/evals/evals.json`)
+### 3. Content Evals (`<skill_dir>/evals/evals.json`)
 Evaluates **Workflow Execution & Workspace Mutations**: tests multi-turn sandbox sessions to verify the agent produces expected chat outputs and repository mutations.
 - **`prompt`**: Realistic user prompt testing primary or edge-case workflows.
 - **`expected_chat_output`**: High-level narrative summary of what the LLM should say/give to the user.
 - **`expected_repo_state`**: Array of discrete, testable assertions regarding the end state of the repository and tracked files.
-- **`repo_criteria`**: Array of relative file paths to shared universal quality rubrics (e.g., `["evals/code_quality_rubric.json"]`).
-- **`agent_config`**: The model configuration/harness used when executing the eval against the skill.
 
-### Cross-Skill Rubrics (`evals/*_rubric.json`)
-Universal skill quality expectations are structured into modular rubric classes that apply broadly across skills.
+### Evaluation File & Rubric Schema
+Evaluation suites and shared rubrics share common configuration properties:
+- **`repo_criteria`**: Array of relative file paths to shared universal quality rubrics (such as `["evals/code_quality_rubric.json"]`).
+- **`type`** *(Optional)*: Evaluation mode (`"audit"` or `"content"`). Declares the execution stage for the suite or rubric. If omitted, structural inference applies (`positive_triggers` -> triggers, `prompt` -> content, criteria assertions only -> content rubric).
+- **`test_data`** *(Optional)*:
+  - At the root level of `evals.json` or rubric files: A boolean (`true` or `false`). Setting `"test_data": true` marks the file as static fixture or meta-evaluation data, instructing runners to skip it during default discovery sweeps.
+  - Within an individual eval item: A relative file path or directory string pointing to static test fixture inputs used during that evaluation.
+- **`agent_config`** *(Deprecated)*: Ignored by evaluation runners.
 
-## Cross-Cutting Rules
+#### Minimal & Orthogonal Evaluations
+- **Extend Established Evals**: When an evaluation requirement applies across established workflows (such as artifact metadata or output formatting), update the assertions on established evals rather than creating a duplicate scenario.
+- **Authoring Additional Evaluations**: Only create an evaluation entry when testing a distinct scenario or behavior not covered by established evaluations.
+- **Avoid Duplication**: Do NOT author multiple eval cases that test the same scenario without distinct conditions.
+- **Concrete vs. Flexible Assertions**: `expected_repo_state` assertions must be concrete, binary statements that are definitively true or false based on verifiable files, diffs, or command outputs (avoiding open-ended or subjective criteria). `expected_chat_output` should remain flexible to natural language variations unless a strict output structure or checklist format is required.
 
-- **Universal Code Quality**: Skills that author or modify code MUST adhere to the universal code quality expectations defined in `code_quality_rubric.json`. This ensures that generated code compiles cleanly, adheres to Effective Dart, works across platforms, and is placed in standard canonical directories.
+### Package Rubrics (`evals/*_rubric.json`)
+Package-wide quality expectations are structured into modular rubric files located in this directory:
+
+- **Package Code Quality (`evals/code_quality_rubric.json`)**: Skills that author or modify code MUST adhere to the code quality expectations defined in `code_quality_rubric.json`. This ensures that generated code compiles cleanly, adheres to Effective Dart, works across platforms, and is placed in standard canonical directories.
+- **Evaluation Quality (`evals/eval_quality_rubric.json`)**: Skills that author or modify evaluation suites MUST adhere to `eval_quality_rubric.json`.
 - **Dart-Only Implementation Policy**: All test fixtures, validation scripts, evaluation harnesses, benchmark scripts, and reference tooling across this repository must be authored exclusively in Dart. Python, JavaScript, TypeScript, or other scripting languages are strictly forbidden.
 
-## 🚀 Running & Validating Evals Locally
+## 🚀 Validating Evals Locally
 
-### 1. Validate Evals & Triggers Structural Consistency
 Run the unit tests that check all `triggers.json` and `evals.json` files for structural consistency across the repository:
 
 ```bash
@@ -54,14 +69,9 @@ dart test test/skills_triggers_test.dart
 dart test test/skills_evals_test.dart
 ```
 
-### 2. Running Evals via Agent Orchestration (`/run-evals`)
-Use the `/run-evals` skill to run evaluations. All execution logic, subagent dispatch, and Turn-1 interception rules are defined directly in [`run-evals/SKILL.md`](../../.agents/skills/run-evals/SKILL.md).
+## Executing Evals via Agent Orchestration (`/run-evals`)
 
-* **Run Both (Default)**: `/run-evals [target_dir]`
-* **Run Trigger Evaluations Only**: `/run-evals triggers [target_dir]`
-* **Run Content Evaluations Only**: `/run-evals content [target_dir]`
+Live evaluation workflows, subagent orchestration, and grading are executed via the `/run-evals` skill. The runner accepts one of the 5 reserved keywords (`content`, `triggers`, `audit`, `all`, `help`). Invoking `/run-evals` without arguments displays the usage reference guide and exits.
 
-### 3. Testing Meta-Evals (Testing the Rubrics)
-To ensure our universal rubrics correctly catch anti-patterns (and permit clean code), standalone cross-skill evaluations are defined as `evals/*_evals.json` files (e.g., `evals/code_quality_rubric_evals.json`). These files contain evals strictly intended to grade static fixtures located in `evals/test_data/`.
+For complete execution instructions and CLI reference, see [`.agents/skills/run-evals/SKILL.md`](../../../.agents/skills/run-evals/SKILL.md).
 
-To run the meta-evals and verify the rubrics, invoke `/run-evals content` on the standalone `code_quality_rubric_evals.json` file.

@@ -1,0 +1,18 @@
+{
+  "repo_criteria": [],
+  "test_data": true,
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Refactor the authentication logic in auth.dart to improve readability.",
+      "expected_chat_output": [
+        "Natural language summary."
+      ],
+      "expected_repo_state": [
+        "The code looks good and clean.",
+        "Appropriate changes were made with high quality.",
+        "The architecture feels modern."
+      ]
+    }
+  ]
+}

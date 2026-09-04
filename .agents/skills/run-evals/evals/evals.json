@@ -1,84 +1,101 @@
 {
   "repo_criteria": [
+    "evals/eval_quality_rubric.json"
   ],
   "evals": [
     {
       "id": 1,
-      "prompt": "Run the evals for the definition-of-done skill.",
+      "prompt": "/run-evals",
       "expected_chat_output": [
-        "Any natural language output summarizing the completed work is acceptable."
+        "The chat output displays the command reference usage guide for the 5 reserved keywords."
       ],
       "expected_repo_state": [
-        "The agent successfully triggered subagents to run the test cases.",
-        "There is an artifact with the results.",
-        "No files are modified in the parent workspace after the eval is done running (all modifications must be confined to the isolated subagent worktree).",
-        "The evaluation artifact includes evals sourced from code_quality_rubric.json for a skill that produces code."
-      ],
-      "agent_config": "reidbaker-agent"
+        "No execution subagents were spawned.",
+        "No isolated worktrees were created.",
+        "No files are modified in the parent workspace after evaluation completes."
+      ]
     },
     {
       "id": 2,
-      "prompt": "Can you test the definition-of-done skill and see if it passes its rubric?",
+      "prompt": "/run-evals content definition-of-done",
       "expected_chat_output": [
-        "Any natural language output summarizing the completed work is acceptable."
+        "The chat output summarizes content evaluation and grading results and does not include trigger or audit results."
       ],
       "expected_repo_state": [
-        "There is an artifact with the results.",
-        "No files are modified in the parent workspace after the eval is done running (all modifications must be confined to the isolated subagent worktree).",
-        "The evaluation artifact includes evals sourced from code_quality_rubric.json for a skill that produces code."
-      ],
-      "agent_config": "reidbaker-agent"
+        "The agent triggered subagents to execute content evaluation test cases in isolated workspaces.",
+        "Trigger routing evaluations and static audit checks were not executed.",
+        "Evaluation discovery excludes test suites and fixtures marked with root-level test_data: true.",
+        "There is an artifact with the evaluation results.",
+        "The evaluation artifact records execution metadata including commit hash, resolved model name, and active agent profile.",
+        "The evaluation artifact includes evals sourced from code_quality_rubric.json for a skill that produces code.",
+        "No files are modified in the parent workspace after evaluation completes."
+      ]
     },
     {
       "id": 3,
-      "prompt": "Run an A/B benchmark evaluation for the definition-of-done skill, comparing it explicitly against a baseline without the skill.",
+      "prompt": "/run-evals triggers dart-skills-lint-validation",
       "expected_chat_output": [
-        "Any natural language output summarizing the completed work is acceptable."
+        "The chat output summarizes trigger routing accuracy and distractor rejection for the dart-skills-lint-validation skill with Turn-1 cutoff."
       ],
       "expected_repo_state": [
-        "The agent successfully triggered both baseline and with-skill subagents.",
-        "There is an artifact with the results.",
-        "The evaluation artifact contains explicit sections for both the 'With-Skill Agent' and the 'Baseline Agent'.",
-        "No files are modified in the parent workspace after the eval is done running (all modifications must be confined to the isolated subagent worktree)."
-      ],
-      "agent_config": "reidbaker-agent"
+        "The agent triggered subagents to test dart-skills-lint-validation trigger prompts and terminated them after Turn 1.",
+        "Trigger prompts for other skills were not executed.",
+        "There is an artifact with the trigger evaluation results.",
+        "No files are modified in the parent workspace after evaluation completes."
+      ]
     },
     {
       "id": 4,
-      "prompt": "Please run the evals for the run-evals skill. Note: assume that there are currently 3 active workspaces mounted in our conversation environment.",
+      "prompt": "/run-evals audit definition-of-done",
       "expected_chat_output": [
-        "The response selects the Isolated Git Worktree harness (Strategy B) to maintain isolation across workspaces.",
-        "The response refuses to run un-isolated mutations in the active developer working tree."
+        "The chat output summarizes static audit findings against eval_quality_rubric.json and does not include trigger or content results."
       ],
       "expected_repo_state": [
-        "No files in the active developer working tree are polluted or modified."
-      ],
-      "agent_config": "reidbaker-agent"
+        "The evaluation inspected the target evals.json statically against eval_quality_rubric.json.",
+        "No execution subagents were spawned during static audit evaluation.",
+        "Evaluation discovery excludes test suites and fixtures marked with root-level test_data: true.",
+        "There is an artifact with the audit evaluation results.",
+        "No files are modified in the parent workspace after evaluation completes."
+      ]
     },
     {
       "id": 5,
-      "prompt": "Please run the evals for the run-evals skill. Note: assume that the current active workspace is a subpackage subdirectory rather than the root of the Git repository.",
+      "prompt": "/run-evals content packages/skills_lint/evals/code_quality_rubric_evals.json",
       "expected_chat_output": [
-        "The response detects the subpackage layout via git rev-parse pre-flight checks.",
-        "The response uses the Isolated Git Worktree harness (Strategy B) targeting the relative package path.",
-        "The response ensures worktree teardown after completion."
+        "The chat output summarizes content evaluation results for the targeted test data suite."
       ],
       "expected_repo_state": [
-        "No files in the active developer working tree are polluted or modified."
-      ],
-      "agent_config": "reidbaker-agent"
+        "The evaluation executed the test data suite marked with root-level test_data: true.",
+        "The evaluation artifact records results for the code quality criteria meta-evaluations.",
+        "There is an artifact with the evaluation results.",
+        "No files are modified in the parent workspace after evaluation completes."
+      ]
     },
     {
       "id": 6,
-      "prompt": "Run the evals for the definition-of-done skill, but invoke_subagent with Workspace: branch fails with 'branch workspace not supported for VCS type Unknown'.",
+      "prompt": "Run an A/B benchmark evaluation for the definition-of-done skill using /run-evals content definition-of-done, comparing it explicitly against a baseline without the skill.",
       "expected_chat_output": [
-        "The response falls back to an Isolated Git Worktree harness to preserve environment isolation.",
-        "The response strictly refuses to execute un-isolated mutations in the main working tree."
+        "The chat output summarizes comparison results between the with-skill agent and the baseline agent."
       ],
       "expected_repo_state": [
-        "No files in the active developer working tree are polluted or modified."
+        "The agent dispatched both with-skill and baseline subagents in isolated workspaces.",
+        "There is an artifact with the evaluation results.",
+        "The evaluation artifact contains explicit sections for both the With-Skill Agent and the Baseline Agent.",
+        "The evaluation artifact includes evals sourced from code_quality_rubric.json for a skill that produces code.",
+        "No files are modified in the parent workspace after evaluation completes."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Run the content evaluations for the definition-of-done skill using /run-evals content definition-of-done when the active workspace is a subpackage subdirectory rather than the repository root.",
+      "expected_chat_output": [
+        "The response selects the Isolated Git Worktree harness (Strategy B) targeting the relative package directory."
       ],
-      "agent_config": "reidbaker-agent"
+      "expected_repo_state": [
+        "The evaluation executed in an isolated worktree created via git worktree.",
+        "The temporary git worktree was removed after completion.",
+        "No files are modified in the parent workspace after evaluation completes."
+      ]
     }
   ]
 }

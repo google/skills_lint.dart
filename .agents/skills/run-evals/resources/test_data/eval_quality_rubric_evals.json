@@ -1,0 +1,42 @@
+{
+  "type": "audit",
+  "test_data": true,
+  "repo_criteria": [
+    "evals/eval_quality_rubric.json"
+  ],
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Grade the evaluation suite in '.agents/skills/run-evals/resources/test_data/redundant_evals/evals.json' using eval_quality_rubric.json.",
+      "test_data": ".agents/skills/run-evals/resources/test_data/redundant_evals/evals.json",
+      "expected_chat_output": [
+        "Any natural language output summarizing the completed work is acceptable."
+      ],
+      "expected_repo_state": [
+        "The evaluation artifact explicitly flags a failure for eval redundancy and consolidation due to duplicate evaluation scenarios."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Grade the evaluation suite in '.agents/skills/run-evals/resources/test_data/clean_evals/evals.json' using eval_quality_rubric.json.",
+      "test_data": ".agents/skills/run-evals/resources/test_data/clean_evals/evals.json",
+      "expected_chat_output": [
+        "Any natural language output summarizing the completed work is acceptable."
+      ],
+      "expected_repo_state": [
+        "The evaluation artifact explicitly flags that all eval quality criteria passed successfully without any failures."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Grade the evaluation suite in '.agents/skills/run-evals/resources/test_data/subjective_evals/evals.json' using eval_quality_rubric.json.",
+      "test_data": ".agents/skills/run-evals/resources/test_data/subjective_evals/evals.json",
+      "expected_chat_output": [
+        "Any natural language output summarizing the completed work is acceptable."
+      ],
+      "expected_repo_state": [
+        "The evaluation artifact explicitly flags a failure for binary repo state assertions due to vague, non-binary, or subjective criteria."
+      ]
+    }
+  ]
+}

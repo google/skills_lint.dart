@@ -1,6 +1,7 @@
 {
   "repo_criteria": [
-    "evals/code_quality_rubric.json"
+    "evals/code_quality_rubric.json",
+    "evals/eval_quality_rubric.json"
   ],
   "evals": [
     {
@@ -18,8 +19,7 @@
         "The levenshtein.dart file is formatted cleanly according to dart format.",
         "The project has no dart analyze errors or warnings.",
         "CHANGELOG.md is not modified because adding internal comments is non-user-facing."
-      ],
-      "agent_config": "reidbaker-agent"
+      ]
     }
   ]
 }

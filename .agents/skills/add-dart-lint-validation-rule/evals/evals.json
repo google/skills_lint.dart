@@ -1,6 +1,7 @@
 {
   "repo_criteria": [
-    "evals/code_quality_rubric.json"
+    "evals/code_quality_rubric.json",
+    "evals/eval_quality_rubric.json"
   ],
   "evals": [
     {
@@ -17,8 +18,7 @@
         "The toggleable flag `--[no-]require-specific-metadata` was correctly documented in `README.md`.",
         "A proper rule documentation entry was added in `RULES.md`, including severity, fixability, and diagnostic shape.",
         "The agent proactively documented the rule constraints in `SPECIFICATION.md`."
-      ],
-      "agent_config": "reidbaker-agent"
+      ]
     },
     {
       "id": 2,
@@ -33,8 +33,7 @@
         "The rule flag `--[no-]file-existence` was documented in `README.md`.",
         "A proper rule documentation entry was added outlining the diagnostics and behavior in `RULES.md`.",
         "Temporary files were safely cleaned up via `tempDir.delete(recursive: true)` in `tearDown`."
-      ],
-      "agent_config": "reidbaker-agent"
+      ]
     }
   ]
 }
