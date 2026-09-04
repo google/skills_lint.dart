@@ -1,3 +1,13 @@
+## 0.6.0
+
+- Added support for the optional root-level `type:` property in evaluation suites and rubrics (`"type": "audit" | "content" | "triggers"`).
+- Implemented structural type inference fallback so evaluation suites without an explicit `type:` property continue to resolve seamlessly based on data shape.
+- Added data-driven root `test_data: true` boolean support to mark static fixture data and exclude it from default evaluation discovery sweeps.
+
+### Migration Prompt for AI Agents
+To add explicit evaluation types to existing evaluation suites across downstream repositories, use the following prompt with an AI agent:
+> "Inspect all `evals.json` and `*_rubric.json` files in this repository. Add a root-level `"type": "content"` key to evaluation suites that define executable prompts, and `"type": "audit"` to static rubrics or suites that verify eval quality assertions. Preserve existing keys, ordering, and indentation."
+
 ## 0.5.1
 
 - Migrated developer setup, integration recipes, and documentation to use `dart install skills@^1.0.0` and `dart install skills_lint`.

@@ -1,4 +1,5 @@
 {
+  "type": "audit",
   "evals": [
     {
       "id": "eval_redundancy_and_consolidation",

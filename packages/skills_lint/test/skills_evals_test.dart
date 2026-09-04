@@ -10,7 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 /// Optional root keys permitted across `evals.json` and rubric files.
-const Set<String> optionalRootKeys = {'test_data'};
+const Set<String> optionalRootKeys = {'repo_criteria', 'test_data', 'type'};
 
 /// Optional item keys permitted across all `evals.json` and rubric files.
 /// Maintainers can add optional keys to this set.
@@ -31,6 +31,11 @@ void main() {
     );
 
     test(
+      'all repo_criteria references point to rubric files that exist',
+      _testRepoCriteriaReferencesExist,
+    );
+
+    test(
       'all test_data references point to files or directories that exist',
       _testTestDataReferencesExist,
     );
@@ -38,6 +43,11 @@ void main() {
     test(
       'when test_data is present as a root key in evals.json it is a boolean',
       _testRootTestDataIsBoolean,
+    );
+
+    test(
+      'when type is present as a root key it is a valid evaluation mode',
+      _testTypeKeyValidValues,
     );
   });
 }
@@ -77,9 +87,11 @@ Future<void> _testAllEvalsShareConsistentStructure() async {
 Future<void> _testPublishedSkillsHaveEvals() async {
   final String packageRoot = await _resolvePackageRoot();
   final skillsDir = Directory(p.join(packageRoot, 'skills'));
-  if (!skillsDir.existsSync()) {
-    return;
-  }
+  expect(
+    skillsDir.existsSync(),
+    isTrue,
+    reason: 'Published skills directory should exist at ${skillsDir.path}',
+  );
 
   final List<Directory> skillDirs = skillsDir.listSync().whereType<Directory>().toList();
   for (final skillDir in skillDirs) {
@@ -96,9 +108,11 @@ Future<void> _testPublishedSkillsHaveEvals() async {
 Future<void> _testRubricsShareConsistentStructure() async {
   final String packageRoot = await _resolvePackageRoot();
   final rubricsDir = Directory(p.join(packageRoot, 'evals'));
-  if (!rubricsDir.existsSync()) {
-    return;
-  }
+  expect(
+    rubricsDir.existsSync(),
+    isTrue,
+    reason: 'Rubrics directory should exist at ${rubricsDir.path}',
+  );
 
   final List<File> rubricFiles =
       rubricsDir
@@ -113,6 +127,43 @@ Future<void> _testRubricsShareConsistentStructure() async {
   }
 }
 
+Future<void> _testRepoCriteriaReferencesExist() async {
+  final String packageRoot = await _resolvePackageRoot();
+  final String repoRoot = p.normalize(p.join(packageRoot, '..', '..'));
+  final List<File> evalsFiles = await _getAllEvalsFiles();
+
+  for (final file in evalsFiles) {
+    final decoded = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+    if (!decoded.containsKey('repo_criteria')) {
+      continue;
+    }
+    final Object? criteria = decoded['repo_criteria'];
+    expect(
+      criteria,
+      isA<List<dynamic>>(),
+      reason: 'repo_criteria in ${file.path} must be a List of strings.',
+    );
+    final criteriaList = criteria! as List<dynamic>;
+    for (final item in criteriaList) {
+      expect(
+        item,
+        isA<String>(),
+        reason: 'Each entry in repo_criteria in ${file.path} must be a String.',
+      );
+      final itemStr = item! as String;
+      final String targetInPackage = p.normalize(p.join(packageRoot, itemStr));
+      final String targetInRepo = p.normalize(p.join(repoRoot, itemStr));
+      final bool exists = File(targetInPackage).existsSync() || File(targetInRepo).existsSync();
+      expect(
+        exists,
+        isTrue,
+        reason:
+            'File ${file.path} references repo_criteria "$itemStr" which does not exist at $targetInPackage or $targetInRepo',
+      );
+    }
+  }
+}
+
 Future<void> _testTestDataReferencesExist() async {
   final String packageRoot = await _resolvePackageRoot();
   final List<File> evalsFiles = await _getAllEvalsFiles();
@@ -120,29 +171,52 @@ Future<void> _testTestDataReferencesExist() async {
   for (final file in evalsFiles) {
     final decoded = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
     final items = decoded['evals'] as List<dynamic>;
-    for (final item in items) {
-      final itemMap = item as Map<String, dynamic>;
+    for (var i = 0; i < items.length; i++) {
+      final itemMap = items[i] as Map<String, dynamic>;
+      if (!itemMap.containsKey('test_data')) {
+        continue;
+      }
       final Object? testData = itemMap['test_data'];
+      expect(
+        testData,
+        anyOf(isA<String>(), isA<List<dynamic>>()),
+        reason:
+            'Item #$i in ${file.path} contains test_data of type ${testData.runtimeType}. '
+            'Item-level test_data must be a String path or List of String paths, not a boolean.',
+      );
       _verifyTestDataTarget(packageRoot, file.path, testData);
     }
   }
 }
 
 void _verifyTestDataTarget(String packageRoot, String filePath, Object? testData) {
+  final String repoRoot = p.normalize(p.join(packageRoot, '..', '..'));
   if (testData is String) {
-    final String targetPath = p.normalize(p.join(packageRoot, testData));
+    final String targetInPackage = p.normalize(p.join(packageRoot, testData));
+    final String targetInRepo = p.normalize(p.join(repoRoot, testData));
+    final bool exists =
+        FileSystemEntity.typeSync(targetInPackage) != FileSystemEntityType.notFound ||
+        FileSystemEntity.typeSync(targetInRepo) != FileSystemEntityType.notFound;
     expect(
-      FileSystemEntity.typeSync(targetPath) != FileSystemEntityType.notFound,
+      exists,
       isTrue,
-      reason: 'File $filePath references test_data "$testData" which does not exist at $targetPath',
+      reason:
+          'File $filePath references test_data "$testData" which does not exist at $targetInPackage or $targetInRepo',
     );
   } else if (testData is List) {
-    for (final String path in testData.whereType<String>()) {
-      final String targetPath = p.normalize(p.join(packageRoot, path));
+    for (final Object? path in testData) {
+      expect(path, isA<String>(), reason: 'test_data list entries in $filePath must be Strings.');
+      final pathStr = path! as String;
+      final String targetInPackage = p.normalize(p.join(packageRoot, pathStr));
+      final String targetInRepo = p.normalize(p.join(repoRoot, pathStr));
+      final bool exists =
+          FileSystemEntity.typeSync(targetInPackage) != FileSystemEntityType.notFound ||
+          FileSystemEntity.typeSync(targetInRepo) != FileSystemEntityType.notFound;
       expect(
-        FileSystemEntity.typeSync(targetPath) != FileSystemEntityType.notFound,
+        exists,
         isTrue,
-        reason: 'File $filePath references test_data "$path" which does not exist at $targetPath',
+        reason:
+            'File $filePath references test_data "$pathStr" which does not exist at $targetInPackage or $targetInRepo',
       );
     }
   }
@@ -157,6 +231,27 @@ Future<void> _testRootTestDataIsBoolean() async {
         decoded['test_data'],
         isA<bool>(),
         reason: 'Root test_data in ${file.path} must be a boolean.',
+      );
+    }
+  }
+}
+
+Future<void> _testTypeKeyValidValues() async {
+  final List<File> allFiles = [
+    ...await _getAllEvalsFiles(),
+    ...Directory(
+      p.join(await _resolvePackageRoot(), 'evals'),
+    ).listSync().whereType<File>().where((File f) => f.path.endsWith('.json')),
+  ];
+  for (final file in allFiles) {
+    final decoded = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+    if (decoded.containsKey('type')) {
+      expect(
+        decoded['type'],
+        isIn(['audit', 'content', 'triggers']),
+        reason:
+            'Root "type" in ${file.path} must be one of: "audit", "content", "triggers" '
+            '(found: ${decoded['type']}).',
       );
     }
   }
@@ -189,20 +284,23 @@ void _verifyStructuralConsistency(
         requiredRootKeys,
         equals(expectedRequiredRootKeys),
         reason:
-            '${file.path} root keys do not match consistency pattern. '
-            'Expected keys to match the first processed file ($expectedRootKeysFilePath).',
+            '${file.path} root keys do not match consistency pattern.\n'
+            'Expected keys to match: $expectedRootKeysFilePath\n'
+            'Missing required keys: ${expectedRequiredRootKeys.difference(requiredRootKeys)}\n'
+            'Unexpected extra keys: ${requiredRootKeys.difference(expectedRequiredRootKeys)}',
       );
     }
 
     final Object? itemsRaw = decodedMap[itemsKey];
     final List<dynamic> itemsList = switch (itemsRaw) {
       final List<dynamic> list => list,
-      _ => fail('$itemsKey key in ${file.path} must be a List.'),
+      _ => fail('$itemsKey key in ${file.path} must be a List (found ${itemsRaw.runtimeType}).'),
     };
-    for (final Object? item in itemsList) {
+    for (var i = 0; i < itemsList.length; i++) {
+      final Object? item = itemsList[i];
       final Map<String, dynamic> itemMap = switch (item) {
         final Map<String, dynamic> map => map,
-        _ => fail('Item in $itemsKey list in ${file.path} must be a JSON map.'),
+        _ => fail('Item #$i in $itemsKey list in ${file.path} must be a JSON map.'),
       };
       final Set<String> itemKeys = itemMap.keys.toSet();
       final Set<String> requiredItemKeys = itemKeys.difference(optionalItemKeys);
@@ -214,19 +312,12 @@ void _verifyStructuralConsistency(
           requiredItemKeys,
           equals(expectedRequiredItemKeys),
           reason:
-              'Item in ${file.path} keys do not match consistency pattern. '
-              'Expected required item keys to match the first processed file ($expectedItemFilePath).',
+              'Item #${itemMap['id'] ?? i} in ${file.path} keys do not match consistency pattern.\n'
+              'Expected required item keys to match: $expectedItemFilePath\n'
+              'Missing required keys: ${expectedRequiredItemKeys.difference(requiredItemKeys)}\n'
+              'Unexpected extra keys: ${requiredItemKeys.difference(expectedRequiredItemKeys)}',
         );
       }
-
-      final Set<String> extraKeys = itemKeys.difference(expectedRequiredItemKeys);
-      expect(
-        extraKeys.difference(optionalItemKeys),
-        isEmpty,
-        reason:
-            'Item in ${file.path} contains unrecognized keys: '
-            '${extraKeys.difference(optionalItemKeys)}',
-      );
     }
   }
 }

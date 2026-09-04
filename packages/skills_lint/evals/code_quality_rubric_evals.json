@@ -1,4 +1,6 @@
 {
+  "type": "content",
+  "test_data": true,
   "repo_criteria": [
     "evals/code_quality_rubric.json"
   ],
