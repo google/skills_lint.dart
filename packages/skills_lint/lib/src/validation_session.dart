@@ -655,6 +655,11 @@ class ValidationSession {
     return fallbackResult;
   }
 
+  /// Aligns the skill's parent directory name on disk with the frontmatter
+  /// [targetSkillName] if the name changed during the fix process.
+  ///
+  /// Returns the renamed [Directory] if the rename succeeded, or [skillDir] if
+  /// no rename was needed or if the destination directory already exists.
   Future<Directory> _alignSkillDirectory({
     required Directory skillDir,
     required String oldSkillName,
@@ -684,6 +689,8 @@ class ValidationSession {
     }
   }
 
+  /// Logs proposed frontmatter diffs and proposed directory renames to stdout
+  /// when running fixes in dry-run mode (`--fix --dry-run`).
   void _logDryRunFix({
     required String oldSkillName,
     required String? targetSkillName,
@@ -697,6 +704,8 @@ class ValidationSession {
     }
   }
 
+  /// Extracts the frontmatter `name:` string from raw [content], returning
+  /// `null` if the content lacks frontmatter or fails YAML parsing.
   static String? _extractSkillName(String content) {
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(content);
     if (match != null) {

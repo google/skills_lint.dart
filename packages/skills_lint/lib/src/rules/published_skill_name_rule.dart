@@ -105,11 +105,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     final hyphenPrefix = '$hyphenPkg-';
     final rawPrefix = '$rawPkg-';
 
-    final bool isNameValid =
-        skillName == hyphenPkg ||
-        skillName == rawPkg ||
-        skillName.startsWith(hyphenPrefix) ||
-        skillName.startsWith(rawPrefix);
+    final bool isNameValid = skillName.startsWith(hyphenPrefix) || skillName.startsWith(rawPrefix);
 
     if (!isNameValid) {
       final String suggestedName = suggestValidName(
@@ -153,21 +149,40 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     }
 
     if (explicitPubspecPath != null && explicitPubspecPath.trim().isNotEmpty) {
-      final file = File(explicitPubspecPath.trim());
-      if (file.existsSync()) {
-        final String? pkgName = _extractPackageNameFromPubspec(file);
-        return _packageCache[cacheKey] = pkgName;
-      }
-      return _packageCache[cacheKey] = null;
+      final String? pkgName = _resolveFromExplicitPubspec(explicitPubspecPath.trim());
+      return _packageCache[cacheKey] = pkgName;
     }
 
+    return _packageCache[cacheKey] = _autoDiscoverPackageName(startDirectory);
+  }
+
+  static String? _resolveFromExplicitPubspec(String path) {
+    final file = File(path);
+    if (!file.existsSync()) {
+      return null;
+    }
+    return _extractPackageNameFromPubspec(file);
+  }
+
+  static String? _autoDiscoverPackageName(Directory startDirectory) {
+    final visitedPaths = <String>[];
     Directory current = startDirectory.absolute;
+
     while (true) {
+      final dirKey = '${current.path}::';
+      if (_packageCache.containsKey(dirKey)) {
+        final String? cachedPkg = _packageCache[dirKey];
+        _populateCacheForPaths(visitedPaths, cachedPkg);
+        return cachedPkg;
+      }
+
+      visitedPaths.add(current.path);
       final pubspecFile = File(p.join(current.path, 'pubspec.yaml'));
       if (pubspecFile.existsSync()) {
         final String? pkgName = _extractPackageNameFromPubspec(pubspecFile);
         if (pkgName != null && pkgName.isNotEmpty) {
-          return _packageCache[cacheKey] = pkgName;
+          _populateCacheForPaths(visitedPaths, pkgName);
+          return pkgName;
         }
       }
 
@@ -178,7 +193,14 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
       current = parent;
     }
 
-    return _packageCache[cacheKey] = null;
+    _populateCacheForPaths(visitedPaths, null);
+    return null;
+  }
+
+  static void _populateCacheForPaths(List<String> paths, String? pkgName) {
+    for (final path in paths) {
+      _packageCache['$path::'] = pkgName;
+    }
   }
 
   static String? _extractPackageNameFromPubspec(File pubspecFile) {
@@ -199,42 +221,47 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   /// * `suggestValidName(currentName: 'setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
   /// * `suggestValidName(currentName: 'dart-skills-lint-setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
   /// * `suggestValidName(currentName: 'skills_lint_setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
-  /// * `suggestValidName(currentName: 'skills_lint', packageName: 'skills_lint')` -> `'skills-lint'`
   @visibleForTesting
   static String suggestValidName({required String currentName, required String packageName}) {
-    final String hyphenPkg = normalizeSkillNameToken(packageName);
-    final String rawPkg = packageName.toLowerCase();
-    final String cleanName = currentName.trim().toLowerCase();
+    final List<String> pkgTokens = _tokenize(packageName);
+    final List<String> skillTokens = _tokenize(currentName);
 
-    if (cleanName == hyphenPkg || cleanName == rawPkg) {
-      return hyphenPkg;
+    if (pkgTokens.isEmpty) {
+      return normalizeSkillNameToken(currentName);
     }
 
-    final hyphenRegex = RegExp(
-      '(^|[-_])${RegExp.escape(hyphenPkg)}([-_]|\$)',
-      caseSensitive: false,
-    );
-    final rawRegex = RegExp('(^|[-_])${RegExp.escape(rawPkg)}([-_]|\$)', caseSensitive: false);
-
-    var remainder = cleanName;
-    final RegExpMatch? hyphenMatch = hyphenRegex.firstMatch(cleanName);
-    final RegExpMatch? rawMatch = rawRegex.firstMatch(cleanName);
-
-    if (hyphenMatch != null) {
-      final String after = cleanName.substring(hyphenMatch.end);
-      remainder = after.isNotEmpty ? after : cleanName.substring(0, hyphenMatch.start);
-    } else if (rawMatch != null) {
-      final String after = cleanName.substring(rawMatch.end);
-      remainder = after.isNotEmpty ? after : cleanName.substring(0, rawMatch.start);
+    var matchStart = -1;
+    for (var i = 0; i <= skillTokens.length - pkgTokens.length; i++) {
+      var match = true;
+      for (var j = 0; j < pkgTokens.length; j++) {
+        if (skillTokens[i + j] != pkgTokens[j]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        matchStart = i;
+        break;
+      }
     }
 
-    final String suffix = normalizeSkillNameToken(remainder);
-    if (suffix.isNotEmpty) {
-      final candidate = '$hyphenPkg-$suffix';
-      return normalizeSkillNameToken(candidate);
+    final List<String> suffixTokens;
+    if (matchStart >= 0) {
+      final int matchEnd = matchStart + pkgTokens.length;
+      final List<String> after = skillTokens.sublist(matchEnd);
+      final List<String> before = skillTokens.sublist(0, matchStart);
+      suffixTokens = after.isNotEmpty ? after : before;
+    } else {
+      suffixTokens = skillTokens;
     }
-    return hyphenPkg;
+
+    final resultTokens = [...pkgTokens, ...suffixTokens];
+    final String candidate = resultTokens.join('-');
+    return normalizeSkillNameToken(candidate);
   }
+
+  static List<String> _tokenize(String input) =>
+      input.toLowerCase().split(RegExp(r'[^a-z0-9]+')).where((token) => token.isNotEmpty).toList();
 
   /// Rewrites the frontmatter `name:` in `SKILL.md` to the suggested
   /// normalized published skill name (`<package-name>-<suffix>`).
@@ -283,10 +310,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     final hyphenPrefix = '$hyphenPkg-';
     final rawPrefix = '$rawPkg-';
 
-    if (currentSkillName == hyphenPkg ||
-        currentSkillName == rawPkg ||
-        currentSkillName.startsWith(hyphenPrefix) ||
-        currentSkillName.startsWith(rawPrefix)) {
+    if (currentSkillName.startsWith(hyphenPrefix) || currentSkillName.startsWith(rawPrefix)) {
       return currentContent;
     }
 

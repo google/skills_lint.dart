@@ -185,7 +185,7 @@ void main() {
       expect(errors, isEmpty);
     });
 
-    test('passes when skill name matches exact hyphenated package name', () async {
+    test('flags skill name when matching exact hyphenated package name without suffix', () async {
       final rule = PublishedSkillNameRule(
         severity: AnalysisSeverity.error,
         packageName: 'skills_lint',
@@ -196,10 +196,11 @@ void main() {
       );
 
       final List<ValidationError> errors = await rule.validate(context);
-      expect(errors, isEmpty);
+      expect(errors, hasLength(1));
+      expect(errors.first.message, contains('Published skills must start with "skills-lint-"'));
     });
 
-    test('passes when skill name matches exact raw package name', () async {
+    test('flags skill name when matching exact raw package name without suffix', () async {
       final rule = PublishedSkillNameRule(
         severity: AnalysisSeverity.error,
         packageName: 'skills_lint',
@@ -210,10 +211,11 @@ void main() {
       );
 
       final List<ValidationError> errors = await rule.validate(context);
-      expect(errors, isEmpty);
+      expect(errors, hasLength(1));
+      expect(errors.first.message, contains('Published skills must start with "skills-lint-"'));
     });
 
-    test('caches resolved package name in memory', () async {
+    test('caches resolved package name in memory across upward tree walk', () async {
       PublishedSkillNameRule.clearPackageCache();
       final pkgDir = Directory(p.join(tempDir.path, 'cached_pkg'))..createSync(recursive: true);
       final pubspecFile = File(p.join(pkgDir.path, 'pubspec.yaml'))
@@ -224,9 +226,13 @@ void main() {
       final String? first = PublishedSkillNameRule.resolvePackageName(startDirectory: skillDir);
       expect(first, 'cached_pkg');
 
-      // Delete pubspec from disk; cached lookup should still return cached_pkg
+      // Delete pubspec from disk; cached lookup for sibling directory should still return cached_pkg
       pubspecFile.deleteSync();
-      final String? second = PublishedSkillNameRule.resolvePackageName(startDirectory: skillDir);
+      final siblingSkillDir = Directory(p.join(pkgDir.path, 'skills', 'validation'))
+        ..createSync(recursive: true);
+      final String? second = PublishedSkillNameRule.resolvePackageName(
+        startDirectory: siblingSkillDir,
+      );
       expect(second, 'cached_pkg');
 
       // After clearing cache, lookup fails
@@ -236,23 +242,6 @@ void main() {
     });
 
     group('suggestValidName', () {
-      test('handles exact package name match', () {
-        expect(
-          PublishedSkillNameRule.suggestValidName(
-            currentName: 'skills_lint',
-            packageName: 'skills_lint',
-          ),
-          'skills-lint',
-        );
-        expect(
-          PublishedSkillNameRule.suggestValidName(
-            currentName: 'skills-lint',
-            packageName: 'skills_lint',
-          ),
-          'skills-lint',
-        );
-      });
-
       test('replaces prefix when skill contains package name', () {
         expect(
           PublishedSkillNameRule.suggestValidName(
@@ -356,25 +345,6 @@ description: Setup skill
 ---
 
 # Setup
-''';
-
-        final String fixedContent = await rule.fix('SKILL.md', originalContent, tempDir);
-
-        expect(fixedContent, originalContent);
-      });
-
-      test('leaves exact package name unchanged if already valid', () async {
-        final rule = PublishedSkillNameRule(
-          severity: AnalysisSeverity.error,
-          packageName: 'skills_lint',
-        );
-        const originalContent = '''
----
-name: skills-lint
-description: Main skill
----
-
-# Main
 ''';
 
         final String fixedContent = await rule.fix('SKILL.md', originalContent, tempDir);

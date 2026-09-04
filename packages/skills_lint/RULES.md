@@ -159,7 +159,7 @@ governs how changes to these rules ship.
 
 - **Default severity:** disabled
 - **Fixable:** yes
-- **What it checks:** skills in a published Dart package's `skills/` directory follow the naming convention required by `package:skills`. The frontmatter `name:` must match the package name or start with the package name (or the package name with underscores replaced by hyphens) followed by a hyphen (e.g., `skills-lint`, `skills-lint-setup`, or `skills_lint-setup` for package `skills_lint`).
+- **What it checks:** skills in a published Dart package's `skills/` directory follow the naming convention required by `package:skills`. The frontmatter `name:` must start with the package name (or the package name with underscores replaced by hyphens) followed by a hyphen (e.g., `skills-lint-setup` or `skills_lint-setup` for package `skills_lint`).
 - **Diagnostic shape:**
   `Skill "<name>" does not follow the Dart package published skill naming convention for package "<package>". Published skills must start with "<hyphen-prefix>". Suggested name: "<suggestion>".`
   `Fix with:`
