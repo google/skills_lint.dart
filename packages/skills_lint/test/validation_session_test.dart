@@ -13,6 +13,8 @@ import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/validation_session.dart';
 import 'package:test/test.dart';
 
+import 'test_utils.dart';
+
 ValidationSession createTestSession({
   Configuration? config,
   Map<String, RuleConfigPatch> resolvedRuleConfigs = const {},
@@ -52,15 +54,12 @@ void main() {
     });
 
     test('validates a valid skill directory successfully', () async {
-      final skillDir = Directory(p.join(tempDir.path, 'valid-skill'))..createSync(recursive: true);
-      File(p.join(skillDir.path, 'SKILL.md')).writeAsStringSync('''
----
-name: valid-skill
-description: A valid skill description.
----
-
-# Valid Skill
-''');
+      final Directory skillDir = await createDummySkill(
+        tempDir,
+        name: 'valid-skill',
+        skillContent:
+            '${buildFrontmatter(name: 'valid-skill', description: 'A valid skill description.')}\n# Valid Skill\n',
+      );
 
       final ValidationSession session = createTestSession();
       final bool shouldContinue = await session.processIndividualSkill(skillDir.path);
@@ -71,16 +70,12 @@ description: A valid skill description.
     });
 
     test('records failure on invalid skill and respects fastFail flag', () async {
-      final skillDir = Directory(p.join(tempDir.path, 'invalid_skill'))
-        ..createSync(recursive: true);
-      File(p.join(skillDir.path, 'SKILL.md')).writeAsStringSync('''
----
-name: Invalid_Skill_Name
-description: A skill description.
----
-
-# Skill
-''');
+      final Directory skillDir = await createDummySkill(
+        tempDir,
+        name: 'invalid_skill',
+        skillContent:
+            '${buildFrontmatter(name: 'Invalid_Skill_Name', description: 'A skill description.')}\n# Skill\n',
+      );
 
       final ValidationSession session = createTestSession(fastFail: true);
       final bool shouldContinue = await session.processIndividualSkill(skillDir.path);
@@ -94,16 +89,13 @@ description: A skill description.
       final pkgDir = Directory(p.join(tempDir.path, 'test_pkg'))..createSync(recursive: true);
       File(p.join(pkgDir.path, 'pubspec.yaml')).writeAsStringSync('name: test_pkg\n');
 
-      final skillDir = Directory(p.join(pkgDir.path, 'skills', 'dart-test-pkg-setup'))
-        ..createSync(recursive: true);
-      File(p.join(skillDir.path, 'SKILL.md')).writeAsStringSync('''
----
-name: dart-test-pkg-setup
-description: Setup skill.
----
-
-# Setup
-''');
+      final skillsDir = Directory(p.join(pkgDir.path, 'skills'))..createSync(recursive: true);
+      final Directory skillDir = await createDummySkill(
+        skillsDir,
+        name: 'dart-test-pkg-setup',
+        skillContent:
+            '${buildFrontmatter(name: 'dart-test-pkg-setup', description: 'Setup skill.')}\n# Setup\n',
+      );
 
       final ValidationSession session = createTestSession(
         fix: true,
@@ -131,16 +123,13 @@ description: Setup skill.
       final pkgDir = Directory(p.join(tempDir.path, 'test_pkg'))..createSync(recursive: true);
       File(p.join(pkgDir.path, 'pubspec.yaml')).writeAsStringSync('name: test_pkg\n');
 
-      final skillDir = Directory(p.join(pkgDir.path, 'skills', 'dart-test-pkg-setup'))
-        ..createSync(recursive: true);
-      File(p.join(skillDir.path, 'SKILL.md')).writeAsStringSync('''
----
-name: dart-test-pkg-setup
-description: Setup skill.
----
-
-# Setup
-''');
+      final skillsDir = Directory(p.join(pkgDir.path, 'skills'))..createSync(recursive: true);
+      final Directory skillDir = await createDummySkill(
+        skillsDir,
+        name: 'dart-test-pkg-setup',
+        skillContent:
+            '${buildFrontmatter(name: 'dart-test-pkg-setup', description: 'Setup skill.')}\n# Setup\n',
+      );
 
       final ValidationSession session = createTestSession(
         fix: true,
