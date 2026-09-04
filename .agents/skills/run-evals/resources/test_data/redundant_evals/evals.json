@@ -1,0 +1,26 @@
+{
+  "repo_criteria": [],
+  "test_data": true,
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Run the evals for the definition-of-done skill.",
+      "expected_chat_output": [
+        "Natural language summary."
+      ],
+      "expected_repo_state": [
+        "Results recorded in artifact."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Run the evals for the definition-of-done skill and check the artifact.",
+      "expected_chat_output": [
+        "Natural language summary."
+      ],
+      "expected_repo_state": [
+        "Results recorded in artifact."
+      ]
+    }
+  ]
+}

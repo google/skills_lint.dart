@@ -1,6 +1,7 @@
 {
   "repo_criteria": [
-    "evals/code_quality_rubric.json"
+    "evals/code_quality_rubric.json",
+    "evals/eval_quality_rubric.json"
   ],
   "evals": [
     {
@@ -14,8 +15,7 @@
         "The agent ran the CLI with `--check-absolute-paths` and explicitly verified that a fixable path violation was found.",
         "The agent used `--fix --dry-run` to preview the fix.",
         "The agent successfully applied the fix using `--fix`, converting the absolute link into a relative one."
-      ],
-      "agent_config": "bare-agent"
+      ]
     },
     {
       "id": 2,
@@ -29,8 +29,7 @@
         "The agent manually edits the skill files to fix the disallowed field violation.",
         "The agent manually edits the skill files to fix the absolute path violation.",
         "The agent validates the directory again to confirm a clean run."
-      ],
-      "agent_config": "bare-agent"
+      ]
     },
     {
       "id": 3,
@@ -44,8 +43,7 @@
         "The `validate` method correctly parses the `parsedYaml` to check for `internal: true`.",
         "The agent created a Dart test file that imports the custom rule and passes it to `validateSkills`.",
         "The newly created test compiles and passes static analysis."
-      ],
-      "agent_config": "bare-agent"
+      ]
     }
   ]
 }

@@ -1,4 +1,6 @@
 {
+  "type": "content",
+  "test_data": true,
   "repo_criteria": [
     "evals/code_quality_rubric.json"
   ],
@@ -6,6 +8,7 @@
     {
       "id": 1,
       "prompt": "Grade the code in 'evals/test_data/bad_code/tmp/bad_script.dart' using the code_quality_rubric.json.",
+      "test_data": "evals/test_data/bad_code/tmp/bad_script.dart",
       "expected_chat_output": [
         "Any natural language output summarizing the completed work is acceptable."
       ],
@@ -14,19 +17,18 @@
         "The evaluation artifact explicitly flags a failure for effective Dart idioms.",
         "The evaluation artifact explicitly flags a failure for cross platform compatibility.",
         "The evaluation artifact explicitly flags a failure for lint cheating."
-      ],
-      "agent_config": "reidbaker-agent"
+      ]
     },
     {
       "id": 2,
       "prompt": "Grade the code in 'evals/test_data/ok_code/bin/good_script.dart' using the code_quality_rubric.json.",
+      "test_data": "evals/test_data/ok_code/bin/good_script.dart",
       "expected_chat_output": [
         "Any natural language output summarizing the completed work is acceptable."
       ],
       "expected_repo_state": [
         "The evaluation artifact explicitly flags that all code quality criteria passed successfully without any failures."
-      ],
-      "agent_config": "reidbaker-agent"
+      ]
     }
   ]
 }
