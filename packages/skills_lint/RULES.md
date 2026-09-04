@@ -167,7 +167,7 @@ governs how changes to these rules ship.
   `(see https://pub.dev/packages/skills#naming-convention)`
 - **Parameters:**
   - `package_name` (string): explicit Dart package name override.
-  - `pubspec_path` (string): explicit path to `pubspec.yaml` (absolute, or relative to current working directory). When omitted, `pubspec.yaml` is discovered by walking up parent directories.
+  - `pubspec_path` (string): explicit path to `pubspec.yaml` (absolute path, or relative to the CLI invocation working directory `Directory.current`). When omitted, `pubspec.yaml` is auto-discovered by walking up parent directories starting from the skill directory.
 - **Auto-fix behavior:** updates the frontmatter `name:` in `SKILL.md` to the suggested normalized package skill name.
 - **Disable:** `--no-published-skill-name` (also the default state).
 

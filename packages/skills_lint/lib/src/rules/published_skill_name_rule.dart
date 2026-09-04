@@ -43,9 +43,11 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
 
   /// Optional explicit path to `pubspec.yaml` (configured via `pubspec_path` parameter).
   ///
-  /// Can be an absolute path or a relative path resolved against the current
-  /// working directory. If omitted, the rule discovers `pubspec.yaml` by
-  /// ascending parent directories starting from the skill's directory.
+  /// Can be an absolute path or a relative path resolved against the process
+  /// working directory (`Directory.current` at CLI invocation).
+  ///
+  /// If omitted, the rule auto-discovers `pubspec.yaml` by ascending parent
+  /// directories starting from the skill's directory ([SkillContext.directory]).
   final String? pubspecPath;
 
   @override
