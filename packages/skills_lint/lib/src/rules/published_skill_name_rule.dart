@@ -38,10 +38,14 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   @override
   final AnalysisSeverity severity;
 
-  /// Optional explicit package name override.
+  /// Optional explicit package name override (configured via `package_name` parameter).
   final String? packageName;
 
-  /// Optional explicit path to `pubspec.yaml`.
+  /// Optional explicit path to `pubspec.yaml` (configured via `pubspec_path` parameter).
+  ///
+  /// Can be an absolute path or a relative path resolved against the current
+  /// working directory. If omitted, the rule discovers `pubspec.yaml` by
+  /// ascending parent directories starting from the skill's directory.
   final String? pubspecPath;
 
   @override

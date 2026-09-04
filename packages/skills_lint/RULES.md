@@ -165,6 +165,9 @@ governs how changes to these rules ship.
   `Fix with:`
   `` `mv <old-path> <new-path>` ``
   `(see https://pub.dev/packages/skills#naming-convention)`
+- **Parameters:**
+  - `package_name` (string): explicit Dart package name override.
+  - `pubspec_path` (string): explicit path to `pubspec.yaml` (absolute, or relative to current working directory). When omitted, `pubspec.yaml` is discovered by walking up parent directories.
 - **Auto-fix behavior:** updates the frontmatter `name:` in `SKILL.md` to the suggested normalized package skill name.
 - **Disable:** `--no-published-skill-name` (also the default state).
 
