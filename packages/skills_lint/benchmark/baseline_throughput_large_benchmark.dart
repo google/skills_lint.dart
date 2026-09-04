@@ -15,7 +15,7 @@ import 'package:skills_lint/skills_lint.dart';
 final class BaselineThroughputLargeBenchmark extends AsyncBenchmark {
   BaselineThroughputLargeBenchmark() : super('baseline_throughput_large');
 
-  static const int _skillCount = 70;
+  static const int _skillCount = 60;
   static const int _errorsPerSkill = 1;
 
   late Directory _tempDir;
