@@ -5,7 +5,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Run /run-evals.",
+      "prompt": "/run-evals",
       "expected_chat_output": [
         "The chat output displays the command reference usage guide for the 5 reserved keywords."
       ],
@@ -17,7 +17,7 @@
     },
     {
       "id": 2,
-      "prompt": "Run the content evaluations for the definition-of-done skill using /run-evals content definition-of-done.",
+      "prompt": "/run-evals content definition-of-done",
       "expected_chat_output": [
         "The chat output summarizes content evaluation and grading results and does not include trigger or audit results."
       ],
@@ -33,7 +33,7 @@
     },
     {
       "id": 3,
-      "prompt": "Run the trigger evaluations for the definition-of-done skill using /run-evals triggers definition-of-done.",
+      "prompt": "/run-evals triggers definition-of-done",
       "expected_chat_output": [
         "The chat output summarizes trigger routing accuracy and distractor rejection for the definition-of-done skill with Turn-1 cutoff."
       ],
@@ -46,7 +46,7 @@
     },
     {
       "id": 4,
-      "prompt": "Run the audit evaluations for the definition-of-done skill using /run-evals audit definition-of-done.",
+      "prompt": "/run-evals audit definition-of-done",
       "expected_chat_output": [
         "The chat output summarizes static audit findings against eval_quality_rubric.json and does not include trigger or content results."
       ],
@@ -60,7 +60,7 @@
     },
     {
       "id": 5,
-      "prompt": "Run /run-evals content packages/skills_lint/evals/code_quality_rubric_evals.json to execute meta-evaluations targeting test fixtures.",
+      "prompt": "/run-evals content packages/skills_lint/evals/code_quality_rubric_evals.json",
       "expected_chat_output": [
         "The chat output summarizes content evaluation results for the targeted test data suite."
       ],
