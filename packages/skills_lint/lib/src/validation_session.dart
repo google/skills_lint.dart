@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
+import 'package:yaml/yaml.dart';
 
 import 'config_parser.dart';
 import 'fixable_rule.dart';
@@ -623,21 +624,92 @@ class ValidationSession {
     required List<IgnoreEntry> skillIgnores,
     required ValidationResult fallbackResult,
   }) async {
-    final String skillName = p.basename(skillDir.path);
+    final String oldSkillName = p.basename(skillDir.path);
+    final String? targetSkillName = _extractSkillName(currentContent);
+
     if (fixApply) {
       await skillMdFile.writeAsString(currentContent);
       if (!quiet) {
-        _log.info('  Applied fixes for $skillName');
+        _log.info('  Applied fixes for $oldSkillName');
       }
-      final ValidationResult newResult = await validator.validate(skillDir);
+
+      final Directory effectiveSkillDir = await _alignSkillDirectory(
+        skillDir: skillDir,
+        oldSkillName: oldSkillName,
+        targetSkillName: targetSkillName,
+      );
+
+      final ValidationResult newResult = await validator.validate(effectiveSkillDir);
       _applyIgnores(newResult, skillIgnores);
       return newResult;
     }
+
     if (fix && !quiet) {
-      _log.info('  [Dry Run] Proposed changes for $skillName (SKILL.md):');
-      _printDiff(originalContent, currentContent);
+      _logDryRunFix(
+        oldSkillName: oldSkillName,
+        targetSkillName: targetSkillName,
+        originalContent: originalContent,
+        currentContent: currentContent,
+      );
     }
     return fallbackResult;
+  }
+
+  Future<Directory> _alignSkillDirectory({
+    required Directory skillDir,
+    required String oldSkillName,
+    required String? targetSkillName,
+  }) async {
+    if (targetSkillName == null || targetSkillName.isEmpty || targetSkillName == oldSkillName) {
+      return skillDir;
+    }
+
+    final String parentPath = p.dirname(skillDir.path);
+    final String newDirPath = p.join(parentPath, targetSkillName);
+    final newDir = Directory(newDirPath);
+
+    if (newDir.existsSync()) {
+      return skillDir;
+    }
+
+    try {
+      final Directory renamed = await skillDir.rename(newDirPath);
+      if (!quiet) {
+        _log.info('  Renamed skill directory: $oldSkillName -> $targetSkillName');
+      }
+      return renamed;
+    } catch (e) {
+      _log.warning('  Failed to rename skill directory from $oldSkillName to $targetSkillName: $e');
+      return skillDir;
+    }
+  }
+
+  void _logDryRunFix({
+    required String oldSkillName,
+    required String? targetSkillName,
+    required String originalContent,
+    required String currentContent,
+  }) {
+    _log.info('  [Dry Run] Proposed changes for $oldSkillName (SKILL.md):');
+    _printDiff(originalContent, currentContent);
+    if (targetSkillName != null && targetSkillName.isNotEmpty && targetSkillName != oldSkillName) {
+      _log.info('  [Dry Run] Proposed directory rename: $oldSkillName -> $targetSkillName');
+    }
+  }
+
+  static String? _extractSkillName(String content) {
+    final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(content);
+    if (match != null) {
+      try {
+        final Object? doc = loadYaml(match.group(1)!);
+        if (doc is YamlMap && doc['name'] != null) {
+          return doc['name'].toString().trim();
+        }
+      } catch (_) {
+        // Ignore YAML parsing errors during fix post-processing.
+      }
+    }
+    return null;
   }
 
   /// Prints a simple line-by-line diff between [original] and [modified].

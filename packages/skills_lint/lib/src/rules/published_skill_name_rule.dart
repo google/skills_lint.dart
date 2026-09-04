@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
+import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
@@ -14,14 +15,15 @@ import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/validation_error.dart';
+import '../path_utils.dart';
 
 /// Enforces that published package skills follow the naming convention required
 /// by `package:skills`.
 ///
-/// Published skills in a Dart package's `skills/` directory must start with
-/// the package name (or the package name with underscores replaced by hyphens)
-/// followed by a hyphen (e.g. `skills-lint-setup` or `skills_lint-setup` for
-/// package `skills_lint`).
+/// Published skills in a Dart package's `skills/` directory must match the
+/// package name or start with the package name (or the package name with
+/// underscores replaced by hyphens) followed by a hyphen (e.g. `skills-lint`,
+/// `skills-lint-setup`, or `skills_lint-setup` for package `skills_lint`).
 class PublishedSkillNameRule extends SkillRule implements FixableRule {
   PublishedSkillNameRule({this.severity = defaultSeverity, this.packageName, this.pubspecPath});
 
@@ -31,6 +33,14 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   static const String pubspecPathParameter = 'pubspec_path';
 
   static const String _specUrl = 'https://pub.dev/packages/skills#naming-convention';
+
+  static final Map<String, String?> _packageCache = {};
+
+  /// Clears in-memory package resolution cache. Used in tests.
+  @visibleForTesting
+  static void clearPackageCache() {
+    _packageCache.clear();
+  }
 
   @override
   String get name => ruleName;
@@ -90,19 +100,22 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
       return errors;
     }
 
-    final hyphenPrefix = '${resolvedPackageName.replaceAll('_', '-')}-';
-    final rawPrefix = '$resolvedPackageName-';
+    final String hyphenPkg = resolvedPackageName.replaceAll('_', '-').toLowerCase();
+    final String rawPkg = resolvedPackageName.toLowerCase();
+    final hyphenPrefix = '$hyphenPkg-';
+    final rawPrefix = '$rawPkg-';
 
-    final bool startsWithValidPrefix =
-        skillName.startsWith(hyphenPrefix) || skillName.startsWith(rawPrefix);
+    final bool isNameValid =
+        skillName == hyphenPkg ||
+        skillName == rawPkg ||
+        skillName.startsWith(hyphenPrefix) ||
+        skillName.startsWith(rawPrefix);
 
-    if (!startsWithValidPrefix) {
-      final String suggestedName = suggestValidName(skillName, resolvedPackageName);
-      final String dirPath = context.directory.path;
-      final String targetPath = p.join(p.dirname(dirPath), suggestedName);
-      final fixCommand = p.basename(dirPath) == suggestedName
-          ? 'dart run skills_lint --fix'
-          : 'mv $dirPath $targetPath';
+    if (!isNameValid) {
+      final String suggestedName = suggestValidName(
+        currentName: skillName,
+        packageName: resolvedPackageName,
+      );
       errors.add(
         ValidationError(
           ruleId: name,
@@ -114,7 +127,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
               'must start with "$hyphenPrefix". '
               'Suggested name: "$suggestedName".\n'
               'Fix with:\n'
-              '`$fixCommand`\n'
+              '`dart run skills_lint --fix`\n'
               '(see $_specUrl)',
         ),
       );
@@ -134,12 +147,18 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
       return explicitPackageName.trim();
     }
 
+    final cacheKey = '${startDirectory.absolute.path}::${explicitPubspecPath ?? ''}';
+    if (_packageCache.containsKey(cacheKey)) {
+      return _packageCache[cacheKey];
+    }
+
     if (explicitPubspecPath != null && explicitPubspecPath.trim().isNotEmpty) {
       final file = File(explicitPubspecPath.trim());
       if (file.existsSync()) {
-        return _extractPackageNameFromPubspec(file);
+        final String? pkgName = _extractPackageNameFromPubspec(file);
+        return _packageCache[cacheKey] = pkgName;
       }
-      return null;
+      return _packageCache[cacheKey] = null;
     }
 
     Directory current = startDirectory.absolute;
@@ -148,7 +167,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
       if (pubspecFile.existsSync()) {
         final String? pkgName = _extractPackageNameFromPubspec(pubspecFile);
         if (pkgName != null && pkgName.isNotEmpty) {
-          return pkgName;
+          return _packageCache[cacheKey] = pkgName;
         }
       }
 
@@ -159,51 +178,60 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
       current = parent;
     }
 
-    return null;
+    return _packageCache[cacheKey] = null;
   }
 
   static String? _extractPackageNameFromPubspec(File pubspecFile) {
     try {
       final String content = pubspecFile.readAsStringSync();
-      final Object? yaml = loadYaml(content);
-      if (yaml is YamlMap) {
-        final Object? nameVal = yaml['name'];
-        if (nameVal != null) {
-          return nameVal.toString().trim();
-        }
-      }
+      final pubspec = Pubspec.parse(content);
+      final String name = pubspec.name.trim();
+      return name.isNotEmpty ? name : null;
     } catch (_) {
       // Ignore syntax/read errors in pubspec
     }
     return null;
   }
 
-  static final _hyphenTrimRegex = RegExp(r'^-+|-+$');
-
   /// Suggests a valid skill name complying with the package published skill naming convention.
   ///
   /// Examples:
-  /// * `suggestValidName('setup', 'skills_lint')` -> `'skills-lint-setup'`
-  /// * `suggestValidName('dart-skills-lint-setup', 'skills_lint')` -> `'skills-lint-setup'`
-  /// * `suggestValidName('skills_lint', 'skills_lint')` -> `'skills-lint'`
+  /// * `suggestValidName(currentName: 'setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
+  /// * `suggestValidName(currentName: 'dart-skills-lint-setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
+  /// * `suggestValidName(currentName: 'skills_lint_setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
+  /// * `suggestValidName(currentName: 'skills_lint', packageName: 'skills_lint')` -> `'skills-lint'`
   @visibleForTesting
-  static String suggestValidName(String currentName, String packageName) {
-    final String hyphenPkg = packageName.replaceAll('_', '-').toLowerCase();
+  static String suggestValidName({required String currentName, required String packageName}) {
+    final String hyphenPkg = normalizeSkillNameToken(packageName);
     final String rawPkg = packageName.toLowerCase();
     final String cleanName = currentName.trim().toLowerCase();
 
-    var remainder = cleanName;
-    if (cleanName.contains(hyphenPkg)) {
-      final int idx = cleanName.indexOf(hyphenPkg);
-      remainder = cleanName.substring(idx + hyphenPkg.length);
-    } else if (cleanName.contains(rawPkg)) {
-      final int idx = cleanName.indexOf(rawPkg);
-      remainder = cleanName.substring(idx + rawPkg.length);
+    if (cleanName == hyphenPkg || cleanName == rawPkg) {
+      return hyphenPkg;
     }
 
-    final String suffix = remainder.replaceAll(_hyphenTrimRegex, '');
+    final hyphenRegex = RegExp(
+      '(^|[-_])${RegExp.escape(hyphenPkg)}([-_]|\$)',
+      caseSensitive: false,
+    );
+    final rawRegex = RegExp('(^|[-_])${RegExp.escape(rawPkg)}([-_]|\$)', caseSensitive: false);
+
+    var remainder = cleanName;
+    final RegExpMatch? hyphenMatch = hyphenRegex.firstMatch(cleanName);
+    final RegExpMatch? rawMatch = rawRegex.firstMatch(cleanName);
+
+    if (hyphenMatch != null) {
+      final String after = cleanName.substring(hyphenMatch.end);
+      remainder = after.isNotEmpty ? after : cleanName.substring(0, hyphenMatch.start);
+    } else if (rawMatch != null) {
+      final String after = cleanName.substring(rawMatch.end);
+      remainder = after.isNotEmpty ? after : cleanName.substring(0, rawMatch.start);
+    }
+
+    final String suffix = normalizeSkillNameToken(remainder);
     if (suffix.isNotEmpty) {
-      return '$hyphenPkg-$suffix';
+      final candidate = '$hyphenPkg-$suffix';
+      return normalizeSkillNameToken(candidate);
     }
     return hyphenPkg;
   }
@@ -250,14 +278,22 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     }
 
     final String currentSkillName = nameNode.value.toString().trim();
-    final hyphenPrefix = '${resolvedPackageName.replaceAll('_', '-')}-';
-    final rawPrefix = '$resolvedPackageName-';
+    final String hyphenPkg = resolvedPackageName.replaceAll('_', '-').toLowerCase();
+    final String rawPkg = resolvedPackageName.toLowerCase();
+    final hyphenPrefix = '$hyphenPkg-';
+    final rawPrefix = '$rawPkg-';
 
-    if (currentSkillName.startsWith(hyphenPrefix) || currentSkillName.startsWith(rawPrefix)) {
+    if (currentSkillName == hyphenPkg ||
+        currentSkillName == rawPkg ||
+        currentSkillName.startsWith(hyphenPrefix) ||
+        currentSkillName.startsWith(rawPrefix)) {
       return currentContent;
     }
 
-    final String suggestedName = suggestValidName(currentSkillName, resolvedPackageName);
+    final String suggestedName = suggestValidName(
+      currentName: currentSkillName,
+      packageName: resolvedPackageName,
+    );
     final int yamlOffset = currentContent.indexOf(yamlStr, match.start);
     final SourceSpan span = nameNode.span;
     final String before = currentContent.substring(0, yamlOffset + span.start.offset);

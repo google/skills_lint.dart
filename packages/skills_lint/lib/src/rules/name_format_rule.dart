@@ -12,6 +12,7 @@ import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/validation_error.dart';
+import '../path_utils.dart';
 
 /// Enforces constraints on the skill name field.
 class NameFormatRule extends SkillRule implements FixableRule {
@@ -124,17 +125,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
   /// This is intentionally a *suggestion* — the author still picks the final
   /// name. The output is not guaranteed to match a directory name.
   @visibleForTesting
-  static String suggestNormalizedName(String input) {
-    String s = input.toLowerCase();
-    s = s.replaceAll(RegExp(r'[^a-z0-9\-]+'), '-');
-    s = s.replaceAll(RegExp(r'-+'), '-');
-    s = s.replaceAll(RegExp(r'^-+|-+$'), '');
-    if (s.length > maxNameLength) {
-      s = s.substring(0, maxNameLength);
-      s = s.replaceAll(RegExp(r'-+$'), '');
-    }
-    return s;
-  }
+  static String suggestNormalizedName(String input) => normalizeSkillNameToken(input);
 
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {

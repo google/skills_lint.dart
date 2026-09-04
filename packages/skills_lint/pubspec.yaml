@@ -25,6 +25,7 @@ dependencies:
   logging: ^1.2.0
   meta: ^1.11.0
   path: ^1.9.1
+  pubspec_parse: ^1.6.0
   source_span: ^1.10.0
   yaml: ^3.1.3
 

@@ -159,16 +159,16 @@ governs how changes to these rules ship.
 
 - **Default severity:** disabled
 - **Fixable:** yes
-- **What it checks:** skills in a published Dart package's `skills/` directory follow the naming convention required by `package:skills`. The skill directory name and frontmatter `name:` must start with the package name (or the package name with underscores replaced by hyphens) followed by a hyphen (e.g., `skills-lint-` or `skills_lint-` for package `skills_lint`).
+- **What it checks:** skills in a published Dart package's `skills/` directory follow the naming convention required by `package:skills`. The frontmatter `name:` must match the package name or start with the package name (or the package name with underscores replaced by hyphens) followed by a hyphen (e.g., `skills-lint`, `skills-lint-setup`, or `skills_lint-setup` for package `skills_lint`).
 - **Diagnostic shape:**
   `Skill "<name>" does not follow the Dart package published skill naming convention for package "<package>". Published skills must start with "<hyphen-prefix>". Suggested name: "<suggestion>".`
   `Fix with:`
-  `` `mv <old-path> <new-path>` ``
+  `` `dart run skills_lint --fix` ``
   `(see https://pub.dev/packages/skills#naming-convention)`
 - **Parameters:**
   - `package_name` (string): explicit Dart package name override.
   - `pubspec_path` (string): explicit path to `pubspec.yaml` (absolute path, or relative to the CLI invocation working directory `Directory.current`). When omitted, `pubspec.yaml` is auto-discovered by walking up parent directories starting from the skill directory.
-- **Auto-fix behavior:** updates the frontmatter `name:` in `SKILL.md` to the suggested normalized package skill name.
+- **Auto-fix behavior:** updates the frontmatter `name:` in `SKILL.md` to the suggested normalized package skill name and automatically aligns the parent directory name on disk when run via `--fix`.
 - **Disable:** `--no-published-skill-name` (also the default state).
 
 ## valid-yaml-metadata
