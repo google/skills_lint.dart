@@ -30,7 +30,6 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   static const String packageNameParameter = 'package_name';
   static const String pubspecPathParameter = 'pubspec_path';
 
-  static const String _skillFileName = SkillContext.skillFileName;
   static const String _specUrl = 'https://pub.dev/packages/skills#naming-convention';
 
   @override
@@ -49,6 +48,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   Future<List<ValidationError>> validate(SkillContext context) async {
     final List<ValidationError> errors = [];
 
+    // Syntax errors and missing frontmatter are reported by ValidYamlMetadataRule.
     if (context.yamlParsingError != null || context.parsedYaml == null) {
       return errors;
     }
@@ -57,6 +57,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     final YamlNode? nameNode = yaml.nodes['name'];
     final String skillName = nameNode?.value?.toString().trim() ?? '';
 
+    // Missing or empty name is reported as a required-field error by ValidYamlMetadataRule.
     if (skillName.isEmpty) {
       return errors;
     }
@@ -72,7 +73,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
         ValidationError(
           ruleId: name,
           severity: severity,
-          file: _skillFileName,
+          file: SkillContext.skillFileName,
           message:
               'Unable to resolve enclosing Dart package name. Add a '
               'pubspec.yaml in an ancestor directory, configure the '
@@ -100,7 +101,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
         ValidationError(
           ruleId: name,
           severity: severity,
-          file: _skillFileName,
+          file: SkillContext.skillFileName,
           message:
               'Skill "$skillName" does not follow the Dart package published skill '
               'naming convention for package "$resolvedPackageName". Published skills '
@@ -205,7 +206,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   /// normalized published skill name (`<package-name>-<suffix>`).
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    if (filePath != _skillFileName) {
+    if (filePath != SkillContext.skillFileName) {
       return currentContent;
     }
 

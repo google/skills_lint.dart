@@ -88,13 +88,9 @@ SkillContext createTestSkillContext({
   final String effectiveRawContent =
       rawContent ??
       buildFrontmatter(name: effectiveName, description: description, compatibility: compatibility);
-  final buffer = StringBuffer();
-  buffer.writeln('name: $effectiveName');
-  buffer.writeln('description: $description');
-  if (compatibility != null) {
-    buffer.writeln('compatibility: $compatibility');
-  }
-  final YamlMap effectiveParsedYaml = parsedYaml ?? (loadYaml(buffer.toString()) as YamlMap);
+  final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(effectiveRawContent);
+  final YamlMap effectiveParsedYaml =
+      parsedYaml ?? (match != null ? loadYaml(match.group(1)!) as YamlMap : YamlMap());
   return SkillContext(
     directory: directory,
     rawContent: effectiveRawContent,
