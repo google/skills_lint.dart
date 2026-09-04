@@ -18,9 +18,9 @@ void main() {
     );
 
     try {
-      // Load configuration from the repository root skills_lint.yaml
+      // Load configuration from packages/skills_lint/skills_lint.yaml
       // to mirror what is configured in the repository.
-      final Configuration config = await ConfigParser.loadConfig(path: '../../skills_lint.yaml');
+      final Configuration config = await ConfigParser.loadConfig(path: 'skills_lint.yaml');
       expect(
         config.directoryConfigs,
         isNotEmpty,
