@@ -10,7 +10,8 @@ import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:test/test.dart';
-import 'package:yaml/yaml.dart';
+
+import 'test_utils.dart';
 
 void main() {
   group('PublishedSkillNameRule', () {
@@ -31,10 +32,8 @@ void main() {
         severity: AnalysisSeverity.error,
         packageName: 'skills_lint',
       );
-      final context = SkillContext(
+      final SkillContext context = createTestSkillContext(
         directory: Directory(p.join(tempDir.path, 'skills-lint-setup')),
-        rawContent: '---\nname: skills-lint-setup\ndescription: Test\n---\n',
-        parsedYaml: loadYaml('name: skills-lint-setup\ndescription: Test\n') as YamlMap,
       );
 
       final List<ValidationError> errors = await rule.validate(context);
@@ -46,10 +45,8 @@ void main() {
         severity: AnalysisSeverity.error,
         packageName: 'skills_lint',
       );
-      final context = SkillContext(
+      final SkillContext context = createTestSkillContext(
         directory: Directory(p.join(tempDir.path, 'skills_lint-setup')),
-        rawContent: '---\nname: skills_lint-setup\ndescription: Test\n---\n',
-        parsedYaml: loadYaml('name: skills_lint-setup\ndescription: Test\n') as YamlMap,
       );
 
       final List<ValidationError> errors = await rule.validate(context);
@@ -61,10 +58,8 @@ void main() {
         severity: AnalysisSeverity.error,
         packageName: 'skills_lint',
       );
-      final context = SkillContext(
+      final SkillContext context = createTestSkillContext(
         directory: Directory(p.join(tempDir.path, 'dart-skills-lint-setup')),
-        rawContent: '---\nname: dart-skills-lint-setup\ndescription: Test\n---\n',
-        parsedYaml: loadYaml('name: dart-skills-lint-setup\ndescription: Test\n') as YamlMap,
       );
 
       final List<ValidationError> errors = await rule.validate(context);
@@ -83,10 +78,8 @@ void main() {
         severity: AnalysisSeverity.error,
         packageName: 'skills_lint',
       );
-      final context = SkillContext(
+      final SkillContext context = createTestSkillContext(
         directory: Directory(p.join(tempDir.path, 'setup')),
-        rawContent: '---\nname: setup\ndescription: Test\n---\n',
-        parsedYaml: loadYaml('name: setup\ndescription: Test\n') as YamlMap,
       );
 
       final List<ValidationError> errors = await rule.validate(context);
@@ -101,11 +94,7 @@ void main() {
         ..createSync(recursive: true);
 
       final rule = PublishedSkillNameRule(severity: AnalysisSeverity.error);
-      final context = SkillContext(
-        directory: skillDir,
-        rawContent: '---\nname: setup\ndescription: Test\n---\n',
-        parsedYaml: loadYaml('name: setup\ndescription: Test\n') as YamlMap,
-      );
+      final SkillContext context = createTestSkillContext(directory: skillDir);
 
       final List<ValidationError> errors = await rule.validate(context);
       expect(errors, hasLength(1));
@@ -118,11 +107,7 @@ void main() {
         ..createSync(recursive: true);
 
       final rule = PublishedSkillNameRule(severity: AnalysisSeverity.error);
-      final context = SkillContext(
-        directory: orphanDir,
-        rawContent: '---\nname: setup\ndescription: Test\n---\n',
-        parsedYaml: loadYaml('name: setup\ndescription: Test\n') as YamlMap,
-      );
+      final SkillContext context = createTestSkillContext(directory: orphanDir);
 
       final List<ValidationError> errors = await rule.validate(context);
       expect(errors, hasLength(1));
@@ -144,10 +129,9 @@ void main() {
         severity: AnalysisSeverity.error,
         pubspecPath: customPubspec.path,
       );
-      final context = SkillContext(
+      final SkillContext context = createTestSkillContext(
         directory: orphanDir,
-        rawContent: '---\nname: setup\ndescription: Test\n---\n',
-        parsedYaml: loadYaml('name: setup\ndescription: Test\n') as YamlMap,
+        name: 'setup',
       );
 
       final List<ValidationError> errors = await rule.validate(context);
@@ -158,7 +142,7 @@ void main() {
 
     test('skips when parsedYaml is null or yamlParsingError is present', () async {
       final rule = PublishedSkillNameRule(severity: AnalysisSeverity.error, packageName: 'my_pkg');
-      final context = SkillContext(
+      final SkillContext context = createTestSkillContext(
         directory: tempDir,
         rawContent: '---\ninvalid: yaml : error\n---\n',
         yamlParsingError: 'Syntax error',

@@ -5,6 +5,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'package:skills_lint/src/models/skill_context.dart';
+import 'package:yaml/yaml.dart';
 
 String buildFrontmatter({
   String name = 'Skill-Name',
@@ -43,4 +45,42 @@ Future<Directory> createDummySkill(
   final Directory skillDir = await Directory(p.join(parentDir.path, name)).create(recursive: true);
   await File(p.join(skillDir.path, 'SKILL.md')).writeAsString(skillContent);
   return skillDir;
+}
+
+/// Helper to construct a [SkillContext] for unit tests.
+SkillContext createTestSkillContext({
+  required Directory directory,
+  String? name,
+  String description = 'Test',
+  String? compatibility,
+  String? rawContent,
+  YamlMap? parsedYaml,
+  String? yamlParsingError,
+}) {
+  if (yamlParsingError != null) {
+    return SkillContext(
+      directory: directory,
+      rawContent: rawContent ?? '',
+      yamlParsingError: yamlParsingError,
+    );
+  }
+  if (rawContent != null && parsedYaml != null) {
+    return SkillContext(directory: directory, rawContent: rawContent, parsedYaml: parsedYaml);
+  }
+  final String effectiveName = name ?? p.basename(directory.path);
+  final String effectiveRawContent =
+      rawContent ??
+      buildFrontmatter(name: effectiveName, description: description, compatibility: compatibility);
+  final buffer = StringBuffer();
+  buffer.writeln('name: $effectiveName');
+  buffer.writeln('description: $description');
+  if (compatibility != null) {
+    buffer.writeln('compatibility: $compatibility');
+  }
+  final YamlMap effectiveParsedYaml = parsedYaml ?? (loadYaml(buffer.toString()) as YamlMap);
+  return SkillContext(
+    directory: directory,
+    rawContent: effectiveRawContent,
+    parsedYaml: effectiveParsedYaml,
+  );
 }
