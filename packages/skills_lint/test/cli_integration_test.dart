@@ -746,7 +746,6 @@ Body''');
         '-s',
         skillDir.path,
         '--published-skill-name',
-        'error',
       ]);
 
       await process.shouldExit(1);
@@ -759,7 +758,7 @@ Body''');
         ),
       );
       expect(stderrStr, contains('Suggested name: "test-pkg-setup"'));
-      expect(stderrStr, contains('Fix with:\n`dart run skills_lint --fix`'));
+      expect(stderrStr, contains('Fix by re-running your validation command with `--fix`'));
     });
 
     test('--fix on published-skill-name aligns frontmatter and renames directory', () async {
@@ -780,7 +779,6 @@ Body''');
         '-s',
         skillDir.path,
         '--published-skill-name',
-        'error',
         '--fix',
       ]);
 
@@ -817,7 +815,6 @@ Body''');
           '-s',
           skillDir.path,
           '--published-skill-name',
-          'error',
           '--fix',
           '--dry-run',
         ]);
@@ -834,6 +831,49 @@ Body''');
         expect(skillDir.existsSync(), isTrue);
         final String content = await File('${skillDir.path}/SKILL.md').readAsString();
         expect(content, contains('name: dart-test-pkg-setup'));
+      },
+    );
+
+    test(
+      '--fix with trailing whitespace fix does not rename directory when invalid-skill-name is ignored',
+      () async {
+        final skillDir = Directory('${tempDir.path}/skill-dir-name');
+        await skillDir.create(recursive: true);
+        await File('${skillDir.path}/SKILL.md').writeAsString('''
+---
+name: ignored-frontmatter-name
+description: A description
+---
+Body with trailing space   
+''');
+        final ignoreFile = File('${tempDir.path}/$defaultIgnoreFileName');
+        await ignoreFile.writeAsString(
+          jsonEncode({
+            SkillsIgnores.skillsKey: {
+              'skill-dir-name': [
+                {IgnoreEntry.ruleIdKey: 'invalid-skill-name', IgnoreEntry.fileNameKey: 'SKILL.md'},
+              ],
+            },
+          }),
+        );
+
+        final TestProcess process = await TestProcess.start('dart', [
+          'bin/skills_lint.dart',
+          '-s',
+          skillDir.path,
+          '--check-trailing-whitespace',
+          '--ignore-file',
+          ignoreFile.path,
+          '--fix',
+        ]);
+
+        await process.shouldExit(0);
+
+        // Directory name must remain unchanged on disk
+        expect(skillDir.existsSync(), isTrue);
+        final String content = await File('${skillDir.path}/SKILL.md').readAsString();
+        expect(content, contains('name: ignored-frontmatter-name'));
+        expect(content, contains('Body with trailing space\n'));
       },
     );
   });

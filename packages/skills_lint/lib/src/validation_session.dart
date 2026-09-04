@@ -518,7 +518,8 @@ class ValidationSession {
     );
 
     if (generateBaseline) {
-      _updateBaselineForSkill(ignores, finalResult, skillName);
+      final String effectiveName = p.basename(finalResult.context?.directory.path ?? skillDir.path);
+      _updateBaselineForSkill(ignores, finalResult, effectiveName);
     }
 
     return finalResult;
@@ -625,7 +626,12 @@ class ValidationSession {
     required ValidationResult fallbackResult,
   }) async {
     final String oldSkillName = p.basename(skillDir.path);
+    final String? oldFrontmatterName = _extractSkillName(originalContent);
     final String? targetSkillName = _extractSkillName(currentContent);
+    final bool nameChangedByFix =
+        oldFrontmatterName != null &&
+        targetSkillName != null &&
+        oldFrontmatterName != targetSkillName;
 
     if (fixApply) {
       await skillMdFile.writeAsString(currentContent);
@@ -633,11 +639,13 @@ class ValidationSession {
         _log.info('  Applied fixes for $oldSkillName');
       }
 
-      final Directory effectiveSkillDir = await _alignSkillDirectory(
-        skillDir: skillDir,
-        oldSkillName: oldSkillName,
-        targetSkillName: targetSkillName,
-      );
+      final Directory effectiveSkillDir = nameChangedByFix
+          ? await _alignSkillDirectory(
+              skillDir: skillDir,
+              oldSkillName: oldSkillName,
+              targetSkillName: targetSkillName,
+            )
+          : skillDir;
 
       final ValidationResult newResult = await validator.validate(effectiveSkillDir);
       _applyIgnores(newResult, skillIgnores);
@@ -647,7 +655,7 @@ class ValidationSession {
     if (fix && !quiet) {
       _logDryRunFix(
         oldSkillName: oldSkillName,
-        targetSkillName: targetSkillName,
+        targetSkillName: nameChangedByFix ? targetSkillName : null,
         originalContent: originalContent,
         currentContent: currentContent,
       );
@@ -674,6 +682,10 @@ class ValidationSession {
     final newDir = Directory(newDirPath);
 
     if (newDir.existsSync()) {
+      _log.severe(
+        '  Cannot rename skill directory from $oldSkillName to $targetSkillName: '
+        'destination directory ${newDir.path} already exists.',
+      );
       return skillDir;
     }
 
@@ -684,7 +696,7 @@ class ValidationSession {
       }
       return renamed;
     } catch (e) {
-      _log.warning('  Failed to rename skill directory from $oldSkillName to $targetSkillName: $e');
+      _log.severe('  Failed to rename skill directory from $oldSkillName to $targetSkillName: $e');
       return skillDir;
     }
   }

@@ -72,7 +72,10 @@ void main() {
       );
       expect(errors.first.message, contains('Published skills must start with "skills-lint-"'));
       expect(errors.first.message, contains('Suggested name: "skills-lint-setup"'));
-      expect(errors.first.message, contains('Fix with:\n`dart run skills_lint --fix`'));
+      expect(
+        errors.first.message,
+        contains('Fix by re-running your validation command with `--fix`'),
+      );
     });
 
     test('flags skill name missing package prefix and suggests valid name', () async {
@@ -87,7 +90,10 @@ void main() {
       final List<ValidationError> errors = await rule.validate(context);
       expect(errors, hasLength(1));
       expect(errors.first.message, contains('Suggested name: "skills-lint-setup"'));
-      expect(errors.first.message, contains('Fix with:\n`dart run skills_lint --fix`'));
+      expect(
+        errors.first.message,
+        contains('Fix by re-running your validation command with `--fix`'),
+      );
     });
 
     test('auto-discovers package name from ancestor pubspec.yaml', () async {
@@ -185,7 +191,7 @@ void main() {
       expect(errors, isEmpty);
     });
 
-    test('flags skill name when matching exact hyphenated package name without suffix', () async {
+    test('passes when skill name matches exact hyphenated package name', () async {
       final rule = PublishedSkillNameRule(
         severity: AnalysisSeverity.error,
         packageName: 'skills_lint',
@@ -196,11 +202,10 @@ void main() {
       );
 
       final List<ValidationError> errors = await rule.validate(context);
-      expect(errors, hasLength(1));
-      expect(errors.first.message, contains('Published skills must start with "skills-lint-"'));
+      expect(errors, isEmpty);
     });
 
-    test('flags skill name when matching exact raw package name without suffix', () async {
+    test('passes when skill name matches exact raw package name', () async {
       final rule = PublishedSkillNameRule(
         severity: AnalysisSeverity.error,
         packageName: 'skills_lint',
@@ -211,33 +216,30 @@ void main() {
       );
 
       final List<ValidationError> errors = await rule.validate(context);
-      expect(errors, hasLength(1));
-      expect(errors.first.message, contains('Published skills must start with "skills-lint-"'));
+      expect(errors, isEmpty);
     });
 
-    test('caches resolved package name in memory across upward tree walk', () async {
-      PublishedSkillNameRule.clearPackageCache();
+    test('caches resolved package name in memory across upward tree walk on instance', () async {
       final pkgDir = Directory(p.join(tempDir.path, 'cached_pkg'))..createSync(recursive: true);
       final pubspecFile = File(p.join(pkgDir.path, 'pubspec.yaml'))
         ..writeAsStringSync('name: cached_pkg\n');
       final skillDir = Directory(p.join(pkgDir.path, 'skills', 'setup'))
         ..createSync(recursive: true);
 
-      final String? first = PublishedSkillNameRule.resolvePackageName(startDirectory: skillDir);
+      final rule = PublishedSkillNameRule();
+      final String? first = rule.resolvePackageName(startDirectory: skillDir);
       expect(first, 'cached_pkg');
 
-      // Delete pubspec from disk; cached lookup for sibling directory should still return cached_pkg
+      // Delete pubspec from disk; cached lookup on the same rule instance for sibling directory should still return cached_pkg
       pubspecFile.deleteSync();
       final siblingSkillDir = Directory(p.join(pkgDir.path, 'skills', 'validation'))
         ..createSync(recursive: true);
-      final String? second = PublishedSkillNameRule.resolvePackageName(
-        startDirectory: siblingSkillDir,
-      );
+      final String? second = rule.resolvePackageName(startDirectory: siblingSkillDir);
       expect(second, 'cached_pkg');
 
-      // After clearing cache, lookup fails
-      PublishedSkillNameRule.clearPackageCache();
-      final String? third = PublishedSkillNameRule.resolvePackageName(startDirectory: skillDir);
+      // A fresh rule instance has its own cache and sees the deletion
+      final freshRule = PublishedSkillNameRule();
+      final String? third = freshRule.resolvePackageName(startDirectory: skillDir);
       expect(third, isNull);
     });
 
@@ -310,6 +312,23 @@ void main() {
           'serverpod-code-generation',
         );
       });
+
+      test('returns hyphenated package name when currentName matches package name', () {
+        expect(
+          PublishedSkillNameRule.suggestValidName(
+            currentName: 'skills_lint',
+            packageName: 'skills_lint',
+          ),
+          'skills-lint',
+        );
+        expect(
+          PublishedSkillNameRule.suggestValidName(
+            currentName: 'skills-lint',
+            packageName: 'skills_lint',
+          ),
+          'skills-lint',
+        );
+      });
     });
 
     group('fix', () {
@@ -345,6 +364,25 @@ description: Setup skill
 ---
 
 # Setup
+''';
+
+        final String fixedContent = await rule.fix('SKILL.md', originalContent, tempDir);
+
+        expect(fixedContent, originalContent);
+      });
+
+      test('leaves content unchanged if exact package name', () async {
+        final rule = PublishedSkillNameRule(
+          severity: AnalysisSeverity.error,
+          packageName: 'skills_lint',
+        );
+        const originalContent = '''
+---
+name: skills-lint
+description: Main skill
+---
+
+# Main
 ''';
 
         final String fixedContent = await rule.fix('SKILL.md', originalContent, tempDir);

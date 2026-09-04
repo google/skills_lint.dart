@@ -34,13 +34,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
 
   static const String _specUrl = 'https://pub.dev/packages/skills#naming-convention';
 
-  static final Map<String, String?> _packageCache = {};
-
-  /// Clears in-memory package resolution cache. Used in tests.
-  @visibleForTesting
-  static void clearPackageCache() {
-    _packageCache.clear();
-  }
+  final Map<String, String?> _packageCache = {};
 
   @override
   String get name => ruleName;
@@ -105,7 +99,11 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     final hyphenPrefix = '$hyphenPkg-';
     final rawPrefix = '$rawPkg-';
 
-    final bool isNameValid = skillName.startsWith(hyphenPrefix) || skillName.startsWith(rawPrefix);
+    final bool isNameValid =
+        skillName == hyphenPkg ||
+        skillName == rawPkg ||
+        skillName.startsWith(hyphenPrefix) ||
+        skillName.startsWith(rawPrefix);
 
     if (!isNameValid) {
       final String suggestedName = suggestValidName(
@@ -122,8 +120,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
               'naming convention for package "$resolvedPackageName". Published skills '
               'must start with "$hyphenPrefix". '
               'Suggested name: "$suggestedName".\n'
-              'Fix with:\n'
-              '`dart run skills_lint --fix`\n'
+              'Fix by re-running your validation command with `--fix`.\n'
               '(see $_specUrl)',
         ),
       );
@@ -134,7 +131,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
 
   /// Resolves the enclosing Dart package name from parameters or by walking up
   /// parent directories from [startDirectory] to find `pubspec.yaml`.
-  static String? resolvePackageName({
+  String? resolvePackageName({
     required Directory startDirectory,
     String? explicitPackageName,
     String? explicitPubspecPath,
@@ -164,7 +161,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     return _extractPackageNameFromPubspec(file);
   }
 
-  static String? _autoDiscoverPackageName(Directory startDirectory) {
+  String? _autoDiscoverPackageName(Directory startDirectory) {
     final visitedPaths = <String>[];
     Directory current = startDirectory.absolute;
 
@@ -197,7 +194,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     return null;
   }
 
-  static void _populateCacheForPaths(List<String> paths, String? pkgName) {
+  void _populateCacheForPaths(List<String> paths, String? pkgName) {
     for (final path in paths) {
       _packageCache['$path::'] = pkgName;
     }
@@ -221,6 +218,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   /// * `suggestValidName(currentName: 'setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
   /// * `suggestValidName(currentName: 'dart-skills-lint-setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
   /// * `suggestValidName(currentName: 'skills_lint_setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
+  /// * `suggestValidName(currentName: 'skills_lint', packageName: 'skills_lint')` -> `'skills-lint'`
   @visibleForTesting
   static String suggestValidName({required String currentName, required String packageName}) {
     final List<String> pkgTokens = _tokenize(packageName);
@@ -310,7 +308,10 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     final hyphenPrefix = '$hyphenPkg-';
     final rawPrefix = '$rawPkg-';
 
-    if (currentSkillName.startsWith(hyphenPrefix) || currentSkillName.startsWith(rawPrefix)) {
+    if (currentSkillName == hyphenPkg ||
+        currentSkillName == rawPkg ||
+        currentSkillName.startsWith(hyphenPrefix) ||
+        currentSkillName.startsWith(rawPrefix)) {
       return currentContent;
     }
 
