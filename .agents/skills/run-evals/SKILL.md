@@ -16,15 +16,15 @@ This skill executes evaluations for AI agent skills maintained in this repositor
 
 ## Invocation Modes & CLI Grammar
 
-The runner requires one of the **4 (+1) reserved keywords** (`audit`, `triggers`, `content`, `all`, `help`) or runs the default catalog pipeline when no arguments are passed. Any unrecognized keyword prints the usage guide and exits.
+The runner requires one of the **5 reserved keywords** (`content`, `triggers`, `audit`, `all`, `help`). Invoking `/run-evals` without arguments (default usage) or with an unrecognized keyword displays the command reference guide and exits without executing evaluations.
 
 | Command | Target Scope | Description |
 | :--- | :--- | :--- |
-| `/run-evals` | **All Active Skills** (Default) | Runs the **Audit -> Triggers -> Content** staged pipeline across all active skills (skipping files with root `"test_data": true`). |
-| `/run-evals all` | **All Skills + Test Data** | Runs **Audit -> Triggers -> Content** across all skills, including suites and meta-evals marked with `"test_data": true`. |
-| `/run-evals audit [all \| <target>]` | **Static Audit** | Statically audits evaluation suites against evaluation quality standards (`evals/eval_quality_rubric.json`). Accepts `all` or a specific skill/file path. |
-| `/run-evals triggers [all \| <skill>]` | **Trigger Router Test** | Evaluates intent routing and distractor rejection across `triggers.json` files with Turn-1 cutoff. Accepts `all` or a specific skill. |
+| `/run-evals` | **Usage Guide** (Default) | Displays this command reference guide and exits. |
 | `/run-evals content [all \| <target>]` | **Multi-Turn Content** | Runs task execution in isolated workspaces and grades workspace state against code quality standards (`evals/code_quality_rubric.json`). Accepts `all` or a specific skill/file path. |
+| `/run-evals triggers [all \| <skill>]` | **Trigger Router Test** | Evaluates intent routing and distractor rejection across `triggers.json` files with Turn-1 cutoff. Accepts `all` or a specific skill. |
+| `/run-evals audit [all \| <target>]` | **Static Audit** | Statically audits evaluation suites against evaluation quality standards (`evals/eval_quality_rubric.json`). Accepts `all` or a specific skill/file path. |
+| `/run-evals all` | **All Skills + Test Data** | Runs the full **Audit -> Triggers -> Content** staged pipeline across all skills, including suites and meta-evals marked with `"test_data": true`. |
 | `/run-evals help` | **Usage Guide** | Displays this command reference and exits. |
 
 ### Data-Driven Execution Architecture
@@ -38,8 +38,8 @@ The evaluation framework uses data structure, rather than directory layout or ha
    - **Fallback Inference**: If `"type"` is omitted, structural inference applies: suites containing `positive_triggers` run as triggers, suites containing `prompt` run as content, and files containing only criteria assertions run as content rubrics.
 2. **Pure Data-Driven Discovery (`"test_data": true`)**:
    - The root-level `"test_data": true` boolean in any JSON file marks it as test fixture or meta-evaluation data.
-   - Default discovery (`/run-evals`, `/run-evals audit`, `/run-evals content`) skips any file containing `"test_data": true` at its root, regardless of directory location.
-   - Passing `all` (`/run-evals all`, `/run-evals audit all`, `/run-evals content all`) or providing an explicit target path (such as `/run-evals content packages/skills_lint/evals/code_quality_rubric_evals.json`) includes files marked with `"test_data": true`.
+   - Default discovery (`/run-evals content`, `/run-evals triggers`, `/run-evals audit`) skips any file containing `"test_data": true` at its root, regardless of directory location.
+   - Passing `all` (`/run-evals all`, `/run-evals content all`, `/run-evals audit all`) or providing an explicit target path (such as `/run-evals content packages/skills_lint/evals/code_quality_rubric_evals.json`) includes files marked with `"test_data": true`.
 
 ### Multi-Stage Pipeline: `Audit -> Triggers -> Content`
 When executing evaluation suites, the runner runs all stages across targeted skills and generates a comprehensive aggregate report:

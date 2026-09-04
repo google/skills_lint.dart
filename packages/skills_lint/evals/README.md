@@ -65,6 +65,7 @@ dart test test/skills_evals_test.dart
 
 ## Executing Evals via Agent Orchestration (`/run-evals`)
 
-Live evaluation workflows, subagent orchestration, and grading are executed via the `/run-evals` skill. The runner accepts one of the 4 (+1) reserved keywords (`audit`, `triggers`, `content`, `all`, `help`) or runs the multi-stage pipeline across all active skills by default.
+Live evaluation workflows, subagent orchestration, and grading are executed via the `/run-evals` skill. The runner accepts one of the 5 reserved keywords (`content`, `triggers`, `audit`, `all`, `help`). Invoking `/run-evals` without arguments displays the usage reference guide and exits.
 
 For complete execution instructions and CLI reference, see [`.agents/skills/run-evals/SKILL.md`](../../../.agents/skills/run-evals/SKILL.md).
+
