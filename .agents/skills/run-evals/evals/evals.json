@@ -7,73 +7,81 @@
       "id": 1,
       "prompt": "Run the evals for the definition-of-done skill.",
       "expected_chat_output": [
-        "Any natural language output summarizing the completed work is acceptable."
+        "The summary contains results across audit, trigger, and content evaluation stages."
       ],
       "expected_repo_state": [
-        "The agent successfully triggered subagents to run the test cases.",
-        "There is an artifact with the results.",
-        "The evaluation artifact records metadata including the model name, effort level, and agent configuration when available.",
-        "No files are modified in the parent workspace after the eval is done running (all modifications must be confined to the isolated subagent worktree).",
-        "The evaluation artifact includes evals sourced from code_quality_rubric.json for a skill that produces code."
+        "The agent executed the evaluation stages across the target skill.",
+        "There is an artifact with the evaluation results.",
+        "The evaluation artifact records execution metadata including commit hash, resolved model name, and active agent profile.",
+        "No files are modified in the parent workspace after evaluation completes."
       ]
     },
     {
       "id": 2,
-      "prompt": "Can you test the definition-of-done skill and see if it passes its rubric?",
+      "prompt": "Run the audit evaluations for the definition-of-done skill using /run-evals audit.",
       "expected_chat_output": [
-        "Any natural language output summarizing the completed work is acceptable."
+        "The output reports static audit findings against eval_quality_rubric.json."
       ],
       "expected_repo_state": [
-        "There is an artifact with the results.",
-        "No files are modified in the parent workspace after the eval is done running (all modifications must be confined to the isolated subagent worktree).",
-        "The evaluation artifact includes evals sourced from code_quality_rubric.json for a skill that produces code."
+        "The evaluation inspected the target evals.json statically against eval_quality_rubric.json.",
+        "No execution subagents were spawned during static audit evaluation.",
+        "There is an artifact or summary containing audit results."
       ]
     },
     {
       "id": 3,
-      "prompt": "Run an A/B benchmark evaluation for the definition-of-done skill, comparing it explicitly against a baseline without the skill.",
+      "prompt": "Run the trigger evaluations for the skills catalog using /run-evals triggers.",
       "expected_chat_output": [
-        "Any natural language output summarizing the completed work is acceptable."
+        "The output reports trigger routing pass and fail results with Turn-1 cutoff."
       ],
       "expected_repo_state": [
-        "The agent successfully triggered both baseline and with-skill subagents.",
-        "There is an artifact with the results.",
-        "The evaluation artifact contains explicit sections for both the 'With-Skill Agent' and the 'Baseline Agent'.",
-        "No files are modified in the parent workspace after the eval is done running (all modifications must be confined to the isolated subagent worktree)."
+        "Subagents were dispatched to test trigger prompts and terminated after Turn 1.",
+        "There is an artifact or summary reporting trigger routing accuracy and distractor rejection."
       ]
     },
     {
       "id": 4,
-      "prompt": "Please run the evals for the run-evals skill. Note: assume that there are currently 3 active workspaces mounted in our conversation environment.",
+      "prompt": "Run an A/B benchmark evaluation for the definition-of-done skill using /run-evals content, comparing it explicitly against a baseline without the skill.",
       "expected_chat_output": [
-        "The response selects the Isolated Git Worktree harness (Strategy B) to maintain isolation across workspaces.",
-        "The response refuses to run un-isolated mutations in the active developer working tree."
+        "The output summarizes comparison results between the with-skill agent and the baseline agent."
       ],
       "expected_repo_state": [
-        "No files in the active developer working tree are polluted or modified."
+        "The agent dispatched both with-skill and baseline subagents in isolated workspaces.",
+        "The evaluation artifact contains sections for both the With-Skill Agent and the Baseline Agent.",
+        "No files are modified in the parent workspace after evaluation completes."
       ]
     },
     {
       "id": 5,
-      "prompt": "Please run the evals for the run-evals skill. Note: assume that the current active workspace is a subpackage subdirectory rather than the root of the Git repository.",
+      "prompt": "Run the evaluations for the definition-of-done skill when the active workspace is a subpackage subdirectory rather than the repository root.",
       "expected_chat_output": [
-        "The response detects the subpackage layout via git rev-parse pre-flight checks.",
-        "The response uses the Isolated Git Worktree harness (Strategy B) targeting the relative package path.",
-        "The response ensures worktree teardown after completion."
+        "The response selects the Isolated Git Worktree harness (Strategy B) targeting the relative package directory."
       ],
       "expected_repo_state": [
-        "No files in the active developer working tree are polluted or modified."
+        "The evaluation executed in an isolated worktree created via git worktree.",
+        "The temporary git worktree was removed after completion.",
+        "No files are modified in the parent workspace after evaluation completes."
       ]
     },
     {
       "id": 6,
-      "prompt": "Run the evals for the definition-of-done skill, but invoke_subagent with Workspace: branch fails with 'branch workspace not supported for VCS type Unknown'.",
+      "prompt": "Run /run-evals all to execute evaluations across all skills and meta-evaluation suites including test fixtures.",
       "expected_chat_output": [
-        "The response falls back to an Isolated Git Worktree harness to preserve environment isolation.",
-        "The response strictly refuses to execute un-isolated mutations in the main working tree."
+        "The output reports results for suites across all active skills and suites marked with test_data: true."
       ],
       "expected_repo_state": [
-        "No files in the active developer working tree are polluted or modified."
+        "The evaluation included files containing root-level test_data: true.",
+        "There is an artifact reporting combined evaluation results."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Run /run-evals invalid-mode.",
+      "expected_chat_output": [
+        "The output displays the command reference usage table for the 4 (+1) reserved keywords and exits."
+      ],
+      "expected_repo_state": [
+        "No evaluation subagents or worktrees were created."
       ]
     }
   ]

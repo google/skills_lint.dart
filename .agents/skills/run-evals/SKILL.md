@@ -1,7 +1,7 @@
 ---
 name: run-evals
 description: |-
-  Run evaluations for one, multiple, or all skills using the agent orchestration framework. Supports three evaluation modes: audit evaluations (eval_quality_rubric.json), trigger evaluations (triggers.json), and content evaluations (evals.json). Runs all three modes in a fast-fail pipeline by default when unspecified.
+  Run evaluations for one, multiple, or all skills using the agent orchestration framework. Supports three evaluation modes: audit evaluations (eval_quality_rubric.json), trigger evaluations (triggers.json), and content evaluations (evals.json). Runs all three modes and generates a comprehensive evaluation report across all stages.
 metadata:
   internal: true
 ---
@@ -28,24 +28,25 @@ The runner requires one of the **4 (+1) reserved keywords** (`audit`, `triggers`
 | `/run-evals help` | **Usage Guide** | Displays this command reference and exits. |
 
 ### Data-Driven Execution Architecture
-The evaluation framework uses **data structure**, rather than directory layout or hardcoded filenames, to govern evaluation discovery and execution:
+The evaluation framework uses data structure, rather than directory layout or hardcoded filenames, to govern evaluation discovery and execution:
 
 1. **Rubric Type Partitioning (`"type": "audit" | "content"`)**:
-   - Rubrics (e.g. `eval_quality_rubric.json`, `code_quality_rubric.json`, or custom rubrics) define their execution stage via the root `"type"` field:
-     - `"type": "audit"` $\to$ Statically verified during **Stage 1 (Audit)** without spawning execution subagents.
-     - `"type": "content"` $\to$ Evaluated by the Agent Judge during **Stage 3 (Content)** after multi-turn tool execution.
-   - When a skill specifies `"repo_criteria": ["evals/..."]`, the runner inspects each referenced file's `"type"` to determine whether it applies during the Audit or Content phase.
-   - **Fallback Inference**: If `"type"` is omitted in legacy files, structural inference applies (`positive_triggers` $\to$ triggers, `prompt` $\to$ content, criteria assertions only $\to$ content rubric).
+   - Rubrics define their evaluation phase through the root `"type"` field:
+     - `"type": "audit"` -> Statically verified during Stage 1 (Audit) without spawning execution subagents.
+     - `"type": "content"` -> Evaluated by the Agent Judge during Stage 3 (Content) after multi-turn tool execution.
+   - When a skill declares `"repo_criteria": ["evals/..."]`, the runner checks each referenced rubric file's `"type"` field to determine whether it applies during the Audit or Content phase.
+   - **Fallback Inference**: If `"type"` is omitted, structural inference applies: suites containing `positive_triggers` run as triggers, suites containing `prompt` run as content, and files containing only criteria assertions run as content rubrics.
 2. **Pure Data-Driven Discovery (`"test_data": true`)**:
    - The root-level `"test_data": true` boolean in any JSON file marks it as test fixture or meta-evaluation data.
-   - Default discovery (`/run-evals`, `/run-evals audit`, `/run-evals content`) skips ANY file containing `"test_data": true` at its root, regardless of directory location.
-   - Passing `all` (e.g. `/run-evals all`, `/run-evals audit all`, `/run-evals content all`) or providing an explicit target path (e.g. `/run-evals content packages/skills_lint/evals/code_quality_rubric_evals.json`) includes files marked with `"test_data": true`.
+   - Default discovery (`/run-evals`, `/run-evals audit`, `/run-evals content`) skips any file containing `"test_data": true` at its root, regardless of directory location.
+   - Passing `all` (`/run-evals all`, `/run-evals audit all`, `/run-evals content all`) or providing an explicit target path (such as `/run-evals content packages/skills_lint/evals/code_quality_rubric_evals.json`) includes files marked with `"test_data": true`.
 
-### Fast-Fail Staged Pipeline: `Audit -> Triggers -> Content`
-When running catalog-wide evaluations or skill suites, the runner executes in staged phases:
-1. **Stage 1: Audit (Instant Static Inspection)** — Evaluates target `evals.json` against all referenced `"type": "audit"` rubrics (such as `evals/eval_quality_rubric.json`). If static inspection flags malformed schemas, redundant scenarios, or non-binary assertions, execution halts immediately for that skill before running subagents.
-2. **Stage 2: Triggers (Fast Turn-1 Router Test)** — Dispatches parallel subagents to test intent activation and distractor rejection with Turn-1 cutoff. If intent routing fails (positive under-trigger or distractor collision), execution halts for that skill before running heavyweight content tasks.
-3. **Stage 3: Content (Multi-Turn Execution & Workspace Mutations)** — Spawns subagents in isolated workspaces to execute tasks and grade repository mutations against all referenced `"type": "content"` rubrics (such as `evals/code_quality_rubric.json`) and suite assertions.
+### Multi-Stage Pipeline: `Audit -> Triggers -> Content`
+When executing evaluation suites, the runner runs all stages across targeted skills and generates a comprehensive aggregate report:
+1. **Stage 1: Audit (Static Quality Inspection)** — Evaluates target `evals.json` files against all referenced `"type": "audit"` rubrics (such as `evals/eval_quality_rubric.json`). Checks for scenario orthogonality, absence of duplicate scenarios, and concrete binary assertions. Records diagnostic findings and proceeds to Stage 2.
+2. **Stage 2: Triggers (Turn-1 Router Test)** — Dispatches parallel subagents to test intent routing and distractor rejection with Turn-1 cutoff. Records routing outcomes (passes, collisions, under-triggers, distractors) and proceeds to Stage 3.
+3. **Stage 3: Content (Multi-Turn Execution & Workspace Mutations)** — Spawns subagents in isolated workspaces to execute tasks and grades repository mutations against referenced `"type": "content"` rubrics (such as `evals/code_quality_rubric.json`) and suite assertions.
+4. **Consolidated Reporting** — Produces an aggregate evaluation report containing complete results, diagnostics, and metrics across all three stages.
 
 ---
 
@@ -57,7 +58,7 @@ When running catalog-wide evaluations or skill suites, the runner executes in st
 3. **Static Evaluation**: Statically inspect the target `evals.json` against the universal evaluation rules:
    - **`eval_redundancy_and_consolidation`**: Verify that all eval entries are orthogonal, test distinct scenarios, and do not repeat duplicate workflows without distinct conditions.
    - **`binary_repo_state_assertions`**: Verify that all `expected_repo_state` assertions are discrete, binary conditions that can be evaluated definitively as true or false via files, diffs, or command output (avoiding vague, subjective, or aesthetic criteria).
-4. **Report & Fast-Fail**: Output audit status. If any audit rule fails, report the specific eval ID and violating assertion, and abort subsequent execution stages for that target.
+4. **Report Findings**: Output audit status. When running as part of a multi-stage pipeline, record all passed and failed assertions for each eval ID and proceed to the next stage.
 
 ---
 

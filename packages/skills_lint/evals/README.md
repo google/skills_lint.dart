@@ -32,7 +32,7 @@ Evaluates **Workflow Execution & Workspace Mutations**: tests multi-turn sandbox
 - **`expected_chat_output`**: High-level narrative summary of what the LLM should say/give to the user.
 - **`expected_repo_state`**: Array of discrete, testable assertions regarding the end state of the repository and tracked files.
 - **`repo_criteria`**: Array of relative file paths to shared universal quality rubrics (such as `["evals/code_quality_rubric.json"]`).
-- **`type`** *(Optional)*: Evaluation mode (`"audit"`, `"content"`, or `"triggers"`). Declares the execution stage for the suite or rubric. If omitted, structural inference applies (`positive_triggers` $\to$ triggers, `prompt` $\to$ content, criteria assertions only $\to$ content rubric).
+- **`type`** *(Optional)*: Evaluation mode (`"audit"`, `"content"`, or `"triggers"`). Declares the execution stage for the suite or rubric. If omitted, structural inference applies (`positive_triggers` -> triggers, `prompt` -> content, criteria assertions only -> content rubric).
 - **`test_data`** *(Optional)*:
   - At the root level of `evals.json`: A boolean (`true` or `false`). Setting `"test_data": true` marks the file as static fixture or meta-evaluation data, instructing runners to skip it during default discovery sweeps.
   - Within an individual eval item: A relative file path or directory string pointing to static test fixture inputs used during that evaluation.
@@ -63,4 +63,8 @@ dart test test/skills_triggers_test.dart
 dart test test/skills_evals_test.dart
 ```
 
-For executing live evaluations via agent orchestration (including audit, trigger, and content modes), refer directly to [`.agents/skills/run-evals/SKILL.md`](../../../.agents/skills/run-evals/SKILL.md).
+## Executing Evals via Agent Orchestration (`/run-evals`)
+
+Live evaluation workflows, subagent orchestration, and grading are executed via the `/run-evals` skill. The runner accepts one of the 4 (+1) reserved keywords (`audit`, `triggers`, `content`, `all`, `help`) or runs the multi-stage pipeline across all active skills by default.
+
+For complete execution instructions and CLI reference, see [`.agents/skills/run-evals/SKILL.md`](../../../.agents/skills/run-evals/SKILL.md).
