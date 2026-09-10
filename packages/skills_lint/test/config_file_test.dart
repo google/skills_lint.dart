@@ -983,6 +983,7 @@ skills_lint:
     test(
       'resolves config directory targets relative to config file directory when located in a subdirectory',
       () async {
+        // Arrange
         final Directory subpkg = await Directory('${tempDir.path}/subpkg').create(recursive: true);
         final Directory skillDir = await Directory(
           '${subpkg.path}/skills/my-skill',
@@ -1003,6 +1004,7 @@ skills_lint:
         check-trailing-whitespace: error
 ''');
 
+        // Act
         final TestProcess process = await TestProcess.start('dart', [
           p.normalize(p.absolute('bin/skills_lint.dart')),
           '--config',
@@ -1011,6 +1013,7 @@ skills_lint:
           'subpkg/skills',
         ], workingDirectory: tempDir.path);
 
+        // Assert
         final List<String> stderr = await process.stderr.rest.toList();
         expect(stderr.join('\n'), contains('has 1 trailing space(s)'));
         await process.shouldExit(1);
@@ -1020,6 +1023,7 @@ skills_lint:
     test(
       'validates subproject targets with no CLI flags when config in subdirectory is passed via --config',
       () async {
+        // Arrange
         final Directory subpkg = await Directory('${tempDir.path}/subpkg').create(recursive: true);
         final Directory skillDir = await Directory(
           '${subpkg.path}/skills/valid-skill',
@@ -1038,12 +1042,14 @@ skills_lint:
     - path: "skills"
 ''');
 
+        // Act
         final TestProcess process = await TestProcess.start('dart', [
           p.normalize(p.absolute('bin/skills_lint.dart')),
           '--config',
           'subpkg/skills_lint.yaml',
         ], workingDirectory: tempDir.path);
 
+        // Assert
         final List<String> stdout = await process.stdout.rest.toList();
         expect(stdout.join('\n'), contains('Validating skill: valid-skill'));
         await process.shouldExit(0);

@@ -52,6 +52,13 @@ const directoryErrorMsg = 'Directory error:';
 /// session aggregates configuration parameters, custom rules, ignores, and CLI overrides,
 /// then orchestrates the validation of multiple target skill directories.
 ///
+/// ## Path Canonicalization Contract
+///
+/// [ValidationSession] operates strictly on canonical absolute paths. Paths crossing into
+/// the session from the CLI, configuration files, or external API callers are canonicalized
+/// at ingestion boundaries, ensuring that all path resolution and comparison logic
+/// (such as rule resolution via `p.isWithin` or `p.equals`) operates uniformly.
+///
 /// Callers invoke [processIndividualSkill] for each `--skill` path and
 /// [processSkillRoot] for each `--skills-directory` path, then optionally
 /// [reportNoSkillsValidated] to emit the "no skills found" diagnostics.

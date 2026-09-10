@@ -19,6 +19,17 @@ import 'rule_registry.dart';
 
 final Logger _log = Logger('skills_lint');
 
+/// Parses and loads YAML configuration for skills_lint.
+///
+/// ## Configuration Boundary Canonicalization
+///
+/// [ConfigParser] acts as the configuration boundary for the linter. Any relative
+/// target paths (`directories`, `individual_skills`) and `ignore_file` paths defined
+/// in the configuration are eagerly canonicalized relative to the configuration file's
+/// logical directory (or a provided `baseDirectory`) during parsing.
+///
+/// This ensures that the resulting [Configuration] contains only canonical, absolute
+/// paths, eliminating ambiguous CWD dependencies across subpackages or nested configs.
 class ConfigParser {
   static const String skillsLintKey = 'skills_lint';
   static const String rulesKey = 'rules';

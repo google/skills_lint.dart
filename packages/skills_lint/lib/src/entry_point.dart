@@ -111,12 +111,12 @@ Future<void> runApp(List<String> args) async {
     return;
   }
 
-  final List<String> skillDirPaths = (results[_skillsDirectoryFlag] as List<String>)
-      .map((path) => canonicalizePath(path, baseDirectory: Directory.current.path))
-      .toList();
-  final List<String> individualSkillPaths = (results[_skillOption] as List<String>)
-      .map((path) => canonicalizePath(path, baseDirectory: Directory.current.path))
-      .toList();
+  final List<String> skillDirPaths = canonicalizeDirectoryPaths(
+    results[_skillsDirectoryFlag] as List<String>,
+  );
+  final List<String> individualSkillPaths = canonicalizeIndividualSkillPaths(
+    results[_skillOption] as List<String>,
+  );
 
   final printWarnings = results[_printWarningsFlag] as bool;
   final fastFail = results[_fastFailFlag] as bool;
@@ -136,15 +136,9 @@ Future<void> runApp(List<String> args) async {
   final bool fix = fixFlag && dryRun;
   final bool fixApply = (fixFlag && !dryRun) || fixApplyAlias;
 
-  String? ignoreFileOverride;
-  if (results.wasParsed(_ignoreFileOption)) {
-    final rawIgnore = results[_ignoreFileOption] as String?;
-    ignoreFileOverride = rawIgnore != null
-        ? canonicalizePath(rawIgnore, baseDirectory: Directory.current.path)
-        : null;
-  } else {
-    ignoreFileOverride = null;
-  }
+  final String? ignoreFileOverride = results.wasParsed(_ignoreFileOption)
+      ? canonicalizeIgnoreFilePath(results[_ignoreFileOption] as String?)
+      : null;
 
   var success = false;
   try {
@@ -265,6 +259,36 @@ ArgParser _createArgParser(String helpFlag) {
     );
 
   return parser;
+}
+
+/// Canonicalizes a list of directory paths passed via CLI flags or API parameters
+/// relative to [baseDirectory] (defaulting to [Directory.current.path]).
+///
+/// Converts each directory path to an absolute, normalized canonical path.
+List<String> canonicalizeDirectoryPaths(List<String> paths, {String? baseDirectory}) {
+  final String effectiveBase = baseDirectory ?? Directory.current.path;
+  return [for (final String path in paths) canonicalizePath(path, baseDirectory: effectiveBase)];
+}
+
+/// Canonicalizes a list of individual skill paths passed via CLI flags or API
+/// parameters relative to [baseDirectory] (defaulting to [Directory.current.path]).
+///
+/// Converts each skill path to an absolute, normalized canonical path.
+List<String> canonicalizeIndividualSkillPaths(List<String> paths, {String? baseDirectory}) {
+  final String effectiveBase = baseDirectory ?? Directory.current.path;
+  return [for (final String path in paths) canonicalizePath(path, baseDirectory: effectiveBase)];
+}
+
+/// Canonicalizes an optional ignore file path passed via CLI flags or API
+/// parameters relative to [baseDirectory] (defaulting to [Directory.current.path]).
+///
+/// Returns `null` if [path] is `null` or empty.
+String? canonicalizeIgnoreFilePath(String? path, {String? baseDirectory}) {
+  if (path == null || path.isEmpty) {
+    return null;
+  }
+  final String effectiveBase = baseDirectory ?? Directory.current.path;
+  return canonicalizePath(path, baseDirectory: effectiveBase);
 }
 
 Future<Configuration?> _loadConfig(ArgResults results) async {
@@ -388,16 +412,11 @@ Future<bool> validateSkillsInternal({
   Configuration? config,
   List<SkillRule> customRules = const [],
 }) async {
-  final List<String> canonicalIndividualSkillPaths = [
-    for (final p in individualSkillPaths)
-      canonicalizePath(p, baseDirectory: Directory.current.path),
-  ];
-  final List<String> canonicalSkillDirPaths = [
-    for (final p in skillDirPaths) canonicalizePath(p, baseDirectory: Directory.current.path),
-  ];
-  final String? canonicalIgnoreFileOverride = ignoreFileOverride != null
-      ? canonicalizePath(ignoreFileOverride, baseDirectory: Directory.current.path)
-      : null;
+  final List<String> canonicalIndividualSkillPaths = canonicalizeIndividualSkillPaths(
+    individualSkillPaths,
+  );
+  final List<String> canonicalSkillDirPaths = canonicalizeDirectoryPaths(skillDirPaths);
+  final String? canonicalIgnoreFileOverride = canonicalizeIgnoreFilePath(ignoreFileOverride);
 
   final bool hasCliTargets =
       canonicalSkillDirPaths.isNotEmpty || canonicalIndividualSkillPaths.isNotEmpty;

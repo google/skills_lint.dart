@@ -26,6 +26,21 @@ String expandPath(String path) {
 
 /// Canonicalizes [rawPath] against [baseDirectory].
 ///
+/// ## Boundary Canonicalization Architecture
+///
+/// In `skills_lint`, path canonicalization is performed eagerly at the boundaries:
+/// 1. **Configuration Boundary (`ConfigParser`)**: Target paths (`directories`,
+///    `individual_skills`) and `ignore_file` paths defined in YAML configuration files
+///    are canonicalized immediately relative to the configuration file's parent directory.
+/// 2. **CLI / API Boundary (`entry_point.dart`)**: Target paths and ignore files passed via
+///    command-line flags or top-level API calls are canonicalized immediately relative to
+///    `Directory.current.path`.
+///
+/// Once paths cross these boundaries into the execution core ([ValidationSession]),
+/// all paths are guaranteed to be normalized, absolute canonical paths, preventing
+/// path drift and fragile relative-path comparisons.
+///
+/// ## Steps performed:
 /// 1. Expands tildes (`~`, `~/`, `~\`) to the user's home directory.
 /// 2. If the path is absolute, normalizes and returns it.
 /// 3. If the path is relative, joins it to [baseDirectory] and normalizes it.
