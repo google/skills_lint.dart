@@ -49,10 +49,8 @@ void main() {
     });
 
     test('ConfigSerializer and serialization methods are exposed in public API', () {
-      final config = Configuration(
-        ruleConfigs: {
-          'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
+      const config = Configuration(
+        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
       );
 
       final String yamlString = ConfigSerializer.configToYamlString(config);

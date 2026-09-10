@@ -8,7 +8,7 @@ import 'package:test/test.dart';
 void main() {
   group('Configuration YAML Round-trip Serialization', () {
     test('round-trips empty configuration', () {
-      final config = Configuration();
+      const config = Configuration();
       final String yamlString = config.toYamlString();
 
       expect(yamlString, contains('skills_lint:'));
@@ -22,11 +22,11 @@ void main() {
     });
 
     test('round-trips global rules with scalar severities', () {
-      final config = Configuration(
+      const config = Configuration(
         ruleConfigs: {
-          'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
-          'check-absolute-paths': const RuleConfigPatch(severity: AnalysisSeverity.warning),
-          'trailing-whitespace': const RuleConfigPatch(severity: AnalysisSeverity.disabled),
+          'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error),
+          'check-absolute-paths': RuleConfigPatch(severity: AnalysisSeverity.warning),
+          'trailing-whitespace': RuleConfigPatch(severity: AnalysisSeverity.disabled),
         },
       );
 
@@ -52,9 +52,11 @@ void main() {
         ruleConfigs: {
           'path-does-not-exist': RuleConfigPatch(
             severity: AnalysisSeverity.error,
-            parameters: CustomRuleParameters({'exclude': '.*-workspace'}),
+            parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
           ),
-          'description-length': RuleConfigPatch(parameters: CustomRuleParameters({'chars': 500})),
+          'description-length': RuleConfigPatch(
+            parameters: CustomRuleParameters(const {'chars': 500}),
+          ),
         },
       );
 
@@ -77,11 +79,11 @@ void main() {
     test('round-trips directory target configurations', () {
       final config = Configuration(
         directoryConfigs: [
-          LintTargetConfig(
+          const LintTargetConfig(
             path: 'skills',
             ruleConfigs: {
-              'check-trailing-whitespace': const RuleConfigPatch(severity: AnalysisSeverity.error),
-              'published-skill-name': const RuleConfigPatch(severity: AnalysisSeverity.warning),
+              'check-trailing-whitespace': RuleConfigPatch(severity: AnalysisSeverity.error),
+              'published-skill-name': RuleConfigPatch(severity: AnalysisSeverity.warning),
             },
             ignoreFile: 'skills/.skillsignore',
           ),
@@ -90,7 +92,7 @@ void main() {
             ruleConfigs: {
               'path-does-not-exist': RuleConfigPatch(
                 severity: AnalysisSeverity.error,
-                parameters: CustomRuleParameters({'exclude': '.*-workspace'}),
+                parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
               ),
             },
           ),
@@ -123,21 +125,19 @@ void main() {
     });
 
     test('round-trips individual skill target configurations', () {
-      final config = Configuration(
+      const config = Configuration(
         individualSkillConfigs: [
           LintTargetConfig(
             path: '.agents/skills/add-dart-lint-validation-rule',
             ruleConfigs: {
-              'prevent-skills-sh-publishing': const RuleConfigPatch(
-                severity: AnalysisSeverity.error,
-              ),
+              'prevent-skills-sh-publishing': RuleConfigPatch(severity: AnalysisSeverity.error),
             },
             ignoreFile: 'custom_ignore.json',
           ),
           LintTargetConfig(
             path: '~/my-custom-skill',
             ruleConfigs: {
-              'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.disabled),
+              'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.disabled),
             },
           ),
         ],
@@ -168,9 +168,9 @@ void main() {
 
     test('round-trips full composite configuration with all sections', () {
       final config = Configuration(
-        ruleConfigs: {
-          'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
-          'check-absolute-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
+        ruleConfigs: const {
+          'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error),
+          'check-absolute-paths': RuleConfigPatch(severity: AnalysisSeverity.error),
         },
         directoryConfigs: [
           LintTargetConfig(
@@ -179,26 +179,24 @@ void main() {
               'check-trailing-whitespace': const RuleConfigPatch(severity: AnalysisSeverity.error),
               'path-does-not-exist': RuleConfigPatch(
                 severity: AnalysisSeverity.error,
-                parameters: CustomRuleParameters({'exclude': '.*-workspace'}),
+                parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
               ),
             },
             ignoreFile: '../../.agents/skills/ignore.json',
           ),
-          LintTargetConfig(
+          const LintTargetConfig(
             path: 'skills',
             ruleConfigs: {
-              'check-trailing-whitespace': const RuleConfigPatch(severity: AnalysisSeverity.error),
-              'published-skill-name': const RuleConfigPatch(severity: AnalysisSeverity.error),
+              'check-trailing-whitespace': RuleConfigPatch(severity: AnalysisSeverity.error),
+              'published-skill-name': RuleConfigPatch(severity: AnalysisSeverity.error),
             },
           ),
         ],
-        individualSkillConfigs: [
+        individualSkillConfigs: const [
           LintTargetConfig(
             path: '../../.agents/skills/add-dart-lint-validation-rule',
             ruleConfigs: {
-              'prevent-skills-sh-publishing': const RuleConfigPatch(
-                severity: AnalysisSeverity.error,
-              ),
+              'prevent-skills-sh-publishing': RuleConfigPatch(severity: AnalysisSeverity.error),
             },
           ),
         ],
@@ -214,23 +212,19 @@ void main() {
 
   group('Model toYaml / toYamlMap / toYamlString Methods', () {
     test('Configuration methods produce valid maps and strings', () {
-      final config = Configuration(
-        ruleConfigs: {
-          'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
+      const config = Configuration(
+        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
         directoryConfigs: [
           LintTargetConfig(
             path: 'skills',
             ruleConfigs: {
-              'check-trailing-whitespace': const RuleConfigPatch(
-                severity: AnalysisSeverity.warning,
-              ),
+              'check-trailing-whitespace': RuleConfigPatch(severity: AnalysisSeverity.warning),
             },
           ),
         ],
       );
 
-      final Map<String, dynamic> yamlMap = config.toYamlMap();
+      final Map<String, Object?> yamlMap = config.toYamlMap();
       expect(yamlMap.containsKey('skills_lint'), isTrue);
       expect(config.toYaml(), equals(yamlMap));
 
@@ -241,15 +235,13 @@ void main() {
     });
 
     test('LintTargetConfig methods serialize correctly', () {
-      final target = LintTargetConfig(
+      const target = LintTargetConfig(
         path: 'skills/my_skill',
-        ruleConfigs: {
-          'published-skill-name': const RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
+        ruleConfigs: {'published-skill-name': RuleConfigPatch(severity: AnalysisSeverity.error)},
         ignoreFile: 'ignore.json',
       );
 
-      final Map<String, dynamic> map = target.toYamlMap();
+      final Map<String, Object?> map = target.toYamlMap();
       expect(map['path'], equals('skills/my_skill'));
       expect(map['ignore_file'], equals('ignore.json'));
       expect(map['rules'], equals({'published-skill-name': 'error'}));
@@ -262,16 +254,16 @@ void main() {
     });
 
     test('RuleConfig methods serialize correctly', () {
-      final simpleConfig = RuleConfig(severity: AnalysisSeverity.error);
+      const simpleConfig = RuleConfig(severity: AnalysisSeverity.error);
       expect(simpleConfig.toYaml(), equals('error'));
       expect(simpleConfig.toYamlMap(), equals({'severity': 'error'}));
       expect(simpleConfig.toYamlString(), contains('error'));
 
       final complexConfig = RuleConfig(
         severity: AnalysisSeverity.warning,
-        parameters: CustomRuleParameters({'chars': 500, 'strict': true}),
+        parameters: CustomRuleParameters(const {'chars': 500, 'strict': true}),
       );
-      final Map<String, dynamic> expectedMap = {
+      final Map<String, Object?> expectedMap = {
         'severity': 'warning',
         'chars': 500,
         'strict': true,
@@ -288,24 +280,26 @@ void main() {
       expect(severityOnly.toYamlMap(), equals({'severity': 'disabled'}));
       expect(severityOnly.toYamlString(), contains('disabled'));
 
-      final paramsOnly = RuleConfigPatch(parameters: CustomRuleParameters({'exclude': '.*-test'}));
+      final paramsOnly = RuleConfigPatch(
+        parameters: CustomRuleParameters(const {'exclude': '.*-test'}),
+      );
       expect(paramsOnly.toYaml(), equals({'exclude': '.*-test'}));
       expect(paramsOnly.toYamlMap(), equals({'exclude': '.*-test'}));
 
       const emptyPatch = RuleConfigPatch();
-      expect(emptyPatch.toYaml(), equals(<String, dynamic>{}));
-      expect(emptyPatch.toYamlMap(), equals(<String, dynamic>{}));
+      expect(emptyPatch.toYaml(), equals(<String, Object?>{}));
+      expect(emptyPatch.toYamlMap(), equals(<String, Object?>{}));
     });
 
     test('CustomRuleParameters methods serialize correctly', () {
-      final params = CustomRuleParameters({
+      final params = CustomRuleParameters(const {
         'name': 'test',
         'count': 42,
         'enabled': false,
         'items': ['a', 'b'],
       });
 
-      final Map<String, dynamic> map = params.toYamlMap();
+      final Map<String, Object?> map = params.toYamlMap();
       expect(map['name'], equals('test'));
       expect(map['count'], equals(42));
       expect(map['enabled'], equals(false));
@@ -340,10 +334,8 @@ void main() {
     });
 
     test('ConfigSerializer supports model instances directly in toYamlString', () {
-      final config = Configuration(
-        ruleConfigs: {
-          'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
+      const config = Configuration(
+        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
       );
       expect(ConfigSerializer.toYamlString(config), contains('skills_lint:'));
     });
@@ -351,9 +343,9 @@ void main() {
 
   group('Model Value Equality and HashCode', () {
     test('CustomRuleParameters equality and hashCode', () {
-      final p1 = CustomRuleParameters({'a': 1, 'b': 'x'});
-      final p2 = CustomRuleParameters({'a': 1, 'b': 'x'});
-      final p3 = CustomRuleParameters({'a': 1, 'b': 'y'});
+      final p1 = CustomRuleParameters(const {'a': 1, 'b': 'x'});
+      final p2 = CustomRuleParameters(const {'a': 1, 'b': 'x'});
+      final p3 = CustomRuleParameters(const {'a': 1, 'b': 'y'});
 
       expect(p1, equals(p2));
       expect(p1.hashCode, equals(p2.hashCode));
@@ -364,15 +356,15 @@ void main() {
     test('RuleConfig equality and hashCode', () {
       final r1 = RuleConfig(
         severity: AnalysisSeverity.error,
-        parameters: CustomRuleParameters({'a': 1}),
+        parameters: CustomRuleParameters(const {'a': 1}),
       );
       final r2 = RuleConfig(
         severity: AnalysisSeverity.error,
-        parameters: CustomRuleParameters({'a': 1}),
+        parameters: CustomRuleParameters(const {'a': 1}),
       );
       final r3 = RuleConfig(
         severity: AnalysisSeverity.warning,
-        parameters: CustomRuleParameters({'a': 1}),
+        parameters: CustomRuleParameters(const {'a': 1}),
       );
 
       expect(r1, equals(r2));
@@ -384,11 +376,11 @@ void main() {
     test('RuleConfigPatch equality and hashCode', () {
       final p1 = RuleConfigPatch(
         severity: AnalysisSeverity.error,
-        parameters: CustomRuleParameters({'a': 1}),
+        parameters: CustomRuleParameters(const {'a': 1}),
       );
       final p2 = RuleConfigPatch(
         severity: AnalysisSeverity.error,
-        parameters: CustomRuleParameters({'a': 1}),
+        parameters: CustomRuleParameters(const {'a': 1}),
       );
       const p3 = RuleConfigPatch(severity: AnalysisSeverity.error);
 
@@ -399,21 +391,17 @@ void main() {
     });
 
     test('LintTargetConfig equality and hashCode', () {
-      final t1 = LintTargetConfig(
+      const t1 = LintTargetConfig(
         path: 'skills',
-        ruleConfigs: {
-          'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
+        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
         ignoreFile: 'ignore.json',
       );
-      final t2 = LintTargetConfig(
+      const t2 = LintTargetConfig(
         path: 'skills',
-        ruleConfigs: {
-          'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
+        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
         ignoreFile: 'ignore.json',
       );
-      final t3 = LintTargetConfig(path: 'other', ruleConfigs: {});
+      const t3 = LintTargetConfig(path: 'other');
 
       expect(t1, equals(t2));
       expect(t1.hashCode, equals(t2.hashCode));
@@ -422,33 +410,29 @@ void main() {
     });
 
     test('Configuration equality and hashCode', () {
-      final c1 = Configuration(
+      const c1 = Configuration(
         directoryConfigs: [
           LintTargetConfig(
             path: 'skills',
             ruleConfigs: {
-              'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
+              'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error),
             },
           ),
         ],
-        ruleConfigs: {
-          'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
+        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
       );
-      final c2 = Configuration(
+      const c2 = Configuration(
         directoryConfigs: [
           LintTargetConfig(
             path: 'skills',
             ruleConfigs: {
-              'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
+              'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error),
             },
           ),
         ],
-        ruleConfigs: {
-          'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
+        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
       );
-      final c3 = Configuration();
+      const c3 = Configuration();
 
       expect(c1, equals(c2));
       expect(c1.hashCode, equals(c2.hashCode));

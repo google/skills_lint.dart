@@ -122,7 +122,7 @@ void main() {
         try {
           final validator = Validator(
             ruleConfigs: {
-              Validator.skillFileInaccessible: RuleConfig(severity: AnalysisSeverity.warning),
+              Validator.skillFileInaccessible: const RuleConfig(severity: AnalysisSeverity.warning),
             },
           );
           final ValidationResult validationResult = await validator.validate(skillDir);

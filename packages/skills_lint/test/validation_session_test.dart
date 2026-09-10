@@ -27,7 +27,7 @@ ValidationSession createTestSession({
   bool fix = false,
   bool fixApply = false,
 }) => ValidationSession(
-  config: config ?? Configuration(),
+  config: config ?? const Configuration(),
   resolvedRuleConfigs: resolvedRuleConfigs,
   ignoreFileOverride: ignoreFileOverride,
   customRules: customRules,

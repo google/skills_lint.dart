@@ -10,30 +10,30 @@ import 'models/rule_config.dart';
 /// Provides programmatic YAML serialization for linter configurations and rule settings.
 abstract final class ConfigSerializer {
   /// Converts a [Configuration] into its YAML map representation.
-  static Map<String, dynamic> configToYamlMap(Configuration config) {
-    final skillsLintMap = <String, dynamic>{};
+  static Map<String, Object?> configToYamlMap(Configuration config) {
+    final skillsLintMap = <String, Object?>{};
 
     if (config.ruleConfigs.isNotEmpty) {
-      skillsLintMap['rules'] = <String, dynamic>{
+      skillsLintMap[ConfigParser.rulesKey] = <String, Object?>{
         for (final MapEntry<String, RuleConfigPatch> entry in config.ruleConfigs.entries)
           entry.key: ruleConfigPatchToYaml(entry.value),
       };
     }
 
     if (config.directoryConfigs.isNotEmpty) {
-      skillsLintMap['directories'] = <Map<String, dynamic>>[
+      skillsLintMap[ConfigParser.directoriesKey] = <Map<String, Object?>>[
         for (final LintTargetConfig dir in config.directoryConfigs) targetConfigToYamlMap(dir),
       ];
     }
 
     if (config.individualSkillConfigs.isNotEmpty) {
-      skillsLintMap['individual_skills'] = <Map<String, dynamic>>[
+      skillsLintMap[ConfigParser.individualSkillsKey] = <Map<String, Object?>>[
         for (final LintTargetConfig skill in config.individualSkillConfigs)
           targetConfigToYamlMap(skill),
       ];
     }
 
-    return <String, dynamic>{'skills_lint': skillsLintMap};
+    return <String, Object?>{ConfigParser.skillsLintKey: skillsLintMap};
   }
 
   /// Converts a [Configuration] into a formatted YAML string.
@@ -42,18 +42,18 @@ abstract final class ConfigSerializer {
   }
 
   /// Converts a [LintTargetConfig] into its YAML map representation.
-  static Map<String, dynamic> targetConfigToYamlMap(LintTargetConfig config) {
-    final map = <String, dynamic>{'path': config.path};
+  static Map<String, Object?> targetConfigToYamlMap(LintTargetConfig config) {
+    final map = <String, Object?>{ConfigParser.pathKey: config.path};
 
     if (config.ruleConfigs.isNotEmpty) {
-      map['rules'] = <String, dynamic>{
+      map[ConfigParser.rulesKey] = <String, Object?>{
         for (final MapEntry<String, RuleConfigPatch> entry in config.ruleConfigs.entries)
           entry.key: ruleConfigPatchToYaml(entry.value),
       };
     }
 
     if (config.ignoreFile != null) {
-      map['ignore_file'] = config.ignoreFile;
+      map[ConfigParser.ignoreFileKey] = config.ignoreFile;
     }
 
     return map;
@@ -71,16 +71,16 @@ abstract final class ConfigSerializer {
       if (patch.severity != null) {
         return patch.severity!.name;
       }
-      return <String, dynamic>{};
+      return <String, Object?>{};
     }
     return ruleConfigPatchToYamlMap(patch);
   }
 
   /// Converts a [RuleConfigPatch] into a YAML map representation.
-  static Map<String, dynamic> ruleConfigPatchToYamlMap(RuleConfigPatch patch) {
-    final map = <String, dynamic>{};
+  static Map<String, Object?> ruleConfigPatchToYamlMap(RuleConfigPatch patch) {
+    final map = <String, Object?>{};
     if (patch.severity != null) {
-      map['severity'] = patch.severity!.name;
+      map[ConfigParser.severityKey] = patch.severity!.name;
     }
     if (patch.parameters != null && patch.parameters!.isNotEmpty) {
       map.addAll(patch.parameters!.params);
@@ -97,8 +97,8 @@ abstract final class ConfigSerializer {
   }
 
   /// Converts a [RuleConfig] into a YAML map representation.
-  static Map<String, dynamic> ruleConfigToYamlMap(RuleConfig config) {
-    final map = <String, dynamic>{'severity': config.severity.name};
+  static Map<String, Object?> ruleConfigToYamlMap(RuleConfig config) {
+    final map = <String, Object?>{ConfigParser.severityKey: config.severity.name};
     if (config.parameters.isNotEmpty) {
       map.addAll(config.parameters.params);
     }
@@ -136,9 +136,12 @@ abstract final class ConfigSerializer {
   }
 }
 
+/// Recursive emitter that generates deterministic, formatted YAML strings
+/// from structured Dart data representations (Maps, Lists, and scalar primitives).
 class _YamlEmitter {
   final StringBuffer _buffer = StringBuffer();
 
+  /// Formats and writes [value] as YAML into the internal buffer.
   void write(Object? value) {
     if (value is Map) {
       _writeMap(value, 0);
@@ -233,6 +236,9 @@ class _YamlEmitter {
   static final RegExp _simpleIdentifier = RegExp(r'^[a-zA-Z0-9_-]+$');
   static final RegExp _isNumber = RegExp(r'^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$');
 
+  /// Reserved boolean, null, and special literal tokens per the YAML 1.1 / 1.2
+  /// Core Schema specification that require quoting to prevent unintended type
+  /// coercion during YAML parsing.
   static const Set<String> _yamlKeywords = {
     'true',
     'false',
