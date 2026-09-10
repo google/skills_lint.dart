@@ -3,6 +3,8 @@
 - Added programmatic YAML serialization support across configuration models, allowing configurations to be generated and formatted back into YAML.
 - Added `ConfigParser.parse()` to support parsing configuration YAML directly from in-memory strings.
 - Added the `published-skill-name` lint rule to validate that published skills in a Dart package's `skills/` directory follow the package naming convention required by `package:skills`.
+- Anchored `Configuration` path resolution to the configuration file's directory via boundary canonicalization, ensuring `directories`, `individual_skills`, and `ignore_file` paths resolve relative to the configuration file rather than the current working directory.
+- Added `ConfigParser.parseString()` to parse in-memory configuration strings with an optional `baseDirectory` parameter.
 
 ## 0.5.1
 

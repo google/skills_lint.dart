@@ -979,6 +979,76 @@ skills_lint:
         await process.shouldExit(1);
       },
     );
+
+    test(
+      'resolves config directory targets relative to config file directory when located in a subdirectory',
+      () async {
+        final Directory subpkg = await Directory('${tempDir.path}/subpkg').create(recursive: true);
+        final Directory skillDir = await Directory(
+          '${subpkg.path}/skills/my-skill',
+        ).create(recursive: true);
+        await File('${skillDir.path}/SKILL.md').writeAsString('''
+---
+name: my-skill
+description: A test skill in subpkg
+---
+Line with 1 space 
+''');
+
+        await File('${subpkg.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  directories:
+    - path: "skills"
+      rules:
+        check-trailing-whitespace: error
+''');
+
+        final TestProcess process = await TestProcess.start('dart', [
+          p.normalize(p.absolute('bin/skills_lint.dart')),
+          '--config',
+          'subpkg/skills_lint.yaml',
+          '-d',
+          'subpkg/skills',
+        ], workingDirectory: tempDir.path);
+
+        final List<String> stderr = await process.stderr.rest.toList();
+        expect(stderr.join('\n'), contains('has 1 trailing space(s)'));
+        await process.shouldExit(1);
+      },
+    );
+
+    test(
+      'validates subproject targets with no CLI flags when config in subdirectory is passed via --config',
+      () async {
+        final Directory subpkg = await Directory('${tempDir.path}/subpkg').create(recursive: true);
+        final Directory skillDir = await Directory(
+          '${subpkg.path}/skills/valid-skill',
+        ).create(recursive: true);
+        await File('${skillDir.path}/SKILL.md').writeAsString('''
+---
+name: valid-skill
+description: A valid skill in subpkg
+---
+Valid content
+''');
+
+        await File('${subpkg.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  directories:
+    - path: "skills"
+''');
+
+        final TestProcess process = await TestProcess.start('dart', [
+          p.normalize(p.absolute('bin/skills_lint.dart')),
+          '--config',
+          'subpkg/skills_lint.yaml',
+        ], workingDirectory: tempDir.path);
+
+        final List<String> stdout = await process.stdout.rest.toList();
+        expect(stdout.join('\n'), contains('Validating skill: valid-skill'));
+        await process.shouldExit(0);
+      },
+    );
   });
 
   group('Configuration YAML Round-trip Serialization', () {

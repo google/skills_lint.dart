@@ -5,18 +5,36 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
 
-/// Expands tilde (`~/`) at the start of a path to the user's home directory.
+/// Expands tildes (`~/`, `~\`, or `~`) to the user's home directory.
 ///
-/// If the path does not start with `~/` or if the home directory cannot be
-/// determined from the environment, the original path is returned.
+/// If the path does not start with a tilde prefix, or if the home directory
+/// cannot be determined from the environment, the original path is returned.
 String expandPath(String path) {
-  if (path.startsWith('~/')) {
+  if (path == '~') {
+    final String? homeDir = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+    if (homeDir != null) {
+      return homeDir;
+    }
+  } else if (path.startsWith('~/') || path.startsWith(r'~\')) {
     final String? homeDir = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
     if (homeDir != null) {
       return p.join(homeDir, path.substring(2));
     }
   }
   return path;
+}
+
+/// Canonicalizes [rawPath] against [baseDirectory].
+///
+/// 1. Expands tildes (`~`, `~/`, `~\`) to the user's home directory.
+/// 2. If the path is absolute, normalizes and returns it.
+/// 3. If the path is relative, joins it to [baseDirectory] and normalizes it.
+String canonicalizePath(String rawPath, {required String baseDirectory}) {
+  final String expanded = expandPath(rawPath);
+  if (p.isAbsolute(expanded)) {
+    return p.normalize(expanded);
+  }
+  return p.normalize(p.join(baseDirectory, expanded));
 }
 
 /// Normalizes a skill name or suffix into a valid skill name token.

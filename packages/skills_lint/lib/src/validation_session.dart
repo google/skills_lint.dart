@@ -86,7 +86,10 @@ class ValidationSession {
   }) : resolvedRuleConfigs = _mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
        _normalizedDirectoryConfigs = [
          for (final dc in [...config.directoryConfigs, ...config.individualSkillConfigs])
-           (normalizedPath: p.absolute(p.normalize(expandPath(dc.path))), config: dc),
+           (
+             normalizedPath: canonicalizePath(dc.path, baseDirectory: Directory.current.path),
+             config: dc,
+           ),
        ];
 
   static Map<String, RuleConfigPatch> _mergeDeprecatedRules(
@@ -140,7 +143,10 @@ class ValidationSession {
   /// a missing directory contributes to [anyFailed] but still allows the
   /// caller to continue.
   Future<bool> processIndividualSkill(String skillPath) async {
-    final String normalizedSkillPath = p.normalize(expandPath(skillPath));
+    final String normalizedSkillPath = canonicalizePath(
+      skillPath,
+      baseDirectory: Directory.current.path,
+    );
     if (!quiet) {
       _log.info('$evaluatingDirMsg $normalizedSkillPath');
     }
@@ -203,7 +209,10 @@ class ValidationSession {
   /// `false` if [fastFail] is set and any failure has accumulated across the
   /// run so far.
   Future<bool> processSkillRoot(String rootPath) async {
-    final String normalizedRootPath = p.normalize(expandPath(rootPath));
+    final String normalizedRootPath = canonicalizePath(
+      rootPath,
+      baseDirectory: Directory.current.path,
+    );
     if (!quiet) {
       _log.info('$evaluatingDirMsg $normalizedRootPath');
     }
@@ -266,7 +275,7 @@ class ValidationSession {
     Directory rootDir,
     Map<String, SkillsIgnores> loadedIgnoresCache,
   ) async {
-    final String normalizedSkillPath = p.normalize(entity.path);
+    final String normalizedSkillPath = canonicalizePath(entity.path, baseDirectory: rootDir.path);
     final Map<String, RuleConfig> resolvedConfigs = resolveRuleConfigsForPath(normalizedSkillPath);
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
     final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
@@ -333,7 +342,7 @@ class ValidationSession {
       final String skillName = skillEntry.key;
       for (final IgnoreEntry ignore in skillEntry.value) {
         if (!ignore.used) {
-          final String fullPath = p.absolute(p.join(rootDir.path, skillName));
+          final String fullPath = p.normalize(p.join(rootDir.path, skillName));
           _log.info(
             "Stale ignore entry found for rule '${ignore.ruleId}' in skill "
             "'$skillName' at '$fullPath'. Consider removing it.",
@@ -352,7 +361,10 @@ class ValidationSession {
 
     var foundSingleSkillPassedToD = false;
     for (final rootPath in rootPaths) {
-      final String expandedRootPath = expandPath(rootPath);
+      final String expandedRootPath = canonicalizePath(
+        rootPath,
+        baseDirectory: Directory.current.path,
+      );
       final skillMdFile = File(p.join(expandedRootPath, SkillContext.skillFileName));
       if (skillMdFile.existsSync()) {
         _log.severe(
@@ -378,7 +390,7 @@ class ValidationSession {
 
   @visibleForTesting
   Map<String, RuleConfig> resolveRuleConfigsForPath(String path) {
-    final String normalizedPath = p.absolute(path);
+    final String normalizedPath = canonicalizePath(path, baseDirectory: Directory.current.path);
     final resolvedConfigs = <String, RuleConfig>{};
 
     // Initialize with all checks defaults
@@ -417,7 +429,7 @@ class ValidationSession {
 
   @visibleForTesting
   String? resolveIgnoreFile(String path) {
-    final String normalizedPath = p.absolute(path);
+    final String normalizedPath = canonicalizePath(path, baseDirectory: Directory.current.path);
     if (ignoreFileOverride != null) {
       return ignoreFileOverride;
     }
@@ -437,7 +449,7 @@ class ValidationSession {
 
   String _resolveIgnorePath(String? localIgnoreFile, Directory rootDir) {
     return localIgnoreFile != null
-        ? p.normalize(expandPath(localIgnoreFile))
+        ? canonicalizePath(localIgnoreFile, baseDirectory: rootDir.path)
         : p.join(rootDir.path, defaultIgnoreFileName);
   }
 
@@ -482,13 +494,33 @@ class ValidationSession {
       final String normalizedErrorFile = p.normalize(error.file);
       for (final pair in preNormalizedIgnores) {
         final IgnoreEntry ignore = pair.entry;
-        if (ignore.ruleId == error.ruleId && pair.normalizedFileName == normalizedErrorFile) {
+        if (ignore.ruleId == error.ruleId &&
+            _ignoreMatchesError(pair.normalizedFileName, normalizedErrorFile)) {
           error.isIgnored = true;
           ignore.used = true;
           break;
         }
       }
     }
+  }
+
+  static bool _ignoreMatchesError(String normalizedIgnoreFile, String normalizedErrorFile) {
+    if (normalizedIgnoreFile == normalizedErrorFile) {
+      return true;
+    }
+    if (p.isAbsolute(normalizedErrorFile) && !p.isAbsolute(normalizedIgnoreFile)) {
+      if (p.equals(
+        p.normalize(p.join(Directory.current.path, normalizedIgnoreFile)),
+        normalizedErrorFile,
+      )) {
+        return true;
+      }
+      if (normalizedErrorFile.endsWith('/$normalizedIgnoreFile') ||
+          normalizedErrorFile.endsWith('\\$normalizedIgnoreFile')) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Validates [skillDir], applies fixes if requested, and (when

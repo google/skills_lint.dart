@@ -17,13 +17,7 @@ void main() {
       (record) => stdout.writeln(record.message),
     );
     try {
-      // TODO(reidbaker): Revert to loading the root `../../skills_lint.yaml`
-      // once boundary canonicalization resolves paths relative to the configuration
-      // file. https://github.com/google/skills_lint.dart/issues/20
-      // The root `skills_lint.yaml` is the canonical repository configuration to
-      // be kept long term; `packages/skills_lint/skills_lint.yaml` is a temporary
-      // stopgap and should be deleted when issue #20 is resolved.
-      final Configuration config = await ConfigParser.loadConfig(path: 'skills_lint.yaml');
+      final Configuration config = await ConfigParser.loadConfig(path: '../../skills_lint.yaml');
       expect(
         config.directoryConfigs,
         isNotEmpty,

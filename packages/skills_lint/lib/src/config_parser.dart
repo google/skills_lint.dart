@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
+import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import 'config_serializer.dart';
@@ -53,11 +54,21 @@ class ConfigParser {
 
   /// Parses configuration settings from raw YAML [content].
   ///
-  /// [sourcePath] provides optional file path context for error reporting and diagnostics.
-  static Configuration parse(String content, {String? sourcePath}) {
+  /// [sourcePath] identifies the configuration file the [content] came from. It
+  /// provides file path context for error reporting, and anchors every target
+  /// path and ignore file in the returned [Configuration] to the directory that
+  /// contains that file.
+  ///
+  /// [baseDirectory] overrides the anchor directory derived from [sourcePath].
+  /// Supply it when [content] has no backing file but paths must still resolve
+  /// against a known directory.
+  ///
+  /// Callers that supply neither argument anchor paths to
+  /// [Directory.current].
+  static Configuration parse(String content, {String? sourcePath, String? baseDirectory}) {
     try {
       final Object? yaml = loadYaml(content);
-      return fromYaml(yaml, sourcePath: sourcePath);
+      return fromYaml(yaml, sourcePath: sourcePath, baseDirectory: baseDirectory);
     } catch (e) {
       final String source = sourcePath ?? 'content';
       final message = 'Failed to parse $source: $e';
@@ -68,8 +79,9 @@ class ConfigParser {
 
   /// Parses a [Configuration] from an already loaded [yaml] object structure.
   ///
-  /// [sourcePath] provides optional file path context for error reporting.
-  static Configuration fromYaml(Object? yaml, {String? sourcePath}) {
+  /// [sourcePath] and [baseDirectory] control path anchoring exactly as they do
+  /// in [parse].
+  static Configuration fromYaml(Object? yaml, {String? sourcePath, String? baseDirectory}) {
     if (yaml == null) {
       return const Configuration();
     }
@@ -87,6 +99,10 @@ class ConfigParser {
         return Configuration(parsingErrors: <String>[message]);
       }
       final parsingErrors = <String>[];
+      final String anchor = resolveAnchorDirectory(
+        sourcePath: sourcePath,
+        baseDirectory: baseDirectory,
+      );
 
       _validateTopLevelKeys(toolConfig, parsingErrors);
       final Map<String, RuleConfigPatch> rulesResult = _parseDefaultRules(
@@ -97,11 +113,13 @@ class ConfigParser {
         toolConfig,
         directoriesKey,
         parsingErrors,
+        anchor,
       );
       final List<LintTargetConfig> individualSkillConfigs = _parseConfigList(
         toolConfig,
         individualSkillsKey,
         parsingErrors,
+        anchor,
       );
 
       return Configuration(
@@ -114,14 +132,36 @@ class ConfigParser {
     return const Configuration();
   }
 
+  /// Resolves the absolute directory that configuration paths are anchored to.
+  ///
+  /// Precedence is [baseDirectory], then the directory containing [sourcePath],
+  /// then [Directory.current].
+  @visibleForTesting
+  static String resolveAnchorDirectory({String? sourcePath, String? baseDirectory}) {
+    final String cwd = Directory.current.path;
+    if (baseDirectory != null) {
+      return canonicalizePath(baseDirectory, baseDirectory: cwd);
+    }
+    if (sourcePath != null) {
+      return p.dirname(canonicalizePath(sourcePath, baseDirectory: cwd));
+    }
+    return p.normalize(p.absolute(cwd));
+  }
+
   /// Loads the configuration from the specified [path], or from the default
   /// `skills_lint.yaml` relative to the current working directory if no path is provided.
+  ///
+  /// Target paths and ignore files in the returned [Configuration] are anchored
+  /// to the directory that contains the loaded configuration file.
   ///
   /// If an explicit [path] is provided and the file does not exist, this method throws
   /// a [FileSystemException]. If no path is provided and the default `skills_lint.yaml`
   /// file does not exist in the current working directory, an empty [Configuration] is returned.
   static Future<Configuration> loadConfig({String? path}) async {
-    final String resolvedPath = expandPath(path ?? 'skills_lint.yaml');
+    final String resolvedPath = canonicalizePath(
+      path ?? 'skills_lint.yaml',
+      baseDirectory: Directory.current.path,
+    );
     final configFile = File(resolvedPath);
 
     if (!configFile.existsSync()) {
@@ -263,11 +303,13 @@ class ConfigParser {
   /// and parses each element into a [LintTargetConfig].
   ///
   /// Delegates validation of an individual list element to [_parseTargetEntry].
+  /// Every parsed path is anchored to [anchorDirectory].
   /// Returns an empty list if [configKey] is omitted or not a list.
   static List<LintTargetConfig> _parseConfigList(
     YamlMap toolConfig,
     String configKey,
     List<String> parsingErrors,
+    String anchorDirectory,
   ) {
     if (!toolConfig.containsKey(configKey)) {
       return const <LintTargetConfig>[];
@@ -294,6 +336,7 @@ class ConfigParser {
         entryLabelCap,
         entryLabelLower,
         parsingErrors,
+        anchorDirectory,
       );
       if (config != null) {
         configs.add(config);
@@ -304,15 +347,19 @@ class ConfigParser {
 
   /// Parses a single dictionary element from a target list (`directories` or `individual_skills`).
   ///
-  /// Validates the `path` string and checks for unrecognized keys. Delegates
-  /// parsing of sub-keys to [_parseLocalRulesForTarget] (`rules`) and
-  /// [_parseIgnoreFileForTarget] (`ignore_file`). Returns `null` if `path` is
-  /// invalid or missing.
+  /// Validates the `path` string, anchors it to [anchorDirectory], and checks
+  /// for unrecognized keys. Delegates parsing of sub-keys to
+  /// [_parseLocalRulesForTarget] (`rules`) and [_parseIgnoreFileForTarget]
+  /// (`ignore_file`). Returns `null` if `path` is invalid or missing.
+  ///
+  /// Diagnostics quote the path as authored so that error messages match the
+  /// configuration file.
   static LintTargetConfig? _parseTargetEntry(
     YamlMap dir,
     String entryLabelCap,
     String entryLabelLower,
     List<String> parsingErrors,
+    String anchorDirectory,
   ) {
     final Object? pathValue = dir[pathKey];
     if (pathValue is! String) {
@@ -338,9 +385,19 @@ class ConfigParser {
       parsingErrors,
     );
 
-    final String? ignoreFile = _parseIgnoreFileForTarget(dir, path, entryLabelCap, parsingErrors);
+    final String? ignoreFile = _parseIgnoreFileForTarget(
+      dir,
+      path,
+      entryLabelCap,
+      parsingErrors,
+      anchorDirectory,
+    );
 
-    return LintTargetConfig(path: path, ruleConfigs: ruleConfigs, ignoreFile: ignoreFile);
+    return LintTargetConfig(
+      path: canonicalizePath(path, baseDirectory: anchorDirectory),
+      ruleConfigs: ruleConfigs,
+      ignoreFile: ignoreFile,
+    );
   }
 
   /// Parses path-specific rule overrides under a target entry's `rules` key.
@@ -370,21 +427,22 @@ class ConfigParser {
 
   /// Parses the custom ignore file path under a target entry's `ignore_file` key.
   ///
-  /// Returns `null` if omitted. If present but not a string, appends a type
-  /// error to [parsingErrors] and returns `null` to fall back to the default
-  /// ignore file.
+  /// Anchors the parsed value to [anchorDirectory]. Returns `null` if omitted.
+  /// If present but not a string, appends a type error to [parsingErrors] and
+  /// returns `null` to fall back to the default ignore file.
   static String? _parseIgnoreFileForTarget(
     YamlMap dir,
     String path,
     String entryLabelCap,
     List<String> parsingErrors,
+    String anchorDirectory,
   ) {
     if (!dir.containsKey(ignoreFileKey)) {
       return null;
     }
     final Object? ignoreFileValue = dir[ignoreFileKey];
     if (ignoreFileValue is String) {
-      return ignoreFileValue;
+      return canonicalizePath(ignoreFileValue, baseDirectory: anchorDirectory);
     }
     if (ignoreFileValue != null) {
       parsingErrors.add(
@@ -409,12 +467,19 @@ class LintTargetConfig {
     this.ignoreFile,
   });
 
-  /// The path to the directory containing skills.
+  /// The path to the directory containing skills, or to an individual skill.
   ///
-  /// Can be absolute or relative to the current working directory.
-  /// Supports tilde expansion (e.g., `~/...`).
+  /// Instances produced by [ConfigParser] hold an absolute, normalized path
+  /// anchored to the directory of the configuration file that declared it.
+  /// Instances constructed directly, such as configurations that are written
+  /// back out as YAML, may hold a relative path and support tilde expansion
+  /// (for example, `~/...`).
   final String path;
   final Map<String, RuleConfigPatch> ruleConfigs;
+
+  /// The ignore file that applies to [path].
+  ///
+  /// Follows the same resolution contract as [path].
   final String? ignoreFile;
 
   /// Converts this target configuration into its YAML representation.

@@ -16,6 +16,7 @@ import 'models/custom_rule_parameters.dart';
 import 'models/rule_config.dart';
 import 'models/rule_parameter_type.dart';
 import 'models/skill_rule.dart';
+import 'path_utils.dart';
 import 'rule_registry.dart';
 import 'validation_session.dart';
 
@@ -110,8 +111,12 @@ Future<void> runApp(List<String> args) async {
     return;
   }
 
-  final skillDirPaths = results[_skillsDirectoryFlag] as List<String>;
-  final individualSkillPaths = results[_skillOption] as List<String>;
+  final List<String> skillDirPaths = (results[_skillsDirectoryFlag] as List<String>)
+      .map((path) => canonicalizePath(path, baseDirectory: Directory.current.path))
+      .toList();
+  final List<String> individualSkillPaths = (results[_skillOption] as List<String>)
+      .map((path) => canonicalizePath(path, baseDirectory: Directory.current.path))
+      .toList();
 
   final printWarnings = results[_printWarningsFlag] as bool;
   final fastFail = results[_fastFailFlag] as bool;
@@ -133,7 +138,10 @@ Future<void> runApp(List<String> args) async {
 
   String? ignoreFileOverride;
   if (results.wasParsed(_ignoreFileOption)) {
-    ignoreFileOverride = results[_ignoreFileOption] as String?;
+    final rawIgnore = results[_ignoreFileOption] as String?;
+    ignoreFileOverride = rawIgnore != null
+        ? canonicalizePath(rawIgnore, baseDirectory: Directory.current.path)
+        : null;
   } else {
     ignoreFileOverride = null;
   }
@@ -380,22 +388,34 @@ Future<bool> validateSkillsInternal({
   Configuration? config,
   List<SkillRule> customRules = const [],
 }) async {
-  final bool hasCliTargets = skillDirPaths.isNotEmpty || individualSkillPaths.isNotEmpty;
+  final List<String> canonicalIndividualSkillPaths = [
+    for (final p in individualSkillPaths)
+      canonicalizePath(p, baseDirectory: Directory.current.path),
+  ];
+  final List<String> canonicalSkillDirPaths = [
+    for (final p in skillDirPaths) canonicalizePath(p, baseDirectory: Directory.current.path),
+  ];
+  final String? canonicalIgnoreFileOverride = ignoreFileOverride != null
+      ? canonicalizePath(ignoreFileOverride, baseDirectory: Directory.current.path)
+      : null;
+
+  final bool hasCliTargets =
+      canonicalSkillDirPaths.isNotEmpty || canonicalIndividualSkillPaths.isNotEmpty;
   final List<String> effectiveIndividualSkillPaths = [
-    ...individualSkillPaths,
+    ...canonicalIndividualSkillPaths,
     if (config != null && !hasCliTargets) ...config.individualSkillConfigs.map((e) => e.path),
   ];
 
   final List<String> effectiveSkillDirPaths = _getEffectiveSkillDirPaths(
-    skillDirPaths: skillDirPaths,
-    individualSkillPaths: individualSkillPaths,
+    skillDirPaths: canonicalSkillDirPaths,
+    individualSkillPaths: canonicalIndividualSkillPaths,
     config: config,
   );
 
   final session = ValidationSession(
     config: config ?? const Configuration(),
     resolvedRuleConfigs: resolvedRuleConfigs,
-    ignoreFileOverride: ignoreFileOverride,
+    ignoreFileOverride: canonicalIgnoreFileOverride,
     customRules: customRules,
     printWarnings: printWarnings,
     fastFail: fastFail,
@@ -452,8 +472,9 @@ List<String> _getEffectiveSkillDirPaths({
       final defaults = ['.claude/skills', '.agents/skills'];
       final existingDefaults = <String>[];
       for (final path in defaults) {
-        if (Directory(path).existsSync()) {
-          existingDefaults.add(path);
+        final String canonicalPath = canonicalizePath(path, baseDirectory: Directory.current.path);
+        if (Directory(canonicalPath).existsSync()) {
+          existingDefaults.add(canonicalPath);
         }
       }
       if (existingDefaults.isEmpty) {

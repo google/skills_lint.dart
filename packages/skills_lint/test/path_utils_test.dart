@@ -30,6 +30,38 @@ void main() {
     });
   });
 
+  group('canonicalizePath', () {
+    test('joins relative path with baseDirectory and normalizes', () {
+      final String baseDir = p.normalize(p.absolute('some/base/dir'));
+      expect(
+        canonicalizePath('skills/valid', baseDirectory: baseDir),
+        equals(p.join(baseDir, 'skills', 'valid')),
+      );
+      expect(
+        canonicalizePath('./skills/../skills/valid', baseDirectory: baseDir),
+        equals(p.join(baseDir, 'skills', 'valid')),
+      );
+    });
+
+    test('normalizes and returns already absolute path without prepending baseDirectory', () {
+      final String baseDir = p.normalize(p.absolute('some/base/dir'));
+      final String absolutePath = p.normalize(p.absolute('other/root/path'));
+      expect(canonicalizePath(absolutePath, baseDirectory: baseDir), equals(absolutePath));
+    });
+
+    test('expands tilde and normalizes without prepending baseDirectory', () {
+      final String baseDir = p.normalize(p.absolute('some/base/dir'));
+      final String? home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+      if (home != null) {
+        expect(
+          canonicalizePath('~/my-skills', baseDirectory: baseDir),
+          equals(p.normalize(p.join(home, 'my-skills'))),
+        );
+        expect(canonicalizePath('~', baseDirectory: baseDir), equals(p.normalize(home)));
+      }
+    });
+  });
+
   group('normalizeSkillNameToken', () {
     test('converts underscores to hyphens', () {
       expect(normalizeSkillNameToken('skills_lint_setup'), 'skills-lint-setup');
