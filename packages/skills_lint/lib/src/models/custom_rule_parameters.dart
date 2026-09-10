@@ -2,14 +2,21 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// ignore_for_file: avoid_equals_and_hash_code_on_mutable_classes
+
+import '../collection_utils.dart';
+import '../config_serializer.dart';
+
 /// A wrapper around raw rule parameters.
 ///
 /// Prevents exposing raw [Map] APIs directly inside rule logic, and provides
 /// standard lookups and properties for rule configuration parameters.
 class CustomRuleParameters {
   /// Creates a new configuration with the provided [params].
-  CustomRuleParameters(Map<String, dynamic> params)
-    : params = Map<String, dynamic>.unmodifiable(params);
+  CustomRuleParameters([Map<String, dynamic>? params])
+    : params = params != null
+          ? Map<String, dynamic>.unmodifiable(params)
+          : const <String, dynamic>{};
 
   /// The underlying map containing the parameters.
   final Map<String, dynamic> params;
@@ -23,6 +30,15 @@ class CustomRuleParameters {
   Iterable<String> get keys => params.keys;
 
   bool containsKey(String key) => params.containsKey(key);
+
+  /// Converts this parameters object into its YAML map representation.
+  Map<String, dynamic> toYamlMap() => Map<String, dynamic>.from(params);
+
+  /// Converts this parameters object into its YAML representation.
+  Map<String, dynamic> toYaml() => toYamlMap();
+
+  /// Converts this parameters object into a formatted YAML string.
+  String toYamlString() => ConfigSerializer.toYamlString(params);
 
   /// Retrieves the value of the parameter associated with [key] as a [String].
   ///
@@ -58,4 +74,16 @@ class CustomRuleParameters {
     }
     return null;
   }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is CustomRuleParameters && deepEquals(params, other.params);
+  }
+
+  @override
+  int get hashCode => deepHashCode(params);
+
+  @override
+  String toString() => 'CustomRuleParameters($params)';
 }

@@ -47,5 +47,17 @@ void main() {
       expect(result.isValid, isTrue);
       expect(result.errors, isEmpty);
     });
+
+    test('ConfigSerializer and serialization methods are exposed in public API', () {
+      final config = Configuration(
+        ruleConfigs: {
+          'check-relative-paths': const RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+      );
+
+      final String yamlString = ConfigSerializer.configToYamlString(config);
+      final Configuration parsed = ConfigParser.parse(yamlString);
+      expect(parsed, equals(config));
+    });
   });
 }

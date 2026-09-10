@@ -497,7 +497,7 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
     configs[ruleName] = RuleConfigPatch(
       severity: severityOverrides[ruleName],
       parameters: parameterOverrides.containsKey(ruleName)
-          ? CustomRuleParameters(parameterOverrides[ruleName]!)
+          ? CustomRuleParameters(parameterOverrides[ruleName])
           : null,
     );
   }

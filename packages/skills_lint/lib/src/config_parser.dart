@@ -3,12 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 
 // ignore_for_file: specify_nonobvious_local_variable_types yaml parsing has dynamic types.
+// ignore_for_file: avoid_equals_and_hash_code_on_mutable_classes
 
 import 'dart:io';
 
 import 'package:logging/logging.dart';
 import 'package:yaml/yaml.dart';
 
+import 'collection_utils.dart';
+import 'config_serializer.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/custom_rule_parameters.dart';
@@ -47,25 +50,9 @@ class ConfigParser {
     return AnalysisSeverity.disabled; // Default if unknown
   }
 
-  /// Loads the configuration from the specified [path], or from the default
-  /// `skills_lint.yaml` if no path is provided.
-  ///
-  /// If a [path] is explicitly provided and the file does not exist, this
-  /// method throws a [FileSystemException]. If no path is provided and the
-  /// default file is missing, it returns an empty [Configuration].
-  static Future<Configuration> loadConfig({String? path}) async {
-    final String resolvedPath = expandPath(path ?? 'skills_lint.yaml');
-    final configFile = File(resolvedPath);
-
-    if (!configFile.existsSync()) {
-      if (path != null) {
-        throw FileSystemException('Configuration file not found', resolvedPath);
-      }
-      return Configuration();
-    }
-
+  /// Parses configuration settings from raw YAML [content].
+  static Configuration parse(String content, {String? sourcePath}) {
     try {
-      final String content = await configFile.readAsString();
       final yaml = loadYaml(content);
       if (yaml is YamlMap && yaml.containsKey(_skillsLintKey)) {
         final toolConfig = yaml[_skillsLintKey];
@@ -90,11 +77,42 @@ class ConfigParser {
         }
       }
     } catch (e) {
-      final message = 'Failed to parse $resolvedPath: $e';
+      final source = sourcePath ?? 'content';
+      final message = 'Failed to parse $source: $e';
       _log.severe(message);
       return Configuration(parsingErrors: [message]);
     }
     return Configuration();
+  }
+
+  /// Loads the configuration from the specified [path], or from the default
+  /// `skills_lint.yaml` if no path is provided.
+  ///
+  /// If a [path] is explicitly provided and the file does not exist, this
+  /// method throws a [FileSystemException]. If no path is provided and the
+  /// default file is missing, it returns an empty [Configuration].
+  static Future<Configuration> loadConfig({String? path}) async {
+    final String resolvedPath = expandPath(path ?? 'skills_lint.yaml');
+    final configFile = File(resolvedPath);
+
+    if (!configFile.existsSync()) {
+      if (path != null) {
+        throw FileSystemException('Configuration file not found', resolvedPath);
+      }
+      return Configuration();
+    }
+
+    try {
+      final String content = await configFile.readAsString();
+      return parse(content, sourcePath: resolvedPath);
+    } catch (e) {
+      if (e is FileSystemException) {
+        rethrow;
+      }
+      final message = 'Failed to parse $resolvedPath: $e';
+      _log.severe(message);
+      return Configuration(parsingErrors: [message]);
+    }
   }
 
   /// Validates that all keys at the top level of the `skills_lint` configuration map are recognized.
@@ -337,6 +355,15 @@ class LintTargetConfig {
   final Map<String, RuleConfigPatch> ruleConfigs;
   final String? ignoreFile;
 
+  /// Converts this target configuration into its YAML map representation.
+  Map<String, dynamic> toYamlMap() => ConfigSerializer.targetConfigToYamlMap(this);
+
+  /// Converts this target configuration into its YAML representation.
+  Map<String, dynamic> toYaml() => toYamlMap();
+
+  /// Converts this target configuration into a formatted YAML string.
+  String toYamlString() => ConfigSerializer.targetConfigToYamlString(this);
+
   // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
   @Deprecated('Use ruleConfigs instead')
   Map<String, AnalysisSeverity> get rules {
@@ -349,6 +376,32 @@ class LintTargetConfig {
     }
     return resolvedSeverities;
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other is! LintTargetConfig) {
+      return false;
+    }
+    return path == other.path &&
+        ignoreFile == other.ignoreFile &&
+        mapEquals(ruleConfigs, other.ruleConfigs);
+  }
+
+  @override
+  int get hashCode {
+    var rulesHash = 0;
+    for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries) {
+      rulesHash ^= Object.hash(entry.key, entry.value);
+    }
+    return Object.hash(path, ignoreFile, rulesHash);
+  }
+
+  @override
+  String toString() =>
+      'LintTargetConfig(path: $path, ignoreFile: $ignoreFile, ruleConfigs: $ruleConfigs)';
 }
 
 /// Structured configuration for the linter.
@@ -364,6 +417,15 @@ class Configuration {
   final Map<String, RuleConfigPatch> ruleConfigs;
   final List<String> parsingErrors;
 
+  /// Converts this configuration into its YAML map representation.
+  Map<String, dynamic> toYamlMap() => ConfigSerializer.configToYamlMap(this);
+
+  /// Converts this configuration into its YAML representation.
+  Map<String, dynamic> toYaml() => toYamlMap();
+
+  /// Converts this configuration into a formatted YAML string.
+  String toYamlString() => ConfigSerializer.configToYamlString(this);
+
   // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
   @Deprecated('Use ruleConfigs instead')
   Map<String, AnalysisSeverity> get configuredRules {
@@ -376,4 +438,36 @@ class Configuration {
     }
     return resolvedSeverities;
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other is! Configuration) {
+      return false;
+    }
+    return listEquals(directoryConfigs, other.directoryConfigs) &&
+        listEquals(individualSkillConfigs, other.individualSkillConfigs) &&
+        mapEquals(ruleConfigs, other.ruleConfigs) &&
+        listEquals(parsingErrors, other.parsingErrors);
+  }
+
+  @override
+  int get hashCode {
+    var rulesHash = 0;
+    for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries) {
+      rulesHash ^= Object.hash(entry.key, entry.value);
+    }
+    return Object.hash(
+      Object.hashAll(directoryConfigs),
+      Object.hashAll(individualSkillConfigs),
+      rulesHash,
+      Object.hashAll(parsingErrors),
+    );
+  }
+
+  @override
+  String toString() =>
+      'Configuration(directoryConfigs: $directoryConfigs, individualSkillConfigs: $individualSkillConfigs, ruleConfigs: $ruleConfigs, parsingErrors: $parsingErrors)';
 }
