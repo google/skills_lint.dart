@@ -1,5 +1,5 @@
 ---
-name: check-downstream-consumers
+name: Check_Downstream_Consumers_Mismatch
 description: >
   Validates an in-progress PR or feature branch of skills_lint against known downstream ecosystem consumers.
   Use when assessing breaking changes across external repositories during PR evaluation, testing migrations against the changelog, or determining necessary backwards compatibility shims.
