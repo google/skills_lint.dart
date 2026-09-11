@@ -1,6 +1,6 @@
 ---
 name: contributor-pr-description
-description: Guidelines and format for writing pull request descriptions in this repository. Use this skill whenever the user asks you to draft a pull request description, submit a PR, or update a PR description.
+description: Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. Guidelines and format for writing pull request descriptions in this repository. 
 metadata:
   internal: true
 ---
