@@ -3,6 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:skills_lint/skills_lint.dart';
+import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
+import 'package:skills_lint/src/rules/path_does_not_exist_rule.dart';
+import 'package:skills_lint/src/rules/prevent_skills_sh_publishing_rule.dart';
+import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
+import 'package:skills_lint/src/rules/relative_paths_rule.dart';
+import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -14,34 +20,27 @@ void main() {
       expect(yamlString, contains('skills_lint:'));
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed.directoryConfigs, isEmpty);
-      expect(parsed.individualSkillConfigs, isEmpty);
-      expect(parsed.ruleConfigs, isEmpty);
-      expect(parsed.parsingErrors, isEmpty);
       expect(parsed, equals(config));
     });
 
     test('round-trips global rules with scalar severities', () {
       const config = Configuration(
         ruleConfigs: {
-          'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error),
-          'check-absolute-paths': RuleConfigPatch(severity: AnalysisSeverity.warning),
-          'trailing-whitespace': RuleConfigPatch(severity: AnalysisSeverity.disabled),
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+          AbsolutePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.warning),
+          TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.disabled),
         },
       );
 
       final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed.parsingErrors, isEmpty);
-      expect(parsed.ruleConfigs.length, equals(3));
-      expect(parsed.ruleConfigs['check-relative-paths']?.severity, equals(AnalysisSeverity.error));
       expect(
-        parsed.ruleConfigs['check-absolute-paths']?.severity,
+        parsed.ruleConfigs[AbsolutePathsRule.ruleName]?.severity,
         equals(AnalysisSeverity.warning),
       );
       expect(
-        parsed.ruleConfigs['trailing-whitespace']?.severity,
+        parsed.ruleConfigs[TrailingWhitespaceRule.ruleName]?.severity,
         equals(AnalysisSeverity.disabled),
       );
       expect(parsed, equals(config));
@@ -50,12 +49,12 @@ void main() {
     test('round-trips global rules with custom parameters', () {
       final config = Configuration(
         ruleConfigs: {
-          'path-does-not-exist': RuleConfigPatch(
+          PathDoesNotExistRule.ruleName: RuleConfigPatch(
             severity: AnalysisSeverity.error,
             parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
           ),
-          'description-length': RuleConfigPatch(
-            parameters: CustomRuleParameters(const {'chars': 500}),
+          PublishedSkillNameRule.ruleName: RuleConfigPatch(
+            parameters: CustomRuleParameters(const {'package_name': 'my_package'}),
           ),
         },
       );
@@ -63,16 +62,6 @@ void main() {
       final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed.parsingErrors, isEmpty);
-      expect(parsed.ruleConfigs.length, equals(2));
-
-      final RuleConfigPatch? pathRule = parsed.ruleConfigs['path-does-not-exist'];
-      expect(pathRule?.severity, equals(AnalysisSeverity.error));
-      expect(pathRule?.parameters?['exclude'], equals('.*-workspace'));
-
-      final RuleConfigPatch? descRule = parsed.ruleConfigs['description-length'];
-      expect(descRule?.severity, isNull);
-      expect(descRule?.parameters?['chars'], equals(500));
       expect(parsed, equals(config));
     });
 
@@ -82,15 +71,15 @@ void main() {
           const LintTargetConfig(
             path: 'skills',
             ruleConfigs: {
-              'check-trailing-whitespace': RuleConfigPatch(severity: AnalysisSeverity.error),
-              'published-skill-name': RuleConfigPatch(severity: AnalysisSeverity.warning),
+              TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+              PublishedSkillNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.warning),
             },
             ignoreFile: 'skills/.skillsignore',
           ),
           LintTargetConfig(
             path: '../../.agents/skills',
             ruleConfigs: {
-              'path-does-not-exist': RuleConfigPatch(
+              PathDoesNotExistRule.ruleName: RuleConfigPatch(
                 severity: AnalysisSeverity.error,
                 parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
               ),
@@ -102,23 +91,15 @@ void main() {
       final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed.parsingErrors, isEmpty);
-      expect(parsed.directoryConfigs.length, equals(2));
-
       final LintTargetConfig dir1 = parsed.directoryConfigs[0];
-      expect(dir1.path, equals('skills'));
-      expect(dir1.ignoreFile, equals('skills/.skillsignore'));
       expect(
-        dir1.ruleConfigs['check-trailing-whitespace']?.severity,
+        dir1.ruleConfigs[TrailingWhitespaceRule.ruleName]?.severity,
         equals(AnalysisSeverity.error),
       );
-      expect(dir1.ruleConfigs['published-skill-name']?.severity, equals(AnalysisSeverity.warning));
 
       final LintTargetConfig dir2 = parsed.directoryConfigs[1];
-      expect(dir2.path, equals('../../.agents/skills'));
-      expect(dir2.ignoreFile, isNull);
       expect(
-        dir2.ruleConfigs['path-does-not-exist']?.parameters?['exclude'],
+        dir2.ruleConfigs[PathDoesNotExistRule.ruleName]?.parameters?['exclude'],
         equals('.*-workspace'),
       );
       expect(parsed, equals(config));
@@ -130,14 +111,16 @@ void main() {
           LintTargetConfig(
             path: '.agents/skills/add-dart-lint-validation-rule',
             ruleConfigs: {
-              'prevent-skills-sh-publishing': RuleConfigPatch(severity: AnalysisSeverity.error),
+              PreventSkillsShPublishingRule.ruleName: RuleConfigPatch(
+                severity: AnalysisSeverity.error,
+              ),
             },
             ignoreFile: 'custom_ignore.json',
           ),
           LintTargetConfig(
             path: '~/my-custom-skill',
             ruleConfigs: {
-              'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.disabled),
+              RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.disabled),
             },
           ),
         ],
@@ -146,21 +129,15 @@ void main() {
       final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed.parsingErrors, isEmpty);
-      expect(parsed.individualSkillConfigs.length, equals(2));
-
       final LintTargetConfig skill1 = parsed.individualSkillConfigs[0];
-      expect(skill1.path, equals('.agents/skills/add-dart-lint-validation-rule'));
-      expect(skill1.ignoreFile, equals('custom_ignore.json'));
       expect(
-        skill1.ruleConfigs['prevent-skills-sh-publishing']?.severity,
+        skill1.ruleConfigs[PreventSkillsShPublishingRule.ruleName]?.severity,
         equals(AnalysisSeverity.error),
       );
 
       final LintTargetConfig skill2 = parsed.individualSkillConfigs[1];
-      expect(skill2.path, equals('~/my-custom-skill'));
       expect(
-        skill2.ruleConfigs['check-relative-paths']?.severity,
+        skill2.ruleConfigs[RelativePathsRule.ruleName]?.severity,
         equals(AnalysisSeverity.disabled),
       );
       expect(parsed, equals(config));
@@ -169,15 +146,17 @@ void main() {
     test('round-trips full composite configuration with all sections', () {
       final config = Configuration(
         ruleConfigs: const {
-          'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error),
-          'check-absolute-paths': RuleConfigPatch(severity: AnalysisSeverity.error),
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+          AbsolutePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
         },
         directoryConfigs: [
           LintTargetConfig(
             path: '../../.agents/skills',
             ruleConfigs: {
-              'check-trailing-whitespace': const RuleConfigPatch(severity: AnalysisSeverity.error),
-              'path-does-not-exist': RuleConfigPatch(
+              TrailingWhitespaceRule.ruleName: const RuleConfigPatch(
+                severity: AnalysisSeverity.error,
+              ),
+              PathDoesNotExistRule.ruleName: RuleConfigPatch(
                 severity: AnalysisSeverity.error,
                 parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
               ),
@@ -187,8 +166,8 @@ void main() {
           const LintTargetConfig(
             path: 'skills',
             ruleConfigs: {
-              'check-trailing-whitespace': RuleConfigPatch(severity: AnalysisSeverity.error),
-              'published-skill-name': RuleConfigPatch(severity: AnalysisSeverity.error),
+              TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+              PublishedSkillNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
             },
           ),
         ],
@@ -196,7 +175,9 @@ void main() {
           LintTargetConfig(
             path: '../../.agents/skills/add-dart-lint-validation-rule',
             ruleConfigs: {
-              'prevent-skills-sh-publishing': RuleConfigPatch(severity: AnalysisSeverity.error),
+              PreventSkillsShPublishingRule.ruleName: RuleConfigPatch(
+                severity: AnalysisSeverity.error,
+              ),
             },
           ),
         ],
@@ -205,7 +186,6 @@ void main() {
       final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed.parsingErrors, isEmpty);
       expect(parsed, equals(config));
     });
   });
@@ -213,12 +193,14 @@ void main() {
   group('Model toYaml / toYamlMap / toYamlString Methods', () {
     test('Configuration methods produce valid maps and strings', () {
       const config = Configuration(
-        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
+        ruleConfigs: {
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
         directoryConfigs: [
           LintTargetConfig(
             path: 'skills',
             ruleConfigs: {
-              'check-trailing-whitespace': RuleConfigPatch(severity: AnalysisSeverity.warning),
+              TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.warning),
             },
           ),
         ],
@@ -237,14 +219,16 @@ void main() {
     test('LintTargetConfig methods serialize correctly', () {
       const target = LintTargetConfig(
         path: 'skills/my_skill',
-        ruleConfigs: {'published-skill-name': RuleConfigPatch(severity: AnalysisSeverity.error)},
+        ruleConfigs: {
+          PublishedSkillNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
         ignoreFile: 'ignore.json',
       );
 
       final Map<String, Object?> map = target.toYamlMap();
       expect(map['path'], equals('skills/my_skill'));
       expect(map['ignore_file'], equals('ignore.json'));
-      expect(map['rules'], equals({'published-skill-name': 'error'}));
+      expect(map['rules'], equals({PublishedSkillNameRule.ruleName: 'error'}));
       expect(target.toYaml(), equals(map));
 
       final String yamlStr = target.toYamlString();
@@ -335,7 +319,9 @@ void main() {
 
     test('ConfigSerializer supports model instances directly in toYamlString', () {
       const config = Configuration(
-        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
+        ruleConfigs: {
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
       );
       expect(ConfigSerializer.toYamlString(config), contains('skills_lint:'));
     });
@@ -393,12 +379,16 @@ void main() {
     test('LintTargetConfig equality and hashCode', () {
       const t1 = LintTargetConfig(
         path: 'skills',
-        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
+        ruleConfigs: {
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
         ignoreFile: 'ignore.json',
       );
       const t2 = LintTargetConfig(
         path: 'skills',
-        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
+        ruleConfigs: {
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
         ignoreFile: 'ignore.json',
       );
       const t3 = LintTargetConfig(path: 'other');
@@ -415,22 +405,26 @@ void main() {
           LintTargetConfig(
             path: 'skills',
             ruleConfigs: {
-              'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error),
+              RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
             },
           ),
         ],
-        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
+        ruleConfigs: {
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
       );
       const c2 = Configuration(
         directoryConfigs: [
           LintTargetConfig(
             path: 'skills',
             ruleConfigs: {
-              'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error),
+              RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
             },
           ),
         ],
-        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
+        ruleConfigs: {
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
       );
       const c3 = Configuration();
 

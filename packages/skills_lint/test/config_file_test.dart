@@ -6,6 +6,11 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
+import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
+import 'package:skills_lint/src/rules/name_format_rule.dart';
+import 'package:skills_lint/src/rules/path_does_not_exist_rule.dart';
+import 'package:skills_lint/src/rules/relative_paths_rule.dart';
+import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 
@@ -34,7 +39,9 @@ description: A test skill
 
       await File('${tempDir.path}/skills_lint.yaml').writeAsString(
         const Configuration(
-          ruleConfigs: {'check-relative-paths': RuleConfig(severity: AnalysisSeverity.disabled)},
+          ruleConfigs: {
+            RelativePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled),
+          },
         ).toYamlString(),
       );
 
@@ -60,7 +67,7 @@ description: A test skill
 
       await File('${tempDir.path}/skills_lint.yaml').writeAsString(
         const Configuration(
-          ruleConfigs: {'check-absolute-paths': RuleConfig(severity: AnalysisSeverity.warning)},
+          ruleConfigs: {AbsolutePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.warning)},
         ).toYamlString(),
       );
 
@@ -91,7 +98,7 @@ Line with 1 space
             LintTargetConfig(
               path: '~/test-skill',
               ruleConfigs: {
-                'check-trailing-whitespace': RuleConfig(severity: AnalysisSeverity.error),
+                TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.error),
               },
             ),
           ],
@@ -126,7 +133,7 @@ Line with 1 space
             LintTargetConfig(
               path: 'test-skill',
               ruleConfigs: {
-                'check-trailing-whitespace': RuleConfig(severity: AnalysisSeverity.error),
+                TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.error),
               },
             ),
           ],
@@ -170,7 +177,7 @@ Line with 1 space
             LintTargetConfig(
               path: 'test-skill',
               ruleConfigs: {
-                'check-trailing-whitespace': RuleConfig(severity: AnalysisSeverity.error),
+                TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.error),
               },
             ),
           ],
@@ -234,7 +241,9 @@ description: A test skill
 
       await File('${tempDir.path}/skills_lint.yaml').writeAsString(
         const Configuration(
-          ruleConfigs: {'check-relative-paths': RuleConfig(severity: AnalysisSeverity.disabled)},
+          ruleConfigs: {
+            RelativePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled),
+          },
         ).toYamlString(),
       );
 
@@ -294,7 +303,7 @@ Body''');
 
       await File('${tempDir.path}/skills_lint.yaml').writeAsString(
         const Configuration(
-          ruleConfigs: {'invalid-skill-name': RuleConfig(severity: AnalysisSeverity.disabled)},
+          ruleConfigs: {NameFormatRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled)},
         ).toYamlString(),
       );
 
@@ -328,7 +337,7 @@ Body''');
 
       await File('${tempDir.path}/skills_lint.yaml').writeAsString(
         const Configuration(
-          ruleConfigs: {'invalid-skill-name': RuleConfig(severity: AnalysisSeverity.disabled)},
+          ruleConfigs: {NameFormatRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled)},
         ).toYamlString(),
       );
 
@@ -346,7 +355,7 @@ Body''');
       expect(ignoreFile.existsSync(), isTrue);
 
       final String content = await ignoreFile.readAsString();
-      expect(content, contains('invalid-skill-name')); // It should generate baseline for it!
+      expect(content, contains(NameFormatRule.ruleName)); // It should generate baseline for it!
     });
 
     test('fails on invalid top-level key in config by default', () async {
@@ -546,7 +555,9 @@ description: A test skill
 
       await File('${tempDir.path}/custom_config.yaml').writeAsString(
         const Configuration(
-          ruleConfigs: {'check-relative-paths': RuleConfig(severity: AnalysisSeverity.disabled)},
+          ruleConfigs: {
+            RelativePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled),
+          },
         ).toYamlString(),
       );
 
@@ -598,7 +609,7 @@ Body''');
 
       await File('${tempDir.path}/custom_config.yaml').writeAsString(
         const Configuration(
-          ruleConfigs: {'invalid-skill-name': RuleConfig(severity: AnalysisSeverity.disabled)},
+          ruleConfigs: {NameFormatRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled)},
         ).toYamlString(),
       );
 
@@ -743,7 +754,7 @@ Body''');
             LintTargetConfig(
               path: 'dir1',
               ruleConfigs: {
-                'check-trailing-whitespace': RuleConfig(severity: AnalysisSeverity.error),
+                TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.error),
               },
             ),
           ],
@@ -751,7 +762,7 @@ Body''');
             LintTargetConfig(
               path: 'dir1/test-skill',
               ruleConfigs: {
-                'check-trailing-whitespace': RuleConfig(severity: AnalysisSeverity.warning),
+                TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.warning),
               },
             ),
           ],
@@ -789,7 +800,7 @@ Body''');
             LintTargetConfig(
               path: 'skills-root',
               ruleConfigs: {
-                'path-does-not-exist': RuleConfig(
+                PathDoesNotExistRule.ruleName: RuleConfig(
                   severity: AnalysisSeverity.error,
                   parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
                 ),
@@ -821,7 +832,7 @@ Body''');
       await File('${tempDir.path}/skills_lint.yaml').writeAsString(
         Configuration(
           ruleConfigs: {
-            'path-does-not-exist': RuleConfig(
+            PathDoesNotExistRule.ruleName: RuleConfig(
               severity: AnalysisSeverity.warning,
               parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
             ),
@@ -830,7 +841,7 @@ Body''');
             LintTargetConfig(
               path: 'skills-root',
               ruleConfigs: {
-                'path-does-not-exist': RuleConfigPatch(severity: AnalysisSeverity.error),
+                PathDoesNotExistRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
               },
             ),
           ],

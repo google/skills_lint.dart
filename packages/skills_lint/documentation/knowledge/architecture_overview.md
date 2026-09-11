@@ -6,33 +6,33 @@ This document provides a high-level architectural overview of the `skills_lint` 
 
 The system is organized into decoupled layers, separating command-line orchestration, configuration management, pure validation logic, and suppression persistence.
 
-### 1. CLI & Orchestration Layer
+### 1. [CLI & Orchestration Layer](../../lib/src/entry_point.dart)
 The orchestration layer manages the execution session from invocation to termination.
 - **Invocation & Environment Discovery:** Parses command-line inputs, discovers target skill directories (resolving workspace defaults when no explicit targets are provided), and manages process exit codes.
 - **Session Coordination:** Coordinates validation across multiple targets, manages execution flags (such as fast-fail and output verbosity), and oversees the lifecycle of automated fixes and baseline generation.
 - **Console Reporting:** Formats structured validation diagnostics into user-facing console output, diff previews, and exit signals.
 
-### 2. Configuration & Resolution Engine
+### 2. [Configuration & Resolution Engine](../../lib/src/config_parser.dart)
 Responsible for loading, validating, resolving, and serializing user settings across different scopes.
-- **Schema & Target Parsing:** Loads repository-level configuration from disk via [`ConfigParser.loadConfig`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/config_parser.dart) and parses in-memory YAML strings or YAML maps via [`ConfigParser.parse`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/config_parser.dart).
+- **Schema & Target Parsing:** Ingests repository configuration from disk or in-memory sources, parsing global rule definitions along with directory-level and skill-level overrides.
 - **Hierarchical Precedence:** Resolves effective rule sets and parameter values deterministically by layering scopes: CLI overrides take highest precedence, followed by path-specific target configurations, global repository configurations, and built-in defaults.
-- **Bidirectional Serialization:** Exposes programmatic, typesafe serializers through [`ConfigSerializer`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/config_serializer.dart) and convenient `.toYamlString()`, `.toYamlMap()`, and `.toYaml()` methods on [`Configuration`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/config_parser.dart), [`LintTargetConfig`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/config_parser.dart), [`RuleConfig`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/models/rule_config.dart), and [`RuleConfigPatch`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/models/rule_config.dart), guaranteeing lossless round-trips with `ConfigParser.parse`.
+- **Bidirectional Serialization:** Supports programmatic serialization and deserialization, enabling automated tooling, test harnesses, and migration workflows to generate and transform configuration definitions with lossless round-trip fidelity.
 
-### 3. Stateless Validation Engine
+### 3. [Stateless Validation Engine](../../lib/src/validator.dart)
 The core analysis engine responsible for inspecting individual skills.
 - **Context Extraction:** Ingests skill directories, parses metadata frontmatter and Markdown content into structured representations, and captures low-level parsing or syntax errors.
 - **Rule Dispatch:** Iterates over the active rules for a given skill context and aggregates emitted diagnostic results.
 - **Purity & Isolation:** Operates as a pure analysis unit without side effects, remaining entirely decoupled from CLI arguments, terminal I/O, or session orchestration.
 
-### 4. Rule Subsystem & Extensibility
+### 4. [Rule Subsystem & Extensibility](../../lib/src/rules/)
 The extensible framework for authoring and running skill checks.
 - **Diagnostic Rules:** Independent rule checkers that validate specific constraints (such as metadata schemas, directory layout, path portability, and naming conventions).
 - **Auto-Fix Interface:** Rules that support automated remediation define pure transformation operations, taking current file content and returning modified content without directly touching the filesystem.
 
-### 5. Baseline & Suppression Subsystem
-The persistent suppression mechanism enabling incremental adoption and legacy skill management.
+### 5. [Baseline & Suppression Subsystem](../../lib/src/skills_ignores_storage.dart)
+The persistent suppression mechanism enabling incremental adoption and baseline suppression management.
 - **Structured Suppressions:** Stores and matches ignored diagnostics using structured identifiers and file paths rather than brittle free-form string matching.
-- **Lifecycle Tracking:** Records new baseline entries when requested and tracks active suppression usage during lint runs to report stale or obsolete entries.
+- **Lifecycle Tracking:** Records generated baseline entries when requested and tracks active suppression usage during lint runs to report stale or obsolete entries.
 
 ---
 
@@ -95,8 +95,8 @@ sequenceDiagram
 4. **Structured Baseline Auditing**  
    Suppression baselines rely on stable rule identifiers and relative file paths rather than fragile log message matching. Baselines are actively audited during execution to identify stale suppressions when violations are fixed.
 
-5. **Typesafe Bidirectional Configuration Serialization**  
-   Configuration domain models ([`Configuration`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/config_parser.dart), [`LintTargetConfig`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/config_parser.dart), [`RuleConfig`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/models/rule_config.dart), [`RuleConfigPatch`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/models/rule_config.dart), [`CustomRuleParameters`](file:///Users/reidbaker/.gemini/jetski/brain/e4991a5b-0d52-46e2-ae7d-9199d099b367/.system_generated/worktrees/subagent-Config-Serialization-Implementer-self-859f40e1/packages/skills_lint/lib/src/models/custom_rule_parameters.dart)) implement deterministic bidirectional serialization. Serialized YAML output uses standardized top-level and target schema keys (`skills_lint`, `rules`, `directories`, `individual_skills`, `path`, `ignore_file`, `severity`) and automatically quotes reserved boolean, null, numeric, or character tokens. This guarantees that programmatic configuration instances serialize cleanly to valid YAML and deserialize losslessly through `ConfigParser.parse()` or `ConfigParser.loadConfig()`.
+5. **Typesafe Bidirectional Configuration Lifecycle**  
+   Configuration state supports deterministic round-trip serialization between structured in-memory representations and valid YAML documents. Serialized definitions conform strictly to standard schema keys and preserve type semantics (including booleans, numerics, and explicit null resets) across parse and emission cycles. This decoupling allows external developer tools and integration tests to generate, inspect, and mutate configuration programmatically without manual string formatting.
 
 ---
 
