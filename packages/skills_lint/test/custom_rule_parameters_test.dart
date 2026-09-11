@@ -7,7 +7,7 @@ import 'package:test/test.dart';
 
 void main() {
   test('CustomRuleParameters params map is unmodifiable', () {
-    final parameters = CustomRuleParameters({'key': 'value'});
+    final parameters = CustomRuleParameters(const {'key': 'value'});
 
     expect(() => parameters.params['new_key'] = 'new_value', throwsA(isUnsupportedError));
     expect(() => parameters.params.remove('key'), throwsA(isUnsupportedError));

@@ -68,7 +68,9 @@ void main() {
       ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Relative link](C:relative.md)\n');
 
       final validator = Validator(
-        ruleConfigs: {RelativePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled)},
+        ruleConfigs: {
+          RelativePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.disabled),
+        },
       );
       final ValidationResult result = await validator.validate(skillDir);
 
@@ -84,7 +86,9 @@ void main() {
       ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Relative link](file.md)\n');
 
       final validator = Validator(
-        ruleConfigs: {RelativePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled)},
+        ruleConfigs: {
+          RelativePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.disabled),
+        },
       );
       final ValidationResult result = await validator.validate(skillDir);
 
@@ -99,7 +103,9 @@ void main() {
       );
 
       final validator = Validator(
-        ruleConfigs: {AbsolutePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled)},
+        ruleConfigs: {
+          AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.disabled),
+        },
       );
       final ValidationResult result = await validator.validate(skillDir);
 
@@ -117,7 +123,9 @@ void main() {
         );
 
         final validator = Validator(
-          ruleConfigs: {AbsolutePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.warning)},
+          ruleConfigs: {
+            AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.warning),
+          },
         );
         final ValidationResult result = await validator.validate(skillDir);
 

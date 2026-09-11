@@ -36,8 +36,8 @@ void main() {
 
       final validator = Validator(
         ruleConfigs: {
-          RelativePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.warning),
-          AbsolutePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.error),
+          RelativePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.warning),
+          AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error),
         },
       );
       final ValidationResult result = await validator.validate(skillDir);
@@ -59,7 +59,9 @@ void main() {
       await File('${skillDir.path}/valid.md').writeAsString('Valid file content');
 
       final validator = Validator(
-        ruleConfigs: {RelativePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.warning)},
+        ruleConfigs: {
+          RelativePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.warning),
+        },
       );
       final ValidationResult result = await validator.validate(skillDir);
 
