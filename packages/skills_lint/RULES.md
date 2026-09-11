@@ -26,7 +26,7 @@ All rules are enabled / disabled / escalated the same three ways:
 The "Disable" line under each rule below names the negated CLI flag for
 quick reference.
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the SemVer policy that
+See [`CONTRIBUTING.md`](../../CONTRIBUTING.md) for the SemVer policy that
 governs how changes to these rules ship.
 
 ---
