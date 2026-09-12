@@ -117,7 +117,7 @@ On macOS, replace `sha256sum -c -` with `shasum -a 256 -c -`.
 a `skills_lint.yaml` file. The CLI is the user-facing surface; it
 also has a programmatic API for contributors who need to embed the
 linter in their own test suite — see
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md#embedding-the-linter-in-tests).
+[`CONTRIBUTING.md`](CONTRIBUTING.md#embedding-the-linter-in-tests).
 
 ### 1. As a Command Line Tool with Arguments
 Run the linter against your skills or root skills directories by passing arguments.

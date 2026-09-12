@@ -5,12 +5,7 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:skills_lint/skills_lint.dart';
-import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
-import 'package:skills_lint/src/rules/name_format_rule.dart';
-import 'package:skills_lint/src/rules/path_does_not_exist_rule.dart';
-import 'package:skills_lint/src/rules/relative_paths_rule.dart';
-import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
+import 'package:skills_lint/src/entry_point.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 
@@ -37,13 +32,11 @@ description: A test skill
 ---
 [broken](missing.md)''');
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          ruleConfigs: {
-            RelativePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled),
-          },
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  rules:
+    check-relative-paths: disabled
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -65,11 +58,11 @@ description: A test skill
 ---
 [absolute](/absolute/path.md)''');
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          ruleConfigs: {AbsolutePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.warning)},
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  rules:
+    check-absolute-paths: warning
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -92,18 +85,13 @@ description: A test skill
 Line with 1 space 
 '''); // Trailing space
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          directoryConfigs: [
-            LintTargetConfig(
-              path: '~/test-skill',
-              ruleConfigs: {
-                TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.error),
-              },
-            ),
-          ],
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  directories:
+    - path: "~/test-skill"
+      rules:
+        check-trailing-whitespace: error
+''');
 
       final TestProcess process = await TestProcess.start(
         'dart',
@@ -127,18 +115,13 @@ description: A test skill
 Line with 1 space 
 '''); // Trailing space
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          directoryConfigs: [
-            LintTargetConfig(
-              path: 'test-skill',
-              ruleConfigs: {
-                TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.error),
-              },
-            ),
-          ],
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  directories:
+    - path: "test-skill"
+      rules:
+        check-trailing-whitespace: error
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -171,18 +154,13 @@ description: Another test skill
 Line with 1 space 
 '''); // Trailing space
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          individualSkillConfigs: [
-            LintTargetConfig(
-              path: 'test-skill',
-              ruleConfigs: {
-                TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.error),
-              },
-            ),
-          ],
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  individual_skills:
+    - path: "test-skill"
+      rules:
+        check-trailing-whitespace: error
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -216,12 +194,13 @@ description: A test skill
 ---
 Body''');
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          directoryConfigs: [LintTargetConfig(path: 'dir1')],
-          individualSkillConfigs: [LintTargetConfig(path: 'dir2')],
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  directories:
+    - path: "dir1"
+  individual_skills:
+    - path: "dir2"
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -239,13 +218,11 @@ description: A test skill
 ---
 [broken](missing.md)''');
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          ruleConfigs: {
-            RelativePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled),
-          },
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  rules:
+    check-relative-paths: disabled
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -269,11 +246,12 @@ description: A test skill
 Body''');
 
       const ignorePath = 'custom_ignore.json';
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          directoryConfigs: [LintTargetConfig(path: 'test-skill', ignoreFile: ignorePath)],
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  directories:
+    - path: "test-skill"
+      ignore_file: "$ignorePath"
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -301,11 +279,11 @@ license: MIT
 ---
 Body''');
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          ruleConfigs: {NameFormatRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled)},
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  rules:
+    invalid-skill-name: disabled
+''');
 
       // 1. Run without --ignore-config. Should pass because config disables the check.
       final TestProcess passProcess = await TestProcess.start('dart', [
@@ -335,11 +313,11 @@ license: MIT
 ---
 Body''');
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          ruleConfigs: {NameFormatRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled)},
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  rules:
+    invalid-skill-name: disabled
+''');
 
       // 1. Generate baseline with --ignore-config. It should ignore config (so the rule is enabled) and find violations to generate baseline for!
       final TestProcess genProcess = await TestProcess.start('dart', [
@@ -355,7 +333,7 @@ Body''');
       expect(ignoreFile.existsSync(), isTrue);
 
       final String content = await ignoreFile.readAsString();
-      expect(content, contains(NameFormatRule.ruleName)); // It should generate baseline for it!
+      expect(content, contains('invalid-skill-name')); // It should generate baseline for it!
     });
 
     test('fails on invalid top-level key in config by default', () async {
@@ -553,13 +531,11 @@ description: A test skill
 ---
 [broken](missing.md)''');
 
-      await File('${tempDir.path}/custom_config.yaml').writeAsString(
-        const Configuration(
-          ruleConfigs: {
-            RelativePathsRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled),
-          },
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/custom_config.yaml').writeAsString('''
+skills_lint:
+  rules:
+    check-relative-paths: disabled
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -607,11 +583,11 @@ license: MIT
 ---
 Body''');
 
-      await File('${tempDir.path}/custom_config.yaml').writeAsString(
-        const Configuration(
-          ruleConfigs: {NameFormatRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled)},
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/custom_config.yaml').writeAsString('''
+skills_lint:
+  rules:
+    invalid-skill-name: disabled
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -678,12 +654,13 @@ description: An individual skill
 ---
 Body''');
 
-        await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-          const Configuration(
-            directoryConfigs: [LintTargetConfig(path: 'dir-target')],
-            individualSkillConfigs: [LintTargetConfig(path: 'ind-skill')],
-          ).toYamlString(),
-        );
+        await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  directories:
+    - path: "dir-target"
+  individual_skills:
+    - path: "ind-skill"
+''');
 
         // Run with NO arguments (no -s or -d)
         final TestProcess process = await TestProcess.start('dart', [
@@ -717,11 +694,11 @@ description: A test skill in config
 ---
 Body''');
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          individualSkillConfigs: [LintTargetConfig(path: 'config-skill')],
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  individual_skills:
+    - path: "config-skill"
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -748,26 +725,17 @@ Body''');
         '${tempDir.path}/dir1/test-skill/SKILL.md',
       ).writeAsString('---\nname: test-skill\ndescription: A test skill\n---\nBody \n');
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          directoryConfigs: [
-            LintTargetConfig(
-              path: 'dir1',
-              ruleConfigs: {
-                TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.error),
-              },
-            ),
-          ],
-          individualSkillConfigs: [
-            LintTargetConfig(
-              path: 'dir1/test-skill',
-              ruleConfigs: {
-                TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.warning),
-              },
-            ),
-          ],
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  directories:
+    - path: "dir1"
+      rules:
+        check-trailing-whitespace: error
+  individual_skills:
+    - path: "dir1/test-skill"
+      rules:
+        check-trailing-whitespace: warning
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -794,21 +762,15 @@ Body''');
         '${validSkill.path}/SKILL.md',
       ).writeAsString('---\nname: valid-skill\ndescription: Valid\n---\nBody');
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        Configuration(
-          directoryConfigs: [
-            LintTargetConfig(
-              path: 'skills-root',
-              ruleConfigs: {
-                PathDoesNotExistRule.ruleName: RuleConfig(
-                  severity: AnalysisSeverity.error,
-                  parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
-                ),
-              },
-            ),
-          ],
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  directories:
+    - path: "skills-root"
+      rules:
+        path-does-not-exist:
+          severity: error
+          exclude: ".*-workspace"
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),
@@ -829,24 +791,17 @@ Body''');
         '${validSkill.path}/SKILL.md',
       ).writeAsString('---\nname: valid-skill\ndescription: Valid\n---\nBody');
 
-      await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        Configuration(
-          ruleConfigs: {
-            PathDoesNotExistRule.ruleName: RuleConfig(
-              severity: AnalysisSeverity.warning,
-              parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
-            ),
-          },
-          directoryConfigs: const [
-            LintTargetConfig(
-              path: 'skills-root',
-              ruleConfigs: {
-                PathDoesNotExistRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-              },
-            ),
-          ],
-        ).toYamlString(),
-      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  rules:
+    path-does-not-exist:
+      severity: warning
+      exclude: ".*-workspace"
+  directories:
+    - path: "skills-root"
+      rules:
+        path-does-not-exist: error
+''');
 
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),

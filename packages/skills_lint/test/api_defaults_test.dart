@@ -41,7 +41,7 @@ void main() {
       // Create validator with the rule disabled.
       final validator = Validator(
         ruleConfigs: {
-          ValidYamlMetadataRule.ruleName: const RuleConfig(severity: AnalysisSeverity.disabled),
+          ValidYamlMetadataRule.ruleName: RuleConfig(severity: AnalysisSeverity.disabled),
         },
       );
       final ValidationResult result = await validator.validate(skillDir);
@@ -103,8 +103,10 @@ Line with space
         directoryConfigs: [
           LintTargetConfig(
             path: configDir.path,
-            ruleConfigs: const {
-              TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+            ruleConfigs: {
+              TrailingWhitespaceRule.ruleName: const RuleConfigPatch(
+                severity: AnalysisSeverity.error,
+              ),
             },
           ),
         ],
@@ -150,16 +152,24 @@ skills_lint:
         directoryConfigs: [
           LintTargetConfig(
             path: p.join(tempDir.path, 'skills'),
-            ruleConfigs: const {
-              TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-              DescriptionLengthRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.warning),
+            ruleConfigs: {
+              TrailingWhitespaceRule.ruleName: const RuleConfigPatch(
+                severity: AnalysisSeverity.error,
+              ),
+              DescriptionLengthRule.ruleName: const RuleConfigPatch(
+                severity: AnalysisSeverity.warning,
+              ),
             },
           ),
           LintTargetConfig(
             path: p.join(tempDir.path, 'skills/nested'),
-            ruleConfigs: const {
-              DescriptionLengthRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-              TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.disabled),
+            ruleConfigs: {
+              DescriptionLengthRule.ruleName: const RuleConfigPatch(
+                severity: AnalysisSeverity.error,
+              ),
+              TrailingWhitespaceRule.ruleName: const RuleConfigPatch(
+                severity: AnalysisSeverity.disabled,
+              ),
             },
           ),
         ],
@@ -211,8 +221,12 @@ skills_lint:
       // child path: 'skills/nested' (does not define ignoreFile, should inherit)
       final config = Configuration(
         directoryConfigs: [
-          LintTargetConfig(path: p.join(tempDir.path, 'skills'), ignoreFile: 'parent_ignores.json'),
-          LintTargetConfig(path: p.join(tempDir.path, 'skills/nested')),
+          LintTargetConfig(
+            path: p.join(tempDir.path, 'skills'),
+            ignoreFile: 'parent_ignores.json',
+            ruleConfigs: const {},
+          ),
+          LintTargetConfig(path: p.join(tempDir.path, 'skills/nested'), ruleConfigs: const {}),
         ],
       );
 
@@ -244,12 +258,14 @@ skills_lint:
 
   test('Absolute vs. Relative Path Resolution matching', () {
     // Config defines path as relative 'skills'
-    const config = Configuration(
+    final config = Configuration(
       directoryConfigs: [
         LintTargetConfig(
           path: 'skills',
           ruleConfigs: {
-            TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+            TrailingWhitespaceRule.ruleName: const RuleConfigPatch(
+              severity: AnalysisSeverity.error,
+            ),
           },
         ),
       ],
