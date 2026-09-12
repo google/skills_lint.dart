@@ -2,54 +2,23 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:meta/meta.dart';
-
-import '../config_serializer.dart';
 import 'analysis_severity.dart';
 import 'custom_rule_parameters.dart';
 
 /// Represents the resolved, active configuration for a validation rule,
 /// bundling both orchestration (severity) and execution parameters.
-@immutable
-class RuleConfig extends RuleConfigPatch {
-  const RuleConfig({required AnalysisSeverity severity, CustomRuleParameters? parameters})
-    : super(severity: severity, parameters: parameters ?? const CustomRuleParameters.empty());
+class RuleConfig {
+  RuleConfig({required this.severity, CustomRuleParameters? parameters})
+    : parameters = parameters ?? CustomRuleParameters({});
 
-  @override
-  AnalysisSeverity get severity => super.severity!;
+  final AnalysisSeverity severity;
 
-  @override
-  CustomRuleParameters get parameters => super.parameters!;
-
-  /// Converts this rule configuration into its YAML representation (String severity or Map).
-  @override
-  Object toYaml() => ConfigSerializer.ruleConfigToYaml(this);
-
-  /// Converts this rule configuration into its YAML map representation.
-  @override
-  Map<String, Object?> toYamlMap() => ConfigSerializer.ruleConfigToYamlMap(this);
-
-  /// Converts this rule configuration into a formatted YAML string.
-  @override
-  String toYamlString() => ConfigSerializer.toYamlString(this);
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        other is RuleConfig && severity == other.severity && parameters == other.parameters;
-  }
-
-  @override
-  int get hashCode => Object.hash(severity, parameters);
-
-  @override
-  String toString() => 'RuleConfig(severity: $severity, parameters: $parameters)';
+  final CustomRuleParameters parameters;
 }
 
 /// Represents a configuration override patch containing nullable parameters.
 /// Used during validation session configuration inheritance to resolve target-specific
 /// overrides without wiping out unspecified base/global parameters.
-@immutable
 class RuleConfigPatch {
   const RuleConfigPatch({this.severity, this.parameters});
 
@@ -59,15 +28,6 @@ class RuleConfigPatch {
   /// The overridden parameters. Keys containing null values (e.g. from YAML `~`) will remove
   /// the parameter from the base configuration during merging.
   final CustomRuleParameters? parameters;
-
-  /// Converts this rule configuration patch into its YAML representation (String severity or Map).
-  Object? toYaml() => ConfigSerializer.ruleConfigPatchToYaml(this);
-
-  /// Converts this rule configuration patch into its YAML map representation.
-  Map<String, Object?> toYamlMap() => ConfigSerializer.ruleConfigPatchToYamlMap(this);
-
-  /// Converts this rule configuration patch into a formatted YAML string.
-  String toYamlString() => ConfigSerializer.toYamlString(this);
 
   /// Creates a new [RuleConfig] by layering this patch's overrides over a [base] configuration.
   RuleConfig applyTo(RuleConfig base) {
@@ -83,8 +43,8 @@ class RuleConfigPatch {
     CustomRuleParameters base,
     CustomRuleParameters patch,
   ) {
-    final merged = Map<String, Object?>.from(base.params);
-    for (final MapEntry<String, Object?> entry in patch.params.entries) {
+    final merged = Map<String, dynamic>.from(base.params);
+    for (final MapEntry<String, dynamic> entry in patch.params.entries) {
       if (entry.value == null) {
         merged.remove(entry.key);
       } else {
@@ -93,16 +53,4 @@ class RuleConfigPatch {
     }
     return CustomRuleParameters(merged);
   }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        other is RuleConfigPatch && severity == other.severity && parameters == other.parameters;
-  }
-
-  @override
-  int get hashCode => Object.hash(severity, parameters);
-
-  @override
-  String toString() => 'RuleConfigPatch(severity: $severity, parameters: $parameters)';
 }

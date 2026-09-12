@@ -263,7 +263,7 @@ Future<Configuration?> _loadConfig(ArgResults results) async {
   final ignoreConfig = results[_ignoreConfigFlag] as bool;
   final Configuration config;
   if (ignoreConfig) {
-    config = const Configuration();
+    config = Configuration();
   } else {
     try {
       final configPath = results[_configOption] as String?;
@@ -393,7 +393,7 @@ Future<bool> validateSkillsInternal({
   );
 
   final session = ValidationSession(
-    config: config ?? const Configuration(),
+    config: config ?? Configuration(),
     resolvedRuleConfigs: resolvedRuleConfigs,
     ignoreFileOverride: ignoreFileOverride,
     customRules: customRules,
@@ -483,9 +483,9 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
   }
 
   // 2. Resolve parameter overrides from CLI flags (e.g. --path-does-not-exist-exclude)
-  final parameterOverrides = <String, Map<String, Object?>>{};
+  final parameterOverrides = <String, Map<String, dynamic>>{};
   for (final CheckType check in RuleRegistry.allChecks) {
-    final Map<String, Object?> checkOverrides = _resolveParametersForCheck(check, results);
+    final Map<String, dynamic> checkOverrides = _resolveParametersForCheck(check, results);
     if (checkOverrides.isNotEmpty) {
       parameterOverrides[check.name] = checkOverrides;
     }
@@ -497,7 +497,7 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
     configs[ruleName] = RuleConfigPatch(
       severity: severityOverrides[ruleName],
       parameters: parameterOverrides.containsKey(ruleName)
-          ? CustomRuleParameters(parameterOverrides[ruleName])
+          ? CustomRuleParameters(parameterOverrides[ruleName]!)
           : null,
     );
   }
@@ -505,8 +505,8 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
   return configs;
 }
 
-Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults results) {
-  final checkOverrides = <String, Object?>{};
+Map<String, dynamic> _resolveParametersForCheck(CheckType check, ArgResults results) {
+  final Map<String, dynamic> checkOverrides = {};
   for (final String paramName in check.parameterSchema.keys) {
     final paramFlag = '${check.name}-$paramName';
     if (results.options.contains(paramFlag) && results.wasParsed(paramFlag)) {

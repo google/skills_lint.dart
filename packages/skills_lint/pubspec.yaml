@@ -20,7 +20,6 @@ environment:
 
 dependencies:
   args: ^2.4.0
-  collection: ^1.18.0
   io: ^1.0.4
   json_annotation: ^4.8.0
   logging: ^1.2.0
