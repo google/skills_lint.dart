@@ -10,27 +10,22 @@ import 'package:test/test.dart';
 
 /// Builds a configuration document declaring [directories] and
 /// [individualSkills] as authored by a user.
+///
+/// Serializing through [Configuration] keeps the fixture valid for paths that
+/// need escaping, such as a Windows path holding backslashes.
 String configYaml({
   List<({String path, String? ignoreFile})> directories = const [],
   List<String> individualSkills = const [],
 }) {
-  final buffer = StringBuffer('skills_lint:\n');
-  if (directories.isNotEmpty) {
-    buffer.writeln('  directories:');
-    for (final directory in directories) {
-      buffer.writeln('    - path: "${directory.path}"');
-      if (directory.ignoreFile != null) {
-        buffer.writeln('      ignore_file: "${directory.ignoreFile}"');
-      }
-    }
-  }
-  if (individualSkills.isNotEmpty) {
-    buffer.writeln('  individual_skills:');
-    for (final skill in individualSkills) {
-      buffer.writeln('    - path: "$skill"');
-    }
-  }
-  return buffer.toString();
+  return Configuration(
+    directoryConfigs: <LintTargetConfig>[
+      for (final directory in directories)
+        LintTargetConfig(path: directory.path, ignoreFile: directory.ignoreFile),
+    ],
+    individualSkillConfigs: <LintTargetConfig>[
+      for (final skill in individualSkills) LintTargetConfig(path: skill),
+    ],
+  ).toYamlString();
 }
 
 void main() {
