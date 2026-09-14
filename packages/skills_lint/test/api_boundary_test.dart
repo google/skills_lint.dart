@@ -55,7 +55,7 @@ void main() {
         ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
       );
 
-      final String yamlString = ConfigSerializer.configToYamlString(config);
+      final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
       expect(parsed.toYamlString(), equals(config.toYamlString()));
     });

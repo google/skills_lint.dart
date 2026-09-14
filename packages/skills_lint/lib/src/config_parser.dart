@@ -418,11 +418,23 @@ class LintTargetConfig {
   final Map<String, RuleConfigPatch> ruleConfigs;
   final String? ignoreFile;
 
-  /// Converts this target configuration into its YAML map representation.
-  Map<String, Object?> toYamlMap() => ConfigSerializer.targetConfigToYamlMap(this);
+  /// Converts this target configuration into its YAML representation.
+  Map<String, Object?> toYaml() {
+    final map = <String, Object?>{ConfigParser.pathKey: path};
+    if (ruleConfigs.isNotEmpty) {
+      map[ConfigParser.rulesKey] = <String, Object?>{
+        for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries)
+          entry.key: entry.value.toYaml(),
+      };
+    }
+    if (ignoreFile != null) {
+      map[ConfigParser.ignoreFileKey] = ignoreFile;
+    }
+    return map;
+  }
 
   /// Converts this target configuration into a formatted YAML string.
-  String toYamlString() => ConfigSerializer.targetConfigToYamlString(this);
+  String toYamlString() => ConfigSerializer.toYamlString(toYaml());
 
   // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
   @Deprecated('Use ruleConfigs instead')
@@ -452,11 +464,34 @@ class Configuration {
   final Map<String, RuleConfigPatch> ruleConfigs;
   final List<String> parsingErrors;
 
-  /// Converts this configuration into its YAML map representation.
-  Map<String, Object?> toYamlMap() => ConfigSerializer.configToYamlMap(this);
+  /// Converts this configuration into its YAML representation.
+  Map<String, Object?> toYaml() {
+    final skillsLintMap = <String, Object?>{};
+
+    if (ruleConfigs.isNotEmpty) {
+      skillsLintMap[ConfigParser.rulesKey] = <String, Object?>{
+        for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries)
+          entry.key: entry.value.toYaml(),
+      };
+    }
+
+    if (directoryConfigs.isNotEmpty) {
+      skillsLintMap[ConfigParser.directoriesKey] = <Map<String, Object?>>[
+        for (final LintTargetConfig dir in directoryConfigs) dir.toYaml(),
+      ];
+    }
+
+    if (individualSkillConfigs.isNotEmpty) {
+      skillsLintMap[ConfigParser.individualSkillsKey] = <Map<String, Object?>>[
+        for (final LintTargetConfig skill in individualSkillConfigs) skill.toYaml(),
+      ];
+    }
+
+    return <String, Object?>{ConfigParser.skillsLintKey: skillsLintMap};
+  }
 
   /// Converts this configuration into a formatted YAML string.
-  String toYamlString() => ConfigSerializer.configToYamlString(this);
+  String toYamlString() => ConfigSerializer.toYamlString(toYaml());
 
   // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
   @Deprecated('Use ruleConfigs instead')

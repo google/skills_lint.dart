@@ -1,6 +1,6 @@
 ## 0.5.2
 
-- Added typesafe YAML serialization for `Configuration`, `LintTargetConfig`, `RuleConfig`, and `RuleConfigPatch` via `toYamlMap()`, `toYamlString()`, `toYaml()`, and `ConfigSerializer`.
+- Added typesafe YAML serialization for `Configuration`, `LintTargetConfig`, `RuleConfig`, and `RuleConfigPatch` via `toYaml()`, `toYamlString()`, and `ConfigSerializer.toYamlString()`.
 - Added `ConfigParser.parse()` to support parsing configuration YAML directly from in-memory strings.
 - Added the `published-skill-name` lint rule to validate that published skills in a Dart package's `skills/` directory follow the package naming convention required by `package:skills`.
 

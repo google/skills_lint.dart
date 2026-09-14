@@ -191,7 +191,7 @@ void main() {
     });
   });
 
-  group('Model toYaml / toYamlMap / toYamlString Methods', () {
+  group('Model toYaml / toYamlString Methods', () {
     test('Configuration methods produce valid maps and strings', () {
       const config = Configuration(
         ruleConfigs: {
@@ -207,9 +207,8 @@ void main() {
         ],
       );
 
-      final Map<String, Object?> yamlMap = config.toYamlMap();
+      final Map<String, Object?> yamlMap = config.toYaml();
       expect(yamlMap.containsKey('skills_lint'), isTrue);
-      expect(config.toYamlMap(), equals(yamlMap));
 
       final String yamlStr = config.toYamlString();
       expect(yamlStr, contains('skills_lint:'));
@@ -226,11 +225,10 @@ void main() {
         ignoreFile: 'ignore.json',
       );
 
-      final Map<String, Object?> map = target.toYamlMap();
+      final Map<String, Object?> map = target.toYaml();
       expect(map['path'], equals('skills/my_skill'));
       expect(map['ignore_file'], equals('ignore.json'));
       expect(map['rules'], equals({PublishedSkillNameRule.ruleName: 'error'}));
-      expect(target.toYamlMap(), equals(map));
 
       final String yamlStr = target.toYamlString();
       expect(yamlStr, contains('path: skills/my_skill'));
@@ -241,7 +239,6 @@ void main() {
     test('RuleConfig methods serialize correctly', () {
       const simpleConfig = RuleConfig(severity: AnalysisSeverity.error);
       expect(simpleConfig.toYaml(), equals('error'));
-      expect(simpleConfig.toYamlMap(), equals({'severity': 'error'}));
       expect(simpleConfig.toYamlString(), contains('error'));
 
       final complexConfig = RuleConfig(
@@ -249,12 +246,11 @@ void main() {
         parameters: CustomRuleParameters(const {'chars': 500, 'strict': true}),
       );
       final Map<String, Object?> expectedMap = {
-        'severity': 'warning',
         'chars': 500,
         'strict': true,
+        'severity': 'warning',
       };
       expect(complexConfig.toYaml(), equals(expectedMap));
-      expect(complexConfig.toYamlMap(), equals(expectedMap));
       expect(complexConfig.toYamlString(), contains('severity: warning'));
       expect(complexConfig.toYamlString(), contains('chars: 500'));
     });
@@ -262,18 +258,15 @@ void main() {
     test('RuleConfigPatch methods serialize correctly', () {
       const severityOnly = RuleConfigPatch(severity: AnalysisSeverity.disabled);
       expect(severityOnly.toYaml(), equals('disabled'));
-      expect(severityOnly.toYamlMap(), equals({'severity': 'disabled'}));
       expect(severityOnly.toYamlString(), contains('disabled'));
 
       final paramsOnly = RuleConfigPatch(
         parameters: CustomRuleParameters(const {'exclude': '.*-test'}),
       );
       expect(paramsOnly.toYaml(), equals({'exclude': '.*-test'}));
-      expect(paramsOnly.toYamlMap(), equals({'exclude': '.*-test'}));
 
       const emptyPatch = RuleConfigPatch();
       expect(emptyPatch.toYaml(), equals(<String, Object?>{}));
-      expect(emptyPatch.toYamlMap(), equals(<String, Object?>{}));
     });
 
     test('CustomRuleParameters methods serialize correctly', () {
@@ -284,12 +277,11 @@ void main() {
         'items': ['a', 'b'],
       });
 
-      final Map<String, Object?> map = params.toYamlMap();
+      final Map<String, Object?> map = params.toYaml();
       expect(map['name'], equals('test'));
       expect(map['count'], equals(42));
       expect(map['enabled'], equals(false));
       expect(map['items'], equals(['a', 'b']));
-      expect(params.toYamlMap(), equals(map));
 
       final String yamlStr = params.toYamlString();
       expect(yamlStr, contains('name: test'));
@@ -507,7 +499,9 @@ skills_lint:
         severity: AnalysisSeverity.error,
         parameters: CustomRuleParameters(const {'severity': 'ignored_param'}),
       );
-      final Map<String, Object?> map = ConfigSerializer.ruleConfigPatchToYamlMap(patch);
+      final Object? yamlObj = patch.toYaml();
+      expect(yamlObj, isA<Map<String, Object?>>());
+      final Map<String, Object?> map = (yamlObj as Map<String, Object?>?)!;
       expect(map[ConfigParser.severityKey], equals('error'));
     });
   });

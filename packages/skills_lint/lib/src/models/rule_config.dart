@@ -4,6 +4,7 @@
 
 import 'package:meta/meta.dart';
 
+import '../config_parser.dart';
 import '../config_serializer.dart';
 import 'analysis_severity.dart';
 import 'custom_rule_parameters.dart';
@@ -19,13 +20,22 @@ class RuleConfig {
   final CustomRuleParameters parameters;
 
   /// Converts this rule configuration into its YAML representation (String severity or Map).
-  Object toYaml() => ConfigSerializer.ruleConfigToYaml(this);
-
-  /// Converts this rule configuration into its YAML map representation.
-  Map<String, Object?> toYamlMap() => ConfigSerializer.ruleConfigToYamlMap(this);
+  Object toYaml() {
+    if (parameters.isEmpty) {
+      return severity.name;
+    }
+    final map = <String, Object?>{};
+    for (final MapEntry<String, Object?> entry in parameters.params.entries) {
+      if (entry.key != ConfigParser.severityKey) {
+        map[entry.key] = entry.value;
+      }
+    }
+    map[ConfigParser.severityKey] = severity.name;
+    return map;
+  }
 
   /// Converts this rule configuration into a formatted YAML string.
-  String toYamlString() => ConfigSerializer.ruleConfigToYamlString(this);
+  String toYamlString() => ConfigSerializer.toYamlString(toYaml());
 }
 
 /// Represents a configuration override patch containing nullable parameters.
@@ -43,13 +53,28 @@ class RuleConfigPatch {
   final CustomRuleParameters? parameters;
 
   /// Converts this rule configuration patch into its YAML representation (String severity or Map).
-  Object? toYaml() => ConfigSerializer.ruleConfigPatchToYaml(this);
-
-  /// Converts this rule configuration patch into its YAML map representation.
-  Map<String, Object?> toYamlMap() => ConfigSerializer.ruleConfigPatchToYamlMap(this);
+  Object? toYaml() {
+    final bool hasParams = parameters != null && parameters!.isNotEmpty;
+    if (!hasParams) {
+      if (severity != null) {
+        return severity!.name;
+      }
+      return <String, Object?>{};
+    }
+    final map = <String, Object?>{};
+    for (final MapEntry<String, Object?> entry in parameters!.params.entries) {
+      if (entry.key != ConfigParser.severityKey) {
+        map[entry.key] = entry.value;
+      }
+    }
+    if (severity != null) {
+      map[ConfigParser.severityKey] = severity!.name;
+    }
+    return map;
+  }
 
   /// Converts this rule configuration patch into a formatted YAML string.
-  String toYamlString() => ConfigSerializer.ruleConfigPatchToYamlString(this);
+  String toYamlString() => ConfigSerializer.toYamlString(toYaml());
 
   /// Creates a new [RuleConfig] by layering this patch's overrides over a [base] configuration.
   RuleConfig applyTo(RuleConfig base) {

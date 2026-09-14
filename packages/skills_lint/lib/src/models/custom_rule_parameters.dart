@@ -49,11 +49,11 @@ class CustomRuleParameters {
 
   bool containsKey(String key) => params.containsKey(key);
 
-  /// Converts this parameters object into its YAML map representation.
-  Map<String, Object?> toYamlMap() => Map<String, Object?>.from(params);
+  /// Converts this parameters object into its YAML representation.
+  Map<String, Object?> toYaml() => Map<String, Object?>.from(params);
 
   /// Converts this parameters object into a formatted YAML string.
-  String toYamlString() => ConfigSerializer.customRuleParametersToYamlString(this);
+  String toYamlString() => ConfigSerializer.toYamlString(toYaml());
 
   /// Retrieves the value of the parameter associated with [key] as a [String].
   ///
