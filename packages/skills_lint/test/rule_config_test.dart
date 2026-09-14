@@ -11,7 +11,7 @@ import 'test_utils.dart';
 void main() {
   group('RuleConfig & RuleConfigPatch Merging', () {
     test('RuleConfig initialization defaults', () {
-      final config = RuleConfig(severity: AnalysisSeverity.error);
+      const config = RuleConfig(severity: AnalysisSeverity.error);
       expect(config.severity, equals(AnalysisSeverity.error));
       expect(config.parameters.params, isEmpty);
       expect(config.severity != AnalysisSeverity.disabled, isTrue);
@@ -20,7 +20,7 @@ void main() {
     test('RuleConfigPatch overrides severity only', () {
       final base = RuleConfig(
         severity: AnalysisSeverity.warning,
-        parameters: CustomRuleParameters({'exclude': '.*-workspace', 'max': 50}),
+        parameters: CustomRuleParameters(const {'exclude': '.*-workspace', 'max': 50}),
       );
       const patch = RuleConfigPatch(severity: AnalysisSeverity.error);
 
@@ -32,9 +32,11 @@ void main() {
     test('RuleConfigPatch overrides parameters only', () {
       final base = RuleConfig(
         severity: AnalysisSeverity.warning,
-        parameters: CustomRuleParameters({'exclude': '.*-workspace', 'max': 50}),
+        parameters: CustomRuleParameters(const {'exclude': '.*-workspace', 'max': 50}),
       );
-      final patch = RuleConfigPatch(parameters: CustomRuleParameters({'max': 100, 'strict': true}));
+      final patch = RuleConfigPatch(
+        parameters: CustomRuleParameters(const {'max': 100, 'strict': true}),
+      );
 
       final RuleConfig merged = patch.applyTo(base);
       expect(merged.severity, equals(AnalysisSeverity.warning));
@@ -47,10 +49,10 @@ void main() {
     test('RuleConfigPatch nullifies keys via null value overrides', () {
       final base = RuleConfig(
         severity: AnalysisSeverity.warning,
-        parameters: CustomRuleParameters({'exclude': '.*-workspace', 'max': 50}),
+        parameters: CustomRuleParameters(const {'exclude': '.*-workspace', 'max': 50}),
       );
       final patch = RuleConfigPatch(
-        parameters: CustomRuleParameters({'exclude': null, 'max': 100}),
+        parameters: CustomRuleParameters(const {'exclude': null, 'max': 100}),
       );
 
       final RuleConfig merged = patch.applyTo(base);
@@ -89,18 +91,18 @@ void main() {
       () async {
         await withTempDir((tempDir) async {
           final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-          await File(
-            '${skillDir.path}/SKILL.md',
-          ).writeAsString('${buildFrontmatter(name: 'test-skill')}Body content');
+          await File('${skillDir.path}/SKILL.md').writeAsString('Invalid YAML No Frontmatter');
+
+          final bool failedByDefault = await validateSkills(individualSkillPaths: [skillDir.path]);
+          expect(failedByDefault, isFalse);
 
           // ignore: deprecated_member_use_from_same_package
-          final bool isValid = await validateSkills(
+          final bool passedWhenDisabled = await validateSkills(
             individualSkillPaths: [skillDir.path],
             // ignore: deprecated_member_use_from_same_package
-            resolvedRules: {'valid-yaml-metadata': AnalysisSeverity.warning},
+            resolvedRules: {'valid-yaml-metadata': AnalysisSeverity.disabled},
           );
-          // Just confirming it runs without throwing the ArgumentError
-          expect(isValid, isTrue);
+          expect(passedWhenDisabled, isTrue);
         });
       },
     );
@@ -109,7 +111,7 @@ void main() {
         () => Validator(
           // ignore: deprecated_member_use_from_same_package
           ruleOverrides: {'foo': AnalysisSeverity.warning},
-          ruleConfigs: {'foo': RuleConfig(severity: AnalysisSeverity.error)},
+          ruleConfigs: {'foo': const RuleConfig(severity: AnalysisSeverity.error)},
         ),
         throwsArgumentError,
       );
@@ -123,17 +125,17 @@ void main() {
     });
 
     test('LintTargetConfig deprecated rules getter maps correctly', () {
-      final config = LintTargetConfig(
+      const config = LintTargetConfig(
         path: 'foo',
-        ruleConfigs: {'foo': const RuleConfigPatch(severity: AnalysisSeverity.warning)},
+        ruleConfigs: {'foo': RuleConfigPatch(severity: AnalysisSeverity.warning)},
       );
       // ignore: deprecated_member_use_from_same_package
       expect(config.rules['foo'], equals(AnalysisSeverity.warning));
     });
 
     test('Configuration deprecated configuredRules getter maps correctly', () {
-      final config = Configuration(
-        ruleConfigs: {'bar': const RuleConfigPatch(severity: AnalysisSeverity.error)},
+      const config = Configuration(
+        ruleConfigs: {'bar': RuleConfigPatch(severity: AnalysisSeverity.error)},
       );
       // ignore: deprecated_member_use_from_same_package
       expect(config.configuredRules['bar'], equals(AnalysisSeverity.error));
@@ -141,16 +143,61 @@ void main() {
 
     test('deprecated rules and configuredRules getters omit patches without explicit severity', () {
       const patchWithoutSeverity = RuleConfigPatch();
-      final targetConfig = LintTargetConfig(
+      const targetConfig = LintTargetConfig(
         path: 'foo',
         ruleConfigs: {'path-does-not-exist': patchWithoutSeverity},
       );
-      final topConfig = Configuration(ruleConfigs: {'path-does-not-exist': patchWithoutSeverity});
+      const topConfig = Configuration(ruleConfigs: {'path-does-not-exist': patchWithoutSeverity});
 
       // ignore: deprecated_member_use_from_same_package
       expect(targetConfig.rules.containsKey('path-does-not-exist'), isFalse);
       // ignore: deprecated_member_use_from_same_package
       expect(topConfig.configuredRules.containsKey('path-does-not-exist'), isFalse);
+    });
+  });
+  group('RuleConfig & RuleConfigPatch Serialization', () {
+    test('RuleConfig methods serialize correctly', () {
+      const simpleConfig = RuleConfig(severity: AnalysisSeverity.error);
+      expect(simpleConfig.toYaml(), equals('error'));
+      expect(simpleConfig.toYamlString(), contains('error'));
+
+      final complexConfig = RuleConfig(
+        severity: AnalysisSeverity.warning,
+        parameters: CustomRuleParameters(const {'chars': 500, 'strict': true}),
+      );
+      final Map<String, Object?> expectedMap = {
+        'severity': 'warning',
+        'chars': 500,
+        'strict': true,
+      };
+      expect(complexConfig.toYaml(), equals(expectedMap));
+      expect(complexConfig.toYamlString(), contains('severity: warning'));
+      expect(complexConfig.toYamlString(), contains('chars: 500'));
+    });
+
+    test('RuleConfigPatch methods serialize correctly', () {
+      const severityOnly = RuleConfigPatch(severity: AnalysisSeverity.disabled);
+      expect(severityOnly.toYaml(), equals('disabled'));
+      expect(severityOnly.toYamlString(), contains('disabled'));
+
+      final paramsOnly = RuleConfigPatch(
+        parameters: CustomRuleParameters(const {'exclude': '.*-test'}),
+      );
+      expect(paramsOnly.toYaml(), equals({'exclude': '.*-test'}));
+
+      const emptyPatch = RuleConfigPatch();
+      expect(emptyPatch.toYaml(), equals(<String, Object?>{}));
+    });
+
+    test('CustomRuleParameters key named severity does not overwrite rule severity', () {
+      final patch = RuleConfigPatch(
+        severity: AnalysisSeverity.error,
+        parameters: CustomRuleParameters(const {'severity': 'ignored_param'}),
+      );
+      final Object? yamlObj = patch.toYaml();
+      expect(yamlObj, isA<Map<String, Object?>>());
+      final Map<String, Object?> map = (yamlObj as Map<String, Object?>?)!;
+      expect(map[ConfigParser.severityKey], equals('error'));
     });
   });
 }

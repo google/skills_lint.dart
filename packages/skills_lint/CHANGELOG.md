@@ -1,5 +1,7 @@
 ## 0.5.2
 
+- Added programmatic YAML serialization support across configuration models, allowing configurations to be generated and formatted back into YAML.
+- Added `ConfigParser.parse()` to support parsing configuration YAML directly from in-memory strings.
 - Added the `published-skill-name` lint rule to validate that published skills in a Dart package's `skills/` directory follow the package naming convention required by `package:skills`.
 
 ## 0.5.1

@@ -23,8 +23,8 @@ Future<void> main() async {
   final validator = Validator(
     ruleConfigs: {
       // You can customize rule severities programmatically:
-      'invalid-skill-name': RuleConfig(severity: AnalysisSeverity.error),
-      'check-trailing-whitespace': RuleConfig(severity: AnalysisSeverity.warning),
+      'invalid-skill-name': const RuleConfig(severity: AnalysisSeverity.error),
+      'check-trailing-whitespace': const RuleConfig(severity: AnalysisSeverity.warning),
     },
   );
 

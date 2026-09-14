@@ -2,18 +2,42 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
+import '../config_serializer.dart';
+
 /// A wrapper around raw rule parameters.
 ///
 /// Prevents exposing raw [Map] APIs directly inside rule logic, and provides
 /// standard lookups and properties for rule configuration parameters.
+@immutable
 class CustomRuleParameters {
   /// Creates a new configuration with the provided [params].
-  CustomRuleParameters(Map<String, dynamic> params)
-    : params = Map<String, dynamic>.unmodifiable(params);
+  CustomRuleParameters([Map<String, Object?>? params])
+    : params = params != null
+          ? Map<String, Object?>.unmodifiable(
+              params.map((String k, Object? v) => MapEntry(k, _deepUnmodifiable(v))),
+            )
+          : const <String, Object?>{};
 
-  /// The underlying map containing the parameters.
-  final Map<String, dynamic> params;
+  /// Constant constructor for an empty parameters object.
+  const CustomRuleParameters.empty() : params = const <String, Object?>{};
 
+  static Object? _deepUnmodifiable(Object? value) {
+    if (value is Map) {
+      return Map<String, Object?>.unmodifiable(
+        value.map((Object? k, Object? v) => MapEntry(k.toString(), _deepUnmodifiable(v))),
+      );
+    }
+    if (value is List) {
+      return List<Object?>.unmodifiable(value.map(_deepUnmodifiable));
+    }
+    return value;
+  }
+
+  final Map<String, Object?> params;
+
+  /// Returns `true` if no parameters are configured.
   bool get isEmpty => params.isEmpty;
 
   bool get isNotEmpty => params.isNotEmpty;
@@ -23,6 +47,12 @@ class CustomRuleParameters {
   Iterable<String> get keys => params.keys;
 
   bool containsKey(String key) => params.containsKey(key);
+
+  /// Converts this parameters object into its YAML representation.
+  Map<String, Object?> toYaml() => Map<String, Object?>.from(params);
+
+  /// Converts this parameters object into a formatted YAML string.
+  String toYamlString() => ConfigSerializer.toYamlString(toYaml());
 
   /// Retrieves the value of the parameter associated with [key] as a [String].
   ///
@@ -54,7 +84,7 @@ class CustomRuleParameters {
   List<String>? getStringList(String key) {
     final Object? val = params[key];
     if (val is List) {
-      return val.map((e) => e.toString()).toList();
+      return val.map((Object? e) => e.toString()).toList();
     }
     return null;
   }

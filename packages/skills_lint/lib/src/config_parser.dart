@@ -2,13 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-// ignore_for_file: specify_nonobvious_local_variable_types yaml parsing has dynamic types.
-
 import 'dart:io';
 
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
 
+import 'config_serializer.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/custom_rule_parameters.dart';
@@ -16,43 +16,110 @@ import 'models/rule_config.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
 
-final _log = Logger('skills_lint');
+final Logger _log = Logger('skills_lint');
 
 class ConfigParser {
-  static const _skillsLintKey = 'skills_lint';
-  static const _rulesKey = 'rules';
-  static const _directoriesKey = 'directories';
-  static const _individualSkillsKey = 'individual_skills';
-  static const _pathKey = 'path';
-  static const _ignoreFileKey = 'ignore_file';
-  static const _severityKey = 'severity';
+  static const String skillsLintKey = 'skills_lint';
+  static const String rulesKey = 'rules';
+  static const String directoriesKey = 'directories';
+  static const String individualSkillsKey = 'individual_skills';
+  static const String pathKey = 'path';
+  static const String ignoreFileKey = 'ignore_file';
+  static const String severityKey = 'severity';
 
-  static const Set<String> _allowedTopLevelKeys = {
-    _rulesKey,
-    _directoriesKey,
-    _individualSkillsKey,
-  };
-  static const Set<String> _allowedDirectoryKeys = {_pathKey, _rulesKey, _ignoreFileKey};
+  static const Set<String> _allowedTopLevelKeys = {rulesKey, directoriesKey, individualSkillsKey};
+  static const Set<String> _allowedDirectoryKeys = {pathKey, rulesKey, ignoreFileKey};
 
-  static AnalysisSeverity _parseSeverity(String value) {
-    if (value == 'error') {
-      return AnalysisSeverity.error;
+  static final Map<String, AnalysisSeverity> _severityNameMap = AnalysisSeverity.values.asNameMap();
+
+  static AnalysisSeverity? _parseSeverity(
+    Object? value,
+    String ruleName,
+    String contextLabel,
+    List<String> parsingErrors,
+  ) {
+    if (value == null) {
+      return null;
     }
-    if (value == 'warning') {
-      return AnalysisSeverity.warning;
+    final AnalysisSeverity? severity = _severityNameMap[value.toString()];
+    if (severity != null) {
+      return severity;
     }
-    if (value == 'disabled') {
-      return AnalysisSeverity.disabled;
+    parsingErrors.add(
+      '$contextLabel: Invalid severity "$value" for rule "$ruleName". Expected one of: ${_severityNameMap.keys.join(', ')}.',
+    );
+    return null;
+  }
+
+  /// Parses configuration settings from raw YAML [content].
+  ///
+  /// [sourcePath] provides optional file path context for error reporting and diagnostics.
+  static Configuration parse(String content, {String? sourcePath}) {
+    try {
+      final Object? yaml = loadYaml(content);
+      return fromYaml(yaml, sourcePath: sourcePath);
+    } catch (e) {
+      final String source = sourcePath ?? 'content';
+      final message = 'Failed to parse $source: $e';
+      _log.severe(message);
+      return Configuration(parsingErrors: <String>[message]);
     }
-    return AnalysisSeverity.disabled; // Default if unknown
+  }
+
+  /// Parses a [Configuration] from an already loaded [yaml] object structure.
+  ///
+  /// [sourcePath] provides optional file path context for error reporting.
+  static Configuration fromYaml(Object? yaml, {String? sourcePath}) {
+    if (yaml == null) {
+      return const Configuration();
+    }
+    if (yaml is! YamlMap) {
+      final message = 'Top-level configuration must be a YAML map, found: ${yaml.runtimeType}.';
+      _log.severe(message);
+      return Configuration(parsingErrors: <String>[message]);
+    }
+    if (yaml.containsKey(skillsLintKey)) {
+      final Object? toolConfig = yaml[skillsLintKey];
+      if (toolConfig is! YamlMap) {
+        final message =
+            'Expected "$skillsLintKey" to be a YAML map, found: ${toolConfig.runtimeType}.';
+        _log.severe(message);
+        return Configuration(parsingErrors: <String>[message]);
+      }
+      final parsingErrors = <String>[];
+
+      _validateTopLevelKeys(toolConfig, parsingErrors);
+      final Map<String, RuleConfigPatch> rulesResult = _parseDefaultRules(
+        toolConfig,
+        parsingErrors,
+      );
+      final List<LintTargetConfig> directoryConfigs = _parseConfigList(
+        toolConfig,
+        directoriesKey,
+        parsingErrors,
+      );
+      final List<LintTargetConfig> individualSkillConfigs = _parseConfigList(
+        toolConfig,
+        individualSkillsKey,
+        parsingErrors,
+      );
+
+      return Configuration(
+        directoryConfigs: directoryConfigs,
+        individualSkillConfigs: individualSkillConfigs,
+        ruleConfigs: rulesResult,
+        parsingErrors: parsingErrors,
+      );
+    }
+    return const Configuration();
   }
 
   /// Loads the configuration from the specified [path], or from the default
-  /// `skills_lint.yaml` if no path is provided.
+  /// `skills_lint.yaml` relative to the current working directory if no path is provided.
   ///
-  /// If a [path] is explicitly provided and the file does not exist, this
-  /// method throws a [FileSystemException]. If no path is provided and the
-  /// default file is missing, it returns an empty [Configuration].
+  /// If an explicit [path] is provided and the file does not exist, this method throws
+  /// a [FileSystemException]. If no path is provided and the default `skills_lint.yaml`
+  /// file does not exist in the current working directory, an empty [Configuration] is returned.
   static Future<Configuration> loadConfig({String? path}) async {
     final String resolvedPath = expandPath(path ?? 'skills_lint.yaml');
     final configFile = File(resolvedPath);
@@ -61,48 +128,29 @@ class ConfigParser {
       if (path != null) {
         throw FileSystemException('Configuration file not found', resolvedPath);
       }
-      return Configuration();
+      return const Configuration();
     }
 
     try {
       final String content = await configFile.readAsString();
-      final yaml = loadYaml(content);
-      if (yaml is YamlMap && yaml.containsKey(_skillsLintKey)) {
-        final toolConfig = yaml[_skillsLintKey];
-        if (toolConfig is YamlMap) {
-          final parsingErrors = <String>[];
-
-          _validateTopLevelKeys(toolConfig, parsingErrors);
-          final rulesResult = _parseDefaultRules(toolConfig, parsingErrors);
-          final directoryConfigs = _parseConfigList(toolConfig, _directoriesKey, parsingErrors);
-          final individualSkillConfigs = _parseConfigList(
-            toolConfig,
-            _individualSkillsKey,
-            parsingErrors,
-          );
-
-          return Configuration(
-            directoryConfigs: directoryConfigs,
-            individualSkillConfigs: individualSkillConfigs,
-            ruleConfigs: rulesResult,
-            parsingErrors: parsingErrors,
-          );
-        }
-      }
+      return parse(content, sourcePath: resolvedPath);
     } catch (e) {
+      if (e is FileSystemException) {
+        rethrow;
+      }
       final message = 'Failed to parse $resolvedPath: $e';
       _log.severe(message);
-      return Configuration(parsingErrors: [message]);
+      return Configuration(parsingErrors: <String>[message]);
     }
-    return Configuration();
   }
 
   /// Validates that all keys at the top level of the `skills_lint` configuration map are recognized.
   /// Appends error messages to `parsingErrors` for any unrecognized keys.
   static void _validateTopLevelKeys(YamlMap toolConfig, List<String> parsingErrors) {
-    for (final key in toolConfig.keys) {
-      if (!_allowedTopLevelKeys.contains(key.toString())) {
-        parsingErrors.add('Unrecognized top-level key "$key" in skills_lint configuration.');
+    for (final Object? key in toolConfig.keys) {
+      final keyStr = key.toString();
+      if (!_allowedTopLevelKeys.contains(keyStr)) {
+        parsingErrors.add('Unrecognized top-level key "$keyStr" in skills_lint configuration.');
       }
     }
   }
@@ -119,13 +167,13 @@ class ConfigParser {
     YamlMap toolConfig,
     List<String> parsingErrors,
   ) {
-    if (toolConfig.containsKey(_rulesKey)) {
-      final rules = toolConfig[_rulesKey];
+    if (toolConfig.containsKey(rulesKey)) {
+      final Object? rules = toolConfig[rulesKey];
       if (rules is YamlMap) {
         return _parseRulesMap(rules, parsingErrors, 'Global rules');
       }
     }
-    return const {};
+    return const <String, RuleConfigPatch>{};
   }
 
   /// Iterates a YAML rules map and converts each entry into a [RuleConfigPatch].
@@ -139,15 +187,23 @@ class ConfigParser {
   ) {
     final ruleConfigs = <String, RuleConfigPatch>{};
 
-    for (final key in rulesMap.keys) {
+    for (final Object? key in rulesMap.keys) {
       final ruleName = key.toString();
-      final value = rulesMap[key];
+      final Object? value = rulesMap[key];
 
       // Rules must have a unique name so we can assume one match.
-      final checkMatches = RuleRegistry.allChecks.where((c) => c.name == ruleName);
+      final Iterable<CheckType> checkMatches = RuleRegistry.allChecks.where(
+        (CheckType c) => c.name == ruleName,
+      );
       final CheckType? check = checkMatches.isEmpty ? null : checkMatches.first;
 
-      ruleConfigs[ruleName] = _parseRuleConfigPatch(value, check, parsingErrors, contextLabel);
+      ruleConfigs[ruleName] = _parseRuleConfigPatch(
+        value,
+        ruleName,
+        check,
+        parsingErrors,
+        contextLabel,
+      );
     }
 
     return ruleConfigs;
@@ -162,31 +218,39 @@ class ConfigParser {
   /// to [parsingErrors] labeled with [contextLabel].
   static RuleConfigPatch _parseRuleConfigPatch(
     Object? value,
+    String ruleName,
     CheckType? check,
     List<String> parsingErrors,
     String contextLabel,
   ) {
     if (value is! YamlMap) {
-      final severity = _parseSeverity(value?.toString() ?? '');
+      final AnalysisSeverity? severity = _parseSeverity(
+        value,
+        ruleName,
+        contextLabel,
+        parsingErrors,
+      );
       return RuleConfigPatch(severity: severity);
     }
 
-    final severity = value.containsKey(_severityKey)
-        ? _parseSeverity(value[_severityKey]?.toString() ?? '')
+    final AnalysisSeverity? severity = _parseSeverity(
+      value[severityKey],
+      ruleName,
+      contextLabel,
+      parsingErrors,
+    );
+
+    final parameters = <String, Object?>{
+      for (final Object? key in value.keys)
+        if (key.toString() != severityKey) key.toString(): value[key],
+    };
+
+    final CustomRuleParameters? customParams = parameters.isNotEmpty
+        ? CustomRuleParameters(parameters)
         : null;
 
-    final parameters = <String, dynamic>{};
-    for (final paramKey in value.keys) {
-      final paramName = paramKey.toString();
-      if (paramName != _severityKey) {
-        parameters[paramName] = value[paramKey];
-      }
-    }
-
-    final customParams = parameters.isNotEmpty ? CustomRuleParameters(parameters) : null;
-
     if (customParams != null && check != null) {
-      final errors = check.validateParameters(customParams);
+      final List<String> errors = check.validateParameters(customParams);
       for (final error in errors) {
         parsingErrors.add('$contextLabel: $error');
       }
@@ -206,26 +270,31 @@ class ConfigParser {
     List<String> parsingErrors,
   ) {
     if (!toolConfig.containsKey(configKey)) {
-      return const [];
+      return const <LintTargetConfig>[];
     }
-    final items = toolConfig[configKey];
+    final Object? items = toolConfig[configKey];
     if (items is! YamlList) {
-      return const [];
+      return const <LintTargetConfig>[];
     }
 
-    final entryLabelCap = configKey == _directoriesKey
+    final entryLabelCap = configKey == directoriesKey
         ? 'Directory entry'
         : 'Individual skill entry';
-    final entryLabelLower = configKey == _directoriesKey
+    final entryLabelLower = configKey == directoriesKey
         ? 'directory entry'
         : 'individual skill entry';
 
     final configs = <LintTargetConfig>[];
-    for (final dir in items) {
-      if (dir is! YamlMap || !dir.containsKey(_pathKey)) {
+    for (final Object? dir in items) {
+      if (dir is! YamlMap || !dir.containsKey(pathKey)) {
         continue;
       }
-      final config = _parseTargetEntry(dir, entryLabelCap, entryLabelLower, parsingErrors);
+      final LintTargetConfig? config = _parseTargetEntry(
+        dir,
+        entryLabelCap,
+        entryLabelLower,
+        parsingErrors,
+      );
       if (config != null) {
         configs.add(config);
       }
@@ -245,25 +314,31 @@ class ConfigParser {
     String entryLabelLower,
     List<String> parsingErrors,
   ) {
-    final pathValue = dir[_pathKey];
+    final Object? pathValue = dir[pathKey];
     if (pathValue is! String) {
       parsingErrors.add(
-        '$entryLabelCap "$_pathKey" must be a string; got "$pathValue" '
+        '$entryLabelCap "$pathKey" must be a string; got "$pathValue" '
         '(${pathValue.runtimeType}). Skipping entry.',
       );
       return null;
     }
     final String path = pathValue;
 
-    for (final key in dir.keys) {
-      if (!_allowedDirectoryKeys.contains(key.toString())) {
-        parsingErrors.add('Unrecognized key "$key" in $entryLabelLower for "$path".');
+    for (final Object? key in dir.keys) {
+      final keyStr = key.toString();
+      if (!_allowedDirectoryKeys.contains(keyStr)) {
+        parsingErrors.add('Unrecognized key "$keyStr" in $entryLabelLower for "$path".');
       }
     }
 
-    final ruleConfigs = _parseLocalRulesForTarget(dir, path, entryLabelCap, parsingErrors);
+    final Map<String, RuleConfigPatch> ruleConfigs = _parseLocalRulesForTarget(
+      dir,
+      path,
+      entryLabelCap,
+      parsingErrors,
+    );
 
-    final ignoreFile = _parseIgnoreFileForTarget(dir, path, entryLabelCap, parsingErrors);
+    final String? ignoreFile = _parseIgnoreFileForTarget(dir, path, entryLabelCap, parsingErrors);
 
     return LintTargetConfig(path: path, ruleConfigs: ruleConfigs, ignoreFile: ignoreFile);
   }
@@ -279,18 +354,18 @@ class ConfigParser {
     String entryLabelCap,
     List<String> parsingErrors,
   ) {
-    if (!dir.containsKey(_rulesKey)) {
-      return const {};
+    if (!dir.containsKey(rulesKey)) {
+      return const <String, RuleConfigPatch>{};
     }
-    final localRules = dir[_rulesKey];
+    final Object? localRules = dir[rulesKey];
     if (localRules is YamlMap) {
       return _parseRulesMap(localRules, parsingErrors, '$entryLabelCap rules for "$path"');
     }
     parsingErrors.add(
-      '$entryLabelCap "$_rulesKey" for "$path" must be a map; '
+      '$entryLabelCap "$rulesKey" for "$path" must be a map; '
       'got "$localRules" (${localRules.runtimeType}). Ignoring local rules.',
     );
-    return const {};
+    return const <String, RuleConfigPatch>{};
   }
 
   /// Parses the custom ignore file path under a target entry's `ignore_file` key.
@@ -304,16 +379,16 @@ class ConfigParser {
     String entryLabelCap,
     List<String> parsingErrors,
   ) {
-    if (!dir.containsKey(_ignoreFileKey)) {
+    if (!dir.containsKey(ignoreFileKey)) {
       return null;
     }
-    final ignoreFileValue = dir[_ignoreFileKey];
+    final Object? ignoreFileValue = dir[ignoreFileKey];
     if (ignoreFileValue is String) {
       return ignoreFileValue;
     }
     if (ignoreFileValue != null) {
       parsingErrors.add(
-        '$entryLabelCap "$_ignoreFileKey" for "$path" must be a string; '
+        '$entryLabelCap "$ignoreFileKey" for "$path" must be a string; '
         'got "$ignoreFileValue" (${ignoreFileValue.runtimeType}). '
         'Falling back to the default ignore file.',
       );
@@ -326,8 +401,13 @@ class ConfigParser {
 ///
 /// Allows overriding rules and specifying a custom ignore file for skills
 /// located within or at this path.
+@immutable
 class LintTargetConfig {
-  LintTargetConfig({required this.path, required this.ruleConfigs, this.ignoreFile});
+  const LintTargetConfig({
+    required this.path,
+    this.ruleConfigs = const <String, RuleConfigPatch>{},
+    this.ignoreFile,
+  });
 
   /// The path to the directory containing skills.
   ///
@@ -337,11 +417,29 @@ class LintTargetConfig {
   final Map<String, RuleConfigPatch> ruleConfigs;
   final String? ignoreFile;
 
+  /// Converts this target configuration into its YAML representation.
+  Map<String, Object?> toYaml() {
+    final map = <String, Object?>{ConfigParser.pathKey: path};
+    if (ruleConfigs.isNotEmpty) {
+      map[ConfigParser.rulesKey] = <String, Object?>{
+        for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries)
+          entry.key: entry.value.toYaml(),
+      };
+    }
+    if (ignoreFile != null) {
+      map[ConfigParser.ignoreFileKey] = ignoreFile;
+    }
+    return map;
+  }
+
+  /// Converts this target configuration into a formatted YAML string.
+  String toYamlString() => ConfigSerializer.toYamlString(toYaml());
+
   // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
   @Deprecated('Use ruleConfigs instead')
   Map<String, AnalysisSeverity> get rules {
     final resolvedSeverities = <String, AnalysisSeverity>{};
-    for (final entry in ruleConfigs.entries) {
+    for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries) {
       final AnalysisSeverity? severity = entry.value.severity;
       if (severity != null) {
         resolvedSeverities[entry.key] = severity;
@@ -352,23 +450,53 @@ class LintTargetConfig {
 }
 
 /// Structured configuration for the linter.
+@immutable
 class Configuration {
-  Configuration({
-    this.directoryConfigs = const [],
-    this.individualSkillConfigs = const [],
-    this.ruleConfigs = const {},
-    this.parsingErrors = const [],
+  const Configuration({
+    this.directoryConfigs = const <LintTargetConfig>[],
+    this.individualSkillConfigs = const <LintTargetConfig>[],
+    this.ruleConfigs = const <String, RuleConfigPatch>{},
+    this.parsingErrors = const <String>[],
   });
   final List<LintTargetConfig> directoryConfigs;
   final List<LintTargetConfig> individualSkillConfigs;
   final Map<String, RuleConfigPatch> ruleConfigs;
   final List<String> parsingErrors;
 
+  /// Converts this configuration into its YAML representation.
+  Map<String, Object?> toYaml() {
+    final skillsLintMap = <String, Object?>{};
+
+    if (ruleConfigs.isNotEmpty) {
+      skillsLintMap[ConfigParser.rulesKey] = <String, Object?>{
+        for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries)
+          entry.key: entry.value.toYaml(),
+      };
+    }
+
+    if (directoryConfigs.isNotEmpty) {
+      skillsLintMap[ConfigParser.directoriesKey] = <Map<String, Object?>>[
+        for (final LintTargetConfig dir in directoryConfigs) dir.toYaml(),
+      ];
+    }
+
+    if (individualSkillConfigs.isNotEmpty) {
+      skillsLintMap[ConfigParser.individualSkillsKey] = <Map<String, Object?>>[
+        for (final LintTargetConfig skill in individualSkillConfigs) skill.toYaml(),
+      ];
+    }
+
+    return <String, Object?>{ConfigParser.skillsLintKey: skillsLintMap};
+  }
+
+  /// Converts this configuration into a formatted YAML string.
+  String toYamlString() => ConfigSerializer.toYamlString(toYaml());
+
   // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
   @Deprecated('Use ruleConfigs instead')
   Map<String, AnalysisSeverity> get configuredRules {
     final resolvedSeverities = <String, AnalysisSeverity>{};
-    for (final entry in ruleConfigs.entries) {
+    for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries) {
       final AnalysisSeverity? severity = entry.value.severity;
       if (severity != null) {
         resolvedSeverities[entry.key] = severity;
