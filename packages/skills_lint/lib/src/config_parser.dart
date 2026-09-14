@@ -110,7 +110,7 @@ class ConfigParser {
         return Configuration(parsingErrors: <String>[message]);
       }
       final parsingErrors = <String>[];
-      final String anchor = resolveAnchorDirectory(
+      final String anchor = _resolveAnchorDirectory(
         sourcePath: sourcePath,
         baseDirectory: baseDirectory,
       );
@@ -147,8 +147,7 @@ class ConfigParser {
   ///
   /// Precedence is [baseDirectory], then the directory containing [sourcePath],
   /// then [Directory.current].
-  @visibleForTesting
-  static String resolveAnchorDirectory({String? sourcePath, String? baseDirectory}) {
+  static String _resolveAnchorDirectory({String? sourcePath, String? baseDirectory}) {
     final String cwd = Directory.current.path;
     if (baseDirectory != null) {
       return canonicalizePath(baseDirectory, baseDirectory: cwd);

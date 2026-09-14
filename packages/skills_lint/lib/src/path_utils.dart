@@ -26,19 +26,22 @@ String expandPath(String path) {
 
 /// Canonicalizes [rawPath] against [baseDirectory].
 ///
-/// ## Boundary Canonicalization Architecture
+/// ## Boundary canonicalization architecture
 ///
-/// In `skills_lint`, path canonicalization is performed eagerly at the boundaries:
-/// 1. **Configuration Boundary (`ConfigParser`)**: Target paths (`directories`,
-///    `individual_skills`) and `ignore_file` paths defined in YAML configuration files
-///    are canonicalized immediately relative to the configuration file's parent directory.
-/// 2. **CLI / API Boundary (`entry_point.dart`)**: Target paths and ignore files passed via
-///    command-line flags or top-level API calls are canonicalized immediately relative to
-///    `Directory.current.path`.
+/// Paths are canonicalized eagerly, at the boundary where they enter the tool:
+/// 1. **Configuration boundary (`ConfigParser`)**: target paths (`directories`,
+///    `individual_skills`) and `ignore_file` paths declared in a YAML
+///    configuration file are anchored to that file's parent directory.
+/// 2. **CLI and API boundary (`validateSkillsInternal`)**: target paths and
+///    ignore files supplied by command-line flags or by programmatic callers
+///    are anchored to [Directory.current].
+/// 3. **Session boundary (`ValidationSession`)**: paths handed to the session's
+///    public methods are anchored through a single private helper.
 ///
-/// Once paths cross these boundaries into the execution core ([ValidationSession]),
-/// all paths are guaranteed to be normalized, absolute canonical paths, preventing
-/// path drift and fragile relative-path comparisons.
+/// Code behind those boundaries operates on absolute, normalized paths and must
+/// not canonicalize again. `test/path_boundary_test.dart` enumerates the
+/// boundaries and fails when a call site is added anywhere else, so a rule or
+/// feature added later inherits the guarantee instead of re-implementing it.
 ///
 /// ## Steps performed:
 /// 1. Expands tildes (`~`, `~/`, `~\`) to the user's home directory.
@@ -50,6 +53,27 @@ String canonicalizePath(String rawPath, {required String baseDirectory}) {
     return p.normalize(expanded);
   }
   return p.normalize(p.join(baseDirectory, expanded));
+}
+
+/// Canonicalizes every entry of [rawPaths] against [baseDirectory].
+///
+/// Follows the contract documented on [canonicalizePath].
+List<String> canonicalizePaths(Iterable<String> rawPaths, {required String baseDirectory}) {
+  return <String>[
+    for (final String rawPath in rawPaths) canonicalizePath(rawPath, baseDirectory: baseDirectory),
+  ];
+}
+
+/// Canonicalizes [rawPath] against [baseDirectory], passing `null` through.
+///
+/// An empty [rawPath] also resolves to `null`, so an unset option and a blank
+/// option behave identically. Follows the contract documented on
+/// [canonicalizePath].
+String? canonicalizePathOrNull(String? rawPath, {required String baseDirectory}) {
+  if (rawPath == null || rawPath.isEmpty) {
+    return null;
+  }
+  return canonicalizePath(rawPath, baseDirectory: baseDirectory);
 }
 
 /// Normalizes a skill name or suffix into a valid skill name token.

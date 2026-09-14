@@ -111,12 +111,10 @@ Future<void> runApp(List<String> args) async {
     return;
   }
 
-  final List<String> skillDirPaths = canonicalizeDirectoryPaths(
-    results[_skillsDirectoryFlag] as List<String>,
-  );
-  final List<String> individualSkillPaths = canonicalizeIndividualSkillPaths(
-    results[_skillOption] as List<String>,
-  );
+  // Paths stay as authored here. validateSkillsInternal is the single CLI and
+  // API boundary that anchors them to the working directory.
+  final skillDirPaths = results[_skillsDirectoryFlag] as List<String>;
+  final individualSkillPaths = results[_skillOption] as List<String>;
 
   final printWarnings = results[_printWarningsFlag] as bool;
   final fastFail = results[_fastFailFlag] as bool;
@@ -137,7 +135,7 @@ Future<void> runApp(List<String> args) async {
   final bool fixApply = (fixFlag && !dryRun) || fixApplyAlias;
 
   final String? ignoreFileOverride = results.wasParsed(_ignoreFileOption)
-      ? canonicalizeIgnoreFilePath(results[_ignoreFileOption] as String?)
+      ? results[_ignoreFileOption] as String?
       : null;
 
   var success = false;
@@ -261,36 +259,6 @@ ArgParser _createArgParser(String helpFlag) {
   return parser;
 }
 
-/// Canonicalizes a list of directory paths passed via CLI flags or API parameters
-/// relative to [baseDirectory] (defaulting to [Directory.current.path]).
-///
-/// Converts each directory path to an absolute, normalized canonical path.
-List<String> canonicalizeDirectoryPaths(List<String> paths, {String? baseDirectory}) {
-  final String effectiveBase = baseDirectory ?? Directory.current.path;
-  return [for (final String path in paths) canonicalizePath(path, baseDirectory: effectiveBase)];
-}
-
-/// Canonicalizes a list of individual skill paths passed via CLI flags or API
-/// parameters relative to [baseDirectory] (defaulting to [Directory.current.path]).
-///
-/// Converts each skill path to an absolute, normalized canonical path.
-List<String> canonicalizeIndividualSkillPaths(List<String> paths, {String? baseDirectory}) {
-  final String effectiveBase = baseDirectory ?? Directory.current.path;
-  return [for (final String path in paths) canonicalizePath(path, baseDirectory: effectiveBase)];
-}
-
-/// Canonicalizes an optional ignore file path passed via CLI flags or API
-/// parameters relative to [baseDirectory] (defaulting to [Directory.current.path]).
-///
-/// Returns `null` if [path] is `null` or empty.
-String? canonicalizeIgnoreFilePath(String? path, {String? baseDirectory}) {
-  if (path == null || path.isEmpty) {
-    return null;
-  }
-  final String effectiveBase = baseDirectory ?? Directory.current.path;
-  return canonicalizePath(path, baseDirectory: effectiveBase);
-}
-
 Future<Configuration?> _loadConfig(ArgResults results) async {
   final ignoreConfig = results[_ignoreConfigFlag] as bool;
   final Configuration config;
@@ -412,11 +380,21 @@ Future<bool> validateSkillsInternal({
   Configuration? config,
   List<SkillRule> customRules = const [],
 }) async {
-  final List<String> canonicalIndividualSkillPaths = canonicalizeIndividualSkillPaths(
+  // The CLI and API boundary: everything below this point works with absolute,
+  // normalized paths. See canonicalizePath for the boundary contract.
+  final String workingDirectory = Directory.current.path;
+  final List<String> canonicalIndividualSkillPaths = canonicalizePaths(
     individualSkillPaths,
+    baseDirectory: workingDirectory,
   );
-  final List<String> canonicalSkillDirPaths = canonicalizeDirectoryPaths(skillDirPaths);
-  final String? canonicalIgnoreFileOverride = canonicalizeIgnoreFilePath(ignoreFileOverride);
+  final List<String> canonicalSkillDirPaths = canonicalizePaths(
+    skillDirPaths,
+    baseDirectory: workingDirectory,
+  );
+  final String? canonicalIgnoreFileOverride = canonicalizePathOrNull(
+    ignoreFileOverride,
+    baseDirectory: workingDirectory,
+  );
 
   final bool hasCliTargets =
       canonicalSkillDirPaths.isNotEmpty || canonicalIndividualSkillPaths.isNotEmpty;
@@ -429,6 +407,7 @@ Future<bool> validateSkillsInternal({
     skillDirPaths: canonicalSkillDirPaths,
     individualSkillPaths: canonicalIndividualSkillPaths,
     config: config,
+    workingDirectory: workingDirectory,
   );
 
   final session = ValidationSession(
@@ -472,11 +451,13 @@ Future<bool> validateSkillsInternal({
 /// Computes the list of skill directory paths to validate.
 ///
 /// If paths are not explicitly provided, falls back to configured directory
-/// paths, and then to default locations (`.claude/skills`, `.agents/skills`).
+/// paths, and then to default locations (`.claude/skills`, `.agents/skills`)
+/// resolved against [workingDirectory].
 /// Throws [MissingDefaultsException] if no directories are found.
 List<String> _getEffectiveSkillDirPaths({
   required List<String> skillDirPaths,
   required List<String> individualSkillPaths,
+  required String workingDirectory,
   Configuration? config,
 }) {
   final effectiveSkillDirPaths = List<String>.from(skillDirPaths);
@@ -488,14 +469,11 @@ List<String> _getEffectiveSkillDirPaths({
         (config.directoryConfigs.isNotEmpty || config.individualSkillConfigs.isNotEmpty)) {
       return config.directoryConfigs.map((e) => e.path).toList();
     } else {
-      final defaults = ['.claude/skills', '.agents/skills'];
-      final existingDefaults = <String>[];
-      for (final path in defaults) {
-        final String canonicalPath = canonicalizePath(path, baseDirectory: Directory.current.path);
-        if (Directory(canonicalPath).existsSync()) {
-          existingDefaults.add(canonicalPath);
-        }
-      }
+      const defaults = ['.claude/skills', '.agents/skills'];
+      final List<String> existingDefaults = canonicalizePaths(
+        defaults,
+        baseDirectory: workingDirectory,
+      ).where((String path) => Directory(path).existsSync()).toList();
       if (existingDefaults.isEmpty) {
         throw MissingDefaultsException(defaults);
       }

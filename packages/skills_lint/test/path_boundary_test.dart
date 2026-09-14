@@ -1,0 +1,175 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+import 'package:skills_lint/skills_lint.dart';
+import 'package:test/test.dart';
+
+/// Guards the boundary canonicalization contract documented on
+/// `canonicalizePath`.
+///
+/// Paths are anchored where they enter the tool. A contributor who adds a rule,
+/// a flag, or a configuration key inherits absolute paths and does not have to
+/// remember to canonicalize. These tests fail if that stops being true.
+
+/// Files permitted to anchor paths, with the boundary each one owns.
+const Map<String, String> boundaryFiles = <String, String>{
+  'lib/src/path_utils.dart': 'declares the canonicalization helpers',
+  'lib/src/config_parser.dart': 'anchors paths read from a configuration file',
+  'lib/src/entry_point.dart': 'anchors paths supplied by the CLI or an API caller',
+  'lib/src/validation_session.dart': 'anchors paths handed to session methods',
+};
+
+final RegExp canonicalizationCall = RegExp(r'\bcanonicalizePath(s|OrNull)?\(');
+
+/// Every `.dart` file under `lib/`, keyed by its package-relative path.
+Map<String, String> libSources() {
+  return <String, String>{
+    for (final FileSystemEntity entity in Directory('lib').listSync(recursive: true))
+      if (entity is File && entity.path.endsWith('.dart'))
+        p.relative(entity.path).replaceAll(r'\', '/'): entity.readAsStringSync(),
+  };
+}
+
+/// Writes a configuration file declaring [target] inside [directory].
+File writeConfig(Directory directory, {required String target, String? ignoreFile}) {
+  final configuration = Configuration(
+    directoryConfigs: <LintTargetConfig>[
+      LintTargetConfig(
+        path: target,
+        ignoreFile: ignoreFile,
+        ruleConfigs: const <String, RuleConfigPatch>{
+          'check-trailing-whitespace': RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+      ),
+    ],
+  );
+  return File(p.join(directory.path, 'skills_lint.yaml'))
+    ..writeAsStringSync(configuration.toYamlString());
+}
+
+void main() {
+  group('canonicalization stays at the boundaries', () {
+    test('no file outside a boundary anchors paths', () {
+      final offenders = <String, String>{
+        for (final source in libSources().entries)
+          if (!boundaryFiles.containsKey(source.key) && canonicalizationCall.hasMatch(source.value))
+            source.key: source.value,
+      };
+
+      expect(
+        offenders.keys,
+        isEmpty,
+        reason:
+            'Paths are anchored once, at the boundary where they enter the tool:\n'
+            '${boundaryFiles.entries.map((MapEntry<String, String> e) => '  ${e.key}: ${e.value}').join('\n')}\n'
+            'Code behind a boundary receives absolute paths. If a path reaches '
+            '${offenders.keys.join(', ')} unanchored, anchor it at the boundary '
+            'it entered through instead of here.',
+      );
+    });
+
+    test('the session anchors paths in exactly one place', () {
+      final String source = libSources()['lib/src/validation_session.dart']!;
+
+      expect(
+        canonicalizationCall.allMatches(source),
+        hasLength(1),
+        reason:
+            'ValidationSession funnels path ingestion through _ingestPath so '
+            'that its other members can compare paths without consulting the '
+            'working directory.',
+      );
+    });
+  });
+
+  group('parsed configurations expose absolute paths', () {
+    const authoredPaths = <String>[
+      'skills',
+      './skills',
+      'nested/skills',
+      '../sibling/skills',
+      '/tmp/absolute/skills',
+      '~/home/skills',
+    ];
+
+    for (final authored in authoredPaths) {
+      test('anchors "$authored"', () {
+        final Configuration parsed = ConfigParser.parse(
+          Configuration(
+            directoryConfigs: <LintTargetConfig>[
+              LintTargetConfig(path: authored, ignoreFile: authored),
+            ],
+          ).toYamlString(),
+          sourcePath: p.join(p.current, 'project', 'skills_lint.yaml'),
+        );
+
+        expect(p.isAbsolute(parsed.directoryConfigs.single.path), isTrue);
+        expect(p.isAbsolute(parsed.directoryConfigs.single.ignoreFile!), isTrue);
+      });
+    }
+  });
+
+  group('results do not depend on the working directory', () {
+    late Directory tempDir;
+    late Directory projectDir;
+    late Directory elsewhereDir;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('path_boundary_test.');
+      projectDir = Directory(p.join(tempDir.path, 'project'))..createSync();
+      elsewhereDir = Directory(p.join(tempDir.path, 'elsewhere'))..createSync();
+      Directory(p.join(projectDir.path, 'skills')).createSync();
+    });
+
+    tearDown(() {
+      if (tempDir.existsSync()) {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    /// Loads the project configuration while [workingDirectory] is current.
+    Future<Configuration> loadFrom(Directory workingDirectory) {
+      return IOOverrides.runZoned(
+        () => ConfigParser.loadConfig(path: p.join(projectDir.path, 'skills_lint.yaml')),
+        getCurrentDirectory: () => workingDirectory,
+      );
+    }
+
+    test('a configuration resolves to the same targets from any directory', () async {
+      writeConfig(projectDir, target: 'skills', ignoreFile: 'skills/ignores.json');
+
+      final Configuration fromProject = await loadFrom(projectDir);
+      final Configuration fromElsewhere = await loadFrom(elsewhereDir);
+
+      expect(fromProject.directoryConfigs.single.path, p.join(projectDir.path, 'skills'));
+      expect(fromElsewhere.toYamlString(), fromProject.toYamlString());
+    });
+
+    test('the session matches a configured target against a skill under it', () async {
+      writeConfig(projectDir, target: 'skills');
+      final Configuration configuration = await loadFrom(elsewhereDir);
+
+      final session = ValidationSession(
+        config: configuration,
+        ignoreFileOverride: null,
+        customRules: const <SkillRule>[],
+        printWarnings: false,
+        fastFail: false,
+        quiet: true,
+        generateBaseline: false,
+        fix: false,
+        fixApply: false,
+      );
+
+      final Map<String, RuleConfig> resolved = session.resolveRuleConfigsForPath(
+        p.join(projectDir.path, 'skills', 'a-skill'),
+      );
+
+      expect(resolved['check-trailing-whitespace']?.severity, AnalysisSeverity.error);
+    });
+  });
+}
