@@ -49,9 +49,8 @@ void main() {
     });
 
     test('ConfigSerializer and serialization methods are exposed in public API', () {
-      const customRuleName = 'check-relative-paths';
       const config = Configuration(
-        ruleConfigs: {customRuleName: RuleConfigPatch(severity: AnalysisSeverity.error)},
+        ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
       );
 
       final String yamlString = config.toYamlString();
