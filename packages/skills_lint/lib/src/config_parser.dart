@@ -32,48 +32,85 @@ class ConfigParser {
 
   static final Map<String, AnalysisSeverity> _severityNameMap = AnalysisSeverity.values.asNameMap();
 
-  static AnalysisSeverity _parseSeverity(String value) {
-    return _severityNameMap[value] ?? AnalysisSeverity.disabled;
+  static AnalysisSeverity? _parseSeverity(
+    Object? value,
+    String ruleName,
+    String contextLabel,
+    List<String> parsingErrors,
+  ) {
+    if (value == null) {
+      return null;
+    }
+    final valueStr = value.toString();
+    final AnalysisSeverity? severity = _severityNameMap[valueStr];
+    if (severity != null) {
+      return severity;
+    }
+    parsingErrors.add(
+      '$contextLabel: Invalid severity "$valueStr" for rule "$ruleName". Expected one of: ${_severityNameMap.keys.join(', ')}.',
+    );
+    return null;
   }
 
   /// Parses configuration settings from raw YAML [content].
+  ///
+  /// [sourcePath] provides optional file path context for error reporting and diagnostics.
   static Configuration parse(String content, {String? sourcePath}) {
     try {
       final Object? yaml = loadYaml(content);
-      if (yaml is YamlMap && yaml.containsKey(skillsLintKey)) {
-        final Object? toolConfig = yaml[skillsLintKey];
-        if (toolConfig is YamlMap) {
-          final parsingErrors = <String>[];
-
-          _validateTopLevelKeys(toolConfig, parsingErrors);
-          final Map<String, RuleConfigPatch> rulesResult = _parseDefaultRules(
-            toolConfig,
-            parsingErrors,
-          );
-          final List<LintTargetConfig> directoryConfigs = _parseConfigList(
-            toolConfig,
-            directoriesKey,
-            parsingErrors,
-          );
-          final List<LintTargetConfig> individualSkillConfigs = _parseConfigList(
-            toolConfig,
-            individualSkillsKey,
-            parsingErrors,
-          );
-
-          return Configuration(
-            directoryConfigs: directoryConfigs,
-            individualSkillConfigs: individualSkillConfigs,
-            ruleConfigs: rulesResult,
-            parsingErrors: parsingErrors,
-          );
-        }
-      }
+      return fromYaml(yaml, sourcePath: sourcePath);
     } catch (e) {
       final String source = sourcePath ?? 'content';
       final message = 'Failed to parse $source: $e';
       _log.severe(message);
       return Configuration(parsingErrors: <String>[message]);
+    }
+  }
+
+  /// Parses a [Configuration] from an already loaded [yaml] object structure.
+  ///
+  /// [sourcePath] provides optional file path context for error reporting.
+  static Configuration fromYaml(Object? yaml, {String? sourcePath}) {
+    if (yaml == null) {
+      return const Configuration();
+    }
+    if (yaml is! YamlMap) {
+      final message = 'Top-level configuration must be a YAML map, found: ${yaml.runtimeType}.';
+      _log.severe(message);
+      return Configuration(parsingErrors: <String>[message]);
+    }
+    if (yaml.containsKey(skillsLintKey)) {
+      final Object? toolConfig = yaml[skillsLintKey];
+      if (toolConfig is! YamlMap) {
+        final message =
+            'Expected "$skillsLintKey" to be a YAML map, found: ${toolConfig.runtimeType}.';
+        _log.severe(message);
+        return Configuration(parsingErrors: <String>[message]);
+      }
+      final parsingErrors = <String>[];
+
+      _validateTopLevelKeys(toolConfig, parsingErrors);
+      final Map<String, RuleConfigPatch> rulesResult = _parseDefaultRules(
+        toolConfig,
+        parsingErrors,
+      );
+      final List<LintTargetConfig> directoryConfigs = _parseConfigList(
+        toolConfig,
+        directoriesKey,
+        parsingErrors,
+      );
+      final List<LintTargetConfig> individualSkillConfigs = _parseConfigList(
+        toolConfig,
+        individualSkillsKey,
+        parsingErrors,
+      );
+
+      return Configuration(
+        directoryConfigs: directoryConfigs,
+        individualSkillConfigs: individualSkillConfigs,
+        ruleConfigs: rulesResult,
+        parsingErrors: parsingErrors,
+      );
     }
     return const Configuration();
   }
@@ -161,7 +198,13 @@ class ConfigParser {
       );
       final CheckType? check = checkMatches.isEmpty ? null : checkMatches.first;
 
-      ruleConfigs[ruleName] = _parseRuleConfigPatch(value, check, parsingErrors, contextLabel);
+      ruleConfigs[ruleName] = _parseRuleConfigPatch(
+        value,
+        ruleName,
+        check,
+        parsingErrors,
+        contextLabel,
+      );
     }
 
     return ruleConfigs;
@@ -176,17 +219,23 @@ class ConfigParser {
   /// to [parsingErrors] labeled with [contextLabel].
   static RuleConfigPatch _parseRuleConfigPatch(
     Object? value,
+    String ruleName,
     CheckType? check,
     List<String> parsingErrors,
     String contextLabel,
   ) {
     if (value is! YamlMap) {
-      final AnalysisSeverity severity = _parseSeverity(value?.toString() ?? '');
+      final AnalysisSeverity? severity = _parseSeverity(
+        value,
+        ruleName,
+        contextLabel,
+        parsingErrors,
+      );
       return RuleConfigPatch(severity: severity);
     }
 
     final AnalysisSeverity? severity = value.containsKey(severityKey)
-        ? _parseSeverity(value[severityKey]?.toString() ?? '')
+        ? _parseSeverity(value[severityKey], ruleName, contextLabel, parsingErrors)
         : null;
 
     final parameters = <String, Object?>{};
@@ -372,9 +421,6 @@ class LintTargetConfig {
   /// Converts this target configuration into its YAML map representation.
   Map<String, Object?> toYamlMap() => ConfigSerializer.targetConfigToYamlMap(this);
 
-  /// Converts this target configuration into its YAML representation.
-  Map<String, Object?> toYaml() => toYamlMap();
-
   /// Converts this target configuration into a formatted YAML string.
   String toYamlString() => ConfigSerializer.targetConfigToYamlString(this);
 
@@ -408,9 +454,6 @@ class Configuration {
 
   /// Converts this configuration into its YAML map representation.
   Map<String, Object?> toYamlMap() => ConfigSerializer.configToYamlMap(this);
-
-  /// Converts this configuration into its YAML representation.
-  Map<String, Object?> toYaml() => toYamlMap();
 
   /// Converts this configuration into a formatted YAML string.
   String toYamlString() => ConfigSerializer.configToYamlString(this);

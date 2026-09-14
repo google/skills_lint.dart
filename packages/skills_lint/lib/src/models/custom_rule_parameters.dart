@@ -35,9 +35,10 @@ class CustomRuleParameters {
     return value;
   }
 
-  /// The underlying map containing the parameters.
+  /// The underlying parameter map.
   final Map<String, Object?> params;
 
+  /// Returns `true` if no parameters are configured.
   bool get isEmpty => params.isEmpty;
 
   bool get isNotEmpty => params.isNotEmpty;
@@ -51,11 +52,8 @@ class CustomRuleParameters {
   /// Converts this parameters object into its YAML map representation.
   Map<String, Object?> toYamlMap() => Map<String, Object?>.from(params);
 
-  /// Converts this parameters object into its YAML representation.
-  Map<String, Object?> toYaml() => toYamlMap();
-
   /// Converts this parameters object into a formatted YAML string.
-  String toYamlString() => ConfigSerializer.toYamlString(params);
+  String toYamlString() => ConfigSerializer.customRuleParametersToYamlString(this);
 
   /// Retrieves the value of the parameter associated with [key] as a [String].
   ///

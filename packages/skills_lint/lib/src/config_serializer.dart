@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'config_parser.dart';
-import 'models/analysis_severity.dart';
 import 'models/custom_rule_parameters.dart';
 import 'models/rule_config.dart';
 
@@ -92,6 +91,11 @@ abstract final class ConfigSerializer {
     return map;
   }
 
+  /// Converts a [RuleConfigPatch] into a formatted YAML string.
+  static String ruleConfigPatchToYamlString(RuleConfigPatch patch) {
+    return toYamlString(ruleConfigPatchToYaml(patch));
+  }
+
   /// Converts a [RuleConfig] into its YAML value (either a String severity or a Map).
   static Object ruleConfigToYaml(RuleConfig config) {
     if (config.parameters.isEmpty) {
@@ -114,34 +118,21 @@ abstract final class ConfigSerializer {
     return map;
   }
 
-  /// Converts a YAML-compatible Dart object or configuration model into a formatted YAML string.
-  static String toYamlString(Object? value) {
-    final emitter = _YamlEmitter();
-    final Object? serializable = _toSerializableObject(value);
-    emitter.write(serializable);
-    return emitter.toString();
+  /// Converts a [RuleConfig] into a formatted YAML string.
+  static String ruleConfigToYamlString(RuleConfig config) {
+    return toYamlString(ruleConfigToYaml(config));
   }
 
-  static Object? _toSerializableObject(Object? value) {
-    if (value is Configuration) {
-      return configToYamlMap(value);
-    }
-    if (value is LintTargetConfig) {
-      return targetConfigToYamlMap(value);
-    }
-    if (value is RuleConfig) {
-      return ruleConfigToYaml(value);
-    }
-    if (value is RuleConfigPatch) {
-      return ruleConfigPatchToYaml(value);
-    }
-    if (value is CustomRuleParameters) {
-      return value.params;
-    }
-    if (value is AnalysisSeverity) {
-      return value.name;
-    }
-    return value;
+  /// Converts a [CustomRuleParameters] into a formatted YAML string.
+  static String customRuleParametersToYamlString(CustomRuleParameters parameters) {
+    return toYamlString(parameters.toYamlMap());
+  }
+
+  /// Converts a YAML-compatible Dart primitive structure into a formatted YAML string.
+  static String toYamlString(Object? value) {
+    final emitter = _YamlEmitter();
+    emitter.write(value);
+    return emitter.toString();
   }
 }
 
@@ -244,26 +235,10 @@ class _YamlEmitter {
 
   static final RegExp _safeUnquotedPattern = RegExp(r'^[a-zA-Z_][a-zA-Z0-9_/.-]*$');
 
-  /// Reserved boolean, null, and special literal tokens per the YAML 1.1 / 1.2
-  /// Core Schema specification that require quoting to prevent unintended type
-  /// coercion during YAML parsing.
-  static const Set<String> _yamlKeywords = {
-    'true',
-    'false',
-    'yes',
-    'no',
-    'y',
-    'n',
-    'on',
-    'off',
-    'null',
-    '~',
-    'nan',
-    'inf',
-    '+inf',
-    '-inf',
-    'infinity',
-  };
+  /// Reserved boolean, null, and special literal tokens per the YAML 1.2.2
+  /// Core Schema specification (https://yaml.org/spec/1.2.2/#10214-core-schema)
+  /// that require quoting to prevent unintended type coercion during YAML parsing.
+  static const Set<String> _yamlKeywords = {'true', 'false', 'null', '~'};
 
   static bool _shouldQuote(String value) {
     if (value.isEmpty) {

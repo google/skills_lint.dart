@@ -15,10 +15,7 @@ class RuleConfig {
   const RuleConfig({required this.severity, CustomRuleParameters? parameters})
     : parameters = parameters ?? const CustomRuleParameters.empty();
 
-  /// The active analysis severity for this rule.
   final AnalysisSeverity severity;
-
-  /// The resolved custom parameters for this rule.
   final CustomRuleParameters parameters;
 
   /// Converts this rule configuration into its YAML representation (String severity or Map).
@@ -28,10 +25,7 @@ class RuleConfig {
   Map<String, Object?> toYamlMap() => ConfigSerializer.ruleConfigToYamlMap(this);
 
   /// Converts this rule configuration into a formatted YAML string.
-  String toYamlString() => ConfigSerializer.toYamlString(this);
-
-  /// Converts this resolved rule configuration into a corresponding [RuleConfigPatch].
-  RuleConfigPatch toPatch() => RuleConfigPatch(severity: severity, parameters: parameters);
+  String toYamlString() => ConfigSerializer.ruleConfigToYamlString(this);
 }
 
 /// Represents a configuration override patch containing nullable parameters.
@@ -55,7 +49,7 @@ class RuleConfigPatch {
   Map<String, Object?> toYamlMap() => ConfigSerializer.ruleConfigPatchToYamlMap(this);
 
   /// Converts this rule configuration patch into a formatted YAML string.
-  String toYamlString() => ConfigSerializer.toYamlString(this);
+  String toYamlString() => ConfigSerializer.ruleConfigPatchToYamlString(this);
 
   /// Creates a new [RuleConfig] by layering this patch's overrides over a [base] configuration.
   RuleConfig applyTo(RuleConfig base) {

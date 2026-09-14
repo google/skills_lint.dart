@@ -49,6 +49,8 @@ void main() {
     });
 
     test('ConfigSerializer and serialization methods are exposed in public API', () {
+      // Note: A string literal is used intentionally here to validate the public API
+      // without importing internal rules from src/rules/relative_paths_rule.dart.
       const config = Configuration(
         ruleConfigs: {'check-relative-paths': RuleConfigPatch(severity: AnalysisSeverity.error)},
       );

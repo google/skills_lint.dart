@@ -209,7 +209,7 @@ void main() {
 
       final Map<String, Object?> yamlMap = config.toYamlMap();
       expect(yamlMap.containsKey('skills_lint'), isTrue);
-      expect(config.toYaml(), equals(yamlMap));
+      expect(config.toYamlMap(), equals(yamlMap));
 
       final String yamlStr = config.toYamlString();
       expect(yamlStr, contains('skills_lint:'));
@@ -230,7 +230,7 @@ void main() {
       expect(map['path'], equals('skills/my_skill'));
       expect(map['ignore_file'], equals('ignore.json'));
       expect(map['rules'], equals({PublishedSkillNameRule.ruleName: 'error'}));
-      expect(target.toYaml(), equals(map));
+      expect(target.toYamlMap(), equals(map));
 
       final String yamlStr = target.toYamlString();
       expect(yamlStr, contains('path: skills/my_skill'));
@@ -289,7 +289,7 @@ void main() {
       expect(map['count'], equals(42));
       expect(map['enabled'], equals(false));
       expect(map['items'], equals(['a', 'b']));
-      expect(params.toYaml(), equals(map));
+      expect(params.toYamlMap(), equals(map));
 
       final String yamlStr = params.toYamlString();
       expect(yamlStr, contains('name: test'));
@@ -317,15 +317,6 @@ void main() {
       final String escaped = ConfigSerializer.toYamlString('line 1\nline 2');
       expect(escaped, contains(r'\n'));
     });
-
-    test('ConfigSerializer supports model instances directly in toYamlString', () {
-      const config = Configuration(
-        ruleConfigs: {
-          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
-      );
-      expect(ConfigSerializer.toYamlString(config), contains('skills_lint:'));
-    });
   });
 
   group('ConfigParser.parse Error Handling', () {
@@ -342,6 +333,33 @@ skills_lint:
 ''');
       expect(config.parsingErrors, isNotEmpty);
       expect(config.parsingErrors.first, contains('Unrecognized top-level key "unknown_key"'));
+    });
+
+    test('records parsing error on unknown rule severity', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint:
+  rules:
+    check-relative-paths: eror
+''');
+      expect(config.parsingErrors, isNotEmpty);
+      expect(
+        config.parsingErrors.first,
+        contains('Invalid severity "eror" for rule "check-relative-paths"'),
+      );
+    });
+
+    test('records parsing error on non-map top-level YAML', () {
+      final Configuration config = ConfigParser.parse('"scalar string"');
+      expect(config.parsingErrors, isNotEmpty);
+      expect(config.parsingErrors.first, contains('Top-level configuration must be a YAML map'));
+    });
+
+    test('records parsing error on non-map skills_lint block', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint: "not a map"
+''');
+      expect(config.parsingErrors, isNotEmpty);
+      expect(config.parsingErrors.first, contains('Expected "skills_lint" to be a YAML map'));
     });
 
     test('returns empty configuration on content without skills_lint map', () {
@@ -470,13 +488,6 @@ skills_lint:
           reason: 'Failed to round-trip scalar: "$s" (emitted YAML: $yaml)',
         );
       }
-    });
-
-    test('RuleConfig.toPatch converts to equivalent RuleConfigPatch', () {
-      const config = RuleConfig(severity: AnalysisSeverity.error);
-      final RuleConfigPatch patch = config.toPatch();
-      expect(patch.severity, equals(config.severity));
-      expect(patch.parameters?.params, equals(config.parameters.params));
     });
 
     test('CustomRuleParameters ensures deep immutability for nested collections', () {
