@@ -1014,6 +1014,21 @@ skills_lint:
       expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
 
+    test('parses rule configuration regardless of severity key position in YAML map', () {
+      final Configuration parsed = ConfigParser.parse('''
+skills_lint:
+  rules:
+    path-does-not-exist:
+      exclude: ".*-workspace"
+      severity: warning
+''');
+
+      final RuleConfigPatch? patch = parsed.ruleConfigs[PathDoesNotExistRule.ruleName];
+      expect(patch, isNotNull);
+      expect(patch!.severity, equals(AnalysisSeverity.warning));
+      expect(patch.parameters?['exclude'], equals('.*-workspace'));
+    });
+
     test('round-trips global rules with custom parameters', () {
       final config = Configuration(
         ruleConfigs: {
