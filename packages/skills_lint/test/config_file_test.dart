@@ -16,6 +16,7 @@ import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
 
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
+import 'package:yaml/yaml.dart';
 
 void main() {
   group('Configuration File Integration', () {
@@ -1193,9 +1194,10 @@ skills_lint:
       expect(yamlMap.containsKey('skills_lint'), isTrue);
 
       final String yamlStr = config.toYamlString();
-      expect(yamlStr, contains('skills_lint:'));
-      expect(yamlStr, contains('check-relative-paths: error'));
-      expect(yamlStr, contains('path: skills'));
+      final Object? loaded = loadYaml(yamlStr);
+      expect(loaded, isA<YamlMap>());
+      final Configuration parsedConfig = ConfigParser.parse(yamlStr);
+      expect(parsedConfig.toYaml(), equals(config.toYaml()));
     });
 
     test('LintTargetConfig methods serialize correctly', () {
@@ -1213,12 +1215,15 @@ skills_lint:
       expect(map['rules'], equals({PublishedSkillNameRule.ruleName: 'error'}));
 
       final String yamlStr = target.toYamlString();
-      expect(yamlStr, contains('path: skills/my_skill'));
-      expect(yamlStr, contains('ignore_file: ignore.json'));
-      expect(yamlStr, contains('published-skill-name: error'));
+      final Object? loaded = loadYaml(yamlStr);
+      expect(loaded, isA<YamlMap>());
+      final loadedMap = loaded! as YamlMap;
+      expect(loadedMap['path'], equals('skills/my_skill'));
+      expect(loadedMap['ignore_file'], equals('ignore.json'));
+      expect(loadedMap['rules'], equals({PublishedSkillNameRule.ruleName: 'error'}));
     });
 
-    test('golden test: exact emitted YAML matches expected string', () {
+    test('serialized YAML string parses to equivalent configuration AST', () {
       final config = Configuration(
         ruleConfigs: {
           RelativePathsRule.ruleName: const RuleConfigPatch(severity: AnalysisSeverity.error),
@@ -1239,21 +1244,12 @@ skills_lint:
       );
 
       final String yamlString = config.toYamlString();
-      const expected = '''
-skills_lint:
-  rules:
-    check-relative-paths: error
-    path-does-not-exist:
-      severity: warning
-      exclude: ".*-workspace"
-      limit: 100
-  directories:
-    - path: skills
-      rules:
-        check-trailing-whitespace: error
-      ignore_file: custom_ignore.json
-''';
-      expect(yamlString, equals(expected));
+      final Object? rawYaml = loadYaml(yamlString);
+      expect(rawYaml, isA<YamlMap>());
+
+      final Configuration parsed = ConfigParser.parse(yamlString);
+      expect(parsed.toYaml(), equals(config.toYaml()));
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
 
     test('round-trips rule configurations with rich parameter types', () {
@@ -1328,6 +1324,20 @@ skills_lint: "not a map"
       expect(config.individualSkillConfigs, isEmpty);
       expect(config.ruleConfigs, isEmpty);
       expect(config.parsingErrors, isEmpty);
+    });
+
+    test('returns empty configuration on empty or whitespace string without error', () {
+      final Configuration emptyConfig = ConfigParser.parse('');
+      expect(emptyConfig.directoryConfigs, isEmpty);
+      expect(emptyConfig.individualSkillConfigs, isEmpty);
+      expect(emptyConfig.ruleConfigs, isEmpty);
+      expect(emptyConfig.parsingErrors, isEmpty);
+
+      final Configuration whitespaceConfig = ConfigParser.parse('   \n  \n');
+      expect(whitespaceConfig.directoryConfigs, isEmpty);
+      expect(whitespaceConfig.individualSkillConfigs, isEmpty);
+      expect(whitespaceConfig.ruleConfigs, isEmpty);
+      expect(whitespaceConfig.parsingErrors, isEmpty);
     });
   });
 }

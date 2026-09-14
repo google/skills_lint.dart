@@ -65,7 +65,7 @@ class RuleConfigPatch {
   /// Converts this rule configuration patch into a formatted YAML string.
   String toYamlString() => ConfigSerializer.toYamlString(toYaml());
 
-  /// Creates a new [RuleConfig] by layering this patch's overrides over a [base] configuration.
+  /// Creates a [RuleConfig] by layering this patch's overrides over a [base] configuration.
   RuleConfig applyTo(RuleConfig base) {
     return RuleConfig(
       severity: severity ?? base.severity,

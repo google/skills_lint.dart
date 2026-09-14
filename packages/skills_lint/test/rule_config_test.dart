@@ -91,18 +91,18 @@ void main() {
       () async {
         await withTempDir((tempDir) async {
           final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-          await File(
-            '${skillDir.path}/SKILL.md',
-          ).writeAsString('${buildFrontmatter(name: 'test-skill')}Body content');
+          await File('${skillDir.path}/SKILL.md').writeAsString('Invalid YAML No Frontmatter');
+
+          final bool failedByDefault = await validateSkills(individualSkillPaths: [skillDir.path]);
+          expect(failedByDefault, isFalse);
 
           // ignore: deprecated_member_use_from_same_package
-          final bool isValid = await validateSkills(
+          final bool passedWhenDisabled = await validateSkills(
             individualSkillPaths: [skillDir.path],
             // ignore: deprecated_member_use_from_same_package
-            resolvedRules: {'valid-yaml-metadata': AnalysisSeverity.warning},
+            resolvedRules: {'valid-yaml-metadata': AnalysisSeverity.disabled},
           );
-          // Just confirming it runs without throwing the ArgumentError
-          expect(isValid, isTrue);
+          expect(passedWhenDisabled, isTrue);
         });
       },
     );
