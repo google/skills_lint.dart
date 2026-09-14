@@ -2,7 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:collection/collection.dart';
 import 'package:meta/meta.dart';
 
 import '../config_serializer.dart';
@@ -92,17 +91,4 @@ class CustomRuleParameters {
     }
     return null;
   }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        other is CustomRuleParameters &&
-            const DeepCollectionEquality().equals(params, other.params);
-  }
-
-  @override
-  int get hashCode => const DeepCollectionEquality().hash(params);
-
-  @override
-  String toString() => 'CustomRuleParameters($params)';
 }

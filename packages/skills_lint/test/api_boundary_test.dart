@@ -55,7 +55,7 @@ void main() {
 
       final String yamlString = ConfigSerializer.configToYamlString(config);
       final Configuration parsed = ConfigParser.parse(yamlString);
-      expect(parsed, equals(config));
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
   });
 }

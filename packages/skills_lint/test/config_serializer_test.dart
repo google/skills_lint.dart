@@ -21,7 +21,7 @@ void main() {
       expect(yamlString, contains('skills_lint:'));
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed, equals(config));
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
 
     test('round-trips global rules with scalar severities', () {
@@ -44,7 +44,7 @@ void main() {
         parsed.ruleConfigs[TrailingWhitespaceRule.ruleName]?.severity,
         equals(AnalysisSeverity.disabled),
       );
-      expect(parsed, equals(config));
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
 
     test('round-trips global rules with custom parameters', () {
@@ -63,7 +63,7 @@ void main() {
       final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed, equals(config));
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
 
     test('round-trips directory target configurations', () {
@@ -103,7 +103,7 @@ void main() {
         dir2.ruleConfigs[PathDoesNotExistRule.ruleName]?.parameters?['exclude'],
         equals('.*-workspace'),
       );
-      expect(parsed, equals(config));
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
 
     test('round-trips individual skill target configurations', () {
@@ -141,7 +141,7 @@ void main() {
         skill2.ruleConfigs[RelativePathsRule.ruleName]?.severity,
         equals(AnalysisSeverity.disabled),
       );
-      expect(parsed, equals(config));
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
 
     test('round-trips full composite configuration with all sections', () {
@@ -187,7 +187,7 @@ void main() {
       final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed, equals(config));
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
   });
 
@@ -328,114 +328,6 @@ void main() {
     });
   });
 
-  group('Model Value Equality and HashCode', () {
-    test('CustomRuleParameters equality and hashCode', () {
-      final p1 = CustomRuleParameters(const {'a': 1, 'b': 'x'});
-      final p2 = CustomRuleParameters(const {'a': 1, 'b': 'x'});
-      final p3 = CustomRuleParameters(const {'a': 1, 'b': 'y'});
-
-      expect(p1, equals(p2));
-      expect(p1.hashCode, equals(p2.hashCode));
-      expect(p1, isNot(equals(p3)));
-      expect(p1.toString(), contains('CustomRuleParameters'));
-    });
-
-    test('RuleConfig equality and hashCode', () {
-      final r1 = RuleConfig(
-        severity: AnalysisSeverity.error,
-        parameters: CustomRuleParameters(const {'a': 1}),
-      );
-      final r2 = RuleConfig(
-        severity: AnalysisSeverity.error,
-        parameters: CustomRuleParameters(const {'a': 1}),
-      );
-      final r3 = RuleConfig(
-        severity: AnalysisSeverity.warning,
-        parameters: CustomRuleParameters(const {'a': 1}),
-      );
-
-      expect(r1, equals(r2));
-      expect(r1.hashCode, equals(r2.hashCode));
-      expect(r1, isNot(equals(r3)));
-      expect(r1.toString(), contains('RuleConfig'));
-    });
-
-    test('RuleConfigPatch equality and hashCode', () {
-      final p1 = RuleConfigPatch(
-        severity: AnalysisSeverity.error,
-        parameters: CustomRuleParameters(const {'a': 1}),
-      );
-      final p2 = RuleConfigPatch(
-        severity: AnalysisSeverity.error,
-        parameters: CustomRuleParameters(const {'a': 1}),
-      );
-      const p3 = RuleConfigPatch(severity: AnalysisSeverity.error);
-
-      expect(p1, equals(p2));
-      expect(p1.hashCode, equals(p2.hashCode));
-      expect(p1, isNot(equals(p3)));
-      expect(p1.toString(), contains('RuleConfigPatch'));
-    });
-
-    test('LintTargetConfig equality and hashCode', () {
-      const t1 = LintTargetConfig(
-        path: 'skills',
-        ruleConfigs: {
-          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
-        ignoreFile: 'ignore.json',
-      );
-      const t2 = LintTargetConfig(
-        path: 'skills',
-        ruleConfigs: {
-          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
-        ignoreFile: 'ignore.json',
-      );
-      const t3 = LintTargetConfig(path: 'other');
-
-      expect(t1, equals(t2));
-      expect(t1.hashCode, equals(t2.hashCode));
-      expect(t1, isNot(equals(t3)));
-      expect(t1.toString(), contains('LintTargetConfig'));
-    });
-
-    test('Configuration equality and hashCode', () {
-      const c1 = Configuration(
-        directoryConfigs: [
-          LintTargetConfig(
-            path: 'skills',
-            ruleConfigs: {
-              RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-            },
-          ),
-        ],
-        ruleConfigs: {
-          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
-      );
-      const c2 = Configuration(
-        directoryConfigs: [
-          LintTargetConfig(
-            path: 'skills',
-            ruleConfigs: {
-              RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-            },
-          ),
-        ],
-        ruleConfigs: {
-          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
-      );
-      const c3 = Configuration();
-
-      expect(c1, equals(c2));
-      expect(c1.hashCode, equals(c2.hashCode));
-      expect(c1, isNot(equals(c3)));
-      expect(c1.toString(), contains('Configuration'));
-    });
-  });
-
   group('ConfigParser.parse Error Handling', () {
     test('records parsing errors on malformed YAML syntax', () {
       final Configuration config = ConfigParser.parse(': invalid: [');
@@ -519,7 +411,7 @@ skills_lint:
       final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed, equals(config));
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
 
     test('scalar quoting and escaping round-trips all tricky tokens cleanly', () {
@@ -580,16 +472,11 @@ skills_lint:
       }
     });
 
-    test('RuleConfig and RuleConfigPatch maintain strict symmetric equality', () {
-      const patch = RuleConfigPatch(
-        severity: AnalysisSeverity.error,
-        parameters: CustomRuleParameters.empty(),
-      );
+    test('RuleConfig.toPatch converts to equivalent RuleConfigPatch', () {
       const config = RuleConfig(severity: AnalysisSeverity.error);
-
-      expect((patch as Object) == config, isFalse);
-      expect((config as Object) == patch, isFalse);
-      expect(config.toPatch(), equals(patch));
+      final RuleConfigPatch patch = config.toPatch();
+      expect(patch.severity, equals(config.severity));
+      expect(patch.parameters?.params, equals(config.parameters.params));
     });
 
     test('CustomRuleParameters ensures deep immutability for nested collections', () {

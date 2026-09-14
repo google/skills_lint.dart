@@ -32,21 +32,6 @@ class RuleConfig {
 
   /// Converts this resolved rule configuration into a corresponding [RuleConfigPatch].
   RuleConfigPatch toPatch() => RuleConfigPatch(severity: severity, parameters: parameters);
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        other is RuleConfig &&
-            runtimeType == other.runtimeType &&
-            severity == other.severity &&
-            parameters == other.parameters;
-  }
-
-  @override
-  int get hashCode => Object.hash(severity, parameters);
-
-  @override
-  String toString() => 'RuleConfig(severity: $severity, parameters: $parameters)';
 }
 
 /// Represents a configuration override patch containing nullable parameters.
@@ -96,19 +81,4 @@ class RuleConfigPatch {
     }
     return CustomRuleParameters(merged);
   }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        other is RuleConfigPatch &&
-            runtimeType == other.runtimeType &&
-            severity == other.severity &&
-            parameters == other.parameters;
-  }
-
-  @override
-  int get hashCode => Object.hash(severity, parameters);
-
-  @override
-  String toString() => 'RuleConfigPatch(severity: $severity, parameters: $parameters)';
 }

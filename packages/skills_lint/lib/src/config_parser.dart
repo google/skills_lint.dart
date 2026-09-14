@@ -4,7 +4,6 @@
 
 import 'dart:io';
 
-import 'package:collection/collection.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
@@ -391,23 +390,6 @@ class LintTargetConfig {
     }
     return resolvedSeverities;
   }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        other is LintTargetConfig &&
-            path == other.path &&
-            ignoreFile == other.ignoreFile &&
-            const DeepCollectionEquality().equals(ruleConfigs, other.ruleConfigs);
-  }
-
-  @override
-  int get hashCode =>
-      Object.hash(path, ignoreFile, const DeepCollectionEquality().hash(ruleConfigs));
-
-  @override
-  String toString() =>
-      'LintTargetConfig(path: $path, ignoreFile: $ignoreFile, ruleConfigs: $ruleConfigs)';
 }
 
 /// Structured configuration for the linter.
@@ -445,29 +427,4 @@ class Configuration {
     }
     return resolvedSeverities;
   }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        other is Configuration &&
-            const DeepCollectionEquality().equals(directoryConfigs, other.directoryConfigs) &&
-            const DeepCollectionEquality().equals(
-              individualSkillConfigs,
-              other.individualSkillConfigs,
-            ) &&
-            const DeepCollectionEquality().equals(ruleConfigs, other.ruleConfigs) &&
-            const DeepCollectionEquality().equals(parsingErrors, other.parsingErrors);
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    const DeepCollectionEquality().hash(directoryConfigs),
-    const DeepCollectionEquality().hash(individualSkillConfigs),
-    const DeepCollectionEquality().hash(ruleConfigs),
-    const DeepCollectionEquality().hash(parsingErrors),
-  );
-
-  @override
-  String toString() =>
-      'Configuration(directoryConfigs: $directoryConfigs, individualSkillConfigs: $individualSkillConfigs, ruleConfigs: $ruleConfigs, parsingErrors: $parsingErrors)';
 }
