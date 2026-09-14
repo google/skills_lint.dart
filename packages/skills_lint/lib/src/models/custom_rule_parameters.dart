@@ -35,7 +35,6 @@ class CustomRuleParameters {
     return value;
   }
 
-  /// The underlying parameter map.
   final Map<String, Object?> params;
 
   /// Returns `true` if no parameters are configured.

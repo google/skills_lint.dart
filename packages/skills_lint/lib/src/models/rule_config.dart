@@ -24,14 +24,11 @@ class RuleConfig {
     if (parameters.isEmpty) {
       return severity.name;
     }
-    final map = <String, Object?>{};
-    for (final MapEntry<String, Object?> entry in parameters.params.entries) {
-      if (entry.key != ConfigParser.severityKey) {
-        map[entry.key] = entry.value;
-      }
-    }
-    map[ConfigParser.severityKey] = severity.name;
-    return map;
+    return <String, Object?>{
+      ConfigParser.severityKey: severity.name,
+      for (final MapEntry<String, Object?> entry in parameters.params.entries)
+        if (entry.key != ConfigParser.severityKey) entry.key: entry.value,
+    };
   }
 
   /// Converts this rule configuration into a formatted YAML string.
@@ -54,23 +51,15 @@ class RuleConfigPatch {
 
   /// Converts this rule configuration patch into its YAML representation (String severity or Map).
   Object? toYaml() {
-    final bool hasParams = parameters != null && parameters!.isNotEmpty;
-    if (!hasParams) {
-      if (severity != null) {
-        return severity!.name;
-      }
-      return <String, Object?>{};
+    final CustomRuleParameters? params = parameters;
+    if (params == null || params.isEmpty) {
+      return severity?.name ?? <String, Object?>{};
     }
-    final map = <String, Object?>{};
-    for (final MapEntry<String, Object?> entry in parameters!.params.entries) {
-      if (entry.key != ConfigParser.severityKey) {
-        map[entry.key] = entry.value;
-      }
-    }
-    if (severity != null) {
-      map[ConfigParser.severityKey] = severity!.name;
-    }
-    return map;
+    return <String, Object?>{
+      if (severity != null) ConfigParser.severityKey: severity!.name,
+      for (final MapEntry<String, Object?> entry in params.params.entries)
+        if (entry.key != ConfigParser.severityKey) entry.key: entry.value,
+    };
   }
 
   /// Converts this rule configuration patch into a formatted YAML string.

@@ -41,13 +41,12 @@ class ConfigParser {
     if (value == null) {
       return null;
     }
-    final valueStr = value.toString();
-    final AnalysisSeverity? severity = _severityNameMap[valueStr];
+    final AnalysisSeverity? severity = _severityNameMap[value.toString()];
     if (severity != null) {
       return severity;
     }
     parsingErrors.add(
-      '$contextLabel: Invalid severity "$valueStr" for rule "$ruleName". Expected one of: ${_severityNameMap.keys.join(', ')}.',
+      '$contextLabel: Invalid severity "$value" for rule "$ruleName". Expected one of: ${_severityNameMap.keys.join(', ')}.',
     );
     return null;
   }
@@ -234,17 +233,17 @@ class ConfigParser {
       return RuleConfigPatch(severity: severity);
     }
 
-    final AnalysisSeverity? severity = value.containsKey(severityKey)
-        ? _parseSeverity(value[severityKey], ruleName, contextLabel, parsingErrors)
-        : null;
+    final AnalysisSeverity? severity = _parseSeverity(
+      value[severityKey],
+      ruleName,
+      contextLabel,
+      parsingErrors,
+    );
 
-    final parameters = <String, Object?>{};
-    for (final Object? paramKey in value.keys) {
-      final paramName = paramKey.toString();
-      if (paramName != severityKey) {
-        parameters[paramName] = value[paramKey];
-      }
-    }
+    final parameters = <String, Object?>{
+      for (final Object? key in value.keys)
+        if (key.toString() != severityKey) key.toString(): value[key],
+    };
 
     final CustomRuleParameters? customParams = parameters.isNotEmpty
         ? CustomRuleParameters(parameters)

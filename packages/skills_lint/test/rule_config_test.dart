@@ -155,4 +155,49 @@ void main() {
       expect(topConfig.configuredRules.containsKey('path-does-not-exist'), isFalse);
     });
   });
+  group('RuleConfig & RuleConfigPatch Serialization', () {
+    test('RuleConfig methods serialize correctly', () {
+      const simpleConfig = RuleConfig(severity: AnalysisSeverity.error);
+      expect(simpleConfig.toYaml(), equals('error'));
+      expect(simpleConfig.toYamlString(), contains('error'));
+
+      final complexConfig = RuleConfig(
+        severity: AnalysisSeverity.warning,
+        parameters: CustomRuleParameters(const {'chars': 500, 'strict': true}),
+      );
+      final Map<String, Object?> expectedMap = {
+        'severity': 'warning',
+        'chars': 500,
+        'strict': true,
+      };
+      expect(complexConfig.toYaml(), equals(expectedMap));
+      expect(complexConfig.toYamlString(), contains('severity: warning'));
+      expect(complexConfig.toYamlString(), contains('chars: 500'));
+    });
+
+    test('RuleConfigPatch methods serialize correctly', () {
+      const severityOnly = RuleConfigPatch(severity: AnalysisSeverity.disabled);
+      expect(severityOnly.toYaml(), equals('disabled'));
+      expect(severityOnly.toYamlString(), contains('disabled'));
+
+      final paramsOnly = RuleConfigPatch(
+        parameters: CustomRuleParameters(const {'exclude': '.*-test'}),
+      );
+      expect(paramsOnly.toYaml(), equals({'exclude': '.*-test'}));
+
+      const emptyPatch = RuleConfigPatch();
+      expect(emptyPatch.toYaml(), equals(<String, Object?>{}));
+    });
+
+    test('CustomRuleParameters key named severity does not overwrite rule severity', () {
+      final patch = RuleConfigPatch(
+        severity: AnalysisSeverity.error,
+        parameters: CustomRuleParameters(const {'severity': 'ignored_param'}),
+      );
+      final Object? yamlObj = patch.toYaml();
+      expect(yamlObj, isA<Map<String, Object?>>());
+      final Map<String, Object?> map = (yamlObj as Map<String, Object?>?)!;
+      expect(map[ConfigParser.severityKey], equals('error'));
+    });
+  });
 }

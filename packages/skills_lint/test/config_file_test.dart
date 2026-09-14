@@ -9,8 +9,11 @@ import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
 import 'package:skills_lint/src/rules/name_format_rule.dart';
 import 'package:skills_lint/src/rules/path_does_not_exist_rule.dart';
+import 'package:skills_lint/src/rules/prevent_skills_sh_publishing_rule.dart';
+import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
+
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 
@@ -975,5 +978,341 @@ skills_lint:
         await process.shouldExit(1);
       },
     );
+  });
+
+  group('Configuration YAML Round-trip Serialization', () {
+    test('round-trips empty configuration', () {
+      const config = Configuration();
+      final String yamlString = config.toYamlString();
+
+      expect(yamlString, contains('skills_lint:'));
+      final Configuration parsed = ConfigParser.parse(yamlString);
+
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
+    });
+
+    test('round-trips global rules with scalar severities', () {
+      const config = Configuration(
+        ruleConfigs: {
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+          AbsolutePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.warning),
+          TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.disabled),
+        },
+      );
+
+      final String yamlString = config.toYamlString();
+      final Configuration parsed = ConfigParser.parse(yamlString);
+
+      expect(
+        parsed.ruleConfigs[AbsolutePathsRule.ruleName]?.severity,
+        equals(AnalysisSeverity.warning),
+      );
+      expect(
+        parsed.ruleConfigs[TrailingWhitespaceRule.ruleName]?.severity,
+        equals(AnalysisSeverity.disabled),
+      );
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
+    });
+
+    test('round-trips global rules with custom parameters', () {
+      final config = Configuration(
+        ruleConfigs: {
+          PathDoesNotExistRule.ruleName: RuleConfigPatch(
+            severity: AnalysisSeverity.error,
+            parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
+          ),
+          PublishedSkillNameRule.ruleName: RuleConfigPatch(
+            parameters: CustomRuleParameters(const {'package_name': 'my_package'}),
+          ),
+        },
+      );
+
+      final String yamlString = config.toYamlString();
+      final Configuration parsed = ConfigParser.parse(yamlString);
+
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
+    });
+
+    test('round-trips directory target configurations', () {
+      final config = Configuration(
+        directoryConfigs: [
+          const LintTargetConfig(
+            path: 'skills',
+            ruleConfigs: {
+              TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+              PublishedSkillNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.warning),
+            },
+            ignoreFile: 'skills/.skillsignore',
+          ),
+          LintTargetConfig(
+            path: '../../.agents/skills',
+            ruleConfigs: {
+              PathDoesNotExistRule.ruleName: RuleConfigPatch(
+                severity: AnalysisSeverity.error,
+                parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
+              ),
+            },
+          ),
+        ],
+      );
+
+      final String yamlString = config.toYamlString();
+      final Configuration parsed = ConfigParser.parse(yamlString);
+
+      final LintTargetConfig dir1 = parsed.directoryConfigs[0];
+      expect(
+        dir1.ruleConfigs[TrailingWhitespaceRule.ruleName]?.severity,
+        equals(AnalysisSeverity.error),
+      );
+
+      final LintTargetConfig dir2 = parsed.directoryConfigs[1];
+      expect(
+        dir2.ruleConfigs[PathDoesNotExistRule.ruleName]?.parameters?['exclude'],
+        equals('.*-workspace'),
+      );
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
+    });
+
+    test('round-trips individual skill target configurations', () {
+      const config = Configuration(
+        individualSkillConfigs: [
+          LintTargetConfig(
+            path: '.agents/skills/add-dart-lint-validation-rule',
+            ruleConfigs: {
+              PreventSkillsShPublishingRule.ruleName: RuleConfigPatch(
+                severity: AnalysisSeverity.error,
+              ),
+            },
+            ignoreFile: 'custom_ignore.json',
+          ),
+          LintTargetConfig(
+            path: '~/my-custom-skill',
+            ruleConfigs: {
+              RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.disabled),
+            },
+          ),
+        ],
+      );
+
+      final String yamlString = config.toYamlString();
+      final Configuration parsed = ConfigParser.parse(yamlString);
+
+      final LintTargetConfig skill1 = parsed.individualSkillConfigs[0];
+      expect(
+        skill1.ruleConfigs[PreventSkillsShPublishingRule.ruleName]?.severity,
+        equals(AnalysisSeverity.error),
+      );
+
+      final LintTargetConfig skill2 = parsed.individualSkillConfigs[1];
+      expect(
+        skill2.ruleConfigs[RelativePathsRule.ruleName]?.severity,
+        equals(AnalysisSeverity.disabled),
+      );
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
+    });
+
+    test('round-trips full composite configuration with all sections', () {
+      final config = Configuration(
+        ruleConfigs: const {
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+          AbsolutePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+        directoryConfigs: [
+          LintTargetConfig(
+            path: '../../.agents/skills',
+            ruleConfigs: {
+              TrailingWhitespaceRule.ruleName: const RuleConfigPatch(
+                severity: AnalysisSeverity.error,
+              ),
+              PathDoesNotExistRule.ruleName: RuleConfigPatch(
+                severity: AnalysisSeverity.error,
+                parameters: CustomRuleParameters(const {'exclude': '.*-workspace'}),
+              ),
+            },
+            ignoreFile: '../../.agents/skills/ignore.json',
+          ),
+          const LintTargetConfig(
+            path: 'skills',
+            ruleConfigs: {
+              TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+              PublishedSkillNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+            },
+          ),
+        ],
+        individualSkillConfigs: const [
+          LintTargetConfig(
+            path: '../../.agents/skills/add-dart-lint-validation-rule',
+            ruleConfigs: {
+              PreventSkillsShPublishingRule.ruleName: RuleConfigPatch(
+                severity: AnalysisSeverity.error,
+              ),
+            },
+          ),
+        ],
+      );
+
+      final String yamlString = config.toYamlString();
+      final Configuration parsed = ConfigParser.parse(yamlString);
+
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
+    });
+  });
+
+  group('Configuration & LintTargetConfig Model Methods', () {
+    test('Configuration methods produce valid maps and strings', () {
+      const config = Configuration(
+        ruleConfigs: {
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+        directoryConfigs: [
+          LintTargetConfig(
+            path: 'skills',
+            ruleConfigs: {
+              TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.warning),
+            },
+          ),
+        ],
+      );
+
+      final Map<String, Object?> yamlMap = config.toYaml();
+      expect(yamlMap.containsKey('skills_lint'), isTrue);
+
+      final String yamlStr = config.toYamlString();
+      expect(yamlStr, contains('skills_lint:'));
+      expect(yamlStr, contains('check-relative-paths: error'));
+      expect(yamlStr, contains('path: skills'));
+    });
+
+    test('LintTargetConfig methods serialize correctly', () {
+      const target = LintTargetConfig(
+        path: 'skills/my_skill',
+        ruleConfigs: {
+          PublishedSkillNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+        ignoreFile: 'ignore.json',
+      );
+
+      final Map<String, Object?> map = target.toYaml();
+      expect(map['path'], equals('skills/my_skill'));
+      expect(map['ignore_file'], equals('ignore.json'));
+      expect(map['rules'], equals({PublishedSkillNameRule.ruleName: 'error'}));
+
+      final String yamlStr = target.toYamlString();
+      expect(yamlStr, contains('path: skills/my_skill'));
+      expect(yamlStr, contains('ignore_file: ignore.json'));
+      expect(yamlStr, contains('published-skill-name: error'));
+    });
+
+    test('golden test: exact emitted YAML matches expected string', () {
+      final config = Configuration(
+        ruleConfigs: {
+          RelativePathsRule.ruleName: const RuleConfigPatch(severity: AnalysisSeverity.error),
+          PathDoesNotExistRule.ruleName: RuleConfigPatch(
+            severity: AnalysisSeverity.warning,
+            parameters: CustomRuleParameters(const {'exclude': '.*-workspace', 'limit': 100}),
+          ),
+        },
+        directoryConfigs: const [
+          LintTargetConfig(
+            path: 'skills',
+            ignoreFile: 'custom_ignore.json',
+            ruleConfigs: {
+              TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+            },
+          ),
+        ],
+      );
+
+      final String yamlString = config.toYamlString();
+      const expected = '''
+skills_lint:
+  rules:
+    check-relative-paths: error
+    path-does-not-exist:
+      severity: warning
+      exclude: ".*-workspace"
+      limit: 100
+  directories:
+    - path: skills
+      rules:
+        check-trailing-whitespace: error
+      ignore_file: custom_ignore.json
+''';
+      expect(yamlString, equals(expected));
+    });
+
+    test('round-trips rule configurations with rich parameter types', () {
+      final config = Configuration(
+        ruleConfigs: {
+          'custom-rule': RuleConfigPatch(
+            severity: AnalysisSeverity.error,
+            parameters: CustomRuleParameters(const {
+              'count': 42,
+              'enabled': true,
+              'tags': ['a', 'b', 'c'],
+              'numbers': [1, 2, 3],
+              'nested': {'k1': 'v1', 'k2': 10},
+            }),
+          ),
+        },
+      );
+
+      final String yamlString = config.toYamlString();
+      final Configuration parsed = ConfigParser.parse(yamlString);
+
+      expect(parsed.toYamlString(), equals(config.toYamlString()));
+    });
+  });
+
+  group('ConfigParser.parse Error Handling', () {
+    test('records parsing errors on malformed YAML syntax', () {
+      final Configuration config = ConfigParser.parse(': invalid: [');
+      expect(config.parsingErrors, isNotEmpty);
+      expect(config.parsingErrors.first, contains('Failed to parse content'));
+    });
+
+    test('records error on unrecognized top-level key', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint:
+  unknown_key: value
+''');
+      expect(config.parsingErrors, isNotEmpty);
+      expect(config.parsingErrors.first, contains('Unrecognized top-level key "unknown_key"'));
+    });
+
+    test('records parsing error on unknown rule severity', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint:
+  rules:
+    check-relative-paths: eror
+''');
+      expect(config.parsingErrors, isNotEmpty);
+      expect(
+        config.parsingErrors.first,
+        contains('Invalid severity "eror" for rule "check-relative-paths"'),
+      );
+    });
+
+    test('records parsing error on non-map top-level YAML', () {
+      final Configuration config = ConfigParser.parse('"scalar string"');
+      expect(config.parsingErrors, isNotEmpty);
+      expect(config.parsingErrors.first, contains('Top-level configuration must be a YAML map'));
+    });
+
+    test('records parsing error on non-map skills_lint block', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint: "not a map"
+''');
+      expect(config.parsingErrors, isNotEmpty);
+      expect(config.parsingErrors.first, contains('Expected "skills_lint" to be a YAML map'));
+    });
+
+    test('returns empty configuration on content without skills_lint map', () {
+      final Configuration config = ConfigParser.parse('other_tool: 123');
+      expect(config.directoryConfigs, isEmpty);
+      expect(config.individualSkillConfigs, isEmpty);
+      expect(config.ruleConfigs, isEmpty);
+      expect(config.parsingErrors, isEmpty);
+    });
   });
 }
