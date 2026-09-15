@@ -21,19 +21,16 @@ final Logger _log = Logger('skills_lint');
 
 /// Parses and loads YAML configuration for skills_lint.
 ///
-/// ## Configuration Boundary Canonicalization
+/// Target paths (`directories`, `individual_skills`) and `ignore_file` paths
+/// are resolved as the file is read, against the directory holding that file.
+/// A configuration therefore selects the same skills no matter which directory
+/// the process runs in, which is what lets a subpackage declare
+/// `../../.agents/skills` and lets one configuration at the repository root
+/// serve every package under it.
 ///
-/// [ConfigParser] acts as the configuration boundary for the linter. Any relative
-/// target paths (`directories`, `individual_skills`) and `ignore_file` paths defined
-/// in the configuration are eagerly canonicalized relative to the configuration file's
-/// logical directory (or a provided `baseDirectory`) during parsing.
-///
-/// This ensures that the resulting [Configuration] contains only canonical, absolute
-/// paths, eliminating ambiguous CWD dependencies across subpackages or nested configs.
-///
-/// Writing a configuration back out does not undo the arithmetic: each target
-/// keeps the path text it was declared with, and [Configuration.toYamlString]
-/// emits that text, so a rewritten file reads as its author wrote it.
+/// Serializing a configuration that came from a file reproduces the paths as
+/// the author typed them, so a tool that reads, edits, and writes a
+/// configuration does not replace portable relative paths with absolute ones.
 class ConfigParser {
   static const String skillsLintKey = 'skills_lint';
   static const String rulesKey = 'rules';
@@ -94,8 +91,11 @@ class ConfigParser {
 
   /// Parses a [Configuration] from an already loaded [yaml] object structure.
   ///
-  /// [sourcePath] and [baseDirectory] control path anchoring exactly as they do
-  /// in [parse].
+  /// Use this when the YAML is already decoded, such as a configuration nested
+  /// inside a larger document. [parse] handles raw text.
+  ///
+  /// Target paths and ignore files resolve against [baseDirectory], or the
+  /// directory holding [sourcePath], or [Directory.current].
   static Configuration fromYaml(Object? yaml, {String? sourcePath, String? baseDirectory}) {
     if (yaml == null) {
       return const Configuration();
@@ -147,10 +147,11 @@ class ConfigParser {
     return const Configuration();
   }
 
-  /// Resolves the absolute directory that configuration paths are anchored to.
+  /// Returns the absolute directory that target paths and ignore files resolve
+  /// against.
   ///
-  /// Precedence is [baseDirectory], then the directory containing [sourcePath],
-  /// then [Directory.current].
+  /// Uses [baseDirectory] when supplied, otherwise the directory holding
+  /// [sourcePath], otherwise [Directory.current].
   static String _resolveAnchorDirectory({String? sourcePath, String? baseDirectory}) {
     final String cwd = Directory.current.path;
     if (baseDirectory != null) {
@@ -513,33 +514,24 @@ class LintTargetConfig {
 
   /// The ignore file that applies to [path].
   ///
-  /// Follows the same resolution contract as [path].
+  /// Absolute on a target [ConfigParser] produced, and whatever the caller
+  /// supplied on a target built directly.
   final String? ignoreFile;
 
-  /// [path] as spelled in the configuration file.
+  /// [path] as spelled in the configuration file, or `null` for a target built
+  /// by a caller rather than read from a file.
   ///
-  /// Anchoring is not reversible from [path] alone: `skills` anchored to
-  /// `/repo/pkg` and `pkg/skills` anchored to `/repo` produce the same result.
-  /// [ConfigParser] keeps the text it read, and [toYaml] emits that text, so a
-  /// configuration read from a file and written back reads as its author wrote
-  /// it. A target constructed directly holds `null` here and serializes [path]
-  /// as held, which is already the authored form.
-  ///
-  /// This text is relative to the directory of the configuration file that
-  /// declared it, not to the working directory, so it describes how a target
-  /// was written rather than where a target lives. [path] is the resolved
-  /// location and the only field validation reads.
+  /// [path] alone cannot produce this text. `skills` anchored to `/repo/pkg`
+  /// and `pkg/skills` anchored to `/repo` both resolve to `/repo/pkg/skills`,
+  /// so [toYaml] emits this text instead and rewriting a configuration file
+  /// leaves its paths as the author typed them.
   final String? _authoredPath;
 
-  /// [ignoreFile] as spelled in the configuration file.
-  ///
-  /// Follows the same contract as [_authoredPath].
+  /// [ignoreFile] as spelled in the configuration file, or `null` for a target
+  /// built by a caller rather than read from a file.
   final String? _authoredIgnoreFile;
 
   /// Converts this target configuration into its YAML representation.
-  ///
-  /// A parsed target emits the path text it was declared with, so serializing
-  /// reproduces the configuration its author wrote.
   Map<String, Object?> toYaml() {
     final map = <String, Object?>{ConfigParser.pathKey: _authoredPath ?? path};
     if (ruleConfigs.isNotEmpty) {
@@ -587,9 +579,6 @@ class Configuration {
   final List<String> parsingErrors;
 
   /// Converts this configuration into its YAML representation.
-  ///
-  /// Each target emits the path text it was declared with, so a configuration
-  /// read from a file and written back reads as its author wrote it.
   Map<String, Object?> toYaml() {
     final skillsLintMap = <String, Object?>{};
 

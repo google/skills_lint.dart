@@ -52,12 +52,11 @@ const directoryErrorMsg = 'Directory error:';
 /// session aggregates configuration parameters, custom rules, ignores, and CLI overrides,
 /// then orchestrates the validation of multiple target skill directories.
 ///
-/// ## Path Canonicalization Contract
+/// ## Path canonicalization contract
 ///
-/// [ValidationSession] operates strictly on canonical absolute paths. Paths crossing into
-/// the session from the CLI, configuration files, or external API callers are canonicalized
-/// at ingestion boundaries, ensuring that all path resolution and comparison logic
-/// (such as rule resolution via `p.isWithin` or `p.equals`) operates uniformly.
+/// Pass paths in whatever form you have them. The session resolves each one as
+/// it arrives, then compares absolute paths for the rest of the run, so a
+/// result never depends on the directory the process started in.
 ///
 /// Callers invoke [processIndividualSkill] for each `--skill` path and
 /// [processSkillRoot] for each `--skills-directory` path, then optionally
@@ -528,14 +527,18 @@ class ValidationSession {
     }
   }
 
-  /// The name recorded in a baseline for an error reported on [errorFile].
+  /// Returns the `file_name` to store in a baseline entry for an error that a
+  /// rule reported on [errorFile] while validating [skillDir].
   ///
-  /// A rule reports a name relative to the skill directory, such as `SKILL.md`,
-  /// an absolute path to a file inside the skill, or the skill directory itself
-  /// when the error describes the skill as a whole. All three collapse to a
-  /// name relative to the skill directory, `.` in the last case, so that a
-  /// baseline committed to a repository matches on any machine and from any
-  /// working directory. A path outside [skillDir] is kept as reported.
+  /// Both writing a baseline and matching against one call this, so that the
+  /// two agree on a single spelling.
+  ///
+  /// The result is relative to [skillDir]: `SKILL.md` for an error on a file in
+  /// the skill, and `.` for an error on the skill directory itself, which is
+  /// what a rule such as `path-does-not-exist` reports. Keeping the name
+  /// relative lets a committed baseline match on any machine and from any
+  /// working directory. A path outside [skillDir] is returned as reported,
+  /// since no relative name would describe it.
   @visibleForTesting
   static String baselineFileName(String errorFile, Directory skillDir) {
     final String normalized = p.normalize(errorFile);
@@ -546,11 +549,13 @@ class ValidationSession {
     return normalized;
   }
 
-  /// Whether [candidate] is [parent] or sits inside it.
+  /// Whether the file or directory at path [candidate] is the directory at path
+  /// [parent], or sits somewhere under it.
   ///
-  /// `p.isWithin` reports `false` for a directory compared against itself, so
-  /// an error reported on the skill directory needs the equality case to reach
-  /// `p.relative`, which names a directory relative to itself as `.`.
+  /// `p.isWithin` answers `false` when the two paths are equal. An error
+  /// reported against the skill directory itself needs the equal case to count,
+  /// so that [baselineFileName] reaches `p.relative` and records `.` rather
+  /// than an absolute path.
   static bool _isAtOrWithin(String parent, String candidate) =>
       p.equals(parent, candidate) || p.isWithin(parent, candidate);
 

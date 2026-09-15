@@ -26,27 +26,18 @@ String expandPath(String path) {
 
 /// Canonicalizes [rawPath] against [baseDirectory].
 ///
-/// ## Boundary canonicalization architecture
+/// Expands a leading tilde, then returns an absolute, normalized path. An
+/// absolute [rawPath] is normalized as it stands; a relative one is joined to
+/// [baseDirectory] first.
 ///
-/// Paths are canonicalized eagerly, at the boundary where they enter the tool:
-/// 1. **Configuration boundary (`ConfigParser`)**: target paths (`directories`,
-///    `individual_skills`) and `ignore_file` paths declared in a YAML
-///    configuration file are anchored to that file's parent directory.
-/// 2. **CLI and API boundary (`validateSkillsInternal`)**: target paths and
-///    ignore files supplied by command-line flags or by programmatic callers
-///    are anchored to [Directory.current].
-/// 3. **Session boundary (`ValidationSession`)**: paths handed to the session's
-///    public methods are anchored through a single private helper.
-///
-/// Code behind those boundaries operates on absolute, normalized paths and must
-/// not canonicalize again. `test/path_boundary_test.dart` enumerates the
-/// boundaries and fails when a call site is added anywhere else, so a rule or
-/// feature added later inherits the guarantee instead of re-implementing it.
-///
-/// ## Steps performed:
-/// 1. Expands tildes (`~`, `~/`, `~\`) to the user's home directory.
-/// 2. If the path is absolute, normalizes and returns it.
-/// 3. If the path is relative, joins it to [baseDirectory] and normalizes it.
+/// Call this only where a path enters the tool, which happens in three places:
+/// `ConfigParser` anchors configuration paths to the directory holding the
+/// configuration file, `validateSkillsInternal` anchors CLI and API paths to
+/// [Directory.current], and `ValidationSession` anchors paths handed to its
+/// public methods. Code behind those points already holds absolute paths and
+/// must not canonicalize again, so a rule or feature added later inherits the
+/// guarantee. `test/path_boundary_test.dart` fails when a fourth call site
+/// appears.
 String canonicalizePath(String rawPath, {required String baseDirectory}) {
   final String expanded = expandPath(rawPath);
   if (p.isAbsolute(expanded)) {
@@ -55,20 +46,19 @@ String canonicalizePath(String rawPath, {required String baseDirectory}) {
   return p.normalize(p.join(baseDirectory, expanded));
 }
 
-/// Canonicalizes every entry of [rawPaths] against [baseDirectory].
-///
-/// Follows the contract documented on [canonicalizePath].
+/// Canonicalizes every entry of [rawPaths] against [baseDirectory] with
+/// [canonicalizePath].
 List<String> canonicalizePaths(Iterable<String> rawPaths, {required String baseDirectory}) {
   return <String>[
     for (final String rawPath in rawPaths) canonicalizePath(rawPath, baseDirectory: baseDirectory),
   ];
 }
 
-/// Canonicalizes [rawPath] against [baseDirectory], passing `null` through.
+/// Canonicalizes [rawPath] against [baseDirectory] with [canonicalizePath],
+/// passing `null` through.
 ///
 /// An empty [rawPath] also resolves to `null`, so an unset option and a blank
-/// option behave identically. Follows the contract documented on
-/// [canonicalizePath].
+/// option behave identically.
 String? canonicalizePathOrNull(String? rawPath, {required String baseDirectory}) {
   if (rawPath == null || rawPath.isEmpty) {
     return null;

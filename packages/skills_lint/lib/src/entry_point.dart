@@ -111,8 +111,9 @@ Future<void> runApp(List<String> args) async {
     return;
   }
 
-  // Paths stay as authored here. validateSkillsInternal is the single CLI and
-  // API boundary that anchors them to the working directory.
+  // Do not resolve these paths here. [validateSkillsInternal] anchors them in
+  // one place, so a flag and a programmatic call resolve the same string to
+  // the same directory.
   final skillDirPaths = results[_skillsDirectoryFlag] as List<String>;
   final individualSkillPaths = results[_skillOption] as List<String>;
 
@@ -381,7 +382,7 @@ Future<bool> validateSkillsInternal({
   List<SkillRule> customRules = const [],
 }) async {
   // The CLI and API boundary: everything below this point works with absolute,
-  // normalized paths. See canonicalizePath for the boundary contract.
+  // normalized paths. See [canonicalizePath] for the boundary contract.
   final String workingDirectory = Directory.current.path;
   final List<String> canonicalIndividualSkillPaths = canonicalizePaths(
     individualSkillPaths,
