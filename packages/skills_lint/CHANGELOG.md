@@ -6,6 +6,7 @@
 - Anchored `Configuration` path resolution to the configuration file's directory, so `directories`, `individual_skills`, and `ignore_file` paths resolve relative to the configuration file rather than the current working directory.
 - Added `sourcePath` and `baseDirectory` parameters to `ConfigParser.parse()` to select the directory that in-memory configuration paths resolve against.
 - Recorded `--generate-baseline` ignore entries with file names relative to the skill directory, so a committed baseline matches from any working directory. Entries written by earlier versions keep matching.
+- Added a `relativeTo` parameter to `Configuration.toYaml()`, `Configuration.toYamlString()`, `LintTargetConfig.toYaml()`, and `LintTargetConfig.toYamlString()`, so a tool that writes a configuration file can emit paths relative to that file's directory instead of paths tied to one machine.
 
 ## 0.5.1
 

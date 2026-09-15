@@ -76,6 +76,36 @@ String? canonicalizePathOrNull(String? rawPath, {required String baseDirectory})
   return canonicalizePath(rawPath, baseDirectory: baseDirectory);
 }
 
+/// Expresses [path] relative to [relativeTo], the inverse of
+/// [canonicalizePath].
+///
+/// Canonicalization anchors a path where it enters the tool. Writing a
+/// configuration back out reverses that step, so a file that declared
+/// `path: skills` keeps declaring `path: skills` instead of gaining an absolute
+/// path that only resolves on the machine that wrote it.
+///
+/// [path] is returned unchanged when:
+/// * [relativeTo] is `null`, which is the default for serialization,
+/// * [path] is relative, so no anchor was applied to reverse,
+/// * [path] falls outside [relativeTo].
+///
+/// The containment guard matters on macOS, where the same directory is
+/// reachable through `/var` and `/private/var`. Relativizing across that split
+/// yields a chain of `..` segments that resolves correctly only from the
+/// directory it was computed in, so an absolute path is preferred instead.
+String relativizePath(String path, {required String? relativeTo}) {
+  if (relativeTo == null || !p.isAbsolute(path)) {
+    return path;
+  }
+  if (p.equals(relativeTo, path)) {
+    return '.';
+  }
+  if (!p.isWithin(relativeTo, path)) {
+    return path;
+  }
+  return p.relative(path, from: relativeTo);
+}
+
 /// Normalizes a skill name or suffix into a valid skill name token.
 ///
 /// Replaces invalid characters and underscores with hyphens, deduplicates

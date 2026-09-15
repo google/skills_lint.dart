@@ -30,6 +30,10 @@ final Logger _log = Logger('skills_lint');
 ///
 /// This ensures that the resulting [Configuration] contains only canonical, absolute
 /// paths, eliminating ambiguous CWD dependencies across subpackages or nested configs.
+///
+/// Writing a configuration back out reverses the step: pass the directory that
+/// holds the file as `relativeTo` to [Configuration.toYamlString] and the
+/// authored relative paths are preserved.
 class ConfigParser {
   static const String skillsLintKey = 'skills_lint';
   static const String rulesKey = 'rules';
@@ -493,22 +497,34 @@ class LintTargetConfig {
   final String? ignoreFile;
 
   /// Converts this target configuration into its YAML representation.
-  Map<String, Object?> toYaml() {
-    final map = <String, Object?>{ConfigParser.pathKey: path};
+  ///
+  /// Supplying [relativeTo] expresses [path] and [ignoreFile] relative to that
+  /// directory, reversing the anchoring that [ConfigParser] applies. A caller
+  /// writing a configuration file passes the directory that file is written
+  /// into, so the result stays portable across machines. Omitting it emits both
+  /// paths as they are held.
+  Map<String, Object?> toYaml({String? relativeTo}) {
+    final map = <String, Object?>{
+      ConfigParser.pathKey: relativizePath(path, relativeTo: relativeTo),
+    };
     if (ruleConfigs.isNotEmpty) {
       map[ConfigParser.rulesKey] = <String, Object?>{
         for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries)
           entry.key: entry.value.toYaml(),
       };
     }
-    if (ignoreFile != null) {
-      map[ConfigParser.ignoreFileKey] = ignoreFile;
+    final String? targetIgnoreFile = ignoreFile;
+    if (targetIgnoreFile != null) {
+      map[ConfigParser.ignoreFileKey] = relativizePath(targetIgnoreFile, relativeTo: relativeTo);
     }
     return map;
   }
 
   /// Converts this target configuration into a formatted YAML string.
-  String toYamlString() => ConfigSerializer.toYamlString(toYaml());
+  ///
+  /// [relativeTo] follows the contract documented on [toYaml].
+  String toYamlString({String? relativeTo}) =>
+      ConfigSerializer.toYamlString(toYaml(relativeTo: relativeTo));
 
   // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
   @Deprecated('Use ruleConfigs instead')
@@ -539,7 +555,11 @@ class Configuration {
   final List<String> parsingErrors;
 
   /// Converts this configuration into its YAML representation.
-  Map<String, Object?> toYaml() {
+  ///
+  /// [relativeTo] is forwarded to every target and follows the contract
+  /// documented on [LintTargetConfig.toYaml]. Pass the directory that the
+  /// configuration file is written into to keep authored paths portable.
+  Map<String, Object?> toYaml({String? relativeTo}) {
     final skillsLintMap = <String, Object?>{};
 
     if (ruleConfigs.isNotEmpty) {
@@ -551,13 +571,14 @@ class Configuration {
 
     if (directoryConfigs.isNotEmpty) {
       skillsLintMap[ConfigParser.directoriesKey] = <Map<String, Object?>>[
-        for (final LintTargetConfig dir in directoryConfigs) dir.toYaml(),
+        for (final LintTargetConfig dir in directoryConfigs) dir.toYaml(relativeTo: relativeTo),
       ];
     }
 
     if (individualSkillConfigs.isNotEmpty) {
       skillsLintMap[ConfigParser.individualSkillsKey] = <Map<String, Object?>>[
-        for (final LintTargetConfig skill in individualSkillConfigs) skill.toYaml(),
+        for (final LintTargetConfig skill in individualSkillConfigs)
+          skill.toYaml(relativeTo: relativeTo),
       ];
     }
 
@@ -565,7 +586,10 @@ class Configuration {
   }
 
   /// Converts this configuration into a formatted YAML string.
-  String toYamlString() => ConfigSerializer.toYamlString(toYaml());
+  ///
+  /// [relativeTo] follows the contract documented on [toYaml].
+  String toYamlString({String? relativeTo}) =>
+      ConfigSerializer.toYamlString(toYaml(relativeTo: relativeTo));
 
   // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
   @Deprecated('Use ruleConfigs instead')

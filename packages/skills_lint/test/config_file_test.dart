@@ -1275,6 +1275,38 @@ skills_lint:
       expect(serializedRules(parsed), equals(serializedRules(config)));
       expectStableSerialization(parsed);
     });
+
+    test('rewriting a loaded configuration preserves the authored paths', () async {
+      await withTempDir((Directory tempDir) async {
+        const authored = Configuration(
+          directoryConfigs: [
+            LintTargetConfig(
+              path: 'skills',
+              ruleConfigs: {
+                TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+              },
+              ignoreFile: 'skills/ignores.json',
+            ),
+          ],
+          individualSkillConfigs: [LintTargetConfig(path: 'skills/one-skill')],
+        );
+        final String originalText = authored.toYamlString();
+        final configFile = File(p.join(tempDir.path, 'skills_lint.yaml'));
+        await configFile.writeAsString(originalText);
+
+        final Configuration loaded = await ConfigParser.loadConfig(path: configFile.path);
+
+        // A tool that reads a configuration, edits it, and writes it back
+        // supplies the directory it writes into, so the file keeps the paths
+        // its author wrote rather than paths tied to one machine.
+        expect(loaded.toYamlString(relativeTo: p.dirname(configFile.path)), equals(originalText));
+        expect(
+          loaded.toYamlString(),
+          contains(p.join(tempDir.path, 'skills')),
+          reason: 'Omitting the anchor emits the resolved path.',
+        );
+      });
+    });
   });
 
   group('Configuration & LintTargetConfig Model Methods', () {
