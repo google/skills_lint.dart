@@ -1305,8 +1305,6 @@ skills_lint:
         // Each target carries the text it was declared with, so a tool that
         // reads a configuration, edits it, and writes it back needs no argument
         // to keep the file portable.
-        expect(loaded.directoryConfigs.first.authoredPath, equals('skills'));
-        expect(loaded.directoryConfigs.first.authoredIgnoreFile, equals('skills/ignores.json'));
         expect(loaded.toYamlString(), equals(originalText));
       });
     });
@@ -1316,7 +1314,6 @@ skills_lint:
         directoryConfigs: [LintTargetConfig(path: 'skills', ignoreFile: '../shared/ignores.json')],
       );
 
-      expect(authored.directoryConfigs.first.authoredPath, isNull);
       expect(authored.toYamlString(), contains('path: skills'));
       expect(authored.toYamlString(), contains('ignore_file: "../shared/ignores.json"'));
     });

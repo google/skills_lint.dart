@@ -33,8 +33,7 @@ final Logger _log = Logger('skills_lint');
 ///
 /// Writing a configuration back out does not undo the arithmetic: each target
 /// keeps the path text it was declared with, and [Configuration.toYamlString]
-/// emits that text, so a rewritten file reads as its author wrote it. See
-/// [LintTargetConfig.authoredPath].
+/// emits that text, so a rewritten file reads as its author wrote it.
 class ConfigParser {
   static const String skillsLintKey = 'skills_lint';
   static const String rulesKey = 'rules';
@@ -408,7 +407,7 @@ class ConfigParser {
       anchorDirectory,
     );
 
-    return LintTargetConfig(
+    return LintTargetConfig._parsed(
       path: canonicalizePath(path, baseDirectory: anchorDirectory),
       ruleConfigs: ruleConfigs,
       ignoreFile: ignoreFile.resolved,
@@ -486,9 +485,21 @@ class LintTargetConfig {
     required this.path,
     this.ruleConfigs = const <String, RuleConfigPatch>{},
     this.ignoreFile,
-    this.authoredPath,
-    this.authoredIgnoreFile,
-  });
+  }) : _authoredPath = null,
+       _authoredIgnoreFile = null;
+
+  /// Builds a target that remembers the path text it was declared with.
+  ///
+  /// Named parameters cannot start with an underscore, so [ConfigParser] reaches
+  /// the private fields through this constructor.
+  const LintTargetConfig._parsed({
+    required this.path,
+    required this.ruleConfigs,
+    required this.ignoreFile,
+    required String? authoredPath,
+    required String? authoredIgnoreFile,
+  }) : _authoredPath = authoredPath,
+       _authoredIgnoreFile = authoredIgnoreFile;
 
   /// The path to the directory containing skills, or to an individual skill.
   ///
@@ -514,32 +525,30 @@ class LintTargetConfig {
   /// it. A target constructed directly holds `null` here and serializes [path]
   /// as held, which is already the authored form.
   ///
-  /// Never resolve against this field: it is relative to the directory of the
-  /// configuration file that declared it, not to the working directory. [path]
-  /// is the resolved location and the only field validation reads.
-  ///
-  /// A target whose [path] is replaced must drop this field or restate it,
-  /// since the two describe the same target.
-  final String? authoredPath;
+  /// This text is relative to the directory of the configuration file that
+  /// declared it, not to the working directory, so it describes how a target
+  /// was written rather than where a target lives. [path] is the resolved
+  /// location and the only field validation reads.
+  final String? _authoredPath;
 
   /// [ignoreFile] as spelled in the configuration file.
   ///
-  /// Follows the same contract as [authoredPath].
-  final String? authoredIgnoreFile;
+  /// Follows the same contract as [_authoredPath].
+  final String? _authoredIgnoreFile;
 
   /// Converts this target configuration into its YAML representation.
   ///
-  /// Emits [authoredPath] and [authoredIgnoreFile] when present, so a parsed
-  /// configuration serializes as its author wrote it.
+  /// A parsed target emits the path text it was declared with, so serializing
+  /// reproduces the configuration its author wrote.
   Map<String, Object?> toYaml() {
-    final map = <String, Object?>{ConfigParser.pathKey: authoredPath ?? path};
+    final map = <String, Object?>{ConfigParser.pathKey: _authoredPath ?? path};
     if (ruleConfigs.isNotEmpty) {
       map[ConfigParser.rulesKey] = <String, Object?>{
         for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries)
           entry.key: entry.value.toYaml(),
       };
     }
-    final String? targetIgnoreFile = authoredIgnoreFile ?? ignoreFile;
+    final String? targetIgnoreFile = _authoredIgnoreFile ?? ignoreFile;
     if (targetIgnoreFile != null) {
       map[ConfigParser.ignoreFileKey] = targetIgnoreFile;
     }
@@ -580,8 +589,7 @@ class Configuration {
   /// Converts this configuration into its YAML representation.
   ///
   /// Each target emits the path text it was declared with, so a configuration
-  /// read from a file and written back reads as its author wrote it. See
-  /// [LintTargetConfig.authoredPath].
+  /// read from a file and written back reads as its author wrote it.
   Map<String, Object?> toYaml() {
     final skillsLintMap = <String, Object?>{};
 
