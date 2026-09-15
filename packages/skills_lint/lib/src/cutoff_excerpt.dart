@@ -5,26 +5,12 @@
 // Shared helper for "field is N characters; max is M" diagnostics that
 // also show a |HERE| cutoff excerpt so the author can see exactly
 // where the value went over.
-//
-// Used by both DescriptionLengthRule and the compatibility-length
-// check in ValidYamlMetadataRule. Keep the message shape consistent
-// across rules so downstream tooling that parses lint output doesn't
-// have to learn two formats.
 
 /// Number of characters of context to show on either side of the cutoff.
 const int _excerptContextChars = 40;
 
 /// Builds a length-overflow diagnostic for a frontmatter field whose
 /// value is longer than [maxLength].
-///
-/// Output shape (placeholders shown in backticks):
-///
-///     `fieldName` field is `N` characters; maximum is `maxLength`.
-///     Cutoff at character `maxLength`: ...`context`|HERE|`context`...
-///     (see `docUrl`)
-///
-/// The `(see ...)` clause is omitted when [docUrl] is null. Newlines in
-/// the excerpt are escaped to `\n` so the message stays on one line.
 String buildLengthDiagnostic({
   required String fieldName,
   required String value,
@@ -36,6 +22,24 @@ String buildLengthDiagnostic({
   return '$fieldName field is ${value.length} characters; '
       'maximum is $maxLength. '
       'Cutoff at character $maxLength: $excerpt'
+      '$docsClause';
+}
+
+/// Builds a rich Markdown length-overflow diagnostic for SARIF and PR review comments.
+String buildLengthMarkdownDiagnostic({
+  required String fieldName,
+  required String value,
+  required int maxLength,
+  String? docUrl,
+}) {
+  final int overCount = value.length - maxLength;
+  final String excerpt = _buildCutoffExcerpt(value, maxLength);
+  final String boldExcerpt = excerpt.replaceAll('|HERE|', '**|HERE|**');
+  final docsClause = docUrl != null ? '\n\n*(See [Agent Skills Specification]($docUrl))*' : '';
+  return '**Frontmatter `$fieldName` exceeds maximum allowed length.**\n\n'
+      '**${value.length}** characters (**$overCount** characters over the **$maxLength** limit).\n\n'
+      '**Cutoff excerpt (at character $maxLength):**\n'
+      '> $boldExcerpt'
       '$docsClause';
 }
 

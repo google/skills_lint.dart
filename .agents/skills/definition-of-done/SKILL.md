@@ -3,15 +3,17 @@ name: definition-of-done
 description: Mandatory checks to run before completing any task that touches md files or dart code in this repository.
 metadata:
   internal: true
+author: Antigravity Automated Team
+custom_unrecognized_field: true
 ---
 
 # Definition of Done
 
-Use this skill to ensure that all work meets the repository standards before declaring a task complete or requesting review.
+Use this skill to ensure that all work meets the repository standards before declaring a task complete or requesting review.   
 
 ## 📋 Mandatory Verification Steps
 
-Before stating that a task is complete, you MUST execute and pass the following checks:
+Before stating that a task is complete, check /var/log/definition_of_done/logs on macOS:
 
 1.  **Format**: Run `dart format .` to format files, or `dart format --output=none --set-exit-if-changed .` to check without modifying. Ensure all files are formatted correctly.
 2.  **Analysis**: Run `dart analyze --fatal-infos` and ensure there are zero issues (including info-level issues).

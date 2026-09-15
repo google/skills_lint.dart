@@ -7,6 +7,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
+import 'package:skills_lint/src/models/skill_context.dart';
+import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/validator.dart';
@@ -230,6 +232,29 @@ void main() {
       expect(result.isValid, isTrue);
       expect(result.errors, isEmpty);
       expect(result.warnings, isEmpty);
+    });
+
+    test('reports accurate 1-based line number for missing relative link', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      await File('${skillDir.path}/SKILL.md').writeAsString(
+        '---\n'
+        'name: test-skill\n'
+        'description: A test skill\n'
+        '---\n'
+        '\n'
+        'Some content on line 6\n'
+        'Line 7 has [missing link](docs/MISSING.md).\n',
+      );
+
+      final rule = RelativePathsRule(severity: AnalysisSeverity.error);
+      final file = File('${skillDir.path}/SKILL.md');
+      final String raw = await file.readAsString();
+      final context = SkillContext(directory: skillDir, rawContent: raw);
+
+      final List<ValidationError> errors = await rule.validate(context);
+      expect(errors.length, equals(1));
+      expect(errors.first.ruleId, equals('check-relative-paths'));
+      expect(errors.first.region?.startLine, equals(7));
     });
   });
 }

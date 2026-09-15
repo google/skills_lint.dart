@@ -98,6 +98,9 @@ sequenceDiagram
 5. **Typesafe Bidirectional Configuration Lifecycle**  
    Configuration state supports deterministic round-trip serialization between structured in-memory representations and valid YAML documents. Serialized definitions conform strictly to standard schema keys and preserve type semantics (including booleans, numerics, and explicit null resets) across parse and emission cycles. This decoupling allows external developer tools and integration tests to generate, inspect, and mutate configuration programmatically without manual string formatting.
 
+6. **Class Constants for Serialization and Schema Keys**  
+   Schema, serialization, YAML, and configuration keys are declared as static class constants co-located on their owning data models rather than inline string literals. Centralizing property keys ensures a single source of truth for wire representations and causes downstream key renames to fail at compile time.
+
 ---
 
 ## 🚫 Rejected Anti-Patterns & Common Pitfalls

@@ -4,9 +4,32 @@
 
 import 'dart:async';
 import 'dart:io';
+
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/skill_context.dart';
+import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
+
+/// Asserts that [instance] serializes via [toJson] to [expectedJson] (or matching map),
+/// and that deserializing via [fromJson] yields an object whose [toJson] output matches [expectedJson]
+/// (and equals [instance] if [expectValueEquality] is true).
+void expectJsonRoundTrip<T>({
+  required T instance,
+  required Map<String, Object?> Function(T) toJson,
+  required T Function(Map<String, Object?>) fromJson,
+  Map<String, Object?>? expectedJson,
+  bool expectValueEquality = false,
+}) {
+  final Map<String, Object?> actualJson = toJson(instance);
+  if (expectedJson != null) {
+    expect(actualJson, equals(expectedJson));
+  }
+  final T restored = fromJson(actualJson);
+  expect(toJson(restored), equals(actualJson));
+  if (expectValueEquality) {
+    expect(restored, equals(instance));
+  }
+}
 
 /// Generates a raw YAML frontmatter string delimited by `---`.
 String buildFrontmatter({
@@ -38,12 +61,6 @@ Future<void> withTempDir(FutureOr<void> Function(Directory tempDir) action) asyn
 }
 
 /// Creates a physical skill directory on the filesystem containing a `SKILL.md` file.
-///
-/// Use this helper for integration tests, CLI execution, or tests exercising
-/// [Validator] file discovery that require actual files on disk.
-///
-/// For fast, isolated unit tests that validate rules against in-memory models
-/// without disk I/O, use [createTestSkillContext] instead.
 Future<Directory> createDummySkill(
   Directory parentDir, {
   required String name,
@@ -55,16 +72,6 @@ Future<Directory> createDummySkill(
 }
 
 /// Constructs an in-memory [SkillContext] data object for unit testing [SkillRule]s.
-///
-/// This helper builds pre-parsed YAML metadata and raw content directly in
-/// memory without creating or writing files to the filesystem.
-///
-/// If [rawContent] or [parsedYaml] are omitted, valid frontmatter is
-/// automatically generated using [name] (defaulting to the basename of
-/// [directory]), [description], and optional [compatibility].
-///
-/// For integration tests that require physical directories and files on disk,
-/// use [createDummySkill] instead.
 SkillContext createTestSkillContext({
   required Directory directory,
   String? name,
