@@ -530,19 +530,29 @@ class ValidationSession {
 
   /// The name recorded in a baseline for an error reported on [errorFile].
   ///
-  /// A rule reports either a name relative to the skill directory, such as
-  /// `SKILL.md`, or an absolute path. Both collapse to the relative form so
-  /// that a baseline committed to a repository matches on any machine and from
-  /// any working directory. A path outside [skillDir] is kept as reported.
+  /// A rule reports a name relative to the skill directory, such as `SKILL.md`,
+  /// an absolute path to a file inside the skill, or the skill directory itself
+  /// when the error describes the skill as a whole. All three collapse to a
+  /// name relative to the skill directory, `.` in the last case, so that a
+  /// baseline committed to a repository matches on any machine and from any
+  /// working directory. A path outside [skillDir] is kept as reported.
   @visibleForTesting
   static String baselineFileName(String errorFile, Directory skillDir) {
     final String normalized = p.normalize(errorFile);
     final String skillPath = p.normalize(skillDir.path);
-    if (p.isAbsolute(normalized) && p.isWithin(skillPath, normalized)) {
+    if (p.isAbsolute(normalized) && _isAtOrWithin(skillPath, normalized)) {
       return p.relative(normalized, from: skillPath);
     }
     return normalized;
   }
+
+  /// Whether [candidate] is [parent] or sits inside it.
+  ///
+  /// `p.isWithin` reports `false` for a directory compared against itself, so
+  /// an error reported on the skill directory needs the equality case to reach
+  /// `p.relative`, which names a directory relative to itself as `.`.
+  static bool _isAtOrWithin(String parent, String candidate) =>
+      p.equals(parent, candidate) || p.isWithin(parent, candidate);
 
   /// Where an error reported on [errorFile] sits on disk.
   static String _absoluteErrorFile(String errorFile, Directory skillDir) {

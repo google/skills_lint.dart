@@ -5,7 +5,7 @@
 - Added the `published-skill-name` lint rule to validate that published skills in a Dart package's `skills/` directory follow the package naming convention required by `package:skills`.
 - Anchored `Configuration` path resolution to the configuration file's directory, so `directories`, `individual_skills`, and `ignore_file` paths resolve relative to the configuration file rather than the current working directory.
 - Added `sourcePath` and `baseDirectory` parameters to `ConfigParser.parse()` to select the directory that in-memory configuration paths resolve against.
-- Recorded `--generate-baseline` ignore entries with file names relative to the skill directory, so a committed baseline matches from any working directory. Entries written by earlier versions keep matching.
+- Recorded `--generate-baseline` ignore entries with file names relative to the skill directory, naming the skill directory itself `.`, so a committed baseline matches on any machine and from any working directory. Entries written by earlier versions keep matching.
 - Recorded the `path` and `ignore_file` text that each parsed configuration target was declared with, and emitted that text when serializing, so a configuration read from a file and written back keeps the paths its author wrote.
 
 ## 0.5.1

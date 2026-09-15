@@ -123,6 +123,41 @@ skills_lint:
       expect(entries.single[IgnoreEntry.fileNameKey], equals('SKILL.md'));
     });
 
+    test('a baseline names the skill directory itself relative to the skill', () async {
+      // path-does-not-exist reports the skill directory rather than a file
+      // inside it, so the recorded name has no file to be relative to.
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+
+      final TestProcess generate = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        skillDir.path,
+        '--generate-baseline',
+      ], workingDirectory: tempDir.path);
+      await generate.shouldExit(0);
+
+      final json =
+          jsonDecode(await File('${skillDir.path}/$defaultIgnoreFileName').readAsString())
+              as Map<String, dynamic>;
+      final skills = json[SkillsIgnores.skillsKey] as Map<String, dynamic>;
+      final List<Map<String, dynamic>> entries = (skills['test-skill'] as List)
+          .cast<Map<String, dynamic>>();
+
+      expect(
+        entries.map((Map<String, dynamic> entry) => entry[IgnoreEntry.fileNameKey]),
+        everyElement(equals('.')),
+        reason: 'An absolute name would only match on the machine that generated it.',
+      );
+
+      // The recorded name has to keep suppressing the error it was written for.
+      final TestProcess validate = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        skillDir.path,
+      ], workingDirectory: Directory.systemTemp.path);
+      await validate.shouldExit(0);
+    });
+
     test('a baseline suppresses errors when validated from another directory', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
       await File(
