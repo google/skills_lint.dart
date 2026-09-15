@@ -136,7 +136,7 @@ class SarifSerializer {
     return SarifResult(
       ruleId: error.ruleId,
       level: severityToSarifLevel(error.severity),
-      message: SarifMessage(text: error.message),
+      message: SarifMessage(text: error.message, markdown: error.markdownMessage),
       ruleIndex: ruleIndexMap[error.ruleId],
       locations: [
         SarifLocation(

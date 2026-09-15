@@ -42,14 +42,24 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
       if (match != null) {
         final String whitespace = match.group(1)!;
         String? message;
+        String? markdownMessage;
 
         if (whitespace.contains('\t')) {
           message = 'Line ${i + 1} has trailing whitespace containing tabs.';
+          markdownMessage =
+              '**Line contains trailing whitespace with tabs.**\n\n'
+              '**How to fix:**\n'
+              '- Remove trailing tabs and whitespace from the end of the line.';
         } else {
           final int spacesCount = whitespace.length;
           if (spacesCount == 1 || spacesCount >= 3) {
             message =
                 'Line ${i + 1} has $spacesCount trailing space(s). Only exactly 2 spaces are allowed for line breaks.';
+            markdownMessage =
+                '**Line contains $spacesCount trailing space(s).**\n\n'
+                '**How to fix:**\n'
+                '- Remove trailing spaces from the end of the line.\n'
+                '- *(Note: exactly 2 trailing spaces are permitted for Markdown hard line breaks).*';
           }
         }
 
@@ -62,6 +72,7 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
               severity: severity,
               file: 'SKILL.md',
               message: message,
+              markdownMessage: markdownMessage,
               region: SourceRegion(
                 startLine: i + 1,
                 startColumn: startCol,

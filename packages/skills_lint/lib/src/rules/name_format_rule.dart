@@ -29,7 +29,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
   final AnalysisSeverity severity;
 
   static const maxNameLength = 64;
-  static final _validNameRegex = RegExp(r'^[a-z0-9\-]+$');
+  static final _validNameRegex = RegExp(r'^[a-z0-9-]+$');
   static const String _skillFileName = SkillContext.skillFileName;
   static const _nameFieldUrl = 'https://agentskills.io/specification#name-field';
 
@@ -51,12 +51,53 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final SourceRegion? region = context.yamlNodeToRegion(nameNode);
     final String suggestion = suggestNormalizedName(skillName);
+    final String dirName = basename(context.directory.path);
+
+    if (skillName != dirName) {
+      errors.add(
+        ValidationError(
+          ruleId: name,
+          severity: severity,
+          file: _skillFileName,
+          message:
+              'Frontmatter `name` "$skillName" does not match the parent '
+              'directory name "$dirName". '
+              'Fix by either setting `name: $dirName` in SKILL.md '
+              'or renaming the directory from "$dirName" to "$skillName". '
+              '(see $_nameFieldUrl)',
+          markdownMessage:
+              '**Frontmatter `name` does not match parent directory name.**\n\n'
+              '* **Current:** `$skillName`\n'
+              '* **Expected:** `$dirName`\n\n'
+              '**How to fix:**\n'
+              '```yaml\n'
+              'name: $dirName\n'
+              '```\n'
+              '*Or rename the directory `$dirName` to `$skillName`.*\n\n'
+              '*(See [Agent Skills Specification]($_nameFieldUrl))*',
+          region: region,
+        ),
+      );
+    }
 
     if (skillName != skillName.toLowerCase()) {
       errors.add(
-        _buildNameFormatError(
-          'Frontmatter `name` "$skillName" must be lowercase. '
-          'Suggested: "$suggestion"',
+        ValidationError(
+          ruleId: name,
+          severity: severity,
+          file: _skillFileName,
+          message:
+              'Frontmatter `name` "$skillName" must be lowercase. '
+              'Suggested: "$suggestion" (see $_nameFieldUrl)',
+          markdownMessage:
+              '**Frontmatter `name` must be lowercase.**\n\n'
+              '* **Current:** `$skillName`\n'
+              '* **Suggested:** `$suggestion`\n\n'
+              '**How to fix:**\n'
+              '```yaml\n'
+              'name: $suggestion\n'
+              '```\n'
+              '*(See [Agent Skills Specification]($_nameFieldUrl))*',
           region: region,
         ),
       );
@@ -64,21 +105,50 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     if (skillName.length > maxNameLength) {
       errors.add(
-        _buildNameFormatError(
-          'Frontmatter `name` is ${skillName.length} characters; '
-          'maximum is $maxNameLength. '
-          'Shorten the `name:` field in SKILL.md.',
+        ValidationError(
+          ruleId: name,
+          severity: severity,
+          file: _skillFileName,
+          message:
+              'Frontmatter `name` is ${skillName.length} characters; '
+              'maximum is $maxNameLength. '
+              'Shorten the `name:` field in SKILL.md. (see $_nameFieldUrl)',
+          markdownMessage:
+              '**Frontmatter `name` exceeds maximum allowed length.**\n\n'
+              '**${skillName.length}** characters (**${skillName.length - maxNameLength}** characters over the **$maxNameLength** limit).\n\n'
+              '**How to fix:**\n'
+              'Shorten the `name:` field in `SKILL.md`.\n\n'
+              '*(See [Agent Skills Specification]($_nameFieldUrl))*',
           region: region,
         ),
       );
     }
 
-    if (!_validNameRegex.hasMatch(skillName)) {
+    // Check invalid characters ignoring casing differences if casing error was already emitted
+    final bool hasInvalidChars = skillName != skillName.toLowerCase()
+        ? !_validNameRegex.hasMatch(skillName.toLowerCase())
+        : !_validNameRegex.hasMatch(skillName);
+
+    if (hasInvalidChars) {
       errors.add(
-        _buildNameFormatError(
-          'Frontmatter `name` "$skillName" contains invalid characters. '
-          'Only lowercase letters, digits, and hyphens are allowed. '
-          'Suggested: "$suggestion"',
+        ValidationError(
+          ruleId: name,
+          severity: severity,
+          file: _skillFileName,
+          message:
+              'Frontmatter `name` "$skillName" contains invalid characters. '
+              'Only lowercase letters, digits, and hyphens are allowed. '
+              'Suggested: "$suggestion" (see $_nameFieldUrl)',
+          markdownMessage:
+              '**Frontmatter `name` contains invalid characters.**\n\n'
+              'Only lowercase letters, digits, and hyphens are allowed.\n\n'
+              '* **Current:** `$skillName`\n'
+              '* **Suggested:** `$suggestion`\n\n'
+              '**How to fix:**\n'
+              '```yaml\n'
+              'name: $suggestion\n'
+              '```\n'
+              '*(See [Agent Skills Specification]($_nameFieldUrl))*',
           region: region,
         ),
       );
@@ -86,9 +156,22 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     if (skillName.startsWith('-') || skillName.endsWith('-')) {
       errors.add(
-        _buildNameFormatError(
-          'Frontmatter `name` "$skillName" has leading or trailing hyphens. '
-          'Suggested: "$suggestion"',
+        ValidationError(
+          ruleId: name,
+          severity: severity,
+          file: _skillFileName,
+          message:
+              'Frontmatter `name` "$skillName" has leading or trailing hyphens. '
+              'Suggested: "$suggestion" (see $_nameFieldUrl)',
+          markdownMessage:
+              '**Frontmatter `name` has leading or trailing hyphens.**\n\n'
+              '* **Current:** `$skillName`\n'
+              '* **Suggested:** `$suggestion`\n\n'
+              '**How to fix:**\n'
+              '```yaml\n'
+              'name: $suggestion\n'
+              '```\n'
+              '*(See [Agent Skills Specification]($_nameFieldUrl))*',
           region: region,
         ),
       );
@@ -96,22 +179,22 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     if (skillName.contains('--')) {
       errors.add(
-        _buildNameFormatError(
-          'Frontmatter `name` "$skillName" has consecutive hyphens. '
-          'Suggested: "$suggestion"',
-          region: region,
-        ),
-      );
-    }
-
-    final String dirName = basename(context.directory.path);
-    if (skillName != dirName) {
-      errors.add(
-        _buildNameFormatError(
-          'Frontmatter `name` "$skillName" does not match the parent '
-          'directory name "$dirName". '
-          'Fix by either setting `name: $dirName` in SKILL.md '
-          'or renaming the directory from "$dirName" to "$skillName".',
+        ValidationError(
+          ruleId: name,
+          severity: severity,
+          file: _skillFileName,
+          message:
+              'Frontmatter `name` "$skillName" has consecutive hyphens. '
+              'Suggested: "$suggestion" (see $_nameFieldUrl)',
+          markdownMessage:
+              '**Frontmatter `name` has consecutive hyphens.**\n\n'
+              '* **Current:** `$skillName`\n'
+              '* **Suggested:** `$suggestion`\n\n'
+              '**How to fix:**\n'
+              '```yaml\n'
+              'name: $suggestion\n'
+              '```\n'
+              '*(See [Agent Skills Specification]($_nameFieldUrl))*',
           region: region,
         ),
       );
@@ -120,20 +203,9 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return errors;
   }
 
-  ValidationError _buildNameFormatError(String message, {SourceRegion? region}) => ValidationError(
-    ruleId: name,
-    severity: severity,
-    file: _skillFileName,
-    message: '$message (see $_nameFieldUrl)',
-    region: region,
-  );
-
   /// Returns a best-effort normalization of [input] that conforms to the
   /// skill name format: lowercase, hyphens only, no consecutive/leading/
   /// trailing hyphens, truncated to [maxNameLength].
-  ///
-  /// This is intentionally a *suggestion* — the author still picks the final
-  /// name. The output is not guaranteed to match a directory name.
   @visibleForTesting
   static String suggestNormalizedName(String input) => normalizeSkillNameToken(input);
 

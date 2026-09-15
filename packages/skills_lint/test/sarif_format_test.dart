@@ -435,6 +435,8 @@ void _testIndividualSarifModels() {
           SarifRule(
             id: 'rule-1',
             shortDescription: SarifMessage(text: 'Rule 1 description'),
+            fullDescription: SarifMessage(text: 'Full rule description'),
+            help: SarifMessage(text: 'Rule help text', markdown: '**Rule Help Markdown**'),
           ),
         ],
       );
@@ -496,6 +498,16 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifMessage positive round-trip', () {
+      final fullMessage = SarifMessage(
+        text: 'Plain text finding',
+        markdown: '**Markdown** finding with code `sample`',
+      );
+      expectJsonRoundTrip<SarifMessage>(
+        instance: fullMessage,
+        toJson: (m) => m.toJson(),
+        fromJson: SarifMessage.fromJson,
+      );
+
       final message = SarifMessage(text: 'Plain text finding');
       expectJsonRoundTrip<SarifMessage>(
         instance: message,

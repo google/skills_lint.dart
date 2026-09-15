@@ -17,6 +17,7 @@ void main() {
         severity: AnalysisSeverity.error,
         isIgnored: true,
         region: const SourceRegion(startLine: 2, startColumn: 1, endLine: 2, endColumn: 15),
+        markdownMessage: '**Invalid YAML frontmatter.**\n\nSyntax error on line 2.',
       );
 
       expectJsonRoundTrip<ValidationError>(

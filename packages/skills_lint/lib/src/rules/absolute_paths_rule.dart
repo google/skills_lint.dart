@@ -25,6 +25,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
   final AnalysisSeverity severity;
 
   static const String _skillFileName = SkillContext.skillFileName;
+  static const _pathsUrl = 'https://agentskills.io/specification#file-system';
 
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
@@ -40,7 +41,9 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     for (final RegExpMatch linkMatch in SkillContext.markdownLinkRegex.allMatches(
       markdownContent,
     )) {
-      final String path = linkMatch.group(1)!;
+      final String fullPath = linkMatch.group(1)!;
+      final String path = fullPath.trim().split(RegExp(r'\s+')).first;
+
       if (isAbsolute(path) || windows.isAbsolute(path)) {
         final int linkOffsetInFile = frontmatterEnd + linkMatch.start;
         final int line = context.offsetToLine(linkOffsetInFile);
@@ -53,6 +56,11 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
                 'Absolute filepath found in link: $path. '
                 'Skills must use paths relative to SKILL.md so they remain '
                 'portable across machines.',
+            markdownMessage:
+                '**Absolute path found in link:** `$path`\n\n'
+                '**How to fix:**\n'
+                '- Convert `$path` to a relative path pointing inside the skill directory.\n\n'
+                '*(See [Agent Skills Specification]($_pathsUrl))*',
             region: SourceRegion(startLine: line),
           ),
         );
@@ -64,23 +72,35 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
 
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    if (filePath != SkillContext.skillFileName) {
+    if (filePath != _skillFileName) {
       return currentContent;
     }
 
-    return currentContent.replaceAllMapped(SkillContext.markdownLinkRegex, (match) {
-      final String path = match.group(1)!;
-      if (isAbsolute(path) || windows.isAbsolute(path)) {
-        final file = File(path);
+    final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(currentContent);
+    final int frontmatterEnd = match != null ? match.end : 0;
+    final String frontmatter = currentContent.substring(0, frontmatterEnd);
+    final String markdownContent = currentContent.substring(frontmatterEnd);
+
+    final String fixedMarkdown = markdownContent.replaceAllMapped(SkillContext.markdownLinkRegex, (
+      match,
+    ) {
+      final String rawTarget = match.group(1)!;
+      final String trimmed = rawTarget.trim();
+
+      if (isAbsolute(trimmed) || windows.isAbsolute(trimmed)) {
+        final file = File(trimmed);
         if (file.existsSync()) {
-          final String relativePath = relative(path, from: directory.path);
+          final String relativePath = relative(trimmed, from: directory.path);
           final String posixRelativePath = relativePath.replaceAll(r'\', '/');
           final String fullMatch = match.group(0)!;
           final int lastParen = fullMatch.lastIndexOf('(');
           return '${fullMatch.substring(0, lastParen + 1)}$posixRelativePath)';
         }
       }
+
       return match.group(0)!;
     });
+
+    return '$frontmatter$fixedMarkdown';
   }
 }

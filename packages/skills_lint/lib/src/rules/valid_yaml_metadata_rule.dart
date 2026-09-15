@@ -57,8 +57,18 @@ class ValidYamlMetadataRule extends SkillRule {
           file: _skillFileName,
           message:
               'Invalid YAML metadata: ${context.yamlParsingError ?? 'Missing or invalid'} (see $_metadataUrl)',
-          // When frontmatter is absent or malformed, the error applies
-          // to the entire file rather than a specific line or node.
+          markdownMessage:
+              '**Invalid YAML frontmatter.**\n\n'
+              '${context.yamlParsingError ?? 'Missing or malformed YAML frontmatter block.'}\n\n'
+              '**How to fix:**\n'
+              'Ensure `SKILL.md` begins with a valid YAML frontmatter block delimited by `---`:\n'
+              '```yaml\n'
+              '---\n'
+              'name: <skill-name>\n'
+              'description: <skill-description>\n'
+              '---\n'
+              '```\n'
+              '*(See [Agent Skills Specification]($_metadataUrl))*',
           region: SourceRegion.wholeFile,
         ),
       );
@@ -74,9 +84,11 @@ class ValidYamlMetadataRule extends SkillRule {
             severity: severity,
             file: _skillFileName,
             message: 'Missing required field: $field (see $_metadataUrl)',
-            // When a required frontmatter field is absent, no AST node exists to
-            // anchor a line/column coordinate. Whole-file scope indicates the
-            // file is missing top-level structure.
+            markdownMessage:
+                '**Missing required frontmatter field:** `$field`\n\n'
+                '**How to fix:**\n'
+                'Add `$field:` to the YAML frontmatter in `SKILL.md`.\n\n'
+                '*(See [Agent Skills Specification]($_metadataUrl))*',
             region: SourceRegion.wholeFile,
           ),
         );
@@ -95,6 +107,12 @@ class ValidYamlMetadataRule extends SkillRule {
             file: _skillFileName,
             message: buildLengthDiagnostic(
               fieldName: 'Compatibility',
+              value: compatibility,
+              maxLength: maxCompatibilityLength,
+              docUrl: _compatibilityFieldUrl,
+            ),
+            markdownMessage: buildLengthMarkdownDiagnostic(
+              fieldName: 'compatibility',
               value: compatibility,
               maxLength: maxCompatibilityLength,
               docUrl: _compatibilityFieldUrl,

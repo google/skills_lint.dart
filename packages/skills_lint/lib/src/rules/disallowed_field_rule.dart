@@ -62,6 +62,11 @@ class DisallowedFieldRule extends SkillRule {
             severity: severity,
             file: _skillFileName,
             message: 'Disallowed field: $keyStr (see $_metadataUrl)',
+            markdownMessage:
+                '**Disallowed frontmatter field:** `$keyStr`\n\n'
+                '**How to fix:**\n'
+                '- Remove `$keyStr` from frontmatter, or move it under `metadata:` if it is custom tool configuration.\n\n'
+                '*(See [Agent Skills Specification - Frontmatter]($_metadataUrl))*',
             region: region,
           ),
         );

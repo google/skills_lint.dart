@@ -4,19 +4,28 @@
 
 /// A human-readable message string.
 class SarifMessage {
-  SarifMessage({required this.text});
+  SarifMessage({required this.text, this.markdown});
 
   /// Constructs a [SarifMessage] from a JSON map.
   factory SarifMessage.fromJson(Map<String, Object?> json) {
-    return SarifMessage(text: (json[keyText] ?? '') as String);
+    return SarifMessage(
+      text: (json[keyText] ?? '') as String,
+      markdown: json[keyMarkdown] as String?,
+    );
   }
 
   /// JSON key for [text].
   static const String keyText = 'text';
 
+  /// JSON key for [markdown].
+  static const String keyMarkdown = 'markdown';
+
   /// The text message content.
   final String text;
 
+  /// Optional GitHub Flavored Markdown message content.
+  final String? markdown;
+
   /// Converts this message to a JSON map.
-  Map<String, Object?> toJson() => {keyText: text};
+  Map<String, Object?> toJson() => {keyText: text, if (markdown != null) keyMarkdown: markdown};
 }
