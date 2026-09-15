@@ -76,36 +76,6 @@ String? canonicalizePathOrNull(String? rawPath, {required String baseDirectory})
   return canonicalizePath(rawPath, baseDirectory: baseDirectory);
 }
 
-/// Expresses [path] relative to [relativeTo], the inverse of
-/// [canonicalizePath].
-///
-/// Canonicalization anchors a path where it enters the tool. Writing a
-/// configuration back out reverses that step, so a file that declared
-/// `path: skills` keeps declaring `path: skills` instead of gaining an absolute
-/// path that only resolves on the machine that wrote it.
-///
-/// A path outside [relativeTo] is expressed with leading `..` segments rather
-/// than kept absolute. A configuration in a subpackage that targets a skills
-/// directory or an ignore file higher in the repository declares exactly such a
-/// path, and that form is portable while the two keep their positions.
-///
-/// [path] is returned unchanged when:
-/// * [relativeTo] is `null`,
-/// * [path] is relative, so no anchor was applied to reverse,
-/// * [path] and [relativeTo] have different roots, which have no relative form.
-String relativizePath(String path, {required String? relativeTo}) {
-  if (relativeTo == null || !p.isAbsolute(path)) {
-    return path;
-  }
-  if (p.equals(relativeTo, path)) {
-    return '.';
-  }
-  if (!p.equals(p.rootPrefix(relativeTo), p.rootPrefix(path))) {
-    return path;
-  }
-  return p.relative(path, from: relativeTo);
-}
-
 /// Normalizes a skill name or suffix into a valid skill name token.
 ///
 /// Replaces invalid characters and underscores with hyphens, deduplicates

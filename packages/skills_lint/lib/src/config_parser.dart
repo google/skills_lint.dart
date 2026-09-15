@@ -31,10 +31,10 @@ final Logger _log = Logger('skills_lint');
 /// This ensures that the resulting [Configuration] contains only canonical, absolute
 /// paths, eliminating ambiguous CWD dependencies across subpackages or nested configs.
 ///
-/// Writing a configuration back out reverses the step: each target records the
-/// directory its paths were anchored to, and [Configuration.toYamlString]
-/// expresses them relative to it, so a rewritten file keeps the paths its
-/// author wrote. See [LintTargetConfig.anchorDirectory].
+/// Writing a configuration back out does not undo the arithmetic: each target
+/// keeps the path text it was declared with, and [Configuration.toYamlString]
+/// emits that text, so a rewritten file reads as its author wrote it. See
+/// [LintTargetConfig.authoredPath].
 class ConfigParser {
   static const String skillsLintKey = 'skills_lint';
   static const String rulesKey = 'rules';
@@ -400,7 +400,7 @@ class ConfigParser {
       parsingErrors,
     );
 
-    final String? ignoreFile = _parseIgnoreFileForTarget(
+    final ({String? authored, String? resolved}) ignoreFile = _parseIgnoreFileForTarget(
       dir,
       path,
       entryLabelCap,
@@ -411,8 +411,9 @@ class ConfigParser {
     return LintTargetConfig(
       path: canonicalizePath(path, baseDirectory: anchorDirectory),
       ruleConfigs: ruleConfigs,
-      ignoreFile: ignoreFile,
-      anchorDirectory: anchorDirectory,
+      ignoreFile: ignoreFile.resolved,
+      authoredPath: path,
+      authoredIgnoreFile: ignoreFile.authored,
     );
   }
 
@@ -443,22 +444,26 @@ class ConfigParser {
 
   /// Parses the custom ignore file path under a target entry's `ignore_file` key.
   ///
-  /// Anchors the parsed value to [anchorDirectory]. Returns `null` if omitted.
-  /// If present but not a string, appends a type error to [parsingErrors] and
-  /// returns `null` to fall back to the default ignore file.
-  static String? _parseIgnoreFileForTarget(
+  /// Both are `null` when the key is absent or holds a non-string, in which
+  /// case the default ignore file applies. If present but not a string, a type
+  /// error is appended to [parsingErrors].
+  static ({String? authored, String? resolved}) _parseIgnoreFileForTarget(
     YamlMap dir,
     String path,
     String entryLabelCap,
     List<String> parsingErrors,
     String anchorDirectory,
   ) {
+    const ({String? authored, String? resolved}) absent = (authored: null, resolved: null);
     if (!dir.containsKey(ignoreFileKey)) {
-      return null;
+      return absent;
     }
     final Object? ignoreFileValue = dir[ignoreFileKey];
     if (ignoreFileValue is String) {
-      return canonicalizePath(ignoreFileValue, baseDirectory: anchorDirectory);
+      return (
+        authored: ignoreFileValue,
+        resolved: canonicalizePath(ignoreFileValue, baseDirectory: anchorDirectory),
+      );
     }
     if (ignoreFileValue != null) {
       parsingErrors.add(
@@ -467,7 +472,7 @@ class ConfigParser {
         'Falling back to the default ignore file.',
       );
     }
-    return null;
+    return absent;
   }
 }
 
@@ -481,7 +486,8 @@ class LintTargetConfig {
     required this.path,
     this.ruleConfigs = const <String, RuleConfigPatch>{},
     this.ignoreFile,
-    this.anchorDirectory,
+    this.authoredPath,
+    this.authoredIgnoreFile,
   });
 
   /// The path to the directory containing skills, or to an individual skill.
@@ -499,41 +505,43 @@ class LintTargetConfig {
   /// Follows the same resolution contract as [path].
   final String? ignoreFile;
 
-  /// The directory that [path] and [ignoreFile] were anchored to.
+  /// [path] as spelled in the configuration file.
   ///
-  /// [ConfigParser] records the directory it resolved against, which is the one
-  /// piece of information a resolved path cannot supply on its own: `skills`
-  /// anchored to `/repo/pkg` and `pkg/skills` anchored to `/repo` produce the
-  /// same result. [toYaml] reverses the anchoring against this directory, so a
-  /// configuration read from a file and written back keeps the paths its author
-  /// wrote. A target constructed directly holds `null` and serializes its paths
-  /// as they are held, which is already the authored form.
+  /// Anchoring is not reversible from [path] alone: `skills` anchored to
+  /// `/repo/pkg` and `pkg/skills` anchored to `/repo` produce the same result.
+  /// [ConfigParser] keeps the text it read, and [toYaml] emits that text, so a
+  /// configuration read from a file and written back reads as its author wrote
+  /// it. A target constructed directly holds `null` here and serializes [path]
+  /// as held, which is already the authored form.
   ///
-  /// This records where the paths came from. It is not consulted when resolving
-  /// them: [path] is absolute on any target that [ConfigParser] produced, and
-  /// validation reads that field alone.
-  final String? anchorDirectory;
+  /// Never resolve against this field: it is relative to the directory of the
+  /// configuration file that declared it, not to the working directory. [path]
+  /// is the resolved location and the only field validation reads.
+  ///
+  /// A target whose [path] is replaced must drop this field or restate it,
+  /// since the two describe the same target.
+  final String? authoredPath;
+
+  /// [ignoreFile] as spelled in the configuration file.
+  ///
+  /// Follows the same contract as [authoredPath].
+  final String? authoredIgnoreFile;
 
   /// Converts this target configuration into its YAML representation.
   ///
-  /// [path] and [ignoreFile] are expressed relative to [anchorDirectory], which
-  /// reverses the anchoring that [ConfigParser] applied.
+  /// Emits [authoredPath] and [authoredIgnoreFile] when present, so a parsed
+  /// configuration serializes as its author wrote it.
   Map<String, Object?> toYaml() {
-    final map = <String, Object?>{
-      ConfigParser.pathKey: relativizePath(path, relativeTo: anchorDirectory),
-    };
+    final map = <String, Object?>{ConfigParser.pathKey: authoredPath ?? path};
     if (ruleConfigs.isNotEmpty) {
       map[ConfigParser.rulesKey] = <String, Object?>{
         for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries)
           entry.key: entry.value.toYaml(),
       };
     }
-    final String? targetIgnoreFile = ignoreFile;
+    final String? targetIgnoreFile = authoredIgnoreFile ?? ignoreFile;
     if (targetIgnoreFile != null) {
-      map[ConfigParser.ignoreFileKey] = relativizePath(
-        targetIgnoreFile,
-        relativeTo: anchorDirectory,
-      );
+      map[ConfigParser.ignoreFileKey] = targetIgnoreFile;
     }
     return map;
   }
@@ -571,9 +579,9 @@ class Configuration {
 
   /// Converts this configuration into its YAML representation.
   ///
-  /// Each target expresses its paths relative to the directory it was anchored
-  /// to, so a configuration read from a file and written back keeps the paths
-  /// its author wrote. See [LintTargetConfig.anchorDirectory].
+  /// Each target emits the path text it was declared with, so a configuration
+  /// read from a file and written back reads as its author wrote it. See
+  /// [LintTargetConfig.authoredPath].
   Map<String, Object?> toYaml() {
     final skillsLintMap = <String, Object?>{};
 

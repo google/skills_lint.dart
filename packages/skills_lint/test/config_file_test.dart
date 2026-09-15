@@ -1302,10 +1302,11 @@ skills_lint:
 
         final Configuration loaded = await ConfigParser.loadConfig(path: configFile.path);
 
-        // Each target carries the directory it was anchored to, so a tool that
+        // Each target carries the text it was declared with, so a tool that
         // reads a configuration, edits it, and writes it back needs no argument
         // to keep the file portable.
-        expect(loaded.directoryConfigs.first.anchorDirectory, equals(packageDir.path));
+        expect(loaded.directoryConfigs.first.authoredPath, equals('skills'));
+        expect(loaded.directoryConfigs.first.authoredIgnoreFile, equals('skills/ignores.json'));
         expect(loaded.toYamlString(), equals(originalText));
       });
     });
@@ -1315,23 +1316,22 @@ skills_lint:
         directoryConfigs: [LintTargetConfig(path: 'skills', ignoreFile: '../shared/ignores.json')],
       );
 
-      expect(authored.directoryConfigs.first.anchorDirectory, isNull);
+      expect(authored.directoryConfigs.first.authoredPath, isNull);
       expect(authored.toYamlString(), contains('path: skills'));
       expect(authored.toYamlString(), contains('ignore_file: "../shared/ignores.json"'));
     });
 
-    test('a target serialized on its own reverses its own anchor', () {
-      final String anchor = p.normalize(p.absolute('project'));
+    test('a target serialized on its own emits the text it was declared with', () {
       final Configuration parsed = ConfigParser.parse(
         const Configuration(
           directoryConfigs: [LintTargetConfig(path: '../sibling/skills')],
         ).toYamlString(),
-        baseDirectory: anchor,
+        baseDirectory: p.normalize(p.absolute('project')),
       );
 
       expect(
         parsed.directoryConfigs.single.toYamlString().trim(),
-        equals('path: "${p.join('..', 'sibling', 'skills')}"'),
+        equals('path: "../sibling/skills"'),
       );
     });
   });
