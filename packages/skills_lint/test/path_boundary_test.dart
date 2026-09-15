@@ -15,15 +15,38 @@ import 'package:test/test.dart';
 /// a flag, or a configuration key inherits absolute paths and does not have to
 /// remember to canonicalize. These tests fail if that stops being true.
 
-/// Files permitted to anchor paths, with the boundary each one owns.
-const Map<String, String> boundaryFiles = <String, String>{
-  'lib/src/path_utils.dart': 'declares the canonicalization helpers',
-  'lib/src/config_parser.dart': 'anchors paths read from a configuration file',
-  'lib/src/entry_point.dart': 'anchors paths supplied by the CLI or an API caller',
-  'lib/src/validation_session.dart': 'anchors paths handed to session methods',
-};
+/// Files permitted to anchor paths, with the boundary each one owns and the
+/// number of times the canonicalization helpers may appear in it.
+///
+/// The count is a tripwire rather than a budget. Anchoring a path somewhere new
+/// is a design decision, so it should reach review as a deliberate edit to this
+/// table. The count for `path_utils.dart` covers the helper declarations
+/// themselves, since the pattern below matches a declaration as readily as a
+/// call.
+const Map<String, ({int matches, String owns})> boundaryFiles =
+    <String, ({int matches, String owns})>{
+      'lib/src/path_utils.dart': (matches: 5, owns: 'declares the canonicalization helpers'),
+      'lib/src/config_parser.dart': (
+        matches: 5,
+        owns: 'anchors paths read from a configuration file',
+      ),
+      'lib/src/entry_point.dart': (
+        matches: 4,
+        owns: 'anchors paths supplied by the CLI or an API caller',
+      ),
+      'lib/src/validation_session.dart': (
+        matches: 1,
+        owns:
+            'funnels path ingestion through _ingestPath, so its other members '
+            'compare paths without consulting the working directory',
+      ),
+    };
 
-final RegExp canonicalizationCall = RegExp(r'\bcanonicalizePath(s|OrNull)?\(');
+/// Matches a use of the canonicalization helpers.
+///
+/// The pattern tolerates whitespace before the parenthesis so that a call
+/// written as `canonicalizePath (x)` cannot slip past the scan.
+final RegExp canonicalizationCall = RegExp(r'\bcanonicalizePath(s|OrNull)?\s*\(');
 
 /// Every `.dart` file under `lib/`, keyed by its package-relative path.
 Map<String, String> libSources() {
@@ -65,24 +88,28 @@ void main() {
         isEmpty,
         reason:
             'Paths are anchored once, at the boundary where they enter the tool:\n'
-            '${boundaryFiles.entries.map((MapEntry<String, String> e) => '  ${e.key}: ${e.value}').join('\n')}\n'
+            '${boundaryFiles.entries.map((MapEntry<String, ({int matches, String owns})> e) => '  ${e.key}: ${e.value.owns}').join('\n')}\n'
             'Code behind a boundary receives absolute paths. If a path reaches '
             '${offenders.keys.join(', ')} unanchored, anchor it at the boundary '
             'it entered through instead of here.',
       );
     });
 
-    test('the session anchors paths in exactly one place', () {
-      final String source = libSources()['lib/src/validation_session.dart']!;
+    test('each boundary anchors paths only where it declares', () {
+      final Map<String, String> sources = libSources();
 
-      expect(
-        canonicalizationCall.allMatches(source),
-        hasLength(1),
-        reason:
-            'ValidationSession funnels path ingestion through _ingestPath so '
-            'that its other members can compare paths without consulting the '
-            'working directory.',
-      );
+      for (final MapEntry<String, ({int matches, String owns})> boundary in boundaryFiles.entries) {
+        expect(
+          canonicalizationCall.allMatches(sources[boundary.key]!),
+          hasLength(boundary.value.matches),
+          reason:
+              '${boundary.key} ${boundary.value.owns}.\n'
+              'Anchoring a path somewhere new is a design decision. If the added '
+              'call belongs at this boundary, raise the count in boundaryFiles so '
+              'the decision is visible in review. Otherwise anchor the path at the '
+              'boundary it entered through.',
+        );
+      }
     });
   });
 
