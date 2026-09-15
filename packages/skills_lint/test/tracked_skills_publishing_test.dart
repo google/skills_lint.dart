@@ -55,7 +55,7 @@ void main() {
     );
 
     for (final skillDir in trackedSkillDirs) {
-      final expectedPath = '.agents/skills/$skillDir';
+      final expectedPath = '../../.agents/skills/$skillDir';
       final Map<String, RuleConfig> resolvedConfigs = session.resolveRuleConfigsForPath(
         expectedPath,
       );

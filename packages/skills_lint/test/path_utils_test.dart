@@ -10,23 +10,84 @@ import 'package:test/test.dart';
 
 void main() {
   group('expandPath', () {
-    test('expands tilde at start of path', () {
+    test('expands tilde at start of path when HOME environment is available', () {
       final String? home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+      const rawPath = '~/some/path';
+
+      final String result = expandPath(rawPath);
+
       if (home != null) {
-        expect(expandPath('~/some/path'), equals(p.join(home, 'some/path')));
+        expect(result, equals(p.join(home, 'some/path')));
       } else {
-        // If home is null, it should return the path as is.
-        expect(expandPath('~/some/path'), equals('~/some/path'));
+        expect(result, equals(rawPath));
       }
     });
 
-    test('does not expand tilde not at start of path', () {
-      expect(expandPath('some/~/path'), equals('some/~/path'));
+    test('does not expand tilde when present elsewhere in the path', () {
+      const rawPath = 'some/~/path';
+
+      final String result = expandPath(rawPath);
+
+      expect(result, equals(rawPath));
     });
 
-    test('returns path as is if it does not start with tilde', () {
+    test('returns standard relative and absolute paths unchanged', () {
       expect(expandPath('some/path'), equals('some/path'));
       expect(expandPath('/absolute/path'), equals('/absolute/path'));
+    });
+  });
+
+  group('canonicalizePath boundary contract', () {
+    test('anchors relative path to baseDirectory and normalizes', () {
+      final String baseDir = p.normalize(p.absolute('some/base/dir'));
+      const relativePath = 'skills/valid';
+
+      final String result = canonicalizePath(relativePath, baseDirectory: baseDir);
+
+      expect(result, equals(p.join(baseDir, 'skills', 'valid')));
+    });
+
+    test('collapses relative parent and current directory segments', () {
+      final String baseDir = p.normalize(p.absolute('some/base/dir'));
+      const relativePathWithDots = './skills/../skills/valid';
+
+      final String result = canonicalizePath(relativePathWithDots, baseDirectory: baseDir);
+
+      expect(result, equals(p.join(baseDir, 'skills', 'valid')));
+    });
+
+    test('preserves already absolute path without prepending baseDirectory', () {
+      final String baseDir = p.normalize(p.absolute('some/base/dir'));
+      final String absolutePath = p.normalize(p.absolute('other/root/path'));
+
+      final String result = canonicalizePath(absolutePath, baseDirectory: baseDir);
+
+      expect(result, equals(absolutePath));
+    });
+
+    test('expands tilde and normalizes without prepending baseDirectory', () {
+      final String baseDir = p.normalize(p.absolute('some/base/dir'));
+      final String? home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+
+      if (home != null) {
+        expect(
+          canonicalizePath('~/my-skills', baseDirectory: baseDir),
+          equals(p.normalize(p.join(home, 'my-skills'))),
+        );
+        expect(canonicalizePath('~', baseDirectory: baseDir), equals(p.normalize(home)));
+      }
+    });
+
+    test('is idempotent when canonicalizing already canonical paths', () {
+      final String baseDir1 = p.normalize(p.absolute('base/dir/one'));
+      final String baseDir2 = p.normalize(p.absolute('base/dir/two'));
+      const relativePath = 'nested/skill';
+
+      final String firstPass = canonicalizePath(relativePath, baseDirectory: baseDir1);
+      final String secondPass = canonicalizePath(firstPass, baseDirectory: baseDir2);
+
+      expect(secondPass, equals(firstPass));
+      expect(secondPass, equals(p.join(baseDir1, 'nested', 'skill')));
     });
   });
 
@@ -64,13 +125,13 @@ void main() {
 
     test('truncates to maxLength and strips trailing hyphen', () {
       final String longInput = 'a' * 70;
+      final trailingHyphenInput = '${'a' * 63}-bbbb';
+
       final String normalized = normalizeSkillNameToken(longInput);
+      final String truncated = normalizeSkillNameToken(trailingHyphenInput);
+
       expect(normalized.length, 64);
       expect(normalized, 'a' * 64);
-
-      // Truncation landing on a hyphen
-      final trailingHyphenInput = '${'a' * 63}-bbbb';
-      final String truncated = normalizeSkillNameToken(trailingHyphenInput);
       expect(truncated.length, 63);
       expect(truncated, 'a' * 63);
       expect(truncated.endsWith('-'), isFalse);

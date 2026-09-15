@@ -1,6 +1,3 @@
-# TODO(https://github.com/google/skills_lint.dart/issues/20): Keep this file in
-# sync with packages/skills_lint/skills_lint.yaml until boundary canonicalization
-# enables single-file path resolution relative to the configuration file.
 skills_lint:
   rules:
     check-relative-paths: error

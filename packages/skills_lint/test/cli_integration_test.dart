@@ -97,6 +97,120 @@ skills_lint:
       await runProcess.shouldExit(0);
     });
 
+    test('baseline entries name files relative to the skill directory', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
+
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        skillDir.path,
+        '--generate-baseline',
+        '--check-relative-paths',
+      ], workingDirectory: tempDir.path);
+      await process.shouldExit(0);
+
+      final json =
+          jsonDecode(await File('${skillDir.path}/$defaultIgnoreFileName').readAsString())
+              as Map<String, dynamic>;
+      final skills = json[SkillsIgnores.skillsKey] as Map<String, dynamic>;
+      final List<Map<String, dynamic>> entries = (skills['test-skill'] as List)
+          .cast<Map<String, dynamic>>();
+
+      // An absolute name would only match on the machine that generated it.
+      expect(entries.single[IgnoreEntry.fileNameKey], equals('SKILL.md'));
+    });
+
+    test('a baseline names the skill directory itself relative to the skill', () async {
+      // path-does-not-exist reports the skill directory rather than a file
+      // inside it, so the recorded name has no file to be relative to.
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+
+      final TestProcess generate = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        skillDir.path,
+        '--generate-baseline',
+      ], workingDirectory: tempDir.path);
+      await generate.shouldExit(0);
+
+      final json =
+          jsonDecode(await File('${skillDir.path}/$defaultIgnoreFileName').readAsString())
+              as Map<String, dynamic>;
+      final skills = json[SkillsIgnores.skillsKey] as Map<String, dynamic>;
+      final List<Map<String, dynamic>> entries = (skills['test-skill'] as List)
+          .cast<Map<String, dynamic>>();
+
+      expect(
+        entries.map((Map<String, dynamic> entry) => entry[IgnoreEntry.fileNameKey]),
+        everyElement(equals('.')),
+        reason: 'An absolute name would only match on the machine that generated it.',
+      );
+
+      // The recorded name has to keep suppressing the error it was written for.
+      final TestProcess validate = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        skillDir.path,
+      ], workingDirectory: Directory.systemTemp.path);
+      await validate.shouldExit(0);
+    });
+
+    test('a baseline suppresses errors when validated from another directory', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
+
+      final TestProcess generate = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        'test-skill',
+        '--generate-baseline',
+        '--check-relative-paths',
+      ], workingDirectory: tempDir.path);
+      await generate.shouldExit(0);
+
+      final TestProcess validate = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        skillDir.path,
+        '--check-relative-paths',
+      ], workingDirectory: Directory.systemTemp.path);
+      await validate.shouldExit(0);
+    });
+
+    test('a baseline written by an earlier version keeps suppressing errors', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
+      // Names as spelled on the command line, the form written before baselines
+      // stored names relative to the skill directory.
+      await File('${skillDir.path}/$defaultIgnoreFileName').writeAsString(
+        jsonEncode({
+          SkillsIgnores.skillsKey: {
+            'test-skill': [
+              {
+                IgnoreEntry.ruleIdKey: 'check-relative-paths',
+                IgnoreEntry.fileNameKey: 'test-skill/SKILL.md',
+              },
+            ],
+          },
+        }),
+      );
+
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        'test-skill',
+        '--check-relative-paths',
+      ], workingDirectory: tempDir.path);
+      await process.shouldExit(0);
+    });
+
     test(
       'cross-skill baseline de-duplicates and suppresses all errors across different skills',
       () async {

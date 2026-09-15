@@ -18,6 +18,56 @@ import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 import 'package:yaml/yaml.dart';
 
+import 'test_utils.dart';
+
+/// Creates a subpackage under [parent] holding one skill and a configuration
+/// file that targets the skill directory with a relative path.
+///
+/// The relative `skills` target only resolves when the configuration file
+/// anchors it to its own directory.
+Future<Directory> createSubpackage(
+  Directory parent, {
+  required String skillName,
+  required String skillBody,
+  Map<String, RuleConfigPatch> targetRules = const <String, RuleConfigPatch>{},
+}) async {
+  final Directory subpackage = await Directory(p.join(parent.path, 'subpkg')).create();
+  await createDummySkill(
+    await Directory(p.join(subpackage.path, 'skills')).create(),
+    name: skillName,
+    skillContent:
+        '${buildFrontmatter(name: skillName, description: 'A skill in subpkg')}$skillBody',
+  );
+
+  final configuration = Configuration(
+    directoryConfigs: <LintTargetConfig>[
+      LintTargetConfig(path: 'skills', ruleConfigs: targetRules),
+    ],
+  );
+  await File(
+    p.join(subpackage.path, 'skills_lint.yaml'),
+  ).writeAsString(configuration.toYamlString());
+  return subpackage;
+}
+
+/// Asserts that [configuration] survives a serialize and parse cycle unchanged.
+///
+/// Parsing anchors authored paths to a directory, so identity holds for any
+/// configuration that has already been parsed once.
+void expectStableSerialization(Configuration configuration) {
+  final String serialized = configuration.toYamlString();
+  expect(ConfigParser.parse(serialized).toYamlString(), equals(serialized));
+}
+
+/// The `rules` section of [configuration] as plain YAML data.
+///
+/// [RuleConfigPatch] compares by identity, so rule expectations are asserted
+/// against the serialized form.
+Object? serializedRules(Configuration configuration) {
+  final yaml = configuration.toYaml()['skills_lint']! as Map<String, Object?>;
+  return yaml['rules'];
+}
+
 void main() {
   group('Configuration File Integration', () {
     late Directory tempDir;
@@ -979,6 +1029,47 @@ skills_lint:
         await process.shouldExit(1);
       },
     );
+
+    test('resolves a subdirectory config target against the config file', () async {
+      final Directory subpackage = await createSubpackage(
+        tempDir,
+        skillName: 'my-skill',
+        skillBody: 'Line with 1 space \n',
+        targetRules: const <String, RuleConfigPatch>{
+          TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+      );
+
+      final TestProcess process = await TestProcess.start('dart', <String>[
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '--config',
+        p.join(p.basename(subpackage.path), 'skills_lint.yaml'),
+        '-d',
+        p.join(p.basename(subpackage.path), 'skills'),
+      ], workingDirectory: tempDir.path);
+
+      final List<String> stderr = await process.stderr.rest.toList();
+      expect(stderr.join('\n'), contains('has 1 trailing space(s)'));
+      await process.shouldExit(1);
+    });
+
+    test('validates subdirectory config targets without CLI target flags', () async {
+      final Directory subpackage = await createSubpackage(
+        tempDir,
+        skillName: 'valid-skill',
+        skillBody: 'Valid content\n',
+      );
+
+      final TestProcess process = await TestProcess.start('dart', <String>[
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '--config',
+        p.join(p.basename(subpackage.path), 'skills_lint.yaml'),
+      ], workingDirectory: tempDir.path);
+
+      final List<String> stdout = await process.stdout.rest.toList();
+      expect(stdout.join('\n'), contains('Validating skill: valid-skill'));
+      await process.shouldExit(0);
+    });
   });
 
   group('Configuration YAML Round-trip Serialization', () {
@@ -1086,7 +1177,12 @@ skills_lint:
         dir2.ruleConfigs[PathDoesNotExistRule.ruleName]?.parameters?['exclude'],
         equals('.*-workspace'),
       );
-      expect(parsed.toYamlString(), equals(config.toYamlString()));
+
+      // Parsing anchors the authored paths, so serialization is stable from
+      // the parsed configuration onward.
+      expect(dir1.path, equals(p.normalize(p.absolute('skills'))));
+      expect(dir2.path, equals(p.normalize(p.absolute('../../.agents/skills'))));
+      expectStableSerialization(parsed);
     });
 
     test('round-trips individual skill target configurations', () {
@@ -1124,7 +1220,13 @@ skills_lint:
         skill2.ruleConfigs[RelativePathsRule.ruleName]?.severity,
         equals(AnalysisSeverity.disabled),
       );
-      expect(parsed.toYamlString(), equals(config.toYamlString()));
+
+      expect(
+        skill1.path,
+        equals(p.normalize(p.absolute('.agents/skills/add-dart-lint-validation-rule'))),
+      );
+      expect(p.isAbsolute(skill2.path), isTrue, reason: 'tilde paths expand to the home directory');
+      expectStableSerialization(parsed);
     });
 
     test('round-trips full composite configuration with all sections', () {
@@ -1170,7 +1272,64 @@ skills_lint:
       final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed.toYamlString(), equals(config.toYamlString()));
+      expect(serializedRules(parsed), equals(serializedRules(config)));
+      expectStableSerialization(parsed);
+    });
+
+    test('rewriting a loaded configuration preserves the authored paths', () async {
+      await withTempDir((Directory tempDir) async {
+        final Directory packageDir = await Directory(
+          p.join(tempDir.path, 'packages', 'thing'),
+        ).create(recursive: true);
+        const authored = Configuration(
+          directoryConfigs: [
+            LintTargetConfig(
+              path: 'skills',
+              ruleConfigs: {
+                TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+              },
+              ignoreFile: 'skills/ignores.json',
+            ),
+            // A subpackage configuration reaching up at a shared skills
+            // directory and a shared ignore file.
+            LintTargetConfig(path: '../../.agents/skills', ignoreFile: '../../shared/ignores.json'),
+          ],
+          individualSkillConfigs: [LintTargetConfig(path: 'skills/one-skill')],
+        );
+        final String originalText = authored.toYamlString();
+        final configFile = File(p.join(packageDir.path, 'skills_lint.yaml'));
+        await configFile.writeAsString(originalText);
+
+        final Configuration loaded = await ConfigParser.loadConfig(path: configFile.path);
+
+        // Each target carries the text it was declared with, so a tool that
+        // reads a configuration, edits it, and writes it back needs no argument
+        // to keep the file portable.
+        expect(loaded.toYamlString(), equals(originalText));
+      });
+    });
+
+    test('a directly constructed target serializes its paths as held', () {
+      const authored = Configuration(
+        directoryConfigs: [LintTargetConfig(path: 'skills', ignoreFile: '../shared/ignores.json')],
+      );
+
+      expect(authored.toYamlString(), contains('path: skills'));
+      expect(authored.toYamlString(), contains('ignore_file: "../shared/ignores.json"'));
+    });
+
+    test('a target serialized on its own emits the text it was declared with', () {
+      final Configuration parsed = ConfigParser.parse(
+        const Configuration(
+          directoryConfigs: [LintTargetConfig(path: '../sibling/skills')],
+        ).toYamlString(),
+        baseDirectory: p.normalize(p.absolute('project')),
+      );
+
+      expect(
+        parsed.directoryConfigs.single.toYamlString().trim(),
+        equals('path: "../sibling/skills"'),
+      );
     });
   });
 
@@ -1197,7 +1356,8 @@ skills_lint:
       final Object? loaded = loadYaml(yamlStr);
       expect(loaded, isA<YamlMap>());
       final Configuration parsedConfig = ConfigParser.parse(yamlStr);
-      expect(parsedConfig.toYaml(), equals(config.toYaml()));
+      expect(serializedRules(parsedConfig), equals(serializedRules(config)));
+      expect(parsedConfig.directoryConfigs.single.path, equals(p.normalize(p.absolute('skills'))));
     });
 
     test('LintTargetConfig methods serialize correctly', () {
@@ -1248,8 +1408,13 @@ skills_lint:
       expect(rawYaml, isA<YamlMap>());
 
       final Configuration parsed = ConfigParser.parse(yamlString);
-      expect(parsed.toYaml(), equals(config.toYaml()));
-      expect(parsed.toYamlString(), equals(config.toYamlString()));
+      expect(serializedRules(parsed), equals(serializedRules(config)));
+      expect(parsed.directoryConfigs.single.path, equals(p.normalize(p.absolute('skills'))));
+      expect(
+        parsed.directoryConfigs.single.ignoreFile,
+        equals(p.normalize(p.absolute('custom_ignore.json'))),
+      );
+      expectStableSerialization(parsed);
     });
 
     test('round-trips rule configurations with rich parameter types', () {

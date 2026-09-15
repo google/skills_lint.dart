@@ -228,16 +228,20 @@ skills_lint:
         fixApply: false,
       );
 
+      // A configuration built in memory holds a relative ignore file, so the
+      // session anchors it to the working directory.
+      final String anchoredIgnoreFile = p.normalize(p.absolute('parent_ignores.json'));
+
       // Parent ignore file should match
       expect(
         session.resolveIgnoreFile(p.join(tempDir.path, 'skills/some-skill')),
-        equals('parent_ignores.json'),
+        equals(anchoredIgnoreFile),
       );
 
       // Child should inherit parent ignore file
       expect(
         session.resolveIgnoreFile(p.join(tempDir.path, 'skills/nested/nested-skill')),
-        equals('parent_ignores.json'),
+        equals(anchoredIgnoreFile),
       );
     });
   });

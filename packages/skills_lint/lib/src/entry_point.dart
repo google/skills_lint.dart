@@ -16,6 +16,7 @@ import 'models/custom_rule_parameters.dart';
 import 'models/rule_config.dart';
 import 'models/rule_parameter_type.dart';
 import 'models/skill_rule.dart';
+import 'path_utils.dart';
 import 'rule_registry.dart';
 import 'validation_session.dart';
 
@@ -110,6 +111,9 @@ Future<void> runApp(List<String> args) async {
     return;
   }
 
+  // Do not resolve these paths here. [validateSkillsInternal] anchors them in
+  // one place, so a flag and a programmatic call resolve the same string to
+  // the same directory.
   final skillDirPaths = results[_skillsDirectoryFlag] as List<String>;
   final individualSkillPaths = results[_skillOption] as List<String>;
 
@@ -131,12 +135,9 @@ Future<void> runApp(List<String> args) async {
   final bool fix = fixFlag && dryRun;
   final bool fixApply = (fixFlag && !dryRun) || fixApplyAlias;
 
-  String? ignoreFileOverride;
-  if (results.wasParsed(_ignoreFileOption)) {
-    ignoreFileOverride = results[_ignoreFileOption] as String?;
-  } else {
-    ignoreFileOverride = null;
-  }
+  final String? ignoreFileOverride = results.wasParsed(_ignoreFileOption)
+      ? results[_ignoreFileOption] as String?
+      : null;
 
   var success = false;
   try {
@@ -380,22 +381,40 @@ Future<bool> validateSkillsInternal({
   Configuration? config,
   List<SkillRule> customRules = const [],
 }) async {
-  final bool hasCliTargets = skillDirPaths.isNotEmpty || individualSkillPaths.isNotEmpty;
+  // The CLI and API boundary: everything below this point works with absolute,
+  // normalized paths. See [canonicalizePath] for the boundary contract.
+  final String workingDirectory = Directory.current.path;
+  final List<String> canonicalIndividualSkillPaths = canonicalizePaths(
+    individualSkillPaths,
+    baseDirectory: workingDirectory,
+  );
+  final List<String> canonicalSkillDirPaths = canonicalizePaths(
+    skillDirPaths,
+    baseDirectory: workingDirectory,
+  );
+  final String? canonicalIgnoreFileOverride = canonicalizePathOrNull(
+    ignoreFileOverride,
+    baseDirectory: workingDirectory,
+  );
+
+  final bool hasCliTargets =
+      canonicalSkillDirPaths.isNotEmpty || canonicalIndividualSkillPaths.isNotEmpty;
   final List<String> effectiveIndividualSkillPaths = [
-    ...individualSkillPaths,
+    ...canonicalIndividualSkillPaths,
     if (config != null && !hasCliTargets) ...config.individualSkillConfigs.map((e) => e.path),
   ];
 
   final List<String> effectiveSkillDirPaths = _getEffectiveSkillDirPaths(
-    skillDirPaths: skillDirPaths,
-    individualSkillPaths: individualSkillPaths,
+    skillDirPaths: canonicalSkillDirPaths,
+    individualSkillPaths: canonicalIndividualSkillPaths,
     config: config,
+    workingDirectory: workingDirectory,
   );
 
   final session = ValidationSession(
     config: config ?? const Configuration(),
     resolvedRuleConfigs: resolvedRuleConfigs,
-    ignoreFileOverride: ignoreFileOverride,
+    ignoreFileOverride: canonicalIgnoreFileOverride,
     customRules: customRules,
     printWarnings: printWarnings,
     fastFail: fastFail,
@@ -433,11 +452,13 @@ Future<bool> validateSkillsInternal({
 /// Computes the list of skill directory paths to validate.
 ///
 /// If paths are not explicitly provided, falls back to configured directory
-/// paths, and then to default locations (`.claude/skills`, `.agents/skills`).
+/// paths, and then to default locations (`.claude/skills`, `.agents/skills`)
+/// resolved against [workingDirectory].
 /// Throws [MissingDefaultsException] if no directories are found.
 List<String> _getEffectiveSkillDirPaths({
   required List<String> skillDirPaths,
   required List<String> individualSkillPaths,
+  required String workingDirectory,
   Configuration? config,
 }) {
   final effectiveSkillDirPaths = List<String>.from(skillDirPaths);
@@ -449,13 +470,11 @@ List<String> _getEffectiveSkillDirPaths({
         (config.directoryConfigs.isNotEmpty || config.individualSkillConfigs.isNotEmpty)) {
       return config.directoryConfigs.map((e) => e.path).toList();
     } else {
-      final defaults = ['.claude/skills', '.agents/skills'];
-      final existingDefaults = <String>[];
-      for (final path in defaults) {
-        if (Directory(path).existsSync()) {
-          existingDefaults.add(path);
-        }
-      }
+      const defaults = ['.claude/skills', '.agents/skills'];
+      final List<String> existingDefaults = canonicalizePaths(
+        defaults,
+        baseDirectory: workingDirectory,
+      ).where((String path) => Directory(path).existsSync()).toList();
       if (existingDefaults.isEmpty) {
         throw MissingDefaultsException(defaults);
       }
