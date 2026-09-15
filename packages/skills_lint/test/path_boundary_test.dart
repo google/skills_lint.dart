@@ -113,6 +113,77 @@ void main() {
     }
   });
 
+  group('hand-built configurations anchor to the working directory', () {
+    late Directory tempDir;
+    late Directory projectDir;
+    late Directory elsewhereDir;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('path_boundary_authored_test.');
+      projectDir = Directory(p.join(tempDir.path, 'project'))..createSync();
+      elsewhereDir = Directory(p.join(tempDir.path, 'elsewhere'))..createSync();
+      Directory(p.join(projectDir.path, 'skills')).createSync();
+    });
+
+    tearDown(() {
+      if (tempDir.existsSync()) {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    /// A configuration that targets `skills` with a path the caller authored.
+    ///
+    /// [LintTargetConfig] doubles as the authoring surface, so an instance that
+    /// never passed through [ConfigParser] can hold a relative path.
+    const authoredConfiguration = Configuration(
+      directoryConfigs: <LintTargetConfig>[
+        LintTargetConfig(
+          path: 'skills',
+          ruleConfigs: <String, RuleConfigPatch>{
+            'check-trailing-whitespace': RuleConfigPatch(severity: AnalysisSeverity.error),
+          },
+        ),
+      ],
+    );
+
+    /// Resolves the rules for a skill under `projectDir` with
+    /// [workingDirectory] current.
+    Map<String, RuleConfig> resolveWithWorkingDirectory(Directory workingDirectory) {
+      return IOOverrides.runZoned(() {
+        final session = ValidationSession(
+          config: authoredConfiguration,
+          ignoreFileOverride: null,
+          customRules: const <SkillRule>[],
+          printWarnings: false,
+          fastFail: false,
+          quiet: true,
+          generateBaseline: false,
+          fix: false,
+          fixApply: false,
+        );
+        return session.resolveRuleConfigsForPath(p.join(projectDir.path, 'skills', 'a-skill'));
+      }, getCurrentDirectory: () => workingDirectory);
+    }
+
+    test('an authored relative target covers a skill under the working directory', () {
+      expect(
+        resolveWithWorkingDirectory(projectDir)['check-trailing-whitespace']?.severity,
+        AnalysisSeverity.error,
+      );
+    });
+
+    test('an authored relative target stops covering from another directory', () {
+      expect(
+        resolveWithWorkingDirectory(elsewhereDir)['check-trailing-whitespace']?.severity,
+        isNot(AnalysisSeverity.error),
+        reason:
+            'A relative path on a configuration that no parser anchored means '
+            'relative to the working directory, so a skill outside that '
+            'directory falls outside the target.',
+      );
+    });
+  });
+
   group('results do not depend on the working directory', () {
     late Directory tempDir;
     late Directory projectDir;
