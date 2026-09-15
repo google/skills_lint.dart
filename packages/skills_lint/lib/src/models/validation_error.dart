@@ -14,6 +14,7 @@ class ValidationError {
     required this.severity,
     this.isIgnored = false,
     this.region,
+    this.markdownMessage,
   });
 
   /// Constructs a [ValidationError] from a JSON map.
@@ -26,6 +27,7 @@ class ValidationError {
     region: json[keyRegion] != null
         ? SourceRegion.fromJson(json[keyRegion]! as Map<String, Object?>)
         : null,
+    markdownMessage: json[keyMarkdownMessage] as String?,
   );
 
   /// JSON key for [ruleId].
@@ -46,6 +48,9 @@ class ValidationError {
   /// JSON key for [region].
   static const String keyRegion = 'region';
 
+  /// JSON key for [markdownMessage].
+  static const String keyMarkdownMessage = 'markdownMessage';
+
   /// The unique rule ID (e.g., 'description_too_long').
   final String ruleId;
 
@@ -64,6 +69,9 @@ class ValidationError {
   /// Precise 1-based source location coordinates, if available.
   final SourceRegion? region;
 
+  /// Optional GitHub Flavored Markdown formatted explanation for SARIF and PR review comments.
+  final String? markdownMessage;
+
   /// Converts this error to a JSON-compatible map.
   Map<String, Object?> toJson() => {
     keyRuleId: ruleId,
@@ -72,5 +80,6 @@ class ValidationError {
     keySeverity: severity.name,
     keyIsIgnored: isIgnored,
     if (region != null) keyRegion: region!.toJson(),
+    if (markdownMessage != null) keyMarkdownMessage: markdownMessage,
   };
 }

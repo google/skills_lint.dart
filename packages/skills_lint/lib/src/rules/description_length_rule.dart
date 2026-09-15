@@ -53,6 +53,12 @@ class DescriptionLengthRule extends SkillRule {
             maxLength: maxDescriptionLength,
             docUrl: _descriptionFieldUrl,
           ),
+          markdownMessage: buildLengthMarkdownDiagnostic(
+            fieldName: 'description',
+            value: description,
+            maxLength: maxDescriptionLength,
+            docUrl: _descriptionFieldUrl,
+          ),
           region: region,
         ),
       );

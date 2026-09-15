@@ -44,6 +44,14 @@ class PreventSkillsShPublishingRule extends SkillRule {
               'Missing YAML frontmatter. Expected:\n'
               'metadata:\n'
               '  internal: true',
+          markdownMessage:
+              '**Missing YAML frontmatter.**\n\n'
+              'To prevent accidental publishing to public registries, mark the skill as internal.\n\n'
+              '**How to fix:**\n'
+              '```yaml\n'
+              'metadata:\n'
+              '  internal: true\n'
+              '```',
           region: SourceRegion.wholeFile,
         ),
       );
@@ -63,6 +71,14 @@ class PreventSkillsShPublishingRule extends SkillRule {
               'Missing "metadata" block in YAML frontmatter. Expected:\n'
               'metadata:\n'
               '  internal: true',
+          markdownMessage:
+              '**Missing `metadata` block in YAML frontmatter.**\n\n'
+              'To prevent accidental publishing to public registries, mark the skill as internal.\n\n'
+              '**How to fix:**\n'
+              '```yaml\n'
+              'metadata:\n'
+              '  internal: true\n'
+              '```',
           region: SourceRegion.wholeFile,
         ),
       );
@@ -80,6 +96,13 @@ class PreventSkillsShPublishingRule extends SkillRule {
               '"metadata" must be a YAML mapping (dictionary). Expected:\n'
               'metadata:\n'
               '  internal: true',
+          markdownMessage:
+              '**`metadata` must be a YAML mapping (dictionary).**\n\n'
+              '**How to fix:**\n'
+              '```yaml\n'
+              'metadata:\n'
+              '  internal: true\n'
+              '```',
           region: context.yamlNodeToRegion(metadataNode),
         ),
       );
@@ -98,6 +121,15 @@ class PreventSkillsShPublishingRule extends SkillRule {
           file: _skillFileName,
           message:
               'The "internal" field under "metadata" is set to a string "$internalVal". Please remove the quotes so it is parsed as a boolean.',
+          markdownMessage:
+              '**`metadata.internal` must be a boolean.**\n\n'
+              'The field is set to a string `"$internalVal"`.\n\n'
+              '**How to fix:**\n'
+              'Remove quotes around `true` so it parses as a boolean:\n'
+              '```yaml\n'
+              'metadata:\n'
+              '  internal: true\n'
+              '```',
           region: context.yamlNodeToRegion(internalNode),
         ),
       );
@@ -117,6 +149,14 @@ class PreventSkillsShPublishingRule extends SkillRule {
               'The "internal" field under "metadata" must be explicitly set to boolean true to prevent accidental publishing. Expected:\n'
               'metadata:\n'
               '  internal: true',
+          markdownMessage:
+              '**`metadata.internal` must be set to `true`.**\n\n'
+              'To prevent accidental publishing to public registries, mark the skill as internal.\n\n'
+              '**How to fix:**\n'
+              '```yaml\n'
+              'metadata:\n'
+              '  internal: true\n'
+              '```',
           region: context.yamlNodeToRegion(targetNode),
         ),
       );

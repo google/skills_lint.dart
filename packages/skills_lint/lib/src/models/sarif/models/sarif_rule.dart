@@ -10,6 +10,8 @@ class SarifRule {
   SarifRule({
     required this.id,
     required this.shortDescription,
+    this.fullDescription,
+    this.help,
     this.helpUri,
     this.defaultConfiguration,
     this.properties,
@@ -20,6 +22,12 @@ class SarifRule {
     return SarifRule(
       id: json[keyId]! as String,
       shortDescription: SarifMessage.fromJson(json[keyShortDescription]! as Map<String, Object?>),
+      fullDescription: json[keyFullDescription] != null
+          ? SarifMessage.fromJson(json[keyFullDescription]! as Map<String, Object?>)
+          : null,
+      help: json[keyHelp] != null
+          ? SarifMessage.fromJson(json[keyHelp]! as Map<String, Object?>)
+          : null,
       helpUri: json[keyHelpUri] as String?,
       defaultConfiguration: json[keyDefaultConfiguration] != null
           ? SarifReportingConfiguration.fromJson(
@@ -37,6 +45,12 @@ class SarifRule {
 
   /// JSON key for [shortDescription].
   static const String keyShortDescription = 'shortDescription';
+
+  /// JSON key for [fullDescription].
+  static const String keyFullDescription = 'fullDescription';
+
+  /// JSON key for [help].
+  static const String keyHelp = 'help';
 
   /// JSON key for [helpUri].
   static const String keyHelpUri = 'helpUri';
@@ -62,6 +76,12 @@ class SarifRule {
   /// A concise description of the rule.
   final SarifMessage shortDescription;
 
+  /// An optional comprehensive description of the rule.
+  final SarifMessage? fullDescription;
+
+  /// Optional rule help information containing rich guidance and examples.
+  final SarifMessage? help;
+
   /// A URI where further documentation for the rule can be found.
   final String? helpUri;
 
@@ -75,6 +95,8 @@ class SarifRule {
   Map<String, Object?> toJson() => {
     keyId: id,
     keyShortDescription: shortDescription.toJson(),
+    if (fullDescription != null) keyFullDescription: fullDescription!.toJson(),
+    if (help != null) keyHelp: help!.toJson(),
     if (helpUri != null) keyHelpUri: helpUri,
     if (defaultConfiguration != null) keyDefaultConfiguration: defaultConfiguration!.toJson(),
     if (properties != null) keyProperties: properties,
