@@ -91,6 +91,42 @@ void main() {
     });
   });
 
+  group('relativizePath', () {
+    final String anchor = p.normalize(p.absolute('project'));
+
+    test('reverses canonicalization against the same directory', () {
+      const authored = 'skills/nested';
+
+      final String canonical = canonicalizePath(authored, baseDirectory: anchor);
+
+      expect(relativizePath(canonical, relativeTo: anchor), equals(p.join('skills', 'nested')));
+    });
+
+    test('yields a dot for the anchor directory', () {
+      expect(relativizePath(anchor, relativeTo: anchor), equals('.'));
+    });
+
+    test('expresses a path outside the anchor with parent segments', () {
+      final String sibling = p.normalize(p.absolute('sibling', 'skills'));
+
+      expect(
+        relativizePath(sibling, relativeTo: anchor),
+        equals(p.join('..', 'sibling', 'skills')),
+        reason: 'A subpackage configuration declares targets above itself this way.',
+      );
+    });
+
+    test('passes a relative path through untouched', () {
+      expect(relativizePath('skills', relativeTo: anchor), equals('skills'));
+    });
+
+    test('passes every path through when no anchor is supplied', () {
+      final String canonical = canonicalizePath('skills', baseDirectory: anchor);
+
+      expect(relativizePath(canonical, relativeTo: null), equals(canonical));
+    });
+  });
+
   group('normalizeSkillNameToken', () {
     test('converts underscores to hyphens', () {
       expect(normalizeSkillNameToken('skills_lint_setup'), 'skills-lint-setup');

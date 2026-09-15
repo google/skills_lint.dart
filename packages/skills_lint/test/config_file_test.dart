@@ -1275,6 +1275,65 @@ skills_lint:
       expect(serializedRules(parsed), equals(serializedRules(config)));
       expectStableSerialization(parsed);
     });
+
+    test('rewriting a loaded configuration preserves the authored paths', () async {
+      await withTempDir((Directory tempDir) async {
+        final Directory packageDir = await Directory(
+          p.join(tempDir.path, 'packages', 'thing'),
+        ).create(recursive: true);
+        const authored = Configuration(
+          directoryConfigs: [
+            LintTargetConfig(
+              path: 'skills',
+              ruleConfigs: {
+                TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+              },
+              ignoreFile: 'skills/ignores.json',
+            ),
+            // A subpackage configuration reaching up at a shared skills
+            // directory and a shared ignore file.
+            LintTargetConfig(path: '../../.agents/skills', ignoreFile: '../../shared/ignores.json'),
+          ],
+          individualSkillConfigs: [LintTargetConfig(path: 'skills/one-skill')],
+        );
+        final String originalText = authored.toYamlString();
+        final configFile = File(p.join(packageDir.path, 'skills_lint.yaml'));
+        await configFile.writeAsString(originalText);
+
+        final Configuration loaded = await ConfigParser.loadConfig(path: configFile.path);
+
+        // Each target carries the directory it was anchored to, so a tool that
+        // reads a configuration, edits it, and writes it back needs no argument
+        // to keep the file portable.
+        expect(loaded.directoryConfigs.first.anchorDirectory, equals(packageDir.path));
+        expect(loaded.toYamlString(), equals(originalText));
+      });
+    });
+
+    test('a directly constructed target serializes its paths as held', () {
+      const authored = Configuration(
+        directoryConfigs: [LintTargetConfig(path: 'skills', ignoreFile: '../shared/ignores.json')],
+      );
+
+      expect(authored.directoryConfigs.first.anchorDirectory, isNull);
+      expect(authored.toYamlString(), contains('path: skills'));
+      expect(authored.toYamlString(), contains('ignore_file: "../shared/ignores.json"'));
+    });
+
+    test('a target serialized on its own reverses its own anchor', () {
+      final String anchor = p.normalize(p.absolute('project'));
+      final Configuration parsed = ConfigParser.parse(
+        const Configuration(
+          directoryConfigs: [LintTargetConfig(path: '../sibling/skills')],
+        ).toYamlString(),
+        baseDirectory: anchor,
+      );
+
+      expect(
+        parsed.directoryConfigs.single.toYamlString().trim(),
+        equals('path: "${p.join('..', 'sibling', 'skills')}"'),
+      );
+    });
   });
 
   group('Configuration & LintTargetConfig Model Methods', () {
