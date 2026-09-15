@@ -990,5 +990,299 @@ Body with trailing space
         expect(content, contains('Body with trailing space\n'));
       },
     );
+
+    test('--format=sarif exits 0 and emits valid SARIF JSON for valid skill', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/valid-skill').create();
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'valid-skill', description: 'A valid skill')}Body');
+
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        skillDir.path,
+        '--format=sarif',
+      ]);
+
+      await process.shouldExit(0);
+      final List<String> stdout = await process.stdout.rest.toList();
+      final String output = stdout.join('\n');
+      final jsonMap = jsonDecode(output) as Map<String, dynamic>;
+
+      expect(
+        jsonMap[r'$schema'],
+        equals(
+          'https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json',
+        ),
+      );
+      expect(jsonMap['version'], equals('2.1.0'));
+      final runs = jsonMap['runs'] as List<dynamic>;
+      expect(runs.length, equals(1));
+      final run = runs.first as Map<String, dynamic>;
+      final tool = run['tool'] as Map<String, dynamic>;
+      final driver = tool['driver'] as Map<String, dynamic>;
+      expect(driver['name'], equals('skills_lint'));
+      expect(run['results'], isEmpty);
+      expect(output, isNot(contains('Evaluating directory:')));
+      expect(output, isNot(contains('Validating skill:')));
+      expect(output, isNot(contains('Skill is valid.')));
+    });
+
+    test('--format=sarif exits 1 and emits SARIF findings for invalid skill', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/invalid-skill').create();
+      await File('${skillDir.path}/SKILL.md').writeAsString('No frontmatter here');
+
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        skillDir.path,
+        '--format=sarif',
+      ]);
+
+      await process.shouldExit(1);
+      final List<String> stdout = await process.stdout.rest.toList();
+      final String output = stdout.join('\n');
+      final jsonMap = jsonDecode(output) as Map<String, dynamic>;
+
+      expect(jsonMap['version'], equals('2.1.0'));
+      final runs = jsonMap['runs'] as List<dynamic>;
+      final run = runs.first as Map<String, dynamic>;
+      final results = run['results'] as List<dynamic>;
+      expect(results, isNotEmpty);
+      final firstResult = results.first as Map<String, dynamic>;
+      expect(firstResult['ruleId'], equals('valid-yaml-metadata'));
+      expect(firstResult['level'], equals('error'));
+      expect(firstResult['locations'], isNotEmpty);
+      expect(output, isNot(contains('Evaluating directory:')));
+      expect(output, isNot(contains('Validating skill:')));
+      expect(output, isNot(contains('Skill is invalid:')));
+    });
+
+    test('--format=json exits 0 and emits JSON array for valid skill', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/valid-skill').create();
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'valid-skill', description: 'A valid skill')}Body');
+
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        skillDir.path,
+        '--format=json',
+      ]);
+
+      await process.shouldExit(0);
+      final List<String> stdout = await process.stdout.rest.toList();
+      final String output = stdout.join('\n');
+      final jsonList = jsonDecode(output) as List<dynamic>;
+
+      expect(jsonList.length, equals(1));
+      final skillObj = jsonList.first as Map<String, dynamic>;
+      expect(skillObj['skillName'], equals('valid-skill'));
+      expect(skillObj['isValid'], isTrue);
+      expect(skillObj['errors'], isEmpty);
+      expect(output, isNot(contains('Evaluating directory:')));
+      expect(output, isNot(contains('Validating skill:')));
+      expect(output, isNot(contains('Skill is valid.')));
+    });
+
+    test('--format=json exits 1 and emits JSON array with errors for invalid skill', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/invalid-skill').create();
+      await File('${skillDir.path}/SKILL.md').writeAsString('No frontmatter here');
+
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        skillDir.path,
+        '--format=json',
+      ]);
+
+      await process.shouldExit(1);
+      final List<String> stdout = await process.stdout.rest.toList();
+      final String output = stdout.join('\n');
+      final jsonList = jsonDecode(output) as List<dynamic>;
+
+      expect(jsonList.length, equals(1));
+      final skillObj = jsonList.first as Map<String, dynamic>;
+      expect(skillObj['skillName'], equals('invalid-skill'));
+      expect(skillObj['isValid'], isFalse);
+      expect(skillObj['errors'], isNotEmpty);
+    });
+
+    test('--format with invalid option exits with code 64', () async {
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        'foo',
+        '--format=invalid_format',
+      ]);
+
+      await process.shouldExit(64);
+    });
+
+    test('--fix combined with --format=sarif exits with code 64 and explains conflict', () async {
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        'foo',
+        '--fix',
+        '--format=sarif',
+      ]);
+
+      await process.shouldExit(64);
+      final List<String> stderr = await process.stderr.rest.toList();
+      final String output = stderr.join();
+      expect(output, contains('Cannot combine --fix with --format=sarif'));
+      expect(output, contains('applying fixes modifies files described by the report'));
+    });
+
+    test('--fix combined with --format=json exits with code 64 and explains conflict', () async {
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        'foo',
+        '--fix',
+        '--format=json',
+      ]);
+
+      await process.shouldExit(64);
+      final List<String> stderr = await process.stderr.rest.toList();
+      final String output = stderr.join();
+      expect(output, contains('Cannot combine --fix with --format=json'));
+      expect(output, contains('applying fixes modifies files described by the report'));
+    });
+
+    test('--fix-apply combined with --format=sarif exits with code 64', () async {
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '-s',
+        'foo',
+        '--fix-apply',
+        '--format=sarif',
+      ]);
+
+      await process.shouldExit(64);
+      final List<String> stderr = await process.stderr.rest.toList();
+      final String output = stderr.join();
+      expect(output, contains('Cannot combine --fix with --format=sarif'));
+    });
+  });
+
+  group('Output Format Logging Hygiene', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('cli_format_test.');
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
+    });
+
+    tearDown(() async {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    Future<void> runAndAssertValidJson(List<String> args, int expectedExitCode) async {
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        ...args,
+      ], workingDirectory: tempDir.path);
+
+      final String stdoutString = await process.stdoutStream().join('\n');
+      final String stderrString = await process.stderrStream().join('\n');
+      await process.shouldExit(expectedExitCode);
+
+      try {
+        jsonDecode(stdoutString);
+      } catch (e) {
+        fail(
+          'Stdout was not valid JSON! Error: $e\nStdout contents: $stdoutString\nStderr contents: $stderrString',
+        );
+      }
+    }
+
+    test('--format=sarif with --ignore-config produces valid JSON', () async {
+      await runAndAssertValidJson(['--ignore-config', '--format=sarif', '-d', tempDir.path], 0);
+    });
+
+    test('--format=json with --ignore-config produces valid JSON', () async {
+      await runAndAssertValidJson(['--ignore-config', '--format=json', '-d', tempDir.path], 0);
+    });
+
+    test('--format=sarif with -s (single skill) produces valid JSON', () async {
+      // Setup ignore config to trigger "Ignoring configuration file due to ignore-config flag"
+      await runAndAssertValidJson([
+        '--ignore-config',
+        '--format=sarif',
+        '-s',
+        '${tempDir.path}/test-skill',
+      ], 0);
+    });
+
+    test('configuration warning under --format=sarif produces valid JSON', () async {
+      // Cause a configuration warning by providing an unknown rule
+      final configFile = File('${tempDir.path}/skills_lint.yaml');
+      await configFile.writeAsString('''
+skills_lint:
+  rules:
+    unknown-rule: error
+''');
+
+      await runAndAssertValidJson(['--format=sarif', '-d', tempDir.path], 0);
+    });
+
+    test('--format=text still produces the expected human output and is NOT JSON', () async {
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '--format=text',
+        '-d',
+        tempDir.path,
+      ], workingDirectory: tempDir.path);
+
+      final String stdoutString = await process.stdoutStream().join('\n');
+      await process.shouldExit(0);
+
+      try {
+        jsonDecode(stdoutString);
+        fail('Expected stdout to NOT be JSON');
+      } catch (e) {
+        // Expected
+      }
+    });
+  });
+
+  group('CLI Usage Routing', () {
+    test('invalid flag writes usage to stderr with empty stdout and exit 64', () async {
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '--this-flag-does-not-exist',
+      ]);
+
+      final String stdoutString = await process.stdoutStream().join('\n');
+      final String stderrString = await process.stderrStream().join('\n');
+      await process.shouldExit(64);
+
+      expect(stdoutString, isEmpty);
+      expect(stderrString, isNotEmpty);
+      expect(stderrString, contains('Usage: skills_lint'));
+    });
+
+    test('--help writes usage to stdout with empty stderr and exit 0', () async {
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        '--help',
+      ]);
+
+      final String stdoutString = await process.stdoutStream().join('\n');
+      final String stderrString = await process.stderrStream().join('\n');
+      await process.shouldExit(0);
+
+      expect(stdoutString, isNotEmpty);
+      expect(stdoutString, contains('Usage: skills_lint'));
+      expect(stderrString, isEmpty);
+    });
   });
 }

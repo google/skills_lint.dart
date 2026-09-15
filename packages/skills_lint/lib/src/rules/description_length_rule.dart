@@ -7,7 +7,9 @@ import '../cutoff_excerpt.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
+import 'valid_yaml_metadata_rule.dart';
 
 /// Enforces that the description field is not too long.
 class DescriptionLengthRule extends SkillRule {
@@ -35,9 +37,11 @@ class DescriptionLengthRule extends SkillRule {
     }
 
     final YamlMap yaml = context.parsedYaml!;
-    final String description = yaml['description']?.toString() ?? '';
+    final YamlNode? descNode = yaml.nodes[ValidYamlMetadataRule.keyDescription];
+    final String description = descNode?.value?.toString() ?? '';
 
     if (description.length > maxDescriptionLength) {
+      final SourceRegion? region = context.yamlNodeToRegion(descNode);
       errors.add(
         ValidationError(
           ruleId: name,
@@ -49,6 +53,7 @@ class DescriptionLengthRule extends SkillRule {
             maxLength: maxDescriptionLength,
             docUrl: _descriptionFieldUrl,
           ),
+          region: region,
         ),
       );
     }

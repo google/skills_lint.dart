@@ -6,6 +6,7 @@ import 'package:yaml/yaml.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
 
 /// Enforces that only allowed fields are present in YAML metadata.
@@ -46,15 +47,22 @@ class DisallowedFieldRule extends SkillRule {
     }
 
     final YamlMap yaml = context.parsedYaml!;
-    for (final Object? key in yaml.keys) {
-      final bool isDisallowed = key is! String || !_allowedFields.contains(key);
+    for (final MapEntry<Object?, YamlNode> entry in yaml.nodes.entries) {
+      final Object? keyObj = entry.key;
+      final String keyStr = keyObj is YamlScalar
+          ? keyObj.value?.toString() ?? ''
+          : keyObj?.toString() ?? '';
+      final bool isDisallowed = !_allowedFields.contains(keyStr);
       if (isDisallowed) {
+        final YamlNode keyNode = keyObj is YamlNode ? keyObj : entry.value;
+        final SourceRegion? region = context.yamlNodeToRegion(keyNode);
         errors.add(
           ValidationError(
             ruleId: name,
             severity: severity,
             file: _skillFileName,
-            message: 'Disallowed field: $key (see $_metadataUrl)',
+            message: 'Disallowed field: $keyStr (see $_metadataUrl)',
+            region: region,
           ),
         );
       }

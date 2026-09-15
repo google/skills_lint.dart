@@ -11,6 +11,7 @@ import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../path_utils.dart';
 
@@ -41,12 +42,14 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
 
     final YamlMap yaml = context.parsedYaml!;
-    final String skillName = getNameNode(yaml)?.value.toString() ?? '';
+    final YamlNode? nameNode = getNameNode(yaml);
+    final String skillName = nameNode?.value.toString() ?? '';
 
     if (skillName.isEmpty) {
       return errors; // Handled by required fields check
     }
 
+    final SourceRegion? region = context.yamlNodeToRegion(nameNode);
     final String suggestion = suggestNormalizedName(skillName);
 
     if (skillName != skillName.toLowerCase()) {
@@ -54,6 +57,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
         _buildNameFormatError(
           'Frontmatter `name` "$skillName" must be lowercase. '
           'Suggested: "$suggestion"',
+          region: region,
         ),
       );
     }
@@ -64,6 +68,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
           'Frontmatter `name` is ${skillName.length} characters; '
           'maximum is $maxNameLength. '
           'Shorten the `name:` field in SKILL.md.',
+          region: region,
         ),
       );
     }
@@ -74,6 +79,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
           'Frontmatter `name` "$skillName" contains invalid characters. '
           'Only lowercase letters, digits, and hyphens are allowed. '
           'Suggested: "$suggestion"',
+          region: region,
         ),
       );
     }
@@ -83,6 +89,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
         _buildNameFormatError(
           'Frontmatter `name` "$skillName" has leading or trailing hyphens. '
           'Suggested: "$suggestion"',
+          region: region,
         ),
       );
     }
@@ -92,6 +99,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
         _buildNameFormatError(
           'Frontmatter `name` "$skillName" has consecutive hyphens. '
           'Suggested: "$suggestion"',
+          region: region,
         ),
       );
     }
@@ -104,6 +112,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
           'directory name "$dirName". '
           'Fix by either setting `name: $dirName` in SKILL.md '
           'or renaming the directory from "$dirName" to "$skillName".',
+          region: region,
         ),
       );
     }
@@ -111,11 +120,12 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return errors;
   }
 
-  ValidationError _buildNameFormatError(String message) => ValidationError(
+  ValidationError _buildNameFormatError(String message, {SourceRegion? region}) => ValidationError(
     ruleId: name,
     severity: severity,
     file: _skillFileName,
     message: '$message (see $_nameFieldUrl)',
+    region: region,
   );
 
   /// Returns a best-effort normalization of [input] that conforms to the

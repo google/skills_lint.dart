@@ -76,6 +76,7 @@ void main() {
         errors.first.message,
         contains('Fix by re-running your validation command with `--fix`'),
       );
+      expect(errors.first.region?.startLine, 2);
     });
 
     test('flags skill name missing package prefix and suggests valid name', () async {
