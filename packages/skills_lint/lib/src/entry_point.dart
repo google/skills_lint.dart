@@ -13,6 +13,7 @@ import 'missing_defaults_exception.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/custom_rule_parameters.dart';
+import 'models/output_format.dart';
 import 'models/rule_config.dart';
 import 'models/rule_parameter_type.dart';
 import 'models/skill_rule.dart';
@@ -20,6 +21,9 @@ import 'path_utils.dart';
 import 'rule_registry.dart';
 import 'validation_session.dart';
 
+export 'models/output_format.dart';
+export 'models/sarif/sarif.dart';
+export 'reporters/reporters.dart';
 export 'validation_session.dart';
 
 final _log = Logger('skills_lint');
@@ -37,6 +41,10 @@ const _dryRunFlag = 'dry-run';
 const _fixApplyFlag = 'fix-apply';
 const _allowMisconfiguredKeysFlag = 'allow-misconfigured-keys';
 const _configOption = 'config';
+const _formatOption = 'format';
+const _formatText = 'text';
+const _formatJson = 'json';
+const _formatSarif = 'sarif';
 
 /// User-visible deprecation notice for the legacy `--fix-apply` alias.
 ///
@@ -74,26 +82,54 @@ Run with --help to see every flag.''';
 /// Main entrypoint execution logic for the CLI tool.
 ///
 /// Parses arguments and runs validation on the specified directory.
-Future<void> runApp(List<String> args) async {
-  // Setup logger to print to stdout/stderr
+void _setupLogger(OutputFormat? Function() getFormat) {
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
-    if (record.level >= Level.SEVERE) {
+    if (record.level >= Level.SEVERE || getFormat() != OutputFormat.text) {
       stderr.writeln(record.message);
     } else {
       stdout.writeln(record.message);
     }
   });
+}
+
+bool _hasInvalidFixFormatCombination(
+  ArgResults results,
+  OutputFormat format,
+  ArgParser parser,
+  String formatStr,
+) {
+  final fixFlag = results[_fixFlag] as bool;
+  final fixApplyAlias = results[_fixApplyFlag] as bool;
+  if ((fixFlag || fixApplyAlias) && format != OutputFormat.text) {
+    _printUsage(
+      parser,
+      'Cannot combine --$_fixFlag with --$_formatOption=$formatStr: '
+      'applying fixes modifies files described by the report.',
+    );
+    return true;
+  }
+  return false;
+}
+
+Future<void> runApp(List<String> args) async {
+  OutputFormat? currentFormat;
+  _setupLogger(() => currentFormat);
 
   const helpFlag = 'help';
-
   final ArgParser parser = _createArgParser(helpFlag);
 
   final ArgResults results;
   final Map<String, RuleConfigPatch> resolvedRuleConfigs;
+  final String formatStr;
+  final OutputFormat format;
 
   try {
     results = parser.parse(args);
+    formatStr = results[_formatOption] as String? ?? _formatText;
+    format = OutputFormat.fromString(formatStr);
+    currentFormat = format;
+
     if (results[helpFlag] as bool) {
       _printUsage(parser);
       return;
@@ -125,6 +161,11 @@ Future<void> runApp(List<String> args) async {
   final dryRun = results[_dryRunFlag] as bool;
   final fixApplyAlias = results[_fixApplyFlag] as bool;
 
+  if (_hasInvalidFixFormatCombination(results, format, parser, formatStr)) {
+    exitCode = 64;
+    return;
+  }
+
   if (fixApplyAlias) {
     stderr.writeln(fixApplyDeprecationMsg);
   }
@@ -153,6 +194,7 @@ Future<void> runApp(List<String> args) async {
       fixApply: fixApply,
       ignoreFileOverride: ignoreFileOverride,
       config: config,
+      format: format,
     );
     if (success) {
       exitCode = 0;
@@ -160,7 +202,11 @@ Future<void> runApp(List<String> args) async {
       exitCode = 1;
     }
   } on MissingDefaultsException catch (_) {
-    stdout.writeln(firstRunGuideMsg);
+    if (format != OutputFormat.text) {
+      stderr.writeln(firstRunGuideMsg);
+    } else {
+      stdout.writeln(firstRunGuideMsg);
+    }
     exitCode = 64;
   }
 }
@@ -255,6 +301,17 @@ ArgParser _createArgParser(String helpFlag) {
       _configOption,
       abbr: 'c',
       help: 'Path to a custom configuration file (defaults to skills_lint.yaml).',
+    )
+    ..addOption(
+      _formatOption,
+      allowed: [_formatText, _formatJson, _formatSarif],
+      defaultsTo: _formatText,
+      help: 'Specifies the output format for validation diagnostics.',
+      allowedHelp: {
+        _formatText: 'Standard human-readable terminal output.',
+        _formatJson: 'Machine-readable raw JSON array of validation results.',
+        _formatSarif: 'Standard SARIF 2.1.0 JSON document for CI / GitHub Code Scanning.',
+      },
     );
 
   return parser;
@@ -303,8 +360,14 @@ Future<Configuration?> _loadConfig(ArgResults results) async {
 
 /// Validates skills based on the provided configuration.
 ///
-/// This is the public API for validating skills. It does not support fixing
-/// lints as that feature is considered internal to the CLI.
+/// This is the public entrypoint for executing skill validation and emitting
+/// formatted diagnostic output. When [format] is set to [OutputFormat.sarif] or
+/// [OutputFormat.json], structured output is written directly to standard output.
+///
+/// Callers who need structured in-memory access to validation models (such as
+/// [SarifLog] or [ValidationResult]s) without console emission should instantiate
+/// [ValidationSession] directly and query [ValidationSession.toSarif] or
+/// [ValidationSession.results].
 ///
 /// [skillDirPaths] is a list of directories containing multiple skills.
 /// [individualSkillPaths] is a list of paths to individual skill directories.
@@ -315,6 +378,8 @@ Future<Configuration?> _loadConfig(ArgResults results) async {
 /// [generateBaseline] writes current errors to a baseline file instead of reporting them.
 /// [ignoreFileOverride] is an optional path to a baseline file to use.
 /// [config] is the loaded configuration.
+/// [customRules] contains programmatically injected custom skill rule checks.
+/// [format] specifies the output format for diagnostics (`text`, `json`, `sarif`).
 ///
 /// Returns a [Future] that resolves to `true` if all skills validated successfully
 /// (or if [generateBaseline] is true), and `false` if any validation failures
@@ -332,6 +397,7 @@ Future<bool> validateSkills({
   String? ignoreFileOverride,
   Configuration? config,
   List<SkillRule> customRules = const [],
+  OutputFormat format = OutputFormat.text,
 }) {
   if (resolvedRules.isNotEmpty && resolvedRuleConfigs.isNotEmpty) {
     throw ArgumentError(
@@ -358,6 +424,7 @@ Future<bool> validateSkills({
     ignoreFileOverride: ignoreFileOverride,
     config: config,
     customRules: customRules,
+    format: format,
   );
 }
 
@@ -380,7 +447,15 @@ Future<bool> validateSkillsInternal({
   String? ignoreFileOverride,
   Configuration? config,
   List<SkillRule> customRules = const [],
+  OutputFormat format = OutputFormat.text,
 }) async {
+  if ((fix || fixApply) && format != OutputFormat.text) {
+    throw ArgumentError(
+      'Cannot combine fixing with output format "${format.name}". '
+      'Applying fixes modifies files described by the report.',
+    );
+  }
+
   // The CLI and API boundary: everything below this point works with absolute,
   // normalized paths. See [canonicalizePath] for the boundary contract.
   final String workingDirectory = Directory.current.path;
@@ -422,6 +497,7 @@ Future<bool> validateSkillsInternal({
     generateBaseline: generateBaseline,
     fix: fix,
     fixApply: fixApply,
+    format: format,
   );
 
   for (final skillPath in effectiveIndividualSkillPaths) {
@@ -431,6 +507,9 @@ Future<bool> validateSkillsInternal({
     }
   }
   if (session.anyFailed && fastFail) {
+    if (format != OutputFormat.text) {
+      session.emitFormattedOutput();
+    }
     return false;
   }
 
@@ -442,6 +521,10 @@ Future<bool> validateSkillsInternal({
   }
 
   session.reportNoSkillsValidated(effectiveSkillDirPaths);
+
+  if (format != OutputFormat.text) {
+    session.emitFormattedOutput();
+  }
 
   if (generateBaseline) {
     return true;

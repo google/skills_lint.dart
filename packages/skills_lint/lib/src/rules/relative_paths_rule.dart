@@ -9,6 +9,7 @@ import '../levenshtein.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
 
 /// Enforces that relative links in SKILL.md point to existing files.
@@ -32,8 +33,9 @@ class RelativePathsRule extends SkillRule {
 
     // Extract content after YAML frontmatter
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(context.rawContent);
+    final int frontmatterEnd = match != null ? match.end : 0;
     final String markdownContent = match != null
-        ? context.rawContent.substring(match.end)
+        ? context.rawContent.substring(frontmatterEnd)
         : context.rawContent;
 
     for (final RegExpMatch linkMatch in SkillContext.markdownLinkRegex.allMatches(
@@ -41,7 +43,6 @@ class RelativePathsRule extends SkillRule {
     )) {
       final String fullPath = linkMatch.group(1)!;
       // Markdown links can have a title after the URL, separated by spaces.
-      // e.g. [text](url "title")
       final String path = fullPath.trim().split(RegExp(r'\s+')).first;
 
       // Skip absolute paths (handled by AbsolutePathsRule)
@@ -63,11 +64,15 @@ class RelativePathsRule extends SkillRule {
       final String resolvedPath = absolute(normalize(join(context.directory.path, effectivePath)));
       final linkedFile = File(resolvedPath);
       if (!linkedFile.existsSync()) {
+        final int linkOffsetInFile = frontmatterEnd + linkMatch.start;
+        final int line = context.offsetToLine(linkOffsetInFile);
         final String? suggestion = findSiblingSuggestion(
           originalLink: path,
           resolvedPath: resolvedPath,
         );
         final suggestionClause = suggestion != null ? ' Did you mean "$suggestion"?' : '';
+        final String skillDirName = basename(context.directory.path);
+        final suggestionMarkdown = suggestion != null ? '\n\n*Did you mean `$suggestion`?*' : '';
         errors.add(
           ValidationError(
             ruleId: name,
@@ -76,6 +81,13 @@ class RelativePathsRule extends SkillRule {
             message:
                 'Linked file does not exist: $path (resolved to $resolvedPath).'
                 '$suggestionClause',
+            markdownMessage:
+                '**Linked file does not exist:** `$path`\n\n'
+                '**How to fix:**\n'
+                '- Check for typos in `$path`.\n'
+                '- Ensure the target file exists relative to this skill directory (`$skillDirName/`).'
+                '$suggestionMarkdown',
+            region: SourceRegion(startLine: line),
           ),
         );
       }
@@ -86,23 +98,7 @@ class RelativePathsRule extends SkillRule {
 }
 
 /// Looks for a near-miss sibling **file** next to the missing
-/// [resolvedPath] and, if one exists, returns the full suggested link as
-/// it should appear in the SKILL.md author's markdown — the original
-/// link's directory prefix joined to the matched basename, normalized to
-/// forward slashes so the suggestion is portable across platforms.
-///
-/// Returns `null` when:
-/// - the original link has no parent dir on disk,
-/// - the parent dir can't be listed (e.g. permission error),
-/// - or no candidate is close enough to the missing basename.
-///
-/// [originalLink] is the link text as written in the SKILL.md
-/// (`docs/DEATILS.md`); [resolvedPath] is the same link resolved
-/// against the skill directory (`/abs/path/skill/docs/DEATILS.md`).
-///
-/// Subdirectories of the parent are intentionally excluded from the
-/// candidate set — links almost always point at files, and suggesting
-/// a directory would be misleading.
+/// [resolvedPath] and, if one exists, returns the full suggested link.
 @visibleForTesting
 String? findSiblingSuggestion({required String originalLink, required String resolvedPath}) {
   final String parentPath = dirname(resolvedPath);
@@ -116,7 +112,6 @@ String? findSiblingSuggestion({required String originalLink, required String res
     return null;
   }
 
-  // Tunable; chosen to balance typo recall against false positives.
   final int threshold = (missingBase.length ~/ 3).clamp(1, missingBase.length);
 
   final List<FileSystemEntity> entries;

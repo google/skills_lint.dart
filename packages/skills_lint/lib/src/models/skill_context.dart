@@ -5,6 +5,8 @@
 import 'dart:io';
 import 'package:yaml/yaml.dart';
 
+import 'source_region.dart';
+
 /// Context provided to [SkillRule]s during validation.
 class SkillContext {
   SkillContext({
@@ -33,4 +35,46 @@ class SkillContext {
   final YamlMap? parsedYaml;
 
   final String? yamlParsingError;
+
+  /// Converts a 0-based UTF-16 code unit [offset] in [rawContent] (matching
+  /// indices returned by `Match.start`, `String.indexOf`, and `SourceSpan.start.offset`)
+  /// into a 1-based line number (where line 1 represents the first line of the document).
+  int offsetToLine(int offset) {
+    var line = 1;
+    final int limit = offset < rawContent.length ? offset : rawContent.length;
+    for (var i = 0; i < limit; i++) {
+      if (rawContent.codeUnitAt(i) == 10) {
+        line++;
+      }
+    }
+    return line;
+  }
+
+  /// Resolves the 1-based [SourceRegion] in [rawContent] for a given [YamlNode].
+  ///
+  /// Calculates the absolute character offsets of [node] by combining the frontmatter
+  /// boundary offset with [node.span.start.offset] and [node.span.end.offset],
+  /// then converts them to 1-based line and column coordinates.
+  /// Returns `null` if [node] is null or if frontmatter is not found in [rawContent].
+  SourceRegion? yamlNodeToRegion(YamlNode? node) {
+    if (node == null) {
+      return null;
+    }
+    final RegExpMatch? match = skillStartRegex.firstMatch(rawContent);
+    if (match == null) {
+      return null;
+    }
+    final String yamlStr = match.group(1)!;
+    final int yamlOffset = rawContent.indexOf(yamlStr, match.start);
+    final int startLine = offsetToLine(yamlOffset + node.span.start.offset);
+    final int startColumn = node.span.start.column + 1;
+    final int endLine = offsetToLine(yamlOffset + node.span.end.offset);
+    final int endColumn = node.span.end.column + 1;
+    return SourceRegion(
+      startLine: startLine,
+      startColumn: startColumn,
+      endLine: endLine,
+      endColumn: endColumn,
+    );
+  }
 }

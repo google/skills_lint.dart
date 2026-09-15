@@ -12,10 +12,6 @@ import '../models/skill_rule.dart';
 import '../models/validation_error.dart';
 
 /// Checks that a skill directory exists and contains a SKILL.md file.
-///
-/// If [excludeRegExp] is specified, it skips validation if the normalized
-/// directory path matches the pattern.
-/// Note on `exclude` regular expressions: To guarantee cross-platform portability across macOS, Linux, and Windows, path separators across evaluated absolute paths are **always normalized to forward slashes (`/`) prior to matching**. Always write `/` instead of `\` when separating directories within your regular expression exclusions.
 class PathDoesNotExistRule extends SkillRule {
   PathDoesNotExistRule({required this.severity, this.excludeRegExp});
 
@@ -27,9 +23,6 @@ class PathDoesNotExistRule extends SkillRule {
   @override
   final AnalysisSeverity severity;
 
-  /// Optional regex pattern to exclude matching directories.
-  /// Note: Target paths evaluated against this regex always normalize path
-  /// separators to forward slashes (`/`), even on Windows.
   final RegExp? excludeRegExp;
 
   @override
@@ -52,6 +45,10 @@ class PathDoesNotExistRule extends SkillRule {
             ruleId: ruleName,
             file: dir.path,
             message: 'Path is not a directory: ${dir.path} (see $_dirStructureUrl)',
+            markdownMessage:
+                '**Path is not a directory:** `${dir.path}`\n\n'
+                'Expected a directory containing `SKILL.md`.\n\n'
+                '*(See [Agent Skills Specification]($_dirStructureUrl))*',
             severity: severity,
           ),
         );
@@ -61,6 +58,9 @@ class PathDoesNotExistRule extends SkillRule {
             ruleId: ruleName,
             file: dir.path,
             message: 'Directory does not exist: ${dir.path} (see $_dirStructureUrl)',
+            markdownMessage:
+                '**Directory does not exist:** `${dir.path}`\n\n'
+                '*(See [Agent Skills Specification]($_dirStructureUrl))*',
             severity: severity,
           ),
         );
@@ -70,11 +70,17 @@ class PathDoesNotExistRule extends SkillRule {
 
     final skillMdFile = File(p.join(dir.path, _skillFileName));
     if (!skillMdFile.existsSync()) {
+      final String dirName = p.basename(dir.path);
       errors.add(
         ValidationError(
           ruleId: ruleName,
           file: dir.path,
           message: '$_skillFileName is missing in directory: ${dir.path} (see $_dirStructureUrl)',
+          markdownMessage:
+              '**`SKILL.md` is missing in directory.**\n\n'
+              '**How to fix:**\n'
+              'Create a `SKILL.md` file in `$dirName/` defining the skill metadata and instructions.\n\n'
+              '*(See [Agent Skills Specification]($_dirStructureUrl))*',
           severity: severity,
         ),
       );

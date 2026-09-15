@@ -14,16 +14,12 @@ import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../path_utils.dart';
 
 /// Enforces that published package skills follow the naming convention required
 /// by `package:skills`.
-///
-/// Published skills in a Dart package's `skills/` directory must match the
-/// package name or start with the package name (or the package name with
-/// underscores replaced by hyphens) followed by a hyphen (e.g. `skills-lint`,
-/// `skills-lint-setup`, or `skills_lint-setup` for package `skills_lint`).
 class PublishedSkillNameRule extends SkillRule implements FixableRule {
   PublishedSkillNameRule({this.severity = defaultSeverity, this.packageName, this.pubspecPath});
 
@@ -42,23 +38,13 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   @override
   final AnalysisSeverity severity;
 
-  /// Optional explicit package name override (configured via `package_name` parameter).
   final String? packageName;
-
-  /// Optional explicit path to `pubspec.yaml` (configured via `pubspec_path` parameter).
-  ///
-  /// Can be an absolute path or a relative path resolved against the process
-  /// working directory (`Directory.current` at CLI invocation).
-  ///
-  /// If omitted, the rule auto-discovers `pubspec.yaml` by ascending parent
-  /// directories starting from the skill's directory ([SkillContext.directory]).
   final String? pubspecPath;
 
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
     final List<ValidationError> errors = [];
 
-    // Syntax errors and missing frontmatter are reported by ValidYamlMetadataRule.
     if (context.yamlParsingError != null || context.parsedYaml == null) {
       return errors;
     }
@@ -67,7 +53,6 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     final YamlNode? nameNode = yaml.nodes['name'];
     final String skillName = nameNode?.value?.toString().trim() ?? '';
 
-    // Missing or empty name is reported as a required-field error by ValidYamlMetadataRule.
     if (skillName.isEmpty) {
       return errors;
     }
@@ -89,6 +74,12 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
               'pubspec.yaml in an ancestor directory, configure the '
               'package_name parameter in skills_lint.yaml, or disable the '
               'published-skill-name rule.',
+          markdownMessage:
+              '**Unable to resolve enclosing Dart package name.**\n\n'
+              '**How to fix:**\n'
+              '- Add a `pubspec.yaml` in an ancestor directory, or\n'
+              '- Configure the `package_name` parameter in `skills_lint.yaml`, or\n'
+              '- Disable the `published-skill-name` rule.',
         ),
       );
       return errors;
@@ -106,6 +97,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
         skillName.startsWith(rawPrefix);
 
     if (!isNameValid) {
+      final SourceRegion? region = context.yamlNodeToRegion(nameNode);
       final String suggestedName = suggestValidName(
         currentName: skillName,
         packageName: resolvedPackageName,
@@ -122,6 +114,18 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
               'Suggested name: "$suggestedName".\n'
               'Fix by re-running your validation command with `--fix`.\n'
               '(see $_specUrl)',
+          markdownMessage:
+              '**Skill name does not follow Dart package published skill naming convention.**\n\n'
+              'Published skills in package `$resolvedPackageName` must start with `$hyphenPrefix`.\n\n'
+              '* **Current:** `$skillName`\n'
+              '* **Suggested:** `$suggestedName`\n\n'
+              '**How to fix:**\n'
+              '```yaml\n'
+              'name: $suggestedName\n'
+              '```\n'
+              '*(Or re-run validation with `--fix` to apply automatically).*\n\n'
+              '*(See [Agent Skills Naming Convention]($_specUrl))*',
+          region: region,
         ),
       );
     }
@@ -129,8 +133,6 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     return errors;
   }
 
-  /// Resolves the enclosing Dart package name from parameters or by walking up
-  /// parent directories from [startDirectory] to find `pubspec.yaml`.
   String? resolvePackageName({
     required Directory startDirectory,
     String? explicitPackageName,
@@ -206,19 +208,10 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
       final pubspec = Pubspec.parse(content);
       final String name = pubspec.name.trim();
       return name.isNotEmpty ? name : null;
-    } catch (_) {
-      // Ignore syntax/read errors in pubspec
-    }
+    } catch (_) {}
     return null;
   }
 
-  /// Suggests a valid skill name complying with the package published skill naming convention.
-  ///
-  /// Examples:
-  /// * `suggestValidName(currentName: 'setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
-  /// * `suggestValidName(currentName: 'dart-skills-lint-setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
-  /// * `suggestValidName(currentName: 'skills_lint_setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
-  /// * `suggestValidName(currentName: 'skills_lint', packageName: 'skills_lint')` -> `'skills-lint'`
   @visibleForTesting
   static String suggestValidName({required String currentName, required String packageName}) {
     final List<String> pkgTokens = _tokenize(packageName);
@@ -261,8 +254,6 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   static List<String> _tokenize(String input) =>
       input.toLowerCase().split(RegExp(r'[^a-z0-9]+')).where((token) => token.isNotEmpty).toList();
 
-  /// Rewrites the frontmatter `name:` in `SKILL.md` to the suggested
-  /// normalized published skill name (`<package-name>-<suffix>`).
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
     if (filePath != SkillContext.skillFileName) {

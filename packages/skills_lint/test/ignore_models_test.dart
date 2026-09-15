@@ -6,6 +6,8 @@ import 'package:skills_lint/src/models/ignore_entry.dart';
 import 'package:skills_lint/src/models/skills_ignores.dart';
 import 'package:test/test.dart';
 
+import 'test_utils.dart';
+
 void main() {
   group('IgnoreEntry Serialization', () {
     test('fromJson parses rule_id and file_name', () {
@@ -25,6 +27,19 @@ void main() {
       expect(json[IgnoreEntry.ruleIdKey], equals('description_too_long'));
       expect(json[IgnoreEntry.fileNameKey], equals('SKILL.md'));
       expect(json.containsKey('used'), isFalse); // Suppressed
+    });
+
+    test('positive round-trip using expectJsonRoundTrip', () {
+      final entry = IgnoreEntry(ruleId: 'check-absolute-paths', fileName: 'SKILL.md', used: true);
+      expectJsonRoundTrip<IgnoreEntry>(
+        instance: entry,
+        toJson: (e) => e.toJson(),
+        fromJson: IgnoreEntry.fromJson,
+      );
+    });
+
+    test('negative handling on malformed JSON', () {
+      expect(() => IgnoreEntry.fromJson(const {'rule_id': 123}), throwsA(isA<TypeError>()));
     });
   });
 
@@ -58,6 +73,29 @@ void main() {
       final skillAList = skillsJson['skill-a'] as List<dynamic>;
       final firstItem = skillAList[0] as Map<String, dynamic>;
       expect(firstItem[IgnoreEntry.ruleIdKey], equals('rule1'));
+    });
+
+    test('positive round-trip using expectJsonRoundTrip', () {
+      final ignores = SkillsIgnores(
+        skills: {
+          'skill-1': [
+            IgnoreEntry(ruleId: 'rule-a', fileName: 'SKILL.md'),
+            IgnoreEntry(ruleId: 'rule-b', fileName: 'SKILL.md'),
+          ],
+        },
+      );
+      expectJsonRoundTrip<SkillsIgnores>(
+        instance: ignores,
+        toJson: (i) => i.toJson(),
+        fromJson: SkillsIgnores.fromJson,
+      );
+    });
+
+    test('negative handling on malformed JSON', () {
+      expect(
+        () => SkillsIgnores.fromJson(const {'skills': 'not_a_map'}),
+        throwsA(isA<TypeError>()),
+      );
     });
   });
 }
