@@ -14,6 +14,7 @@ import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../path_utils.dart';
 
@@ -106,6 +107,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
         skillName.startsWith(rawPrefix);
 
     if (!isNameValid) {
+      final SourceRegion? region = context.yamlNodeToRegion(nameNode);
       final String suggestedName = suggestValidName(
         currentName: skillName,
         packageName: resolvedPackageName,
@@ -122,6 +124,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
               'Suggested name: "$suggestedName".\n'
               'Fix by re-running your validation command with `--fix`.\n'
               '(see $_specUrl)',
+          region: region,
         ),
       );
     }

@@ -8,6 +8,7 @@ import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
 
 /// Enforces that links in SKILL.md do not use absolute paths.
@@ -31,8 +32,9 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
 
     // Extract content after YAML frontmatter
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(context.rawContent);
+    final int frontmatterEnd = match != null ? match.end : 0;
     final String markdownContent = match != null
-        ? context.rawContent.substring(match.end)
+        ? context.rawContent.substring(frontmatterEnd)
         : context.rawContent;
 
     for (final RegExpMatch linkMatch in SkillContext.markdownLinkRegex.allMatches(
@@ -40,6 +42,8 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     )) {
       final String path = linkMatch.group(1)!;
       if (isAbsolute(path) || windows.isAbsolute(path)) {
+        final int linkOffsetInFile = frontmatterEnd + linkMatch.start;
+        final int line = context.offsetToLine(linkOffsetInFile);
         errors.add(
           ValidationError(
             ruleId: name,
@@ -49,6 +53,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
                 'Absolute filepath found in link: $path. '
                 'Skills must use paths relative to SKILL.md so they remain '
                 'portable across machines.',
+            region: SourceRegion(startLine: line),
           ),
         );
       }

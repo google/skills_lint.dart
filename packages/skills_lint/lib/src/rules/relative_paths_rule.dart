@@ -9,6 +9,7 @@ import '../levenshtein.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
 
 /// Enforces that relative links in SKILL.md point to existing files.
@@ -32,8 +33,9 @@ class RelativePathsRule extends SkillRule {
 
     // Extract content after YAML frontmatter
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(context.rawContent);
+    final int frontmatterEnd = match != null ? match.end : 0;
     final String markdownContent = match != null
-        ? context.rawContent.substring(match.end)
+        ? context.rawContent.substring(frontmatterEnd)
         : context.rawContent;
 
     for (final RegExpMatch linkMatch in SkillContext.markdownLinkRegex.allMatches(
@@ -63,6 +65,8 @@ class RelativePathsRule extends SkillRule {
       final String resolvedPath = absolute(normalize(join(context.directory.path, effectivePath)));
       final linkedFile = File(resolvedPath);
       if (!linkedFile.existsSync()) {
+        final int linkOffsetInFile = frontmatterEnd + linkMatch.start;
+        final int line = context.offsetToLine(linkOffsetInFile);
         final String? suggestion = findSiblingSuggestion(
           originalLink: path,
           resolvedPath: resolvedPath,
@@ -76,6 +80,7 @@ class RelativePathsRule extends SkillRule {
             message:
                 'Linked file does not exist: $path (resolved to $resolvedPath).'
                 '$suggestionClause',
+            region: SourceRegion(startLine: line),
           ),
         );
       }

@@ -9,6 +9,7 @@ import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
 
 /// Enforces that lines in SKILL.md do not have trailing whitespace,
@@ -53,8 +54,21 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
         }
 
         if (message != null) {
+          final int startCol = trimmedLine.length - whitespace.length + 1;
+          final int endCol = trimmedLine.length + 1;
           errors.add(
-            ValidationError(ruleId: name, severity: severity, file: 'SKILL.md', message: message),
+            ValidationError(
+              ruleId: name,
+              severity: severity,
+              file: 'SKILL.md',
+              message: message,
+              region: SourceRegion(
+                startLine: i + 1,
+                startColumn: startCol,
+                endLine: i + 1,
+                endColumn: endCol,
+              ),
+            ),
           );
         }
       }
