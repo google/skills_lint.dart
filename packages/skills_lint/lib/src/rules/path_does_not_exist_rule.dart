@@ -12,6 +12,10 @@ import '../models/skill_rule.dart';
 import '../models/validation_error.dart';
 
 /// Checks that a skill directory exists and contains a SKILL.md file.
+///
+/// If [excludeRegExp] is specified, it skips validation if the normalized
+/// directory path matches the pattern.
+/// Note on `exclude` regular expressions: To guarantee cross-platform portability across macOS, Linux, and Windows, path separators across evaluated absolute paths are **always normalized to forward slashes (`/`) prior to matching**. Always write `/` instead of `\` when separating directories within your regular expression exclusions.
 class PathDoesNotExistRule extends SkillRule {
   PathDoesNotExistRule({required this.severity, this.excludeRegExp});
 

@@ -281,7 +281,7 @@ skills_lint:
       ]);
 
       final List<String> stdout = await process.stdout.rest.toList();
-      expect(stdout.join('\n'), contains(skillIsValidMsg));
+      expect(stdout.join('\n'), contains(TextReporter.skillIsValidMsg));
       await process.shouldExit(0);
     });
 
@@ -297,7 +297,7 @@ skills_lint:
 
       final List<String> stderr = await process.stderr.rest.toList();
       final String stderrStr = stderr.join('\n');
-      expect(stderrStr, contains(skillIsInvalidMsg));
+      expect(stderrStr, contains(TextReporter.skillIsInvalidMsg));
       expect(stderrStr, contains('SKILL.md is missing'));
       await process.shouldExit(1);
     });
@@ -323,12 +323,12 @@ skills_lint:
       // Verify outputs for both skills (sorted order)
       final List<String> stdout = await process.stdout.rest.toList();
       final String stdoutStr = stdout.join('\n');
-      expect(stdoutStr, contains(evaluatingDirMsg));
+      expect(stdoutStr, contains(TextReporter.evaluatingDirMsg));
       expect(stdoutStr, contains('--- Validating skill: skill-a ---'));
-      expect(stdoutStr, contains(skillIsValidMsg));
+      expect(stdoutStr, contains(TextReporter.skillIsValidMsg));
 
       expect(stdoutStr, contains('--- Validating skill: skill-b ---'));
-      expect(stdoutStr, contains(skillIsValidMsg));
+      expect(stdoutStr, contains(TextReporter.skillIsValidMsg));
 
       await process.shouldExit(0);
     });
@@ -351,7 +351,7 @@ skills_lint:
       final List<String> stdout = await process.stdout.rest.toList();
       final String stdoutStr = stdout.join('\n');
       expect(stdoutStr, contains('--- Validating skill: skill-a ---'));
-      expect(stdoutStr, contains(skillIsValidMsg));
+      expect(stdoutStr, contains(TextReporter.skillIsValidMsg));
       expect(stdoutStr, isNot(contains('.dart_tool')));
 
       await process.shouldExit(0);
@@ -375,11 +375,11 @@ skills_lint:
       // Verify outputs
       final List<String> stdout = await process.stdout.rest.toList();
       expect(stdout.join('\n'), contains('--- Validating skill: skill-a ---'));
-      expect(stdout.join('\n'), contains(skillIsValidMsg));
+      expect(stdout.join('\n'), contains(TextReporter.skillIsValidMsg));
 
       expect(stdout.join('\n'), contains('--- Validating skill: skill-b ---'));
       final List<String> stderr = await process.stderr.rest.toList();
-      expect(stderr.join('\n'), contains(skillIsInvalidMsg));
+      expect(stderr.join('\n'), contains(TextReporter.skillIsInvalidMsg));
       await process.shouldExit(1);
     });
 
@@ -406,11 +406,11 @@ skills_lint:
         // Verify outputs for skill-a
         final List<String> stdout = await process.stdout.rest.toList();
         final String stdoutStr = stdout.join('\n');
-        expect(stdoutStr, contains(evaluatingDirMsg));
+        expect(stdoutStr, contains(TextReporter.evaluatingDirMsg));
         expect(stdoutStr, contains('--- Validating skill: skill-a ---'));
 
         final List<String> stderr = await process.stderr.rest.toList();
-        expect(stderr.join('\n'), contains(skillIsInvalidMsg));
+        expect(stderr.join('\n'), contains(TextReporter.skillIsInvalidMsg));
 
         // Since process exits after skill-a, stdout should be closed and no further lines (like skill-b) should appear.
         await process.shouldExit(1);

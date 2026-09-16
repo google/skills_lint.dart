@@ -41,6 +41,7 @@ const _dryRunFlag = 'dry-run';
 const _fixApplyFlag = 'fix-apply';
 const _allowMisconfiguredKeysFlag = 'allow-misconfigured-keys';
 const _configOption = 'config';
+
 const _formatOption = 'format';
 const _formatText = 'text';
 const _formatJson = 'json';
@@ -82,6 +83,11 @@ Run with --help to see every flag.''';
 /// Main entrypoint execution logic for the CLI tool.
 ///
 /// Parses arguments and runs validation on the specified directory.
+/// Configures the root logger to route diagnostic messages to stdout or stderr.
+///
+/// When using structured output formats (such as SARIF or JSON), logger messages
+/// are redirected to stderr to prevent corrupting parseable JSON document output
+/// on stdout.
 void _setupLogger(OutputFormat? Function() getFormat) {
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {

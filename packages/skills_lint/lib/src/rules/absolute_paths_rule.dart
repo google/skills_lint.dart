@@ -25,7 +25,6 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
   final AnalysisSeverity severity;
 
   static const String _skillFileName = SkillContext.skillFileName;
-  static const _pathsUrl = 'https://agentskills.io/specification#file-system';
 
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
@@ -48,19 +47,8 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
         final int linkOffsetInFile = frontmatterEnd + linkMatch.start;
         final int line = context.offsetToLine(linkOffsetInFile);
         errors.add(
-          ValidationError(
-            ruleId: name,
-            severity: severity,
-            file: _skillFileName,
-            message:
-                'Absolute filepath found in link: $path. '
-                'Skills must use paths relative to SKILL.md so they remain '
-                'portable across machines.',
-            markdownMessage:
-                '**Absolute path found in link:** `$path`\n\n'
-                '**How to fix:**\n'
-                '- Convert `$path` to a relative path pointing inside the skill directory.\n\n'
-                '*(See [Agent Skills Specification]($_pathsUrl))*',
+          _buildAbsolutePathError(
+            path: path,
             region: SourceRegion(startLine: line),
           ),
         );
@@ -68,6 +56,23 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     }
 
     return errors;
+  }
+
+  ValidationError _buildAbsolutePathError({required String path, required SourceRegion region}) {
+    return ValidationError(
+      ruleId: name,
+      severity: severity,
+      file: _skillFileName,
+      message:
+          'Absolute filepath found in link: $path. '
+          'Skills must use paths relative to SKILL.md so they remain '
+          'portable across machines.',
+      markdownMessage:
+          '**Absolute path found in link:** `$path`\n\n'
+          '**How to fix:**\n'
+          '- Convert `$path` to a relative path pointing inside the skill directory.',
+      region: region,
+    );
   }
 
   @override

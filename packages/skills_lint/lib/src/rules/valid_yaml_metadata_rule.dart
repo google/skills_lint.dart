@@ -50,79 +50,88 @@ class ValidYamlMetadataRule extends SkillRule {
     final errors = <ValidationError>[];
 
     if (context.parsedYaml == null) {
-      errors.add(
-        ValidationError(
-          ruleId: name,
-          severity: severity,
-          file: _skillFileName,
-          message:
-              'Invalid YAML metadata: ${context.yamlParsingError ?? 'Missing or invalid'} (see $_metadataUrl)',
-          markdownMessage:
-              '**Invalid YAML frontmatter.**\n\n'
-              '${context.yamlParsingError ?? 'Missing or malformed YAML frontmatter block.'}\n\n'
-              '**How to fix:**\n'
-              'Ensure `SKILL.md` begins with a valid YAML frontmatter block delimited by `---`:\n'
-              '```yaml\n'
-              '---\n'
-              'name: <skill-name>\n'
-              'description: <skill-description>\n'
-              '---\n'
-              '```\n'
-              '*(See [Agent Skills Specification]($_metadataUrl))*',
-          region: SourceRegion.wholeFile,
-        ),
-      );
+      // For whole-file frontmatter parse failures, report at the whole file level.
+      errors.add(_buildInvalidYamlError(context.yamlParsingError));
       return errors;
     }
 
     final YamlMap yaml = context.parsedYaml!;
     for (final String field in _requiredFields) {
       if (!yaml.containsKey(field)) {
-        errors.add(
-          ValidationError(
-            ruleId: name,
-            severity: severity,
-            file: _skillFileName,
-            message: 'Missing required field: $field (see $_metadataUrl)',
-            markdownMessage:
-                '**Missing required frontmatter field:** `$field`\n\n'
-                '**How to fix:**\n'
-                'Add `$field:` to the YAML frontmatter in `SKILL.md`.\n\n'
-                '*(See [Agent Skills Specification]($_metadataUrl))*',
-            region: SourceRegion.wholeFile,
-          ),
-        );
+        errors.add(_buildMissingFieldError(field));
       }
     }
 
     if (yaml.containsKey(keyCompatibility)) {
       final String compatibility = yaml[keyCompatibility]?.toString() ?? '';
       if (compatibility.length > maxCompatibilityLength) {
-        final YamlNode? compatNode = yaml.nodes[keyCompatibility];
-        final SourceRegion? region = context.yamlNodeToRegion(compatNode);
-        errors.add(
-          ValidationError(
-            ruleId: name,
-            severity: severity,
-            file: _skillFileName,
-            message: buildLengthDiagnostic(
-              fieldName: 'Compatibility',
-              value: compatibility,
-              maxLength: maxCompatibilityLength,
-              docUrl: _compatibilityFieldUrl,
-            ),
-            markdownMessage: buildLengthMarkdownDiagnostic(
-              fieldName: 'compatibility',
-              value: compatibility,
-              maxLength: maxCompatibilityLength,
-              docUrl: _compatibilityFieldUrl,
-            ),
-            region: region,
-          ),
-        );
+        final YamlNode? node = yaml.nodes[keyCompatibility];
+        final SourceRegion? region = context.yamlNodeToRegion(node);
+        errors.add(_buildCompatibilityLengthError(compatibility: compatibility, region: region));
       }
     }
 
     return errors;
+  }
+
+  ValidationError _buildInvalidYamlError(String? parsingError) {
+    return ValidationError(
+      ruleId: name,
+      severity: severity,
+      file: _skillFileName,
+      message: 'Invalid YAML metadata: ${parsingError ?? 'Missing or invalid'} (see $_metadataUrl)',
+      markdownMessage:
+          '**Invalid YAML frontmatter.**\n\n'
+          '${parsingError ?? 'Missing or malformed YAML frontmatter block.'}\n\n'
+          '**How to fix:**\n'
+          'Ensure `SKILL.md` begins with a valid YAML frontmatter block delimited by `---`:\n'
+          '```yaml\n'
+          '---\n'
+          'name: <skill-name>\n'
+          'description: <skill-description>\n'
+          '---\n'
+          '```\n'
+          '*(See [Agent Skills Specification]($_metadataUrl))*',
+      region: SourceRegion.wholeFile,
+    );
+  }
+
+  ValidationError _buildMissingFieldError(String field) {
+    return ValidationError(
+      ruleId: name,
+      severity: severity,
+      file: _skillFileName,
+      message: 'Missing required field: $field (see $_metadataUrl)',
+      markdownMessage:
+          '**Missing required frontmatter field:** `$field`\n\n'
+          '**How to fix:**\n'
+          'Add `$field:` to the YAML frontmatter in `SKILL.md`.\n\n'
+          '*(See [Agent Skills Specification]($_metadataUrl))*',
+      region: SourceRegion.wholeFile,
+    );
+  }
+
+  ValidationError _buildCompatibilityLengthError({
+    required String compatibility,
+    required SourceRegion? region,
+  }) {
+    return ValidationError(
+      ruleId: name,
+      severity: severity,
+      file: _skillFileName,
+      message: buildLengthDiagnostic(
+        fieldName: 'Compatibility',
+        value: compatibility,
+        maxLength: maxCompatibilityLength,
+        docUrl: _compatibilityFieldUrl,
+      ),
+      markdownMessage: buildLengthMarkdownDiagnostic(
+        fieldName: 'compatibility',
+        value: compatibility,
+        maxLength: maxCompatibilityLength,
+        docUrl: _compatibilityFieldUrl,
+      ),
+      region: region,
+    );
   }
 }

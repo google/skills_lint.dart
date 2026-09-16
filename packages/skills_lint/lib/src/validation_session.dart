@@ -78,7 +78,7 @@ class ValidationSession {
   /// * [generateBaseline] controls whether the validation should output/update baseline ignores.
   /// * [fix] controls whether to apply fixable rule modifications directly to files.
   /// * [fixApply] is the deprecated flag indicating if fixes should be automatically applied.
-  /// * [format] specifies the output format for diagnostics (`text`, `json`, `sarif`).
+  /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
   /// * [reporter] optionally specifies a custom [Reporter] instance.
   ValidationSession({
     required this.config,

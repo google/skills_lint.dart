@@ -98,7 +98,23 @@ class RelativePathsRule extends SkillRule {
 }
 
 /// Looks for a near-miss sibling **file** next to the missing
-/// [resolvedPath] and, if one exists, returns the full suggested link.
+/// [resolvedPath] and, if one exists, returns the full suggested link as
+/// it should appear in the SKILL.md author's markdown — the original
+/// link's directory prefix joined to the matched basename, normalized to
+/// forward slashes so the suggestion is portable across platforms.
+///
+/// Returns `null` when:
+/// - the original link has no parent dir on disk,
+/// - the parent dir can't be listed (e.g. permission error),
+/// - or no candidate is close enough to the missing basename.
+///
+/// [originalLink] is the link text as written in the SKILL.md
+/// (`docs/DEATILS.md`); [resolvedPath] is the same link resolved
+/// against the skill directory (`/abs/path/skill/docs/DEATILS.md`).
+///
+/// Subdirectories of the parent are intentionally excluded from the
+/// candidate set — links almost always point at files, and suggesting
+/// a directory would be misleading.
 @visibleForTesting
 String? findSiblingSuggestion({required String originalLink, required String resolvedPath}) {
   final String parentPath = dirname(resolvedPath);
