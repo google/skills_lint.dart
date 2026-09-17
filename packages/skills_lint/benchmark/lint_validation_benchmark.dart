@@ -15,8 +15,8 @@ import 'package:skills_lint/skills_lint.dart';
 final class LintValidationBenchmark extends AsyncBenchmark {
   LintValidationBenchmark() : super('lint_validation');
 
-  static const int _validCount = 15;
-  static const int _invalidCount = 15;
+  static const int _validCount = 25;
+  static const int _invalidCount = 25;
   static const int _totalCount = _validCount + _invalidCount;
 
   late Directory _tempDir;

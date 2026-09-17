@@ -14,18 +14,14 @@ import 'reporter.dart';
 
 /// SARIF 2.1.0 document reporter for CI and GitHub Code Scanning.
 class SarifReporter implements Reporter {
-  SarifReporter({
-    StringSink? out,
-    StringSink? err,
-    this.pretty = true,
-    this.toolVersion = SarifDriver.defaultDriverVersion,
-  }) : _out = out ?? stdout,
-       _err = err ?? stderr;
+  SarifReporter({StringSink? out, StringSink? err, this.pretty = true, this.toolVersion})
+    : _out = out ?? stdout,
+      _err = err ?? stderr;
 
   final StringSink _out;
   final StringSink _err;
   final bool pretty;
-  final String toolVersion;
+  final String? toolVersion;
 
   @override
   void onDirectoryEvaluating(String directoryPath) {}

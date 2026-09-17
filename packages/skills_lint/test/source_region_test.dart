@@ -30,23 +30,13 @@ void main() {
       expect(() => SourceRegion(startLine: -1), throwsA(isA<AssertionError>()));
     });
 
-    test('implements value equality and hashCode', () {
-      const region1 = SourceRegion(startLine: 2, startColumn: 3, endLine: 4, endColumn: 5);
-      const region2 = SourceRegion(startLine: 2, startColumn: 3, endLine: 4, endColumn: 5);
-      const region3 = SourceRegion(startLine: 2, startColumn: 3, endLine: 4, endColumn: 6);
-
-      expect(region1, equals(region2));
-      expect(region1.hashCode, equals(region2.hashCode));
-      expect(region1, isNot(equals(region3)));
-    });
-
     test('serializes to and from JSON using expectJsonRoundTrip', () {
       const full = SourceRegion(startLine: 10, startColumn: 2, endLine: 12, endColumn: 8);
       expectJsonRoundTrip<SourceRegion>(
         instance: full,
         toJson: (r) => r.toJson(),
         fromJson: SourceRegion.fromJson,
-        expectValueEquality: true,
+        expectedJson: {'startLine': 10, 'startColumn': 2, 'endLine': 12, 'endColumn': 8},
       );
 
       const SourceRegion minimal = SourceRegion.wholeFile;
@@ -54,7 +44,7 @@ void main() {
         instance: minimal,
         toJson: (r) => r.toJson(),
         fromJson: SourceRegion.fromJson,
-        expectValueEquality: true,
+        expectedJson: {'startLine': 1},
       );
     });
 

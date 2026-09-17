@@ -4,11 +4,11 @@
 
 import 'sarif_rule.dart';
 
-/// The primary tool component (driver) that produced the analysis results.
+/// The primary tool component (driver) that produced analysis results.
 class SarifDriver {
   SarifDriver({
     this.name = defaultDriverName,
-    this.version = defaultDriverVersion,
+    this.version,
     this.informationUri = defaultInformationUri,
     this.rules = const [],
   });
@@ -39,23 +39,22 @@ class SarifDriver {
   /// JSON key for [rules].
   static const String keyRules = 'rules';
 
+  /// The default driver tool name ('skills_lint').
   static const String defaultDriverName = 'skills_lint';
-  static const String defaultDriverVersion = '0.5.2';
+
+  /// The default documentation and homepage URI.
   static const String defaultInformationUri = 'https://github.com/google/skills_lint.dart';
 
-  /// The name of the tool component, as displayed by SARIF consumers.
-  ///
-  /// For `skills_lint` this is the string a reader sees identifying which tool
-  /// produced a finding, in a report that may aggregate several analyzers.
+  /// The display name of the tool component.
   final String name;
 
-  /// The version of the tool component.
+  /// The version of the tool component, or `null` if unspecified.
   final String? version;
 
-  /// The URI of the tool component's documentation or homepage.
+  /// The homepage or documentation URI of the tool component.
   final String? informationUri;
 
-  /// The rules provided by this tool component.
+  /// The catalog of rules provided by this tool component.
   final List<SarifRule> rules;
 
   /// Converts this driver to a JSON map.

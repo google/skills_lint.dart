@@ -34,24 +34,20 @@ class SarifLog {
   /// JSON key for [runs].
   static const String keyRuns = 'runs';
 
-  /// The canonical, immutable OASIS-hosted schema URI for SARIF 2.1.0.
-  ///
-  /// Spec §3.13.3 makes `$schema` optional and does not mandate a specific URI,
-  /// but the OASIS-hosted document is versioned and immutable, unlike the
-  /// `master`-branch mirror this previously pointed at.
+  /// The canonical, immutable OASIS-hosted schema URI for SARIF 2.1.0 errata01.
   static const String schemaUri =
       'https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json';
 
-  /// The only `version` value permitted by SARIF 2.1.0 (spec §3.13.2).
+  /// The only `version` string permitted by SARIF 2.1.0 (OASIS spec §3.13.2).
   static const String specVersion = '2.1.0';
 
   /// The URI of the SARIF JSON schema.
   final String schema;
 
-  /// The version of the SARIF format (always '2.1.0').
+  /// The format version (always '2.1.0').
   final String version;
 
-  /// The set of analysis runs contained in the log.
+  /// The set of analysis runs contained in this log.
   final List<SarifRun> runs;
 
   /// Converts this SARIF log to a JSON map.

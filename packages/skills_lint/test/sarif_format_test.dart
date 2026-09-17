@@ -373,7 +373,10 @@ Body content
       expect(deserialized.message, equals(error.message));
       expect(deserialized.severity, equals(error.severity));
       expect(deserialized.isIgnored, equals(error.isIgnored));
-      expect(deserialized.region, equals(error.region));
+      expect(deserialized.region?.startLine, equals(error.region?.startLine));
+      expect(deserialized.region?.startColumn, equals(error.region?.startColumn));
+      expect(deserialized.region?.endLine, equals(error.region?.endLine));
+      expect(deserialized.region?.endColumn, equals(error.region?.endColumn));
     });
 
     test('ValidationResult toJson and fromJson round-trip', () {

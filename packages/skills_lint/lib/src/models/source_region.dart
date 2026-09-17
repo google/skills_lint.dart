@@ -41,12 +41,18 @@ class SourceRegion {
   final int startLine;
 
   /// 1-based column number where the region starts.
+  ///
+  /// When `null`, the region encompasses the entire starting line from column 1.
   final int? startColumn;
 
   /// 1-based line number where the region ends.
+  ///
+  /// When `null`, the region does not extend past [startLine].
   final int? endLine;
 
   /// 1-based column number where the region ends.
+  ///
+  /// When `null`, the region extends to the end of [endLine] (or [startLine] if [endLine] is null).
   final int? endColumn;
 
   /// Converts this region to a JSON map.
@@ -56,21 +62,4 @@ class SourceRegion {
     if (endLine != null) keyEndLine: endLine,
     if (endColumn != null) keyEndColumn: endColumn,
   };
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is SourceRegion &&
-          runtimeType == other.runtimeType &&
-          startLine == other.startLine &&
-          startColumn == other.startColumn &&
-          endLine == other.endLine &&
-          endColumn == other.endColumn;
-
-  @override
-  int get hashCode => Object.hash(startLine, startColumn, endLine, endColumn);
-
-  @override
-  String toString() =>
-      'SourceRegion(startLine: $startLine, startColumn: $startColumn, endLine: $endLine, endColumn: $endColumn)';
 }

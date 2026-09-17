@@ -4,7 +4,7 @@
 
 import 'sarif_driver.dart';
 
-/// Information about the analysis tool that generated the run.
+/// The analysis tool metadata for a SARIF run.
 class SarifTool {
   SarifTool({required this.driver});
 
@@ -16,7 +16,7 @@ class SarifTool {
   /// JSON key for [driver].
   static const String keyDriver = 'driver';
 
-  /// The primary tool component (driver).
+  /// The primary executable driver component for the tool.
   final SarifDriver driver;
 
   /// Converts this tool to a JSON map.

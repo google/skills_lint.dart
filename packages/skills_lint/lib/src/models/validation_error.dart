@@ -67,9 +67,14 @@ class ValidationError {
   bool isIgnored;
 
   /// Precise 1-based source location coordinates, if available.
+  ///
+  /// When `null`, the error applies to the entire file or lacks finer coordinate
+  /// information, and formatters fall back to [SourceRegion.wholeFile].
   final SourceRegion? region;
 
   /// Optional GitHub Flavored Markdown formatted explanation for SARIF and PR review comments.
+  ///
+  /// When `null`, SARIF serializers and markdown formatters fall back to [message].
   final String? markdownMessage;
 
   /// Converts this error to a JSON-compatible map.

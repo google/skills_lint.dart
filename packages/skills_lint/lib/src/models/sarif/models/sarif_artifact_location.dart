@@ -20,10 +20,10 @@ class SarifArtifactLocation {
   /// JSON key for [uriBaseId].
   static const String keyUriBaseId = 'uriBaseId';
 
-  /// A string containing a valid, relative or absolute URI.
+  /// A relative or absolute URI pointing to the target artifact.
   final String uri;
 
-  /// A string that identifies the URI base identifier against which [uri] is relative.
+  /// Optional base URI identifier against which [uri] is relative.
   final String? uriBaseId;
 
   /// Converts this artifact location to a JSON map.

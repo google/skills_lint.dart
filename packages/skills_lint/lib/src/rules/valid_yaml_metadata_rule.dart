@@ -126,7 +126,7 @@ class ValidYamlMetadataRule extends SkillRule {
         docUrl: _compatibilityFieldUrl,
       ),
       markdownMessage: buildLengthMarkdownDiagnostic(
-        fieldName: 'compatibility',
+        fieldName: keyCompatibility,
         value: compatibility,
         maxLength: maxCompatibilityLength,
         docUrl: _compatibilityFieldUrl,

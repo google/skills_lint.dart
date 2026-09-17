@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import '../models/output_format.dart';
-import '../models/sarif/models/sarif_driver.dart';
 import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
 import 'json_reporter.dart';
@@ -20,7 +19,7 @@ abstract class Reporter {
     bool quiet = false,
     bool printWarnings = true,
     bool pretty = true,
-    String toolVersion = SarifDriver.defaultDriverVersion,
+    String? toolVersion,
   }) {
     switch (format) {
       case OutputFormat.text:
@@ -38,17 +37,11 @@ abstract class Reporter {
   /// Called when evaluation of a container directory begins.
   void onDirectoryEvaluating(String directoryPath);
 
-  /// Called when a directory listing or structural failure occurs.
-  void onDirectoryError(String directoryPath, String message);
-
   /// Called when validation of an individual skill folder begins.
   void onSkillEvaluating(String skillName);
 
   /// Called when validation of a single skill completes.
   void onSkillValidationComplete(ValidationResult result);
-
-  /// Called when fixes are written to disk for [skillName].
-  void onFixApplied(String skillName);
 
   /// Called when dry-run fix proposals are emitted.
   void onDryRunProposed({
@@ -58,8 +51,28 @@ abstract class Reporter {
     required String currentContent,
   });
 
+  /// Called when fixes are written to disk for [skillName].
+  void onFixApplied(String skillName);
+
+  /// Called when a rule fix fails due to an internal exception.
+  void onFixFailed({required String ruleName, required Object error});
+
   /// Called when a skill directory is renamed on disk.
   void onSkillRenamed(String oldSkillName, String targetSkillName);
+
+  /// Called when a skill directory rename is blocked because the destination exists.
+  void onRenameTargetExists({
+    required String oldSkillName,
+    required String targetSkillName,
+    required String destinationPath,
+  });
+
+  /// Called when a skill directory rename fails due to an internal exception.
+  void onRenameFailed({
+    required String oldSkillName,
+    required String targetSkillName,
+    required Object error,
+  });
 
   /// Called when an ignore entry was not matched by any finding.
   void onStaleIgnoreFound({
@@ -74,22 +87,8 @@ abstract class Reporter {
   /// Called when a single skill folder was passed to `-d`.
   void onIndividualSkillHint(String message);
 
-  /// Called when a rule fix fails due to an internal exception.
-  void onFixFailed({required String ruleName, required Object error});
-
-  /// Called when a skill directory rename fails due to an internal exception.
-  void onRenameFailed({
-    required String oldSkillName,
-    required String targetSkillName,
-    required Object error,
-  });
-
-  /// Called when a skill directory rename is blocked because the destination exists.
-  void onRenameTargetExists({
-    required String oldSkillName,
-    required String targetSkillName,
-    required String destinationPath,
-  });
+  /// Called when a directory listing or structural failure occurs.
+  void onDirectoryError(String directoryPath, String message);
 
   /// Called when saving a baseline ignore file fails.
   void onBaselineFailed(String ignorePath, Object error);

@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:io';
+import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
 import 'source_region.dart';
@@ -14,7 +15,7 @@ class SkillContext {
     required this.rawContent,
     this.parsedYaml,
     this.yamlParsingError,
-  });
+  }) : _sourceFile = SourceFile.fromString(rawContent);
 
   /// The required filename for skill documentation.
   static const String skillFileName = 'SKILL.md';
@@ -36,18 +37,17 @@ class SkillContext {
 
   final String? yamlParsingError;
 
-  /// Converts a 0-based UTF-16 code unit [offset] in [rawContent] (matching
-  /// indices returned by `Match.start`, `String.indexOf`, and `SourceSpan.start.offset`)
+  final SourceFile _sourceFile;
+
+  /// Converts a 0-based character [offset] in [rawContent] (matching indices
+  /// returned by `Match.start`, `String.indexOf`, and `SourceSpan.start.offset`)
   /// into a 1-based line number (where line 1 represents the first line of the document).
   int offsetToLine(int offset) {
-    var line = 1;
-    final int limit = offset < rawContent.length ? offset : rawContent.length;
-    for (var i = 0; i < limit; i++) {
-      if (rawContent.codeUnitAt(i) == 10) {
-        line++;
-      }
+    if (rawContent.isEmpty) {
+      return 1;
     }
-    return line;
+    final int clampedOffset = offset.clamp(0, rawContent.length - 1);
+    return _sourceFile.getLine(clampedOffset) + 1;
   }
 
   /// Resolves the 1-based [SourceRegion] in [rawContent] for a given [YamlNode].

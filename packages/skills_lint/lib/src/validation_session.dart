@@ -960,7 +960,7 @@ class ValidationSession {
   }
 
   /// Converts accumulated validation results into a [SarifLog].
-  SarifLog toSarif({String toolVersion = SarifDriver.defaultDriverVersion}) {
+  SarifLog toSarif({String? toolVersion}) {
     return SarifSerializer.toSarifLog(
       _results,
       toolVersion: toolVersion,
@@ -970,7 +970,7 @@ class ValidationSession {
   }
 
   /// Serializes the [toSarif] output to a JSON string.
-  String toSarifJson({bool pretty = true, String toolVersion = SarifDriver.defaultDriverVersion}) {
+  String toSarifJson({bool pretty = true, String? toolVersion}) {
     final SarifLog sarif = toSarif(toolVersion: toolVersion);
     final encoder = pretty ? const JsonEncoder.withIndent('  ') : const JsonEncoder();
     return encoder.convert(sarif.toJson());

@@ -5,7 +5,7 @@
 import 'sarif_location.dart';
 import 'sarif_message.dart';
 
-/// An individual diagnostic finding produced by the analysis.
+/// An individual diagnostic finding produced during analysis.
 class SarifResult {
   SarifResult({
     required this.ruleId,
@@ -51,13 +51,13 @@ class SarifResult {
   /// The severity level of this result ('warning', 'error', 'note', 'none').
   final String level;
 
-  /// A message describing the finding.
+  /// The diagnostic message explaining the finding.
   final SarifMessage message;
 
-  /// The set of locations where the result was observed.
+  /// The physical locations where the finding was detected.
   final List<SarifLocation> locations;
 
-  /// The zero-based index of the rule in the driver's rule catalog.
+  /// The zero-based index of the rule in the driver's rule catalog, or `null` if omitted.
   final int? ruleIndex;
 
   /// Converts this result to a JSON map.

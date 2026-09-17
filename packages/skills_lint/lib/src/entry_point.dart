@@ -80,18 +80,11 @@ For repo-wide config, create skills_lint.yaml with a
 Spec: https://agentskills.io/specification
 Run with --help to see every flag.''';
 
-/// Main entrypoint execution logic for the CLI tool.
-///
-/// Parses arguments and runs validation on the specified directory.
-/// Configures the root logger to route diagnostic messages to stdout or stderr.
-///
-/// When using structured output formats (such as SARIF or JSON), logger messages
-/// are redirected to stderr to prevent corrupting parseable JSON document output
-/// on stdout.
-void _setupLogger(OutputFormat? Function() getFormat) {
+/// Configures the root logger to route log events to stdout/stderr.
+void _setupLogger() {
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
-    if (record.level >= Level.SEVERE || getFormat() != OutputFormat.text) {
+    if (record.level >= Level.SEVERE) {
       stderr.writeln(record.message);
     } else {
       stdout.writeln(record.message);
@@ -99,6 +92,9 @@ void _setupLogger(OutputFormat? Function() getFormat) {
   });
 }
 
+/// Validates that auto-fixing flags are not combined with structured machine formats.
+///
+/// Emits a usage error and returns  if an invalid combination is detected.
 bool _hasInvalidFixFormatCombination(
   ArgResults results,
   OutputFormat format,
@@ -118,9 +114,11 @@ bool _hasInvalidFixFormatCombination(
   return false;
 }
 
+/// Main entrypoint execution logic for the CLI tool.
+///
+/// Parses arguments and runs validation on the specified directory.
 Future<void> runApp(List<String> args) async {
-  OutputFormat? currentFormat;
-  _setupLogger(() => currentFormat);
+  _setupLogger();
 
   const helpFlag = 'help';
   final ArgParser parser = _createArgParser(helpFlag);
@@ -134,7 +132,6 @@ Future<void> runApp(List<String> args) async {
     results = parser.parse(args);
     formatStr = results[_formatOption] as String? ?? _formatText;
     format = OutputFormat.fromString(formatStr);
-    currentFormat = format;
 
     if (results[helpFlag] as bool) {
       _printUsage(parser);
@@ -147,7 +144,7 @@ Future<void> runApp(List<String> args) async {
     return;
   }
 
-  final Configuration? config = await _loadConfig(results);
+  final Configuration? config = await _loadConfig(results, format: format);
   if (config == null) {
     exitCode = 1;
     return;
@@ -323,7 +320,10 @@ ArgParser _createArgParser(String helpFlag) {
   return parser;
 }
 
-Future<Configuration?> _loadConfig(ArgResults results) async {
+Future<Configuration?> _loadConfig(
+  ArgResults results, {
+  OutputFormat format = OutputFormat.text,
+}) async {
   final ignoreConfig = results[_ignoreConfigFlag] as bool;
   final Configuration config;
   if (ignoreConfig) {
@@ -340,7 +340,7 @@ Future<Configuration?> _loadConfig(ArgResults results) async {
       return null;
     }
   }
-  if (ignoreConfig && !(results[_quietFlag] as bool)) {
+  if (ignoreConfig && !(results[_quietFlag] as bool) && format == OutputFormat.text) {
     _log.info('Ignoring configuration file due to $_ignoreConfigFlag flag');
   }
 
@@ -655,8 +655,11 @@ Object? _parseParameterValue(String paramFlag, Object? rawValue, RuleParameterTy
 
 void _printUsage(ArgParser parser, [String? error]) {
   if (error != null) {
-    _log.severe('Error: $error');
+    stderr.writeln('Error: $error');
+    stderr.writeln('Usage: skills_lint [options] --$_skillsDirectoryFlag <$_skillsDirectoryFlag>');
+    stderr.writeln(parser.usage);
+  } else {
+    stdout.writeln('Usage: skills_lint [options] --$_skillsDirectoryFlag <$_skillsDirectoryFlag>');
+    stdout.writeln(parser.usage);
   }
-  _log.info('Usage: skills_lint [options] --$_skillsDirectoryFlag <$_skillsDirectoryFlag>');
-  _log.info(parser.usage);
 }

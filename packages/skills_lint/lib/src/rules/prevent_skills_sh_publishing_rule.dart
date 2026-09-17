@@ -56,7 +56,7 @@ class PreventSkillsShPublishingRule extends SkillRule {
     final YamlMap metadataMap = metadata;
     final Object? internalVal = metadataMap[ValidYamlMetadataRule.keyInternal];
 
-    if (internalVal is String && internalVal.trim().toLowerCase() == 'true') {
+    if (internalVal is String) {
       final YamlNode? internalNode = metadataMap.nodes[ValidYamlMetadataRule.keyInternal];
       errors.add(
         _buildStringBooleanError(
@@ -143,18 +143,23 @@ class PreventSkillsShPublishingRule extends SkillRule {
     required String stringValue,
     required SourceRegion? region,
   }) {
+    final String trimmedLower = stringValue.trim().toLowerCase();
+    final fixExplanation = trimmedLower == 'true'
+        ? 'Remove quotes around `true` so it parses as a boolean:'
+        : 'Set `metadata.internal` to boolean `true` without quotes:';
+
     return ValidationError(
       ruleId: name,
       severity: severity,
       file: _skillFileName,
       message:
           'The "internal" field under "metadata" is set to a string "$stringValue". '
-          'Please remove the quotes so it is parsed as a boolean.',
+          'Please remove quotes and set to boolean true.',
       markdownMessage:
           '**`metadata.internal` must be a boolean.**\n\n'
           'The field is set to a string `"$stringValue"`.\n\n'
           '**How to fix:**\n'
-          'Remove quotes around `true` so it parses as a boolean:\n'
+          '$fixExplanation\n'
           '```yaml\n'
           'metadata:\n'
           '  internal: true\n'

@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// A human-readable message string.
+/// A human-readable message string in plain text or Markdown.
 class SarifMessage {
   SarifMessage({required this.text, this.markdown});
 
@@ -20,10 +20,12 @@ class SarifMessage {
   /// JSON key for [markdown].
   static const String keyMarkdown = 'markdown';
 
-  /// The text message content.
+  /// The plain-text message string.
   final String text;
 
-  /// Optional GitHub Flavored Markdown message content.
+  /// Optional GitHub Flavored Markdown formatted message.
+  ///
+  /// When `null`, consumers render the plain-text [text] message.
   final String? markdown;
 
   /// Converts this message to a JSON map.

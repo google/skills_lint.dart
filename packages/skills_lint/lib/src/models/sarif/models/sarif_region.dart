@@ -2,9 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// A region within an artifact, specified by line and column numbers.
+/// A 1-based coordinate region within an artifact (OASIS SARIF 2.1.0 §3.30).
 class SarifRegion {
-  SarifRegion({required this.startLine, this.startColumn, this.endLine, this.endColumn});
+  SarifRegion({required this.startLine, this.startColumn, this.endLine, this.endColumn})
+    : assert(startLine >= 1, 'SARIF 2.1.0 requires startLine >= 1');
 
   /// Constructs a [SarifRegion] from a JSON map.
   factory SarifRegion.fromJson(Map<String, Object?> json) {
@@ -28,16 +29,22 @@ class SarifRegion {
   /// JSON key for [endColumn].
   static const String keyEndColumn = 'endColumn';
 
-  /// 1-based start line number.
+  /// 1-based line number where the region starts (required by SARIF §3.30.2).
   final int startLine;
 
-  /// 1-based start column number.
+  /// 1-based column number where the region starts.
+  ///
+  /// When `null`, the region encompasses the entire starting line from column 1.
   final int? startColumn;
 
-  /// 1-based end line number.
+  /// 1-based line number where the region ends.
+  ///
+  /// When `null`, the region does not extend past [startLine].
   final int? endLine;
 
-  /// 1-based end column number.
+  /// 1-based column number where the region ends.
+  ///
+  /// When `null`, the region extends to the end of [endLine] (or [startLine] if [endLine] is null).
   final int? endColumn;
 
   /// Converts this region to a JSON map.

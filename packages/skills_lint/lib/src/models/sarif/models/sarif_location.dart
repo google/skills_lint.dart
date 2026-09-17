@@ -20,7 +20,7 @@ class SarifLocation {
   /// JSON key for [physicalLocation].
   static const String keyPhysicalLocation = 'physicalLocation';
 
-  /// Identifies the artifact and optional region.
+  /// The physical artifact location and coordinate span of the finding.
   final SarifPhysicalLocation physicalLocation;
 
   /// Converts this location to a JSON map.

@@ -5,7 +5,7 @@
 import 'sarif_result.dart';
 import 'sarif_tool.dart';
 
-/// Represents a single static analysis run in a SARIF log.
+/// A static analysis run within a SARIF log.
 class SarifRun {
   SarifRun({required this.tool, this.results = const [], this.originalUriBaseIds});
 
@@ -31,13 +31,13 @@ class SarifRun {
   /// JSON key for [originalUriBaseIds].
   static const String keyOriginalUriBaseIds = 'originalUriBaseIds';
 
-  /// Information about the tool that performed the analysis.
+  /// The analysis tool component that executed this run.
   final SarifTool tool;
 
-  /// The set of analysis results produced by the run.
+  /// The diagnostic findings emitted during this run.
   final List<SarifResult> results;
 
-  /// Specifies the original absolute URIs associated with the uriBaseId values.
+  /// Optional dictionary of root URI base IDs against which relative artifact URIs resolve.
   final Map<String, Object?>? originalUriBaseIds;
 
   /// Converts this run to a JSON map.

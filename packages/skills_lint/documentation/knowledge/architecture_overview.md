@@ -1,16 +1,18 @@
 # Architecture Overview: Agent Skills Linter (`skills_lint`)
 
-This document provides a high-level architectural overview of the `skills_lint` codebase. It outlines the core architectural boundaries, execution lifecycle, durable design patterns, and rejected anti-patterns.
+This document provides a high-level architectural overview of the `skills_lint` codebase. It outlines the core architectural boundaries, execution lifecycle, durable design patterns, and rejected architectural anti-patterns.
+
+For code style, Effective Dart conventions, and documentation standards, see the [Style Guide](style_guide.md).
 
 ## 🧱 Architectural Boundaries
 
-The system is organized into decoupled layers, separating command-line orchestration, configuration management, pure validation logic, and suppression persistence.
+The system is organized into decoupled layers, separating command-line orchestration, configuration management, pure validation logic, suppression persistence, and output reporting.
 
 ### 1. [CLI & Orchestration Layer](../../lib/src/entry_point.dart)
 The orchestration layer manages the execution session from invocation to termination.
 - **Invocation & Environment Discovery:** Parses command-line inputs, discovers target skill directories (resolving workspace defaults when no explicit targets are provided), and manages process exit codes.
 - **Session Coordination:** Coordinates validation across multiple targets, manages execution flags (such as fast-fail and output verbosity), and oversees the lifecycle of automated fixes and baseline generation.
-- **Console Reporting:** Formats structured validation diagnostics into user-facing console output, diff previews, and exit signals.
+- **Reporter Delegation:** Delegates diagnostic formatting and emission to the [Reporter hierarchy](../../lib/src/reporters/) based on the selected output format (`text`, `json`, `sarif`).
 
 ### 2. [Configuration & Resolution Engine](../../lib/src/config_parser.dart)
 Responsible for loading, validating, resolving, and serializing user settings across different scopes.
@@ -34,6 +36,11 @@ The persistent suppression mechanism enabling incremental adoption and baseline 
 - **Structured Suppressions:** Stores and matches ignored diagnostics using structured identifiers and file paths rather than brittle free-form string matching.
 - **Lifecycle Tracking:** Records generated baseline entries when requested and tracks active suppression usage during lint runs to report stale or obsolete entries.
 
+### 6. [Reporter Subsystem](../../lib/src/reporters/)
+The multi-format output streaming subsystem.
+- **Polymorphic Reporting:** Dispatches session lifecycle events (`onDirectoryEvaluating`, `onSkillEvaluating`, `onSkillValidationComplete`, `onFixApplied`, `onSessionComplete`) across output formats (`TextReporter`, `JsonReporter`, `SarifReporter`).
+- **Standardized Output Channels:** Ensures clean channel separation—structured documents (JSON, SARIF) stream to stdout while operational diagnostics and errors stream to stderr.
+
 ---
 
 ## ⏳ Execution Lifecycle
@@ -48,25 +55,29 @@ sequenceDiagram
     participant Engine as Validation Engine
     participant Rules as Rule Subsystem
     participant Baseline as Baseline Subsystem
+    participant Reporter as Reporter Subsystem
 
     CLI->>Config: Load and resolve configuration
     Config-->>CLI: Effective configuration & target definitions
     
     loop For each Skill Target
+        CLI->>Reporter: onDirectoryEvaluating / onSkillEvaluating
         CLI->>Baseline: Load baseline suppressions
         CLI->>Engine: Run validation for skill target
         Engine->>Rules: Execute active rules against skill context
         Rules-->>Engine: Raw diagnostic violations
         Engine-->>CLI: Validation results
         CLI->>Baseline: Apply suppressions & track rule usage
+        CLI->>Reporter: onSkillValidationComplete
         
         alt Fix Mode Enabled
             CLI->>Rules: Compute proposed fixes in memory
             Rules-->>CLI: Transformed content
             alt Dry Run
-                CLI->>CLI: Render diff preview to stdout
+                CLI->>Reporter: onDryRunProposed
             else Apply
                 CLI->>CLI: Write updated files to disk
+                CLI->>Reporter: onFixApplied
                 CLI->>Engine: Re-validate to verify fix correctness
             end
         end
@@ -76,7 +87,8 @@ sequenceDiagram
         CLI->>Baseline: Persist unsuppressed violations to baseline file
     end
 
-    CLI->>CLI: Output diagnostic report & determine process exit code
+    CLI->>Reporter: onSessionComplete
+    CLI->>CLI: Determine process exit code
 ```
 
 ---
@@ -84,7 +96,7 @@ sequenceDiagram
 ## 🧠 Durable Design Patterns
 
 1. **Separation of Validation from Orchestration**  
-   The validation engine and individual rules are pure, deterministic functions of a skill's filesystem state. They never interact with terminal streams, environment variables, or process lifecycles. All output formatting, fix persistence, diff rendering, and exit code determination belong exclusively to the orchestrator.
+   The validation engine and individual rules are pure, deterministic functions of a skill's filesystem state. They never interact with terminal streams, environment variables, or process lifecycles. All output formatting, fix persistence, diff rendering, and exit code determination belong exclusively to the orchestrator and reporter subsystems.
 
 2. **Deterministic Layered Inheritance**  
    Configuration settings and rule parameters merge cleanly across scopes. Narrower scopes (e.g., target-specific settings or CLI flags) override broader defaults without unintentionally resetting unrelated sibling parameters.
@@ -96,20 +108,17 @@ sequenceDiagram
    Suppression baselines rely on stable rule identifiers and relative file paths rather than fragile log message matching. Baselines are actively audited during execution to identify stale suppressions when violations are fixed.
 
 5. **Typesafe Bidirectional Configuration Lifecycle**  
-   Configuration state supports deterministic round-trip serialization between structured in-memory representations and valid YAML documents. Serialized definitions conform strictly to standard schema keys and preserve type semantics (including booleans, numerics, and explicit null resets) across parse and emission cycles. This decoupling allows external developer tools and integration tests to generate, inspect, and mutate configuration programmatically without manual string formatting.
-
-6. **Class Constants for Serialization and Schema Keys**  
-   Schema, serialization, YAML, and configuration keys are declared as static class constants co-located on their owning data models rather than inline string literals. Centralizing property keys ensures a single source of truth for wire representations and causes downstream key renames to fail at compile time.
+   Configuration state supports deterministic round-trip serialization between structured in-memory representations and valid YAML documents. Serialized definitions conform strictly to standard schema keys and preserve type semantics (including booleans, numerics, and explicit null resets) across parse and emission cycles.
 
 ---
 
-## 🚫 Rejected Anti-Patterns & Common Pitfalls
+## 🚫 Rejected Architectural Anti-Patterns
 
 The following patterns have been explicitly rejected in this codebase:
 
 - **Leaking CLI or Process State into Rules:** Rules must never inspect command-line arguments, environment variables, or global process state. All required context and configuration must be passed via structured context and parameter objects.
 - **In-Place File Mutations Inside Rules:** Rules must never perform raw disk writes, delete files, or execute subprocesses during validation. Auto-fixing rules must return proposed modifications to the orchestrator.
 - **Brittle Message Matching for Suppressions:** Never match error messages or log text to filter suppressions. Suppressions must always use structured rule IDs and file boundaries.
-- **Platform-Dependent Path Handling:** Hardcoded path separators (such as `/` or `\`) or assumptions about POSIX shell behavior break Windows compatibility. All path operations must use platform-agnostic path utilities.
+- **Platform-Dependent Path Handling:** Hardcoded path separators (such as `/` or `\`) or assumptions about POSIX shell behavior break Windows compatibility. All path operations must use platform-agnostic path utilities (`package:path`).
 - **Non-Dart Tooling & Scripts:** Introducing Python, shell, or JavaScript scripts for test harnesses, evaluation fixtures, or developer automation violates the repository-wide Dart-only policy. All automation and tooling must be authored in Dart.
-- **Ad-Hoc Magic Literals:** Hardcoding CLI flags, YAML keys, configuration names, or diagnostic identifiers inline creates maintenance drift. All identifiers, options, and error codes must be defined as centralized constants.
+- **Inventing Spec URLs for Non-Spec Rules:** Rules must never invent, assume, or attach URLs referencing the Agent Skills specification unless the rule directly enforces a requirement explicitly specified in the official specification document. Opt-in rules, internal invariants, and repository-specific conventions must not cite the spec.

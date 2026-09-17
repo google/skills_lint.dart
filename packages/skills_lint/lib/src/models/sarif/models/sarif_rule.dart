@@ -5,7 +5,7 @@
 import 'sarif_message.dart';
 import 'sarif_reporting_configuration.dart';
 
-/// A reporting descriptor (rule) recognized by the tool driver.
+/// A reporting descriptor (rule) registered in the tool driver.
 class SarifRule {
   SarifRule({
     required this.id,
@@ -70,25 +70,25 @@ class SarifRule {
   /// JSON key for [keyPrecision] within [properties].
   static const String keyPrecision = 'precision';
 
-  /// A stable, unique identifier for the rule.
+  /// The stable, unique identifier for this rule.
   final String id;
 
-  /// A concise description of the rule.
+  /// A concise single-line description of the rule.
   final SarifMessage shortDescription;
 
-  /// An optional comprehensive description of the rule.
+  /// An optional detailed description of the rule, or `null` if omitted.
   final SarifMessage? fullDescription;
 
-  /// Optional rule help information containing rich guidance and examples.
+  /// Optional rich guidance and remediation examples, or `null` if omitted.
   final SarifMessage? help;
 
-  /// A URI where further documentation for the rule can be found.
+  /// An optional URL pointing to authoritative documentation, or `null` if omitted.
   final String? helpUri;
 
-  /// Default reporting configuration for the rule.
+  /// Default severity configuration for this rule, or `null` if omitted.
   final SarifReportingConfiguration? defaultConfiguration;
 
-  /// Property bag containing rule metadata such as tags and precision.
+  /// Optional property bag containing metadata tags, precision, or severity mappings.
   final Map<String, Object?>? properties;
 
   /// Converts this rule to a JSON map.

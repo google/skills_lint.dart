@@ -5,7 +5,7 @@
 import 'sarif_artifact_location.dart';
 import 'sarif_region.dart';
 
-/// The physical file and region location of a finding.
+/// The physical artifact and region coordinates of a diagnostic finding.
 class SarifPhysicalLocation {
   SarifPhysicalLocation({required this.artifactLocation, this.region});
 
@@ -27,10 +27,12 @@ class SarifPhysicalLocation {
   /// JSON key for [region].
   static const String keyRegion = 'region';
 
-  /// The location of the artifact.
+  /// The file or artifact where the finding was detected.
   final SarifArtifactLocation artifactLocation;
 
-  /// Specifies a portion of the artifact.
+  /// The specific coordinate span within the artifact.
+  ///
+  /// When `null`, the finding applies to the entire artifact.
   final SarifRegion? region;
 
   /// Converts this physical location to a JSON map.

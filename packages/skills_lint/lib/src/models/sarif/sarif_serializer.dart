@@ -37,7 +37,7 @@ class SarifSerializer {
   /// Builds a [SarifLog] from a list of [ValidationResult]s.
   static SarifLog toSarifLog(
     List<ValidationResult> results, {
-    String toolVersion = SarifDriver.defaultDriverVersion,
+    String? toolVersion,
     List<CheckType>? checkTypes,
     List<SkillRule>? customRules,
   }) {

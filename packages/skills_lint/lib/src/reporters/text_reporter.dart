@@ -29,6 +29,9 @@ class TextReporter implements Reporter {
   /// Heading message emitted on directory-level errors.
   static const String directoryErrorMsg = 'Directory error:';
 
+  /// Shared notice clarifying that an operational fault is an internal tool bug.
+  static const String toolBugMsg = '  This is a bug in skills_lint, not a problem with your skill.';
+
   final StringSink _out;
   final StringSink _err;
   final bool quiet;
@@ -149,7 +152,7 @@ class TextReporter implements Reporter {
   void onFixFailed({required String ruleName, required Object error}) {
     _err.writeln(
       "${Reporter.toolErrorPrefix} could not apply the '$ruleName' fix.\n"
-      '  This is a bug in skills_lint, not a problem with your skill.\n'
+      '$toolBugMsg\n'
       '  Your skill was left unmodified. Cause: $error',
     );
   }
@@ -162,7 +165,7 @@ class TextReporter implements Reporter {
   }) {
     _err.writeln(
       "${Reporter.toolErrorPrefix} could not rename skill directory from '$oldSkillName' to '$targetSkillName'.\n"
-      '  This is a bug in skills_lint, not a problem with your skill.\n'
+      '$toolBugMsg\n'
       "  Your skill directory was left at '$oldSkillName'. Cause: $error",
     );
   }
@@ -175,7 +178,7 @@ class TextReporter implements Reporter {
   }) {
     _err.writeln(
       "${Reporter.toolErrorPrefix} cannot rename skill directory from '$oldSkillName' to '$targetSkillName': destination directory '$destinationPath' already exists.\n"
-      '  This is a bug in skills_lint, not a problem with your skill.\n'
+      '$toolBugMsg\n'
       "  Your skill directory was left at '$oldSkillName'.",
     );
   }
@@ -184,7 +187,7 @@ class TextReporter implements Reporter {
   void onBaselineFailed(String ignorePath, Object error) {
     _err.writeln(
       "${Reporter.toolErrorPrefix} failed to generate baseline file at '$ignorePath'.\n"
-      '  This is a bug in skills_lint, not a problem with your skill.\n'
+      '$toolBugMsg\n'
       '  Your baseline file was left unmodified. Cause: $error',
     );
   }
