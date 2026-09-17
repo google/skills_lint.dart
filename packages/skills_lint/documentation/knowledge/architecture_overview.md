@@ -12,7 +12,7 @@ The system is organized into decoupled layers, separating command-line orchestra
 The orchestration layer manages the execution session from invocation to termination.
 - **Invocation & Environment Discovery:** Parses command-line inputs, discovers target skill directories (resolving workspace defaults when no explicit targets are provided), and manages process exit codes.
 - **Session Coordination:** Coordinates validation across multiple targets, manages execution flags (such as fast-fail and output verbosity), and oversees the lifecycle of automated fixes and baseline generation.
-- **Reporter Delegation:** Delegates diagnostic formatting and emission to the [Reporter hierarchy](../../lib/src/reporters/) based on the selected output format (`text`, `json`, `sarif`).
+- **Reporter Delegation:** Delegates diagnostic formatting and emission to the [Reporter hierarchy](../../lib/src/reporters/) based on the configured output format.
 
 ### 2. [Configuration & Resolution Engine](../../lib/src/config_parser.dart)
 Responsible for loading, validating, resolving, and serializing user settings across different scopes.
@@ -109,6 +109,9 @@ sequenceDiagram
 
 5. **Typesafe Bidirectional Configuration Lifecycle**  
    Configuration state supports deterministic round-trip serialization between structured in-memory representations and valid YAML documents. Serialized definitions conform strictly to standard schema keys and preserve type semantics (including booleans, numerics, and explicit null resets) across parse and emission cycles.
+
+6. **Class Constants for Serialization and Schema Keys**  
+   Schema, serialization, YAML, and configuration keys are declared as static class constants co-located on their owning data models rather than inline string literals. Centralizing property keys ensures a single source of truth for wire representations and causes downstream key renames to fail at compile time.
 
 ---
 

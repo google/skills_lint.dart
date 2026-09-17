@@ -942,8 +942,27 @@ class ValidationSession {
       case OutputFormat.json:
         return toJsonOutput(pretty: pretty);
       case OutputFormat.text:
-        return '';
+        return toTextOutput();
     }
+  }
+
+  /// Formats the accumulated validation results as human-readable text.
+  String toTextOutput() {
+    final buffer = StringBuffer();
+    final textReporter = TextReporter(
+      out: buffer,
+      err: buffer,
+      quiet: quiet,
+      printWarnings: printWarnings,
+    );
+    for (final ValidationResult result in _results) {
+      final String skillName = result.context != null
+          ? p.basename(result.context!.directory.path)
+          : 'skill';
+      textReporter.onSkillEvaluating(skillName);
+      textReporter.onSkillValidationComplete(result);
+    }
+    return buffer.toString();
   }
 
   /// Converts accumulated validation results into a [SarifLog].

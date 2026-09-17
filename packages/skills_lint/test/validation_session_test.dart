@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
+import 'package:skills_lint/src/models/output_format.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
@@ -26,6 +27,7 @@ ValidationSession createTestSession({
   bool generateBaseline = false,
   bool fix = false,
   bool fixApply = false,
+  OutputFormat format = OutputFormat.text,
 }) => ValidationSession(
   config: config ?? const Configuration(),
   resolvedRuleConfigs: resolvedRuleConfigs,
@@ -37,6 +39,7 @@ ValidationSession createTestSession({
   generateBaseline: generateBaseline,
   fix: fix,
   fixApply: fixApply,
+  format: format,
 );
 
 void main() {
@@ -148,6 +151,29 @@ void main() {
       expect(skillDir.existsSync(), isTrue);
       final String content = File(p.join(skillDir.path, 'SKILL.md')).readAsStringSync();
       expect(content, contains('name: dart-test-pkg-setup'));
+    });
+    test('formatOutput produces non-empty output for text, json, and sarif formats', () async {
+      final Directory skillDir = await createDummySkill(
+        tempDir,
+        name: 'sample-skill',
+        skillContent: '${buildFrontmatter(name: "sample-skill")}\n# Sample\n',
+      );
+
+      final ValidationSession textSession = createTestSession(quiet: false);
+      await textSession.processIndividualSkill(skillDir.path);
+      final String textOutput = textSession.formatOutput();
+      expect(textOutput, contains('Validating skill: sample-skill'));
+      expect(textOutput, contains('Skill is valid.'));
+
+      final ValidationSession jsonSession = createTestSession(format: OutputFormat.json);
+      await jsonSession.processIndividualSkill(skillDir.path);
+      final String jsonOutput = jsonSession.formatOutput();
+      expect(jsonOutput, contains('"isValid": true'));
+
+      final ValidationSession sarifSession = createTestSession(format: OutputFormat.sarif);
+      await sarifSession.processIndividualSkill(skillDir.path);
+      final String sarifOutput = sarifSession.formatOutput();
+      expect(sarifOutput, contains('"version": "2.1.0"'));
     });
   });
 }

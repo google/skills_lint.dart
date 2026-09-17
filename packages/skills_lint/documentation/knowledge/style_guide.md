@@ -53,48 +53,11 @@ class SourceRegion {
 
 ---
 
-## 🔗 Specification Link Integrity
+## 🛠 Message Construction & Helper Extraction
 
-**Never Invent or Speculate Specification URLs:**
-Diagnostic messages and markdown help must only cite external URLs (such as `https://agentskills.io/specification`) if the rule directly validates a constraint explicitly mandated by that specification (such as required metadata fields or valid skill names).
-
-Rules enforcing repository conventions, internal heuristics, or opt-in policies (such as `absolute-paths`) must never invent or attach speculative specification URLs.
+Extract multi-line strings, diagnostics, and formatted markdown message construction into focused private helper methods. Keeping string assembly separate from analysis routines prevents bloated `validate()` methods, ensures consistent diagnostic formatting, and makes rule logic straightforward to read and test.
 
 ---
-
-## 🛠 Diagnostic Helper Builders
-
-When authoring validation rules with complex or multi-line diagnostics (including GitHub Flavored Markdown messages), extract the construction into private helper builder methods (`_build...Error`):
-
-```dart
-ValidationError _buildDirectoryMismatchError({
-  required String fieldName,
-  required String dirName,
-  required SourceRegion? region,
-}) {
-  return ValidationError(
-    ruleId: name,
-    severity: severity,
-    file: _skillFileName,
-    message: 'Skill name "$fieldName" does not match directory name "$dirName".',
-    markdownMessage: '**Skill name mismatch.**
-
-'
-        'Frontmatter name: `$fieldName`
-'
-        'Directory name: `$dirName`
-
-'
-        '**How to fix:**
-'
-        'Update `name:` to match the directory, or rename the directory.',
-    region: region,
-  );
-}
-```
-
----
-
 ## 📺 Standard Output & Error Hygiene
 
 - **Stdout:** Reserved exclusively for standard human-readable lint reports (`--format=text`) and valid, parseable machine documents (`--format=json`, `--format=sarif`).
