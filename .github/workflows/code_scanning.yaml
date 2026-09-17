@@ -1,0 +1,60 @@
+name: Code Scanning
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - '.agents/**'
+      - 'skills_lint.yaml'
+      - 'skills/**'
+      - 'packages/skills_lint/**'
+      - '.github/workflows/code_scanning.yaml'
+  push:
+    branches: [ main ]
+    paths:
+      - '.agents/**'
+      - 'skills_lint.yaml'
+      - 'skills/**'
+      - 'packages/skills_lint/**'
+      - '.github/workflows/code_scanning.yaml'
+  schedule:
+    - cron: '0 0 * * 0' # weekly
+
+jobs:
+  sarif_scan:
+    name: skills_lint (SARIF)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        working-directory: packages/skills_lint
+        run: dart pub get
+
+      - name: Generate SARIF report
+        run: |
+          set +e
+          dart run packages/skills_lint/bin/skills_lint.dart -d .agents/skills --format=sarif > skills-lint.sarif
+          EXIT_CODE=$?
+          set -e
+          if [ $EXIT_CODE -ne 0 ] && [ $EXIT_CODE -ne 1 ]; then
+            echo "skills_lint failed with exit code $EXIT_CODE"
+            exit $EXIT_CODE
+          fi
+
+      - name: Upload SARIF report to GitHub Code Scanning
+        if: ${{ !cancelled() }}
+        uses: github/codeql-action/upload-sarif@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3.38.0
+        with:
+          sarif_file: skills-lint.sarif
+          category: skills_lint

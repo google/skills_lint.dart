@@ -39,6 +39,24 @@ String buildLengthDiagnostic({
       '$docsClause';
 }
 
+/// Builds a rich Markdown length-overflow diagnostic for SARIF and PR review comments.
+String buildLengthMarkdownDiagnostic({
+  required String fieldName,
+  required String value,
+  required int maxLength,
+  String? docUrl,
+}) {
+  final int overCount = value.length - maxLength;
+  final String excerpt = _buildCutoffExcerpt(value, maxLength);
+  final String boldExcerpt = excerpt.replaceAll('|HERE|', '**|HERE|**');
+  final docsClause = docUrl != null ? '\n\n*(See [Agent Skills Specification]($docUrl))*' : '';
+  return '**Frontmatter `$fieldName` exceeds maximum allowed length.**\n\n'
+      '**${value.length}** characters (**$overCount** characters over the **$maxLength** limit).\n\n'
+      '**Cutoff excerpt (at character $maxLength):**\n'
+      '> $boldExcerpt'
+      '$docsClause';
+}
+
 String _buildCutoffExcerpt(String value, int maxLength) {
   final int start = (maxLength - _excerptContextChars).clamp(0, value.length);
   final int end = (maxLength + _excerptContextChars).clamp(0, value.length);

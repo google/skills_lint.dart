@@ -14,6 +14,7 @@ import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../path_utils.dart';
 
@@ -58,7 +59,6 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   Future<List<ValidationError>> validate(SkillContext context) async {
     final List<ValidationError> errors = [];
 
-    // Syntax errors and missing frontmatter are reported by ValidYamlMetadataRule.
     if (context.yamlParsingError != null || context.parsedYaml == null) {
       return errors;
     }
@@ -67,7 +67,6 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     final YamlNode? nameNode = yaml.nodes['name'];
     final String skillName = nameNode?.value?.toString().trim() ?? '';
 
-    // Missing or empty name is reported as a required-field error by ValidYamlMetadataRule.
     if (skillName.isEmpty) {
       return errors;
     }
@@ -79,18 +78,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     );
 
     if (resolvedPackageName == null || resolvedPackageName.isEmpty) {
-      errors.add(
-        ValidationError(
-          ruleId: name,
-          severity: severity,
-          file: SkillContext.skillFileName,
-          message:
-              'Unable to resolve enclosing Dart package name. Add a '
-              'pubspec.yaml in an ancestor directory, configure the '
-              'package_name parameter in skills_lint.yaml, or disable the '
-              'published-skill-name rule.',
-        ),
-      );
+      errors.add(_buildUnresolvedPackageNameError());
       return errors;
     }
 
@@ -106,22 +94,18 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
         skillName.startsWith(rawPrefix);
 
     if (!isNameValid) {
+      final SourceRegion? region = context.yamlNodeToRegion(nameNode);
       final String suggestedName = suggestValidName(
         currentName: skillName,
         packageName: resolvedPackageName,
       );
       errors.add(
-        ValidationError(
-          ruleId: name,
-          severity: severity,
-          file: SkillContext.skillFileName,
-          message:
-              'Skill "$skillName" does not follow the Dart package published skill '
-              'naming convention for package "$resolvedPackageName". Published skills '
-              'must start with "$hyphenPrefix". '
-              'Suggested name: "$suggestedName".\n'
-              'Fix by re-running your validation command with `--fix`.\n'
-              '(see $_specUrl)',
+        _buildNamingConventionError(
+          skillName: skillName,
+          packageName: resolvedPackageName,
+          hyphenPrefix: hyphenPrefix,
+          suggestedName: suggestedName,
+          region: region,
         ),
       );
     }
@@ -129,8 +113,58 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     return errors;
   }
 
-  /// Resolves the enclosing Dart package name from parameters or by walking up
-  /// parent directories from [startDirectory] to find `pubspec.yaml`.
+  ValidationError _buildUnresolvedPackageNameError() {
+    return ValidationError(
+      ruleId: name,
+      severity: severity,
+      file: SkillContext.skillFileName,
+      message:
+          'Unable to resolve enclosing Dart package name. Add a '
+          'pubspec.yaml in an ancestor directory, configure the '
+          'package_name parameter in skills_lint.yaml, or disable the '
+          'published-skill-name rule.',
+      markdownMessage:
+          '**Unable to resolve enclosing Dart package name.**\n\n'
+          '**How to fix:**\n'
+          '- Add a `pubspec.yaml` in an ancestor directory, or\n'
+          '- Configure the `package_name` parameter in `skills_lint.yaml`, or\n'
+          '- Disable the `published-skill-name` rule.',
+    );
+  }
+
+  ValidationError _buildNamingConventionError({
+    required String skillName,
+    required String packageName,
+    required String hyphenPrefix,
+    required String suggestedName,
+    required SourceRegion? region,
+  }) {
+    return ValidationError(
+      ruleId: name,
+      severity: severity,
+      file: SkillContext.skillFileName,
+      message:
+          'Skill "$skillName" does not follow the Dart package published skill '
+          'naming convention for package "$packageName". Published skills '
+          'must start with "$hyphenPrefix". '
+          'Suggested name: "$suggestedName".\n'
+          'Fix by re-running your validation command with `--fix`.\n'
+          '(see $_specUrl)',
+      markdownMessage:
+          '**Skill name does not follow Dart package published skill naming convention.**\n\n'
+          'Published skills in package `$packageName` must start with `$hyphenPrefix`.\n\n'
+          '* **Current:** `$skillName`\n'
+          '* **Suggested:** `$suggestedName`\n\n'
+          '**How to fix:**\n'
+          '```yaml\n'
+          'name: $suggestedName\n'
+          '```\n'
+          '*(Or re-run validation with `--fix` to apply automatically).*\n\n'
+          '*(See [Agent Skills Naming Convention]($_specUrl))*',
+      region: region,
+    );
+  }
+
   String? resolvePackageName({
     required Directory startDirectory,
     String? explicitPackageName,
@@ -261,8 +295,6 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   static List<String> _tokenize(String input) =>
       input.toLowerCase().split(RegExp(r'[^a-z0-9]+')).where((token) => token.isNotEmpty).toList();
 
-  /// Rewrites the frontmatter `name:` in `SKILL.md` to the suggested
-  /// normalized published skill name (`<package-name>-<suffix>`).
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
     if (filePath != SkillContext.skillFileName) {

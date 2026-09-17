@@ -10,14 +10,16 @@ metadata:
 
 # Add a New Validation Rule and Flag
 
-Use this skill when you need to add a new validation rule to the `skills_lint` package, expose it as a toggleable CLI flag, and verify its behavior.
+Use this skill when you need to add a new validation rule to the `skills_lint` package, expose it as a toggleable CLI flag, and verify its behavior.    
 
 ---
 
 ## 🛠️ Step-by-Step Implementation
 
 ### 1. Create the Rule Class
-Create a new file in `lib/src/rules/` extending `SkillRule`.
+Create a new file in /home/user/workspace/skills_lint/lib/src/rules/ extending `SkillRule`.
+
+See [Missing Architecture Guide](./missing_architecture_guide.md) for details.
 
 > [!TIP]
 > If your rule expects a specific structure in the skill's YAML frontmatter (e.g., inside `metadata`), document this structure clearly in the class Dart docstring.

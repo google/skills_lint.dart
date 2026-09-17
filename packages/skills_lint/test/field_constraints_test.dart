@@ -5,6 +5,7 @@
 import 'dart:io';
 
 import 'package:skills_lint/src/models/skill_context.dart';
+import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/description_length_rule.dart';
 import 'package:skills_lint/src/rules/name_format_rule.dart';
 import 'package:skills_lint/src/rules/valid_yaml_metadata_rule.dart';
@@ -169,6 +170,30 @@ Body''');
 
         expect(fixedContent, contains('name: my_skill'));
       });
+
+      test('reports accurate 1-based line number for invalid skill name', () async {
+        final Directory skillDir = await Directory('${tempDir.path}/Skill-Name').create();
+        const content =
+            '---\n'
+            'name: Skill-Name\n'
+            'description: A test skill\n'
+            '---\n'
+            'Body\n';
+        await File('${skillDir.path}/SKILL.md').writeAsString(content);
+        final rule = NameFormatRule();
+        final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(content);
+        final parsedYaml = loadYaml(match!.group(1)!) as YamlMap?;
+        final context = SkillContext(
+          directory: skillDir,
+          rawContent: content,
+          parsedYaml: parsedYaml,
+        );
+
+        final List<ValidationError> errors = await rule.validate(context);
+        expect(errors, isNotEmpty);
+        expect(errors.first.ruleId, 'invalid-skill-name');
+        expect(errors.first.region?.startLine, 2);
+      });
     });
 
     group('Description', () {
@@ -214,6 +239,31 @@ Body''');
         // The chars right before/after the cutoff should appear in the excerpt.
         expect(error, contains('BBBBB|HERE|AAAAA'));
       });
+
+      test('reports accurate 1-based line number for description too long', () async {
+        final Directory skillDir = await Directory('${tempDir.path}/skill-name').create();
+        final String longDesc = 'a' * (DescriptionLengthRule.maxDescriptionLength + 1);
+        final content =
+            '---\n'
+            'name: skill-name\n'
+            'description: $longDesc\n'
+            '---\n'
+            'Body\n';
+        await File('${skillDir.path}/SKILL.md').writeAsString(content);
+        final rule = DescriptionLengthRule();
+        final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(content);
+        final parsedYaml = loadYaml(match!.group(1)!) as YamlMap?;
+        final context = SkillContext(
+          directory: skillDir,
+          rawContent: content,
+          parsedYaml: parsedYaml,
+        );
+
+        final List<ValidationError> errors = await rule.validate(context);
+        expect(errors, hasLength(1));
+        expect(errors.first.ruleId, 'description-too-long');
+        expect(errors.first.region?.startLine, 3);
+      });
     });
 
     group('Compatibility', () {
@@ -245,6 +295,34 @@ Body''');
           contains('Cutoff at character ${ValidYamlMetadataRule.maxCompatibilityLength}'),
         );
         expect(error, contains('BBBBB|HERE|AAAAA'));
+      });
+
+      test('reports accurate 1-based line number for compatibility too long', () async {
+        final Directory skillDir = await Directory('${tempDir.path}/skill-name').create();
+        final String longComp = 'b' * (ValidYamlMetadataRule.maxCompatibilityLength + 1);
+        final content =
+            '---\n'
+            'name: skill-name\n'
+            'description: A test skill\n'
+            'compatibility: $longComp\n'
+            '---\n'
+            'Body\n';
+        await File('${skillDir.path}/SKILL.md').writeAsString(content);
+        final rule = ValidYamlMetadataRule();
+        final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(content);
+        final parsedYaml = loadYaml(match!.group(1)!) as YamlMap?;
+        final context = SkillContext(
+          directory: skillDir,
+          rawContent: content,
+          parsedYaml: parsedYaml,
+        );
+
+        final List<ValidationError> errors = await rule.validate(context);
+        final ValidationError compatError = errors.firstWhere(
+          (e) => e.message.contains('Compatibility'),
+        );
+        expect(compatError.ruleId, 'valid-yaml-metadata');
+        expect(compatError.region?.startLine, 4);
       });
     });
   });
