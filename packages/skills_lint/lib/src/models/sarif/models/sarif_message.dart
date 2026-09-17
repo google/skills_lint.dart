@@ -2,9 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 /// A human-readable message string in plain text or Markdown.
+
+@immutable
 class SarifMessage {
-  SarifMessage({required this.text, this.markdown});
+  const SarifMessage({required this.text, this.markdown});
 
   /// Constructs a [SarifMessage] from a JSON map.
   factory SarifMessage.fromJson(Map<String, Object?> json) {

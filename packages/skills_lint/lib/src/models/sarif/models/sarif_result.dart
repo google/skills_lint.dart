@@ -2,12 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 import 'sarif_location.dart';
 import 'sarif_message.dart';
 
 /// An individual diagnostic finding produced during analysis.
+@immutable
 class SarifResult {
-  SarifResult({
+  const SarifResult({
     required this.ruleId,
     required this.level,
     required this.message,

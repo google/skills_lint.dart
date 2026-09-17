@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 import 'sarif_run.dart';
 
 /// Top-level SARIF 2.1.0 log document.
@@ -25,8 +27,9 @@ import 'sarif_run.dart';
 ///   ]
 /// }
 /// ```
+@immutable
 class SarifLog {
-  SarifLog({this.schema = schemaUri, this.version = specVersion, required this.runs});
+  const SarifLog({this.schema = schemaUri, this.version = specVersion, required this.runs});
 
   /// Constructs a [SarifLog] from a JSON map.
   factory SarifLog.fromJson(Map<String, Object?> json) {

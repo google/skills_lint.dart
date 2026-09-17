@@ -2,11 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 import 'sarif_physical_location.dart';
 
 /// A location where an analysis result was observed.
+@immutable
 class SarifLocation {
-  SarifLocation({required this.physicalLocation});
+  const SarifLocation({required this.physicalLocation});
 
   /// Constructs a [SarifLocation] from a JSON map.
   factory SarifLocation.fromJson(Map<String, Object?> json) {

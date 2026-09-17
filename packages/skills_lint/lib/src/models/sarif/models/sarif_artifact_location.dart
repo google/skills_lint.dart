@@ -2,9 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 /// Identifies an artifact (file) by URI.
+
+@immutable
 class SarifArtifactLocation {
-  SarifArtifactLocation({required this.uri, this.uriBaseId});
+  const SarifArtifactLocation({required this.uri, this.uriBaseId});
 
   /// Constructs a [SarifArtifactLocation] from a JSON map.
   factory SarifArtifactLocation.fromJson(Map<String, Object?> json) {

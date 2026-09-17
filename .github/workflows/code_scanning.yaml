@@ -44,7 +44,7 @@ jobs:
       - name: Generate SARIF report
         run: |
           set +e
-          dart run packages/skills_lint/bin/skills_lint.dart -d .agents/skills --format=sarif > skills-lint.sarif
+          dart run packages/skills_lint/bin/skills_lint.dart --format=sarif > skills-lint.sarif
           EXIT_CODE=$?
           set -e
           if [ $EXIT_CODE -ne 0 ] && [ $EXIT_CODE -ne 1 ]; then

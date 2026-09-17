@@ -2,12 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 import 'sarif_artifact_location.dart';
 import 'sarif_region.dart';
 
 /// The physical artifact and region coordinates of a diagnostic finding.
+@immutable
 class SarifPhysicalLocation {
-  SarifPhysicalLocation({required this.artifactLocation, this.region});
+  const SarifPhysicalLocation({required this.artifactLocation, this.region});
 
   /// Constructs a [SarifPhysicalLocation] from a JSON map.
   factory SarifPhysicalLocation.fromJson(Map<String, Object?> json) {

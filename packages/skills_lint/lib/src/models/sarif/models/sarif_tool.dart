@@ -2,11 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 import 'sarif_driver.dart';
 
 /// The analysis tool metadata for a SARIF run.
+@immutable
 class SarifTool {
-  SarifTool({required this.driver});
+  const SarifTool({required this.driver});
 
   /// Constructs a [SarifTool] from a JSON map.
   factory SarifTool.fromJson(Map<String, Object?> json) {

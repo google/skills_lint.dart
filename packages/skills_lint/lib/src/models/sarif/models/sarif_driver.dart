@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 import 'sarif_rule.dart';
 
 /// The primary tool component (driver) that produced analysis results.
@@ -10,8 +12,9 @@ import 'sarif_rule.dart';
 /// describes the executable or core plugin that orchestrated the analysis run
 /// (such as `skills_lint`). The driver specifies the tool name, optional version,
 /// documentation URI, and rule definitions.
+@immutable
 class SarifDriver {
-  SarifDriver({
+  const SarifDriver({
     this.name = defaultDriverName,
     this.version,
     this.informationUri = defaultInformationUri,

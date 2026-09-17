@@ -43,7 +43,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final YamlMap yaml = context.parsedYaml!;
     final YamlNode? nameNode = getNameNode(yaml);
-    final String skillName = nameNode?.value.toString() ?? '';
+    final String skillName = nameNode?.value?.toString() ?? '';
 
     if (skillName.isEmpty) {
       return errors; // Handled by required fields check
@@ -270,7 +270,10 @@ class NameFormatRule extends SkillRule implements FixableRule {
     try {
       final yaml = loadYaml(frontmatter) as YamlMap;
       final YamlNode? nameNode = getNameNode(yaml);
-      if (nameNode == null) {
+      if (nameNode == null ||
+          nameNode is! YamlScalar ||
+          nameNode.value == null ||
+          nameNode.value.toString().trim().isEmpty) {
         return currentContent;
       }
 
@@ -286,17 +289,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
         fixedFrontmatter,
       );
     } catch (_) {
-      // Fallback: line-by-line replacement if AST-based replacement fails
-      final List<String> lines = currentContent.split('\n');
-      for (var i = 0; i < lines.length; i++) {
-        final String line = lines[i];
-        if (line.trim().startsWith('name:')) {
-          final String prefix = line.substring(0, line.indexOf('name:') + 5);
-          lines[i] = '$prefix $targetName';
-          break;
-        }
-      }
-      return lines.join('\n');
+      return currentContent;
     }
   }
 

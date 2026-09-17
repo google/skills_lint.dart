@@ -19,7 +19,7 @@ void main() {
     });
 
     test('SarifLog round-trips to and from JSON', () {
-      final log = SarifLog(
+      const log = SarifLog(
         runs: [
           SarifRun(
             tool: SarifTool(
@@ -492,14 +492,14 @@ Body content
 void _testIndividualSarifModels() {
   group('Individual SARIF Model Round-Trip Serialization', () {
     test('SarifArtifactLocation positive round-trip', () {
-      final full = SarifArtifactLocation(uri: 'skills/my-skill/SKILL.md', uriBaseId: '%SRCROOT%');
+      const full = SarifArtifactLocation(uri: 'skills/my-skill/SKILL.md', uriBaseId: '%SRCROOT%');
       expectJsonRoundTrip<SarifArtifactLocation>(
         instance: full,
         toJson: (a) => a.toJson(),
         fromJson: SarifArtifactLocation.fromJson,
       );
 
-      final minimal = SarifArtifactLocation(uri: 'SKILL.md');
+      const minimal = SarifArtifactLocation(uri: 'SKILL.md');
       expectJsonRoundTrip<SarifArtifactLocation>(
         instance: minimal,
         toJson: (a) => a.toJson(),
@@ -512,7 +512,7 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifDriver positive round-trip', () {
-      final full = SarifDriver(
+      const full = SarifDriver(
         name: 'custom_linter',
         version: '1.2.3',
         informationUri: 'https://example.com/tool',
@@ -531,7 +531,7 @@ void _testIndividualSarifModels() {
         fromJson: SarifDriver.fromJson,
       );
 
-      final minimal = SarifDriver();
+      const minimal = SarifDriver();
       expectJsonRoundTrip<SarifDriver>(
         instance: minimal,
         toJson: (d) => d.toJson(),
@@ -546,7 +546,7 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifLocation positive round-trip', () {
-      final location = SarifLocation(
+      const location = SarifLocation(
         physicalLocation: SarifPhysicalLocation(
           artifactLocation: SarifArtifactLocation(uri: 'SKILL.md'),
           region: SarifRegion(startLine: 5, startColumn: 2),
@@ -564,7 +564,7 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifLog positive round-trip', () {
-      final log = SarifLog(
+      const log = SarifLog(
         runs: [
           SarifRun(
             tool: SarifTool(driver: SarifDriver(name: 'custom_driver')),
@@ -583,7 +583,7 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifMessage positive round-trip', () {
-      final fullMessage = SarifMessage(
+      const fullMessage = SarifMessage(
         text: 'Plain text finding',
         markdown: '**Markdown** finding with code `sample`',
       );
@@ -593,7 +593,7 @@ void _testIndividualSarifModels() {
         fromJson: SarifMessage.fromJson,
       );
 
-      final message = SarifMessage(text: 'Plain text finding');
+      const message = SarifMessage(text: 'Plain text finding');
       expectJsonRoundTrip<SarifMessage>(
         instance: message,
         toJson: (m) => m.toJson(),
@@ -609,7 +609,7 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifPhysicalLocation positive round-trip', () {
-      final full = SarifPhysicalLocation(
+      const full = SarifPhysicalLocation(
         artifactLocation: SarifArtifactLocation(uri: 'path/to/SKILL.md'),
         region: SarifRegion(startLine: 10, startColumn: 1, endLine: 12, endColumn: 20),
       );
@@ -619,7 +619,7 @@ void _testIndividualSarifModels() {
         fromJson: SarifPhysicalLocation.fromJson,
       );
 
-      final minimal = SarifPhysicalLocation(
+      const minimal = SarifPhysicalLocation(
         artifactLocation: SarifArtifactLocation(uri: 'path/to/SKILL.md'),
       );
       expectJsonRoundTrip<SarifPhysicalLocation>(
@@ -634,14 +634,14 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifRegion positive round-trip', () {
-      final full = SarifRegion(startLine: 1, startColumn: 2, endLine: 3, endColumn: 4);
+      const full = SarifRegion(startLine: 1, startColumn: 2, endLine: 3, endColumn: 4);
       expectJsonRoundTrip<SarifRegion>(
         instance: full,
         toJson: (r) => r.toJson(),
         fromJson: SarifRegion.fromJson,
       );
 
-      final minimal = SarifRegion(startLine: 1);
+      const minimal = SarifRegion(startLine: 1);
       expectJsonRoundTrip<SarifRegion>(
         instance: minimal,
         toJson: (r) => r.toJson(),
@@ -654,7 +654,7 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifReportingConfiguration positive round-trip', () {
-      final config = SarifReportingConfiguration(level: 'warning');
+      const config = SarifReportingConfiguration(level: 'warning');
       expectJsonRoundTrip<SarifReportingConfiguration>(
         instance: config,
         toJson: (c) => c.toJson(),
@@ -670,7 +670,7 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifResult positive round-trip', () {
-      final full = SarifResult(
+      const full = SarifResult(
         ruleId: 'valid-yaml-metadata',
         level: 'error',
         message: SarifMessage(text: 'Invalid YAML header'),
@@ -690,7 +690,7 @@ void _testIndividualSarifModels() {
         fromJson: SarifResult.fromJson,
       );
 
-      final minimal = SarifResult(
+      const minimal = SarifResult(
         ruleId: 'valid-yaml-metadata',
         level: 'warning',
         message: SarifMessage(text: 'Minimal failure'),
@@ -707,7 +707,7 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifRule positive round-trip', () {
-      final full = SarifRule(
+      const full = SarifRule(
         id: 'description-too-long',
         shortDescription: SarifMessage(text: 'Description exceeds length'),
         helpUri: 'https://agentskills.io/specification',
@@ -724,7 +724,7 @@ void _testIndividualSarifModels() {
         fromJson: SarifRule.fromJson,
       );
 
-      final minimal = SarifRule(
+      const minimal = SarifRule(
         id: 'description-too-long',
         shortDescription: SarifMessage(text: 'Description exceeds length'),
       );
@@ -740,7 +740,7 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifRun positive round-trip', () {
-      final full = SarifRun(
+      const full = SarifRun(
         tool: SarifTool(driver: SarifDriver(name: 'custom_driver_name')),
         results: [
           SarifResult(
@@ -756,7 +756,7 @@ void _testIndividualSarifModels() {
         fromJson: SarifRun.fromJson,
       );
 
-      final minimal = SarifRun(
+      const minimal = SarifRun(
         tool: SarifTool(driver: SarifDriver(name: 'custom_minimal_driver')),
       );
       expectJsonRoundTrip<SarifRun>(
@@ -771,7 +771,7 @@ void _testIndividualSarifModels() {
     });
 
     test('SarifTool positive round-trip', () {
-      final tool = SarifTool(
+      const tool = SarifTool(
         driver: SarifDriver(
           name: 'tool_driver',
           version: '2.5.0',

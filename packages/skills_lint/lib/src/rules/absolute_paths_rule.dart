@@ -91,15 +91,21 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     ) {
       final String rawTarget = match.group(1)!;
       final String trimmed = rawTarget.trim();
+      final List<String> parts = trimmed.split(RegExp(r'\s+'));
+      final String pathOnly = parts.first;
+      final String? titlePart = parts.length > 1 ? trimmed.substring(pathOnly.length) : null;
 
-      if (isAbsolute(trimmed) || windows.isAbsolute(trimmed)) {
-        final file = File(trimmed);
+      if (isAbsolute(pathOnly) || windows.isAbsolute(pathOnly)) {
+        final file = File(pathOnly);
         if (file.existsSync()) {
-          final String relativePath = relative(trimmed, from: directory.path);
+          final String relativePath = relative(pathOnly, from: directory.path);
           final String posixRelativePath = relativePath.replaceAll(r'\', '/');
+          final targetWithTitle = titlePart != null
+              ? '$posixRelativePath$titlePart'
+              : posixRelativePath;
           final String fullMatch = match.group(0)!;
           final int lastParen = fullMatch.lastIndexOf('(');
-          return '${fullMatch.substring(0, lastParen + 1)}$posixRelativePath)';
+          return '${fullMatch.substring(0, lastParen + 1)}$targetWithTitle)';
         }
       }
 

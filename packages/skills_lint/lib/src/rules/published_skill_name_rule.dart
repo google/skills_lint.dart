@@ -320,7 +320,10 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
 
     final YamlMap yaml = yamlObj;
     final YamlNode? nameNode = yaml.nodes['name'];
-    if (nameNode == null) {
+    if (nameNode == null ||
+        nameNode is! YamlScalar ||
+        nameNode.value == null ||
+        nameNode.value.toString().trim().isEmpty) {
       return currentContent;
     }
 

@@ -157,6 +157,18 @@ void main() {
       expect(fixedContent, contains('(../target.md)'));
     });
 
+    test('fixes absolute path with title to relative preserving title', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      final File targetFile = await File('${tempDir.path}/target.md').create();
+
+      final rule = AbsolutePathsRule();
+      final content =
+          '${buildFrontmatter(name: 'test-skill')}[Link](${targetFile.path} "Target Title")\n';
+      final String fixedContent = await rule.fix('SKILL.md', content, skillDir);
+
+      expect(fixedContent, contains('(../target.md "Target Title")'));
+    });
+
     test('does not fix absolute path if file does not exist', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
 

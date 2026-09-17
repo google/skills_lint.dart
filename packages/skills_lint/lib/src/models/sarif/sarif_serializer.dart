@@ -72,7 +72,7 @@ class SarifSerializer {
           originalUriBaseIds: {
             '%SRCROOT%': {
               'uri': Uri.directory(effectiveRoot).toString(),
-              'description': {'text': 'The root directory for all project files.'},
+              'description': const {'text': 'The root directory for all project files.'},
             },
           },
         ),
@@ -95,8 +95,8 @@ class SarifSerializer {
             defaultConfiguration: SarifReportingConfiguration(
               level: severityToSarifLevel(check.defaultSeverity),
             ),
-            properties: {
-              SarifRule.keyTags: const ['lint', 'quality'],
+            properties: const {
+              SarifRule.keyTags: ['lint', 'quality'],
               SarifRule.keyProblemSeverity: 'recommendation',
               SarifRule.keyPrecision: 'very-high',
             },
@@ -116,8 +116,8 @@ class SarifSerializer {
             defaultConfiguration: SarifReportingConfiguration(
               level: severityToSarifLevel(customRule.severity),
             ),
-            properties: {
-              SarifRule.keyTags: const ['lint', 'quality', 'custom-rule'],
+            properties: const {
+              SarifRule.keyTags: ['lint', 'quality', 'custom-rule'],
               SarifRule.keyProblemSeverity: 'recommendation',
               SarifRule.keyPrecision: 'very-high',
             },
@@ -167,7 +167,7 @@ class SarifSerializer {
         endColumn: region.endColumn,
       );
     }
-    return SarifRegion(startLine: 1);
+    return const SarifRegion(startLine: 1);
   }
 
   static String? _findGitRoot() {

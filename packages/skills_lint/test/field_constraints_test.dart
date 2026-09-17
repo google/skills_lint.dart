@@ -186,6 +186,34 @@ Body''');
         },
       );
 
+      test('fix does not corrupt frontmatter when name is empty or non-scalar', () async {
+        final Directory skillDir = await Directory('${tempDir.path}/my-skill').create();
+        const emptyNameContent = '---\nname:\ndescription: A test skill\n---\nBody\n';
+        final rule = NameFormatRule();
+        final String fixedEmpty = await rule.fix('SKILL.md', emptyNameContent, skillDir);
+        expect(fixedEmpty, equals(emptyNameContent));
+
+        const mapNameContent = '---\nname:\n  sub: value\ndescription: A test skill\n---\nBody\n';
+        final String fixedMap = await rule.fix('SKILL.md', mapNameContent, skillDir);
+        expect(fixedMap, equals(mapNameContent));
+      });
+
+      test('validate does not coerce null name value to literal null string', () async {
+        final Directory skillDir = await Directory('${tempDir.path}/empty-name').create();
+        const content = '---\nname:\ndescription: A test skill\n---\nBody\n';
+        final rule = NameFormatRule();
+        final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(content);
+        final parsedYaml = loadYaml(match!.group(1)!) as YamlMap?;
+        final context = SkillContext(
+          directory: skillDir,
+          rawContent: content,
+          parsedYaml: parsedYaml,
+        );
+
+        final List<ValidationError> errors = await rule.validate(context);
+        expect(errors, isEmpty);
+      });
+
       test('reports accurate 1-based line number for invalid skill name', () async {
         final Directory skillDir = await Directory('${tempDir.path}/Skill-Name').create();
         const content =

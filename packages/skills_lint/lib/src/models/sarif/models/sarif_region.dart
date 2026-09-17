@@ -2,9 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 /// A 1-based coordinate region within an artifact (OASIS SARIF 2.1.0 §3.30).
+
+@immutable
 class SarifRegion {
-  SarifRegion({required this.startLine, this.startColumn, this.endLine, this.endColumn})
+  const SarifRegion({required this.startLine, this.startColumn, this.endLine, this.endColumn})
     : assert(startLine >= 1, 'SARIF 2.1.0 requires startLine >= 1');
 
   /// Constructs a [SarifRegion] from a JSON map.

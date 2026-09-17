@@ -2,9 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 /// Default reporting configuration for a SARIF rule descriptor.
+
+@immutable
 class SarifReportingConfiguration {
-  SarifReportingConfiguration({required this.level});
+  const SarifReportingConfiguration({required this.level});
 
   /// Constructs a [SarifReportingConfiguration] from a JSON map.
   factory SarifReportingConfiguration.fromJson(Map<String, Object?> json) {

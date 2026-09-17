@@ -2,12 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 import 'sarif_result.dart';
 import 'sarif_tool.dart';
 
 /// A static analysis run within a SARIF log.
+@immutable
 class SarifRun {
-  SarifRun({required this.tool, this.results = const [], this.originalUriBaseIds});
+  const SarifRun({required this.tool, this.results = const [], this.originalUriBaseIds});
 
   /// Constructs a [SarifRun] from a JSON map.
   factory SarifRun.fromJson(Map<String, Object?> json) {
