@@ -279,7 +279,12 @@ class NameFormatRule extends SkillRule implements FixableRule {
       final String afterName = frontmatter.substring(span.end.offset);
 
       final fixedFrontmatter = '$beforeName$targetName$afterName';
-      return currentContent.replaceRange(match.start + 4, match.end - 4, fixedFrontmatter);
+      final int yamlOffset = currentContent.indexOf(frontmatter, match.start);
+      return currentContent.replaceRange(
+        yamlOffset,
+        yamlOffset + frontmatter.length,
+        fixedFrontmatter,
+      );
     } catch (_) {
       // Fallback: line-by-line replacement if AST-based replacement fails
       final List<String> lines = currentContent.split('\n');

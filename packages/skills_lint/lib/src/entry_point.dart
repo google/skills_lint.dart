@@ -84,7 +84,7 @@ Run with --help to see every flag.''';
 void _setupLogger() {
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
-    if (record.level >= Level.SEVERE) {
+    if (record.level >= Level.WARNING) {
       stderr.writeln(record.message);
     } else {
       stdout.writeln(record.message);

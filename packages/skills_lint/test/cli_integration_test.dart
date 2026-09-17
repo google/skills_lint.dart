@@ -1234,6 +1234,72 @@ skills_lint:
       await runAndAssertValidJson(['--format=sarif', '-d', tempDir.path], 0);
     });
 
+    test(
+      '--format=sarif with --allow-misconfigured-keys routes warnings to stderr and emits valid JSON to stdout',
+      () async {
+        final configFile = File('${tempDir.path}/skills_lint.yaml');
+        await configFile.writeAsString('''
+skills_lint:
+  unrecognized_key: true
+''');
+
+        final TestProcess process = await TestProcess.start('dart', [
+          p.normalize(p.absolute('bin/skills_lint.dart')),
+          '--format=sarif',
+          '--allow-misconfigured-keys',
+          '-d',
+          tempDir.path,
+        ], workingDirectory: tempDir.path);
+
+        final String stdoutString = await process.stdoutStream().join('\n');
+        final String stderrString = await process.stderrStream().join('\n');
+        await process.shouldExit(0);
+
+        expect(
+          stderrString,
+          contains('DEPRECATION WARNING: --allow-misconfigured-keys is deprecated'),
+        );
+        expect(
+          stderrString,
+          contains('Configuration warning: Unrecognized top-level key "unrecognized_key"'),
+        );
+        expect(() => jsonDecode(stdoutString), returnsNormally);
+        final jsonMap = jsonDecode(stdoutString) as Map<String, dynamic>;
+        expect(jsonMap['version'], equals('2.1.0'));
+      },
+    );
+
+    test(
+      '--format=json with --allow-misconfigured-keys routes warnings to stderr and emits valid JSON to stdout',
+      () async {
+        final configFile = File('${tempDir.path}/skills_lint.yaml');
+        await configFile.writeAsString('''
+skills_lint:
+  unrecognized_key: true
+''');
+
+        final TestProcess process = await TestProcess.start('dart', [
+          p.normalize(p.absolute('bin/skills_lint.dart')),
+          '--format=json',
+          '--allow-misconfigured-keys',
+          '-d',
+          tempDir.path,
+        ], workingDirectory: tempDir.path);
+
+        final String stdoutString = await process.stdoutStream().join('\n');
+        final String stderrString = await process.stderrStream().join('\n');
+        await process.shouldExit(0);
+
+        expect(
+          stderrString,
+          contains('DEPRECATION WARNING: --allow-misconfigured-keys is deprecated'),
+        );
+        expect(() => jsonDecode(stdoutString), returnsNormally);
+        final jsonList = jsonDecode(stdoutString) as List<dynamic>;
+        expect(jsonList, isA<List<dynamic>>());
+      },
+    );
+
     test('--format=text still produces the expected human output and is NOT JSON', () async {
       final TestProcess process = await TestProcess.start('dart', [
         p.normalize(p.absolute('bin/skills_lint.dart')),

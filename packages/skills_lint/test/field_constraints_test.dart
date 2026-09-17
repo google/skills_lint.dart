@@ -171,6 +171,21 @@ Body''');
         expect(fixedContent, contains('name: my_skill'));
       });
 
+      test(
+        'fixes name safely with Windows CRLF line endings without delimiter corruption',
+        () async {
+          final Directory skillDir = await Directory('${tempDir.path}/crlf-skill').create();
+          const crlfContent =
+              '---\r\nname: wrong-name\r\ndescription: A test skill\r\n---\r\nBody\r\n';
+          final rule = NameFormatRule();
+          final String fixedContent = await rule.fix('SKILL.md', crlfContent, skillDir);
+          expect(
+            fixedContent,
+            equals('---\r\nname: crlf-skill\r\ndescription: A test skill\r\n---\r\nBody\r\n'),
+          );
+        },
+      );
+
       test('reports accurate 1-based line number for invalid skill name', () async {
         final Directory skillDir = await Directory('${tempDir.path}/Skill-Name').create();
         const content =

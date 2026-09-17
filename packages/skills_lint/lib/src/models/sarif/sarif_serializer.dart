@@ -35,13 +35,17 @@ class SarifSerializer {
   }
 
   /// Builds a [SarifLog] from a list of [ValidationResult]s.
+  ///
+  /// [rootDirectory] specifies the root project directory against which relative artifact
+  /// paths and `%SRCROOT%` resolve. If omitted, falls back to the git root or current working directory.
   static SarifLog toSarifLog(
     List<ValidationResult> results, {
     String? toolVersion,
     List<CheckType>? checkTypes,
     List<SkillRule>? customRules,
+    String? rootDirectory,
   }) {
-    _gitRootCache ??= _findGitRoot() ?? Directory.current.path;
+    final String effectiveRoot = rootDirectory ?? _findGitRoot() ?? Directory.current.path;
     final List<SarifRule> rules = _buildSarifRules(
       checkTypes ?? RuleRegistry.allChecks,
       customRules ?? [],
@@ -54,7 +58,7 @@ class SarifSerializer {
         if (error.isIgnored || error.severity == AnalysisSeverity.disabled) {
           continue;
         }
-        sarifResults.add(_buildSarifResult(error, result.context, ruleIndexMap));
+        sarifResults.add(_buildSarifResult(error, result.context, ruleIndexMap, effectiveRoot));
       }
     }
 
@@ -67,7 +71,7 @@ class SarifSerializer {
           results: sarifResults,
           originalUriBaseIds: {
             '%SRCROOT%': {
-              'uri': Uri.directory(_gitRootCache ?? Directory.current.path).toString(),
+              'uri': Uri.directory(effectiveRoot).toString(),
               'description': {'text': 'The root directory for all project files.'},
             },
           },
@@ -129,8 +133,9 @@ class SarifSerializer {
     ValidationError error,
     SkillContext? context,
     Map<String, int> ruleIndexMap,
+    String rootDirectory,
   ) {
-    final String uri = _resolveUri(error, context);
+    final ({String uri, String? uriBaseId}) resolved = _resolveUri(error, context, rootDirectory);
     final SarifRegion region = _resolveRegion(error);
 
     return SarifResult(
@@ -141,7 +146,10 @@ class SarifSerializer {
       locations: [
         SarifLocation(
           physicalLocation: SarifPhysicalLocation(
-            artifactLocation: SarifArtifactLocation(uri: uri, uriBaseId: '%SRCROOT%'),
+            artifactLocation: SarifArtifactLocation(
+              uri: resolved.uri,
+              uriBaseId: resolved.uriBaseId,
+            ),
             region: region,
           ),
         ),
@@ -162,23 +170,21 @@ class SarifSerializer {
     return SarifRegion(startLine: 1);
   }
 
-  static String? _gitRootCache;
-
   static String? _findGitRoot() {
-    if (_gitRootCache != null) {
-      return _gitRootCache;
-    }
     try {
       final ProcessResult result = Process.runSync('git', ['rev-parse', '--show-toplevel']);
       if (result.exitCode == 0) {
-        _gitRootCache = result.stdout.toString().trim();
-        return _gitRootCache;
+        return result.stdout.toString().trim();
       }
     } catch (_) {}
     return null;
   }
 
-  static String _resolveUri(ValidationError error, SkillContext? context) {
+  static ({String uri, String? uriBaseId}) _resolveUri(
+    ValidationError error,
+    SkillContext? context,
+    String rootDirectory,
+  ) {
     String rawPath;
     if (context != null) {
       final String dirPath = context.directory.path;
@@ -195,20 +201,14 @@ class SarifSerializer {
       rawPath = error.file;
     }
 
-    final String absolutePath = p.absolute(rawPath);
-    final String? root = _findGitRoot();
-    if (root != null && p.isWithin(root, absolutePath)) {
-      return p.toUri(p.relative(absolutePath, from: root)).toString();
+    final String absolutePath = p.normalize(p.absolute(rawPath));
+    final String normalizedRoot = p.normalize(p.absolute(rootDirectory));
+
+    if (p.equals(normalizedRoot, absolutePath) || p.isWithin(normalizedRoot, absolutePath)) {
+      final String relative = p.relative(absolutePath, from: normalizedRoot);
+      return (uri: p.toUri(relative).toString(), uriBaseId: '%SRCROOT%');
     }
-    if (p.isWithin(Directory.current.path, absolutePath)) {
-      return p.toUri(p.relative(absolutePath, from: Directory.current.path)).toString();
-    }
-    if (context != null && p.isWithin(context.directory.parent.path, absolutePath)) {
-      return p.toUri(p.relative(absolutePath, from: context.directory.parent.path)).toString();
-    }
-    if (!p.isAbsolute(rawPath)) {
-      return p.toUri(rawPath).toString();
-    }
-    return p.toUri(absolutePath).toString();
+
+    return (uri: p.toUri(absolutePath).toString(), uriBaseId: null);
   }
 }

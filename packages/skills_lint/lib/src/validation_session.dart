@@ -966,18 +966,19 @@ class ValidationSession {
   }
 
   /// Converts accumulated validation results into a [SarifLog].
-  SarifLog toSarif({String? toolVersion}) {
+  SarifLog toSarif({String? toolVersion, String? rootDirectory}) {
     return SarifSerializer.toSarifLog(
       _results,
       toolVersion: toolVersion,
       checkTypes: RuleRegistry.allChecks,
       customRules: customRules,
+      rootDirectory: rootDirectory,
     );
   }
 
   /// Serializes the [toSarif] output to a JSON string.
-  String toSarifJson({bool pretty = true, String? toolVersion}) {
-    final SarifLog sarif = toSarif(toolVersion: toolVersion);
+  String toSarifJson({bool pretty = true, String? toolVersion, String? rootDirectory}) {
+    final SarifLog sarif = toSarif(toolVersion: toolVersion, rootDirectory: rootDirectory);
     final encoder = pretty ? const JsonEncoder.withIndent('  ') : const JsonEncoder();
     return encoder.convert(sarif.toJson());
   }

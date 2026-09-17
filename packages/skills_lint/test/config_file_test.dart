@@ -337,8 +337,8 @@ Body''');
         'test-skill',
       ], workingDirectory: tempDir.path);
 
-      final List<String> stdout = await process.stdout.rest.toList();
-      expect(stdout.join('\n'), contains('File not found generating-baseline'));
+      final List<String> stderr = await process.stderr.rest.toList();
+      expect(stderr.join('\n'), contains('File not found generating-baseline'));
       await process.shouldExit(0);
 
       final writtenFile = File('${tempDir.path}/$ignorePath');
@@ -596,8 +596,8 @@ skills_lint:
           '--allow-misconfigured-keys',
         ], workingDirectory: tempDir.path);
 
-        final List<String> stdout = await process.stdout.rest.toList();
-        final String output = stdout.join('\n');
+        final List<String> stderr = await process.stderr.rest.toList();
+        final String output = stderr.join('\n');
         expect(output, contains('Configuration warning: Unrecognized top-level key "invalid-key"'));
         expect(output, contains('DEPRECATION WARNING: --allow-misconfigured-keys is deprecated'));
         await process.shouldExit(0);
