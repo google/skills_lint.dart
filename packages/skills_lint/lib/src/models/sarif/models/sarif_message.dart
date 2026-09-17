@@ -5,7 +5,6 @@
 import 'package:meta/meta.dart';
 
 /// A human-readable message string in plain text or Markdown.
-
 @immutable
 class SarifMessage {
   const SarifMessage({required this.text, this.markdown});

@@ -5,7 +5,6 @@
 import 'package:meta/meta.dart';
 
 /// A 1-based coordinate region within an artifact (OASIS SARIF 2.1.0 §3.30).
-
 @immutable
 class SarifRegion {
   const SarifRegion({required this.startLine, this.startColumn, this.endLine, this.endColumn})

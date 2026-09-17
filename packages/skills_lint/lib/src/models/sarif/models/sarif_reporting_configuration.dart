@@ -5,7 +5,6 @@
 import 'package:meta/meta.dart';
 
 /// Default reporting configuration for a SARIF rule descriptor.
-
 @immutable
 class SarifReportingConfiguration {
   const SarifReportingConfiguration({required this.level});

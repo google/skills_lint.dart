@@ -5,7 +5,6 @@
 import 'package:meta/meta.dart';
 
 /// Identifies an artifact (file) by URI.
-
 @immutable
 class SarifArtifactLocation {
   const SarifArtifactLocation({required this.uri, this.uriBaseId});
