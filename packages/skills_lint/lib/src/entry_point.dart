@@ -38,6 +38,7 @@ const _ignoreConfigFlag = 'ignore-config';
 const _generateBaselineFlag = 'generate-baseline';
 const _fixFlag = 'fix';
 const _dryRunFlag = 'dry-run';
+// TODO(reidbaker): Remove deprecated --fix-apply CLI flag on next major version bump.
 const _fixApplyFlag = 'fix-apply';
 const _allowMisconfiguredKeysFlag = 'allow-misconfigured-keys';
 const _configOption = 'config';
@@ -103,7 +104,7 @@ bool _hasInvalidFixFormatCombination(
 ) {
   final fixFlag = results[_fixFlag] as bool;
   final fixApplyAlias = results[_fixApplyFlag] as bool;
-  if ((fixFlag || fixApplyAlias) && format != OutputFormat.text) {
+  if (hasInvalidFixFormatCombination(fix: fixFlag || fixApplyAlias, format: format)) {
     _printUsage(
       parser,
       'Cannot combine --$_fixFlag with --$_formatOption=$formatStr: '
@@ -449,13 +450,14 @@ Future<bool> validateSkillsInternal({
   bool quiet = false,
   bool generateBaseline = false,
   bool fix = false,
+  // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
   bool fixApply = false,
   String? ignoreFileOverride,
   Configuration? config,
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
 }) async {
-  if ((fix || fixApply) && format != OutputFormat.text) {
+  if (hasInvalidFixFormatCombination(fix: fix || fixApply, format: format)) {
     throw ArgumentError(
       'Cannot combine fixing with output format "${format.name}". '
       'Applying fixes modifies files described by the report.',

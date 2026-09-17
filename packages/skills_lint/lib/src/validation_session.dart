@@ -65,6 +65,7 @@ class ValidationSession {
   /// * [generateBaseline] controls whether the validation should output/update baseline ignores.
   /// * [fix] controls whether to apply fixable rule modifications directly to files.
   /// * [fixApply] is the deprecated flag indicating if fixes should be automatically applied.
+  // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
   /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
   /// * [reporter] optionally specifies a custom [Reporter] instance.
   ValidationSession({
@@ -80,6 +81,7 @@ class ValidationSession {
     required this.quiet,
     required this.generateBaseline,
     required this.fix,
+    // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
     required this.fixApply,
     this.format = OutputFormat.text,
     Reporter? reporter,
@@ -138,6 +140,7 @@ class ValidationSession {
   final bool quiet;
   final bool generateBaseline;
   final bool fix;
+  // TODO(reidbaker): Remove deprecated fixApply field on next major version bump.
   final bool fixApply;
   final OutputFormat format;
   final Reporter reporter;
