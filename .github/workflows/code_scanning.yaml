@@ -45,11 +45,11 @@ jobs:
         run: |
           set +e
           dart run packages/skills_lint/bin/skills_lint.dart -d .agents/skills --format=sarif > skills-lint.sarif
-          EXIT_CODE=0
+          EXIT_CODE=$?
           set -e
-          if [  -ne 0 ] && [  -ne 1 ]; then
-            echo "skills_lint failed with exit code "
-            exit 
+          if [ $EXIT_CODE -ne 0 ] && [ $EXIT_CODE -ne 1 ]; then
+            echo "skills_lint failed with exit code $EXIT_CODE"
+            exit $EXIT_CODE
           fi
 
       - name: Upload SARIF report to GitHub Code Scanning
