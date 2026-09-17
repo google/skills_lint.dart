@@ -266,7 +266,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final String frontmatter = match.group(1)!;
 
-    // Use yaml_edit to preserve comments and formatting precisely
+    // Replace the name node span while preserving comments and formatting precisely
     try {
       final yaml = loadYaml(frontmatter) as YamlMap;
       final YamlNode? nameNode = getNameNode(yaml);

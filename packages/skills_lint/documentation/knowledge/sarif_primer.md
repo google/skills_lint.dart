@@ -38,14 +38,22 @@ To ingest `skills_lint` findings directly into GitHub Security / Code Scanning t
 
 ```yaml
 - name: Run skills_lint SARIF generation
-  run: dart run skills_lint --format=sarif > skills-lint.sarif
+  id: lint
   continue-on-error: true
+  run: dart run skills_lint --format=sarif > skills-lint.sarif
 
 - name: Upload SARIF report to GitHub Code Scanning
+  if: ${{ !cancelled() && steps.lint.conclusion != 'skipped' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
   uses: github/codeql-action/upload-sarif@v3
   with:
     sarif_file: skills-lint.sarif
     category: skills_lint
+
+- name: Check linter status
+  if: steps.lint.outcome != 'success'
+  run: |
+    echo "skills_lint detected lint violations or failed with an error."
+    exit 1
 ```
 
 > Note: `upload-sarif` requires `security-events: write` repository workflow permissions.

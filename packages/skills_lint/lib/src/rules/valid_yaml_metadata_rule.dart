@@ -57,7 +57,8 @@ class ValidYamlMetadataRule extends SkillRule {
 
     final YamlMap yaml = context.parsedYaml!;
     for (final String field in _requiredFields) {
-      if (!yaml.containsKey(field)) {
+      final Object? value = yaml[field];
+      if (value == null || value.toString().trim().isEmpty) {
         errors.add(_buildMissingFieldError(field));
       }
     }

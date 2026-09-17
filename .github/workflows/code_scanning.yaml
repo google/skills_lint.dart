@@ -50,7 +50,7 @@ jobs:
         run: dart run packages/skills_lint/bin/skills_lint.dart --format=sarif > skills-lint.sarif
 
       - name: Upload SARIF report to GitHub Code Scanning
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        if: ${{ !cancelled() && steps.lint.conclusion != 'skipped' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
         uses: github/codeql-action/upload-sarif@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3.38.0
         with:
           sarif_file: skills-lint.sarif

@@ -70,5 +70,14 @@ void main() {
 
       expect(context.yamlNodeToRegion(null), isNull);
     });
+
+    test('skillStartRegex matches CRLF line endings without trailing carriage return', () {
+      const crlfContent = '---\r\nname: test-skill\r\ndescription: A test skill\r\n---\r\nBody\r\n';
+      final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(crlfContent);
+      expect(match, isNotNull);
+      final String captured = match!.group(1)!;
+      expect(captured.endsWith('\r'), isFalse);
+      expect(captured, contains('name: test-skill'));
+    });
   });
 }

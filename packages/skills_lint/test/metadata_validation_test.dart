@@ -68,6 +68,34 @@ Body''');
       expect(result.errors, contains(contains('Missing required field: description')));
     });
 
+    test('fails if required field "name" is present but empty', () async {
+      await File('${tempDir.path}/SKILL.md').writeAsString('''
+---
+name:
+description: A test skill
+---
+Body''');
+      final validator = Validator();
+      final ValidationResult result = await validator.validate(tempDir);
+
+      expect(result.isValid, isFalse);
+      expect(result.errors, contains(contains('Missing required field: name')));
+    });
+
+    test('fails if required field "description" is present but empty', () async {
+      await File('${tempDir.path}/SKILL.md').writeAsString('''
+---
+name: metadata-test
+description:
+---
+Body''');
+      final validator = Validator();
+      final ValidationResult result = await validator.validate(tempDir);
+
+      expect(result.isValid, isFalse);
+      expect(result.errors, contains(contains('Missing required field: description')));
+    });
+
     test('passes without warning if disallowed fields are present', () async {
       final skillDir = Directory('${tempDir.path}/metadata-test');
       await skillDir.create();

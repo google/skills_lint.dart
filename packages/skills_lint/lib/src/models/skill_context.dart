@@ -21,7 +21,10 @@ class SkillContext {
   static const String skillFileName = 'SKILL.md';
 
   /// Regex to match the YAML frontmatter in SKILL.md.
-  static final RegExp skillStartRegex = RegExp(r'^---\s*\n(.*?)\n---\s*\n', dotAll: true);
+  static final RegExp skillStartRegex = RegExp(
+    r'^---\s*\r?\n(.*?)\r?\n---\s*(?:\r?\n|$)',
+    dotAll: true,
+  );
 
   /// Regex to match inline Markdown links (`[text](target)`). The capture
   /// group is the link target. Rules that inspect SKILL.md link targets
