@@ -41,16 +41,13 @@ jobs:
         working-directory: packages/skills_lint
         run: dart pub get
 
+      # skills_lint exits with code 1 if lint violations are found and 0 if clean.
+      # continue-on-error allows the workflow to proceed to upload the SARIF report
+      # to GitHub Code Scanning before failing the job.
       - name: Generate SARIF report
-        run: |
-          set +e
-          dart run packages/skills_lint/bin/skills_lint.dart --format=sarif > skills-lint.sarif
-          EXIT_CODE=$?
-          set -e
-          if [ $EXIT_CODE -ne 0 ] && [ $EXIT_CODE -ne 1 ]; then
-            echo "skills_lint failed with exit code $EXIT_CODE"
-            exit $EXIT_CODE
-          fi
+        id: lint
+        continue-on-error: true
+        run: dart run packages/skills_lint/bin/skills_lint.dart --format=sarif > skills-lint.sarif
 
       - name: Upload SARIF report to GitHub Code Scanning
         if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
@@ -58,3 +55,10 @@ jobs:
         with:
           sarif_file: skills-lint.sarif
           category: skills_lint
+
+      # Fail the job if skills_lint detected any lint violations or encountered an error.
+      - name: Check linter status
+        if: steps.lint.outcome != 'success'
+        run: |
+          echo "skills_lint detected lint violations or failed with an error."
+          exit 1

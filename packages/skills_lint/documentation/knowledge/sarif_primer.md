@@ -38,7 +38,7 @@ To ingest `skills_lint` findings directly into GitHub Security / Code Scanning t
 
 ```yaml
 - name: Run skills_lint SARIF generation
-  run: dart run skills_lint -d .agents/skills --format=sarif > skills-lint.sarif
+  run: dart run skills_lint --format=sarif > skills-lint.sarif
   continue-on-error: true
 
 - name: Upload SARIF report to GitHub Code Scanning
