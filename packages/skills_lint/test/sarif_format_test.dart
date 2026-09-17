@@ -365,12 +365,6 @@ Body content
       expect(() => OutputFormat.fromString('xml'), throwsA(isA<ArgumentError>()));
     });
 
-    test('OutputFormat.supportsFixing returns true only for text format', () {
-      expect(OutputFormat.text.supportsFixing, isTrue);
-      expect(OutputFormat.json.supportsFixing, isFalse);
-      expect(OutputFormat.sarif.supportsFixing, isFalse);
-    });
-
     test('hasInvalidFixFormatCombination validates fix and format compatibility', () {
       expect(hasInvalidFixFormatCombination(fix: true, format: OutputFormat.text), isFalse);
       expect(hasInvalidFixFormatCombination(fix: false, format: OutputFormat.text), isFalse);

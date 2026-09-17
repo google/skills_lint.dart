@@ -13,13 +13,6 @@ enum OutputFormat {
   /// Standard SARIF 2.1.0 JSON document for CI and GitHub Code Scanning.
   sarif;
 
-  /// Whether this output format supports auto-fixing operations.
-  ///
-  /// Structured machine formats ([OutputFormat.sarif], [OutputFormat.json]) do
-  /// not support auto-fixing because applying fixes modifies the files
-  /// described by the report.
-  bool get supportsFixing => this == OutputFormat.text;
-
   /// Parses an [OutputFormat] from a string [value].
   ///
   /// Throws an [ArgumentError] if [value] is not a valid format name.
@@ -47,5 +40,5 @@ enum OutputFormat {
 /// ([OutputFormat.sarif], [OutputFormat.json]) because applying fixes modifies
 /// the files described by the report.
 bool hasInvalidFixFormatCombination({required bool fix, required OutputFormat format}) {
-  return fix && !format.supportsFixing;
+  return fix && format != OutputFormat.text;
 }
