@@ -42,5 +42,33 @@ void main() {
         throwsA(isA<TypeError>()),
       );
     });
+
+    test('distinct instances produce distinct JSON representations', () {
+      final res1 = ValidationResult(
+        validationErrors: [
+          ValidationError(
+            ruleId: 'rule_1',
+            file: 'SKILL.md',
+            message: 'Message 1',
+            severity: AnalysisSeverity.error,
+          ),
+        ],
+      );
+      final res2 = ValidationResult(
+        validationErrors: [
+          ValidationError(
+            ruleId: 'rule_2',
+            file: 'SKILL.md',
+            message: 'Message 2',
+            severity: AnalysisSeverity.warning,
+          ),
+        ],
+      );
+
+      final decoded1 = ValidationResult.fromJson(res1.toJson());
+      final decoded2 = ValidationResult.fromJson(res2.toJson());
+
+      expect(decoded1.toJson(), isNot(equals(decoded2.toJson())));
+    });
   });
 }

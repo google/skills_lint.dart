@@ -36,19 +36,6 @@ final _log = Logger('skills_lint');
 /// the CLI) and by tests, so this is intentionally not `@visibleForTesting`.
 const defaultIgnoreFileName = 'skills_lint_ignore.json';
 
-@visibleForTesting
-const String skillIsValidMsg = TextReporter.skillIsValidMsg;
-@visibleForTesting
-const String skillIsInvalidMsg = TextReporter.skillIsInvalidMsg;
-@visibleForTesting
-const String warningsMsg = TextReporter.warningsMsg;
-
-@visibleForTesting
-const String evaluatingDirMsg = TextReporter.evaluatingDirMsg;
-
-@visibleForTesting
-const String directoryErrorMsg = TextReporter.directoryErrorMsg;
-
 /// Per-invocation state and orchestration for skill validation.
 ///
 /// One session is constructed per CLI invocation (or embedded call). The

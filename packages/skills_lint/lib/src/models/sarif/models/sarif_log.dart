@@ -5,6 +5,26 @@
 import 'sarif_run.dart';
 
 /// Top-level SARIF 2.1.0 log document.
+///
+/// Example JSON structure:
+/// ```json
+/// {
+///   "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+///   "version": "2.1.0",
+///   "runs": [
+///     {
+///       "tool": {
+///         "driver": {
+///           "name": "skills_lint",
+///           "informationUri": "https://github.com/google/skills_lint.dart",
+///           "rules": []
+///         }
+///       },
+///       "results": []
+///     }
+///   ]
+/// }
+/// ```
 class SarifLog {
   SarifLog({this.schema = schemaUri, this.version = specVersion, required this.runs});
 

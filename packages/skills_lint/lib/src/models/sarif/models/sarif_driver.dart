@@ -5,6 +5,11 @@
 import 'sarif_rule.dart';
 
 /// The primary tool component (driver) that produced analysis results.
+///
+/// In the OASIS SARIF 2.1.0 specification (§3.18.2), the `driver` component
+/// describes the executable or core plugin that orchestrated the analysis run
+/// (such as `skills_lint`). The driver specifies the tool name, optional version,
+/// documentation URI, and rule definitions.
 class SarifDriver {
   SarifDriver({
     this.name = defaultDriverName,
