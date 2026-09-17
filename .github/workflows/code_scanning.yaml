@@ -53,7 +53,7 @@ jobs:
           fi
 
       - name: Upload SARIF report to GitHub Code Scanning
-        if: !cancelled()
+        if: ${{ !cancelled() }}
         uses: github/codeql-action/upload-sarif@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3.38.0
         with:
           sarif_file: skills-lint.sarif
