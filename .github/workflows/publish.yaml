@@ -8,17 +8,10 @@ permissions:
 on:
   pull_request:
   push:
-    # The published package lives at `packages/skills_lint` rather than at the
-    # repository root, so `package:firehose` treats this as a monorepo and
-    # requires the package name in the tag. A bare `v0.5.2` tag is rejected
-    # with "Tag does not include package name", so it is not a trigger here.
-    #
-    # The tag pattern configured at
-    # https://pub.dev/packages/skills_lint/admin must agree with this pattern
-    # (`skills_lint-v{{version}}`). If the two disagree, pub.dev refuses the
-    # OIDC token and publishing fails with "Insufficient permissions".
+    # Must match the tag pattern configured at
+    # https://pub.dev/packages/skills_lint/admin (`skills_lint-v{{version}}`).
     tags:
-      - '*-v[0-9]+.[0-9]+.[0-9]+*'
+      - 'skills_lint-v[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
   publish:
