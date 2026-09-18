@@ -144,12 +144,25 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `-q`, `--quiet`: Hide non-error validation output.
 - `-w`, `--print-warnings`: Enable printing of warning messages.
 - `--fast-fail`: Halt execution immediately on the error.
+- `-c`, `--config`: Path to a configuration file. Defaults to `skills_lint.yaml` in the current directory. Paths declared inside a configuration file resolve relative to that file's directory.
 - `--ignore-config`: Ignore the YAML configuration file entirely.
+- `--ignore-file`: Path to a JSON file listing lints to ignore for the run.
+- `--generate-baseline`: Write every current error into `skills_lint_ignore.json` so existing violations are ignored on future runs.
 - `--[no-]check-trailing-whitespace`: Enable/disable checking for trailing whitespace. (Disabled by default).
 - `--[no-]published-skill-name`: Enable/disable checking that published package skills follow the package naming convention. (Disabled by default).
 - `--fix`: Write fixes for failing lints to disk.
 - `--dry-run`: When combined with `--fix`, prints the proposed diff without writing.
 - `--fix-apply`: *Deprecated* alias for `--fix`. Prints a deprecation notice on use.
+- `--format`: Output format for validation diagnostics. One of:
+  - `text` (default): human-readable terminal output.
+  - `json`: a machine-readable JSON array of validation results.
+  - `sarif`: a SARIF 2.1.0 document for CI and GitHub Code Scanning. See
+    [Recipe: GitHub Code Scanning](#recipe-github-code-scanning-sarif).
+
+  Diagnostics go to standard output in every format, so redirect them to a
+  file to capture a report: `skills_lint --format=sarif > skills-lint.sarif`.
+  Operational failures stay on standard error, prefixed with
+  `skills_lint internal error:`, and never corrupt the report.
 
 ### 2. As a Command Line Tool with a YAML Configuration File
 You can configure the linter using a configuration file (defaulting to `skills_lint.yaml` in the current directory).
@@ -209,8 +222,8 @@ diagnostic shapes, auto-fix behavior, and configuration options — see
 
 ## Recipes
 
-Drop-in snippets for the two most common ways to wire `skills_lint`
-into a project's quality gates. Each recipe is exercised by
+Drop-in snippets for the most common ways to wire `skills_lint` into a
+project's quality gates. Each recipe is exercised by
 [`test/recipe_drift_test.dart`](test/recipe_drift_test.dart), so if a
 flag here goes stale, CI fails.
 
@@ -246,6 +259,74 @@ To validate a single skill directory instead, swap the last step:
 ```yaml
       - run: skills_lint --skill ./.claude/skills/my-skill
 ```
+
+### Recipe: GitHub Code Scanning (SARIF)
+
+`--format=sarif` emits a SARIF 2.1.0 document that GitHub Code Scanning
+accepts, which surfaces each lint as an annotation on the pull request
+diff and as an entry in the repository's Security tab. Save the
+following as `.github/workflows/code-scanning.yml`.
+
+```yaml
+# .github/workflows/code-scanning.yml
+name: Skills Code Scanning
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan-skills:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dart-lang/setup-dart@v1
+      - run: dart install skills_lint
+
+      # The linter exits 1 when it finds violations. continue-on-error
+      # lets the upload step run first, so findings reach Code Scanning
+      # instead of disappearing with the failed job.
+      - name: Generate SARIF report
+        id: lint
+        continue-on-error: true
+        run: skills_lint --skills-directory ./.claude/skills --format=sarif > skills-lint.sarif
+
+      # Pull requests from forks cannot write security events, so skip
+      # the upload there rather than failing the job on a permission
+      # error.
+      - name: Upload SARIF report
+        if: ${{ !cancelled() && steps.lint.conclusion != 'skipped' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        uses: github/codeql-action/upload-sarif@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3.38.0
+        with:
+          sarif_file: skills-lint.sarif
+          category: skills_lint
+
+      - name: Fail on lint violations
+        if: steps.lint.outcome != 'success'
+        run: exit 1
+```
+
+Notes:
+
+- The report goes to standard output, so redirect it to a file.
+  Operational failures go to standard error with a
+  `skills_lint internal error:` prefix and never mix into the report.
+- Result paths are recorded relative to the repository root using the
+  SARIF `%SRCROOT%` base, so annotations land on the right lines even
+  when the linter runs from a subdirectory.
+- Code Scanning is available on public repositories and on private
+  repositories with GitHub Advanced Security. Without it, the upload
+  step fails; drop it and keep `--format=sarif` output as a build
+  artifact instead.
+- Use `--format=json` for a plain array of results when feeding a
+  consumer other than Code Scanning.
+
 
 ### Recipe: Dart-native pre-commit hook
 
