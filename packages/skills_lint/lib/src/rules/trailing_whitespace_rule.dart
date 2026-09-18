@@ -9,6 +9,7 @@ import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
 
 /// Enforces that lines in SKILL.md do not have trailing whitespace,
@@ -19,6 +20,7 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
   static const String ruleName = 'check-trailing-whitespace';
   static const AnalysisSeverity defaultSeverity = AnalysisSeverity.disabled;
   static final RegExp _whitespaceRegExp = RegExp(r'([ \t]+)$');
+  static const String _skillFileName = 'SKILL.md';
 
   @override
   String get name => ruleName;
@@ -26,35 +28,54 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
   @override
   final AnalysisSeverity severity;
 
+  /// Calculates the 1-based source coordinate region corresponding to trailing whitespace.
+  @visibleForTesting
+  static SourceRegion calculateTrailingWhitespaceRegion({
+    required int lineNumber,
+    required String trimmedLine,
+    required String whitespace,
+  }) {
+    final int startCol = trimmedLine.length - whitespace.length + 1;
+    final int endCol = trimmedLine.length + 1;
+    return SourceRegion(
+      startLine: lineNumber,
+      startColumn: startCol,
+      endLine: lineNumber,
+      endColumn: endCol,
+    );
+  }
+
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
     final errors = <ValidationError>[];
     final List<String> lines = context.rawContent.split('\n');
 
-    for (var i = 0; i < lines.length; i++) {
-      final String line = lines[i];
+    for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      final int lineNumber = lineIndex + 1;
+      final String line = lines[lineIndex];
 
       // Remove carriage return if present (Windows line endings)
       final String trimmedLine = line.endsWith('\r') ? line.substring(0, line.length - 1) : line;
 
       final RegExpMatch? match = _whitespaceRegExp.firstMatch(trimmedLine);
-      if (match != null) {
-        final String whitespace = match.group(1)!;
-        String? message;
+      if (match == null) {
+        continue;
+      }
 
-        if (whitespace.contains('\t')) {
-          message = 'Line ${i + 1} has trailing whitespace containing tabs.';
-        } else {
-          final int spacesCount = whitespace.length;
-          if (spacesCount == 1 || spacesCount >= 3) {
-            message =
-                'Line ${i + 1} has $spacesCount trailing space(s). Only exactly 2 spaces are allowed for line breaks.';
-          }
-        }
+      final String whitespace = match.group(1)!;
+      final SourceRegion region = calculateTrailingWhitespaceRegion(
+        lineNumber: lineNumber,
+        trimmedLine: trimmedLine,
+        whitespace: whitespace,
+      );
 
-        if (message != null) {
+      if (whitespace.contains('\t')) {
+        errors.add(_buildTabsError(lineNumber: lineNumber, region: region));
+      } else {
+        final int spacesCount = whitespace.length;
+        if (spacesCount == 1 || spacesCount >= 3) {
           errors.add(
-            ValidationError(ruleId: name, severity: severity, file: 'SKILL.md', message: message),
+            _buildSpacesError(lineNumber: lineNumber, spacesCount: spacesCount, region: region),
           );
         }
       }
@@ -63,9 +84,44 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
     return errors;
   }
 
+  ValidationError _buildTabsError({required int lineNumber, required SourceRegion region}) {
+    return ValidationError(
+      ruleId: name,
+      severity: severity,
+      file: _skillFileName,
+      message: 'Line $lineNumber has trailing whitespace containing tabs.',
+      markdownMessage:
+          '**Line contains trailing whitespace with tabs.**\n\n'
+          '**How to fix:**\n'
+          '- Remove trailing tabs and whitespace from the end of the line.',
+      region: region,
+    );
+  }
+
+  ValidationError _buildSpacesError({
+    required int lineNumber,
+    required int spacesCount,
+    required SourceRegion region,
+  }) {
+    return ValidationError(
+      ruleId: name,
+      severity: severity,
+      file: _skillFileName,
+      message:
+          'Line $lineNumber has $spacesCount trailing space(s). '
+          'Only exactly 2 spaces are allowed for line breaks.',
+      markdownMessage:
+          '**Line contains $spacesCount trailing space(s).**\n\n'
+          '**How to fix:**\n'
+          '- Remove trailing spaces from the end of the line.\n'
+          '- *(Note: exactly 2 trailing spaces are permitted for Markdown hard line breaks).*',
+      region: region,
+    );
+  }
+
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    if (filePath != 'SKILL.md') {
+    if (filePath != _skillFileName) {
       return currentContent;
     }
 

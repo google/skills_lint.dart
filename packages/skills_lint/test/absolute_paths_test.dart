@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
+import 'package:skills_lint/src/models/validation_error.dart';
 
 import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
@@ -156,6 +157,18 @@ void main() {
       expect(fixedContent, contains('(../target.md)'));
     });
 
+    test('fixes absolute path with title to relative preserving title', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      final File targetFile = await File('${tempDir.path}/target.md').create();
+
+      final rule = AbsolutePathsRule();
+      final content =
+          '${buildFrontmatter(name: 'test-skill')}[Link](${targetFile.path} "Target Title")\n';
+      final String fixedContent = await rule.fix('SKILL.md', content, skillDir);
+
+      expect(fixedContent, contains('(../target.md "Target Title")'));
+    });
+
     test('does not fix absolute path if file does not exist', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
 
@@ -171,6 +184,28 @@ void main() {
       final String fixedContent = await rule.fix('SKILL.md', content, context.directory);
 
       expect(fixedContent, contains('(/non/existent/file.md)'));
+    });
+    test('reports accurate 1-based line number for absolute path link', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      await File('${skillDir.path}/SKILL.md').writeAsString(
+        '---\n'
+        'name: test-skill\n'
+        'description: A test skill\n'
+        '---\n'
+        '\n'
+        'Line 5 content\n'
+        'Line 6 has [broken absolute link](/abs/path/file.md).\n',
+      );
+
+      final rule = AbsolutePathsRule();
+      final file = File('${skillDir.path}/SKILL.md');
+      final String raw = await file.readAsString();
+      final context = SkillContext(directory: skillDir, rawContent: raw);
+
+      final List<ValidationError> errors = await rule.validate(context);
+      expect(errors.length, equals(1));
+      expect(errors.first.ruleId, equals('check-absolute-paths'));
+      expect(errors.first.region?.startLine, equals(7));
     });
   });
 }

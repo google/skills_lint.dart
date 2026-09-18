@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
+import 'package:skills_lint/src/models/source_region.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
 import 'package:test/test.dart';
@@ -124,6 +125,34 @@ void main() {
       final List<ValidationError> errors = await rule.validate(context);
 
       expect(errors, isEmpty);
+    });
+
+    group('Trailing Whitespace Region Calculation', () {
+      test('calculates correct start and end columns for spaces', () {
+        final SourceRegion region = TrailingWhitespaceRule.calculateTrailingWhitespaceRegion(
+          lineNumber: 5,
+          trimmedLine: 'Hello world   ',
+          whitespace: '   ',
+        );
+
+        expect(region.startLine, equals(5));
+        expect(region.startColumn, equals(12));
+        expect(region.endLine, equals(5));
+        expect(region.endColumn, equals(15));
+      });
+
+      test('calculates correct start and end columns for single tab', () {
+        final SourceRegion region = TrailingWhitespaceRule.calculateTrailingWhitespaceRegion(
+          lineNumber: 10,
+          trimmedLine: 'Indent\t',
+          whitespace: '\t',
+        );
+
+        expect(region.startLine, equals(10));
+        expect(region.startColumn, equals(7));
+        expect(region.endLine, equals(10));
+        expect(region.endColumn, equals(8));
+      });
     });
 
     group('Trailing Whitespace Fix', () {

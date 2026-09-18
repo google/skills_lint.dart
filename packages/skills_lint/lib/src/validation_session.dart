@@ -15,12 +15,15 @@ import 'fixable_rule.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/ignore_entry.dart';
+import 'models/output_format.dart';
 import 'models/rule_config.dart';
+import 'models/sarif/sarif.dart';
 import 'models/skill_context.dart';
 import 'models/skill_rule.dart';
 import 'models/skills_ignores.dart';
 import 'models/validation_error.dart';
 import 'path_utils.dart';
+import 'reporters/reporters.dart';
 import 'rule_registry.dart';
 import 'skills_ignores_storage.dart';
 import 'validator.dart';
@@ -32,19 +35,6 @@ final _log = Logger('skills_lint');
 /// Referenced both by production code (the `--generate-baseline` help text in
 /// the CLI) and by tests, so this is intentionally not `@visibleForTesting`.
 const defaultIgnoreFileName = 'skills_lint_ignore.json';
-
-@visibleForTesting
-const skillIsValidMsg = '  Skill is valid.';
-@visibleForTesting
-const skillIsInvalidMsg = '  Skill is invalid:';
-@visibleForTesting
-const warningsMsg = 'Warnings:';
-
-@visibleForTesting
-const evaluatingDirMsg = 'Evaluating directory:';
-
-@visibleForTesting
-const directoryErrorMsg = 'Directory error:';
 
 /// Per-invocation state and orchestration for skill validation.
 ///
@@ -75,6 +65,9 @@ class ValidationSession {
   /// * [generateBaseline] controls whether the validation should output/update baseline ignores.
   /// * [fix] controls whether to apply fixable rule modifications directly to files.
   /// * [fixApply] is the deprecated flag indicating if fixes should be automatically applied.
+  // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
+  /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
+  /// * [reporter] optionally specifies a custom [Reporter] instance.
   ValidationSession({
     required this.config,
     // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
@@ -88,8 +81,13 @@ class ValidationSession {
     required this.quiet,
     required this.generateBaseline,
     required this.fix,
+    // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
     required this.fixApply,
-  }) : resolvedRuleConfigs = _mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
+    this.format = OutputFormat.text,
+    Reporter? reporter,
+  }) : reporter =
+           reporter ?? Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
+       resolvedRuleConfigs = _mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
        ignoreFileOverride = _ingestOptionalPath(ignoreFileOverride),
        _normalizedDirectoryConfigs = [
          for (final dc in [...config.directoryConfigs, ...config.individualSkillConfigs])
@@ -142,7 +140,15 @@ class ValidationSession {
   final bool quiet;
   final bool generateBaseline;
   final bool fix;
+  // TODO(reidbaker): Remove deprecated fixApply field on next major version bump.
   final bool fixApply;
+  final OutputFormat format;
+  final Reporter reporter;
+
+  final List<ValidationResult> _results = [];
+
+  /// All validation results collected during this session.
+  List<ValidationResult> get results => List.unmodifiable(_results);
 
   /// [config]'s targets with each `path` and `ignore_file` anchored once.
   ///
@@ -166,13 +172,23 @@ class ValidationSession {
   /// caller to continue.
   Future<bool> processIndividualSkill(String skillPath) async {
     final String normalizedSkillPath = _ingestPath(skillPath);
-    if (!quiet) {
-      _log.info('$evaluatingDirMsg $normalizedSkillPath');
-    }
+    reporter.onDirectoryEvaluating(normalizedSkillPath);
     final skillDir = Directory(normalizedSkillPath);
 
     if (!skillDir.existsSync()) {
-      _log.severe('Specified skill directory does not exist: $normalizedSkillPath');
+      reporter.onNoSkillsFound('Specified skill directory does not exist: $normalizedSkillPath');
+      _results.add(
+        ValidationResult(
+          validationErrors: [
+            ValidationError(
+              ruleId: Validator.pathDoesNotExist,
+              file: normalizedSkillPath,
+              message: 'Specified skill directory does not exist: $normalizedSkillPath',
+              severity: AnalysisSeverity.error,
+            ),
+          ],
+        ),
+      );
       _anyFailed = true;
       return true;
     }
@@ -195,6 +211,7 @@ class ValidationSession {
       validator: validator,
       ignores: ignores,
     );
+    _results.add(finalResult);
 
     if (generateBaseline) {
       await _saveBaseline(ignorePath, ignores);
@@ -202,9 +219,10 @@ class ValidationSession {
       final String fullPath = p.absolute(skillDir.path);
       for (final ignore in skillIgnores) {
         if (!ignore.used) {
-          _log.info(
-            "Stale ignore entry found for rule '${ignore.ruleId}' in skill "
-            "'$skillName' at '$fullPath'. Consider removing it.",
+          reporter.onStaleIgnoreFound(
+            ruleId: ignore.ruleId,
+            skillName: skillName,
+            fullPath: fullPath,
           );
         }
       }
@@ -229,13 +247,23 @@ class ValidationSession {
   /// run so far.
   Future<bool> processSkillRoot(String rootPath) async {
     final String normalizedRootPath = _ingestPath(rootPath);
-    if (!quiet) {
-      _log.info('$evaluatingDirMsg $normalizedRootPath');
-    }
+    reporter.onDirectoryEvaluating(normalizedRootPath);
     final rootDir = Directory(normalizedRootPath);
 
     if (!rootDir.existsSync()) {
-      _log.severe('Specified root directory does not exist: $normalizedRootPath');
+      reporter.onNoSkillsFound('Specified root directory does not exist: $normalizedRootPath');
+      _results.add(
+        ValidationResult(
+          validationErrors: [
+            ValidationError(
+              ruleId: Validator.pathDoesNotExist,
+              file: normalizedRootPath,
+              message: 'Specified root directory does not exist: $normalizedRootPath',
+              severity: AnalysisSeverity.error,
+            ),
+          ],
+        ),
+      );
       _anyFailed = true;
       return true;
     }
@@ -244,8 +272,22 @@ class ValidationSession {
     try {
       entities = await rootDir.list().toList();
     } catch (_) {
-      _log.severe('  $directoryErrorMsg');
-      _log.severe('    - Failed to list children of: $normalizedRootPath');
+      reporter.onDirectoryError(
+        normalizedRootPath,
+        'Failed to list children of: $normalizedRootPath',
+      );
+      _results.add(
+        ValidationResult(
+          validationErrors: [
+            ValidationError(
+              ruleId: Validator.pathDoesNotExist,
+              file: normalizedRootPath,
+              message: 'Failed to list children of: $normalizedRootPath',
+              severity: AnalysisSeverity.error,
+            ),
+          ],
+        ),
+      );
       _anyFailed = true;
       return true;
     }
@@ -277,15 +319,6 @@ class ValidationSession {
 
   /// Processes and validates a single skill directory ([entity]) located
   /// immediately inside a skills root directory ([rootDir]).
-  ///
-  /// In this context, "root" refers to the container directory passed via
-  /// `--skills-directory` / `-d` (represented by [rootDir]), which holds one or
-  /// more child skill folders. [entity] is an individual skill folder within
-  /// that root container.
-  ///
-  /// Returns `true` if iteration over the remaining skills in [rootDir] should
-  /// continue, or `false` to abort early when [fastFail] is enabled and this
-  /// skill failed validation.
   Future<bool> _processRootSkillEntity(
     Directory entity,
     Directory rootDir,
@@ -309,6 +342,7 @@ class ValidationSession {
       validator: validator,
       ignores: ignores,
     );
+    _results.add(finalResult);
 
     if (!finalResult.isValid) {
       _anyFailed = true;
@@ -360,9 +394,10 @@ class ValidationSession {
       for (final IgnoreEntry ignore in skillEntry.value) {
         if (!ignore.used) {
           final String fullPath = p.normalize(p.join(rootDir.path, skillName));
-          _log.info(
-            "Stale ignore entry found for rule '${ignore.ruleId}' in skill "
-            "'$skillName' at '$fullPath'. Consider removing it.",
+          reporter.onStaleIgnoreFound(
+            ruleId: ignore.ruleId,
+            skillName: skillName,
+            fullPath: fullPath,
           );
         }
       }
@@ -381,15 +416,40 @@ class ValidationSession {
       final String expandedRootPath = _ingestPath(rootPath);
       final skillMdFile = File(p.join(expandedRootPath, SkillContext.skillFileName));
       if (skillMdFile.existsSync()) {
-        _log.severe(
-          'Directory "$expandedRootPath" appears to be an individual skill. '
-          'Use --skill / -s instead of -d / --skills-directory.',
+        final message =
+            'Directory "$expandedRootPath" appears to be an individual skill. '
+            'Use --skill / -s instead of -d / --skills-directory.';
+        reporter.onIndividualSkillHint(message);
+        _results.add(
+          ValidationResult(
+            validationErrors: [
+              ValidationError(
+                ruleId: Validator.pathDoesNotExist,
+                file: expandedRootPath,
+                message: message,
+                severity: AnalysisSeverity.error,
+              ),
+            ],
+          ),
         );
         foundSingleSkillPassedToD = true;
       }
     }
     if (!foundSingleSkillPassedToD) {
-      _log.severe('No skills found to validate in the specified directories.');
+      const message = 'No skills found to validate in the specified directories.';
+      reporter.onNoSkillsFound(message);
+      _results.add(
+        ValidationResult(
+          validationErrors: [
+            ValidationError(
+              ruleId: Validator.pathDoesNotExist,
+              file: rootPaths.isNotEmpty ? rootPaths.first : '.',
+              message: message,
+              severity: AnalysisSeverity.error,
+            ),
+          ],
+        ),
+      );
     }
     _anyFailed = true;
   }
@@ -502,8 +562,6 @@ class ValidationSession {
   /// [skillDir] is the anchored directory of the skill under validation, and
   /// gives each error a portable name to compare against.
   void _applyIgnores(ValidationResult result, List<IgnoreEntry> ignores, Directory skillDir) {
-    // Pre-normalize ignore filenames once so the inner loop below is a
-    // straight string comparison instead of repeated path normalization.
     final List<({IgnoreEntry entry, String normalizedFileName})> preNormalizedIgnores = [
       for (final ignore in ignores)
         (entry: ignore, normalizedFileName: p.normalize(ignore.fileName)),
@@ -641,12 +699,10 @@ class ValidationSession {
     required List<IgnoreEntry> skillIgnores,
   }) async {
     final String skillName = p.basename(skillDir.path);
-    if (!quiet) {
-      _log.info('--- Validating skill: $skillName ---');
-    }
+    reporter.onSkillEvaluating(skillName);
     final ValidationResult result = await validator.validate(skillDir);
     _applyIgnores(result, skillIgnores, skillDir);
-    _printValidationResult(result);
+    reporter.onSkillValidationComplete(result);
     return result;
   }
 
@@ -719,7 +775,7 @@ class ValidationSession {
         );
         currentContent = newContent;
       } catch (e) {
-        _log.severe("  Failed to apply fix for rule '${rule.name}': $e");
+        reporter.onFixFailed(ruleName: rule.name, error: e);
       }
     }
 
@@ -745,9 +801,7 @@ class ValidationSession {
 
     if (fixApply) {
       await skillMdFile.writeAsString(currentContent);
-      if (!quiet) {
-        _log.info('  Applied fixes for $oldSkillName');
-      }
+      reporter.onFixApplied(oldSkillName);
 
       final Directory effectiveSkillDir = nameChangedByFix
           ? await _alignSkillDirectory(
@@ -762,9 +816,9 @@ class ValidationSession {
       return newResult;
     }
 
-    if (fix && !quiet) {
-      _logDryRunFix(
-        oldSkillName: oldSkillName,
+    if (fix) {
+      reporter.onDryRunProposed(
+        skillName: oldSkillName,
         targetSkillName: nameChangedByFix ? targetSkillName : null,
         originalContent: originalContent,
         currentContent: currentContent,
@@ -775,9 +829,6 @@ class ValidationSession {
 
   /// Aligns the skill's parent directory name on disk with the frontmatter
   /// [targetSkillName] if the name changed during the fix process.
-  ///
-  /// Returns the renamed [Directory] if the rename succeeded, or [skillDir] if
-  /// no rename was needed or if the destination directory already exists.
   Future<Directory> _alignSkillDirectory({
     required Directory skillDir,
     required String oldSkillName,
@@ -792,37 +843,25 @@ class ValidationSession {
     final newDir = Directory(newDirPath);
 
     if (newDir.existsSync()) {
-      _log.severe(
-        '  Cannot rename skill directory from $oldSkillName to $targetSkillName: '
-        'destination directory ${newDir.path} already exists.',
+      reporter.onRenameTargetExists(
+        oldSkillName: oldSkillName,
+        targetSkillName: targetSkillName,
+        destinationPath: newDir.path,
       );
       return skillDir;
     }
 
     try {
       final Directory renamed = await skillDir.rename(newDirPath);
-      if (!quiet) {
-        _log.info('  Renamed skill directory: $oldSkillName -> $targetSkillName');
-      }
+      reporter.onSkillRenamed(oldSkillName, targetSkillName);
       return renamed;
     } catch (e) {
-      _log.severe('  Failed to rename skill directory from $oldSkillName to $targetSkillName: $e');
+      reporter.onRenameFailed(
+        oldSkillName: oldSkillName,
+        targetSkillName: targetSkillName,
+        error: e,
+      );
       return skillDir;
-    }
-  }
-
-  /// Logs proposed frontmatter diffs and proposed directory renames to stdout
-  /// when running fixes in dry-run mode (`--fix --dry-run`).
-  void _logDryRunFix({
-    required String oldSkillName,
-    required String? targetSkillName,
-    required String originalContent,
-    required String currentContent,
-  }) {
-    _log.info('  [Dry Run] Proposed changes for $oldSkillName (SKILL.md):');
-    _printDiff(originalContent, currentContent);
-    if (targetSkillName != null && targetSkillName.isNotEmpty && targetSkillName != oldSkillName) {
-      _log.info('  [Dry Run] Proposed directory rename: $oldSkillName -> $targetSkillName');
     }
   }
 
@@ -841,31 +880,6 @@ class ValidationSession {
       }
     }
     return null;
-  }
-
-  /// Prints a simple line-by-line diff between [original] and [modified].
-  ///
-  /// **Limitation**: This naive diff algorithm does not handle line additions
-  /// or removals well, as it compares lines at the same index. It is
-  /// sufficient for current fixers that only modify existing lines, but
-  /// should be replaced with a more robust diffing solution (e.g.,
-  /// `package:diff`) if future fixers add or remove lines.
-  void _printDiff(String original, String modified) {
-    final List<String> origLines = original.split('\n');
-    final List<String> modLines = modified.split('\n');
-    final int maxLines = origLines.length > modLines.length ? origLines.length : modLines.length;
-    for (var i = 0; i < maxLines; i++) {
-      final String orig = i < origLines.length ? origLines[i] : '';
-      final String mod = i < modLines.length ? modLines[i] : '';
-      if (orig != mod) {
-        if (orig.isNotEmpty) {
-          _log.info('- Line ${i + 1}: $orig');
-        }
-        if (mod.isNotEmpty) {
-          _log.info('+ Line ${i + 1}: $mod');
-        }
-      }
-    }
   }
 
   /// Mutates [ignores] in place to add baseline entries for any non-ignored
@@ -910,27 +924,72 @@ class ValidationSession {
     try {
       await SkillsIgnoresStorage().save(ignorePath, ignores);
     } catch (e) {
-      _log.warning('Failed to generate baseline file at $ignorePath: $e');
+      reporter.onBaselineFailed(ignorePath, e);
     }
   }
 
-  void _printValidationResult(ValidationResult result) {
-    if (result.isValid) {
-      if (!quiet) {
-        _log.info('  $skillIsValidMsg');
-      }
+  /// Emits the formatted validation output (SARIF or JSON) to [sink] (defaults to [stdout]).
+  void emitFormattedOutput([StringSink? sink]) {
+    if (sink != null) {
+      Reporter.fromFormat(format, out: sink).onSessionComplete(_results, customRules: customRules);
     } else {
-      _log.severe('  $skillIsInvalidMsg');
-      for (final String error in result.errors) {
-        _log.severe('    - $error');
-      }
+      reporter.onSessionComplete(_results, customRules: customRules);
     }
+  }
 
-    if (printWarnings && result.warnings.isNotEmpty) {
-      _log.warning('  $warningsMsg');
-      for (final String warning in result.warnings) {
-        _log.warning('    - $warning');
-      }
+  /// Formats all accumulated validation results according to [format].
+  String formatOutput({bool pretty = true}) {
+    switch (format) {
+      case OutputFormat.sarif:
+        return toSarifJson(pretty: pretty);
+      case OutputFormat.json:
+        return toJsonOutput(pretty: pretty);
+      case OutputFormat.text:
+        return toTextOutput();
     }
+  }
+
+  /// Formats the accumulated validation results as human-readable text.
+  String toTextOutput() {
+    final buffer = StringBuffer();
+    final textReporter = TextReporter(
+      out: buffer,
+      err: buffer,
+      quiet: quiet,
+      printWarnings: printWarnings,
+    );
+    for (final ValidationResult result in _results) {
+      final String skillName = result.context != null
+          ? p.basename(result.context!.directory.path)
+          : 'skill';
+      textReporter.onSkillEvaluating(skillName);
+      textReporter.onSkillValidationComplete(result);
+    }
+    return buffer.toString();
+  }
+
+  /// Converts accumulated validation results into a [SarifLog].
+  SarifLog toSarif({String? toolVersion, String? rootDirectory}) {
+    return SarifSerializer.toSarifLog(
+      _results,
+      toolVersion: toolVersion,
+      checkTypes: RuleRegistry.allChecks,
+      customRules: customRules,
+      rootDirectory: rootDirectory,
+    );
+  }
+
+  /// Serializes the [toSarif] output to a JSON string.
+  String toSarifJson({bool pretty = true, String? toolVersion, String? rootDirectory}) {
+    final SarifLog sarif = toSarif(toolVersion: toolVersion, rootDirectory: rootDirectory);
+    final encoder = pretty ? const JsonEncoder.withIndent('  ') : const JsonEncoder();
+    return encoder.convert(sarif.toJson());
+  }
+
+  /// Serializes the accumulated validation results as a raw JSON array string.
+  String toJsonOutput({bool pretty = true}) {
+    final List<Map<String, Object?>> jsonList = _results.map((r) => r.toJson()).toList();
+    final encoder = pretty ? const JsonEncoder.withIndent('  ') : const JsonEncoder();
+    return encoder.convert(jsonList);
   }
 }

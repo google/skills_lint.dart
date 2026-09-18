@@ -8,6 +8,7 @@ import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
 import '../models/validation_error.dart';
 
 /// Enforces that links in SKILL.md do not use absolute paths.
@@ -31,24 +32,24 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
 
     // Extract content after YAML frontmatter
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(context.rawContent);
+    final int frontmatterEnd = match != null ? match.end : 0;
     final String markdownContent = match != null
-        ? context.rawContent.substring(match.end)
+        ? context.rawContent.substring(frontmatterEnd)
         : context.rawContent;
 
     for (final RegExpMatch linkMatch in SkillContext.markdownLinkRegex.allMatches(
       markdownContent,
     )) {
-      final String path = linkMatch.group(1)!;
+      final String fullPath = linkMatch.group(1)!;
+      final String path = fullPath.trim().split(RegExp(r'\s+')).first;
+
       if (isAbsolute(path) || windows.isAbsolute(path)) {
+        final int linkOffsetInFile = frontmatterEnd + linkMatch.start;
+        final int line = context.offsetToLine(linkOffsetInFile);
         errors.add(
-          ValidationError(
-            ruleId: name,
-            severity: severity,
-            file: _skillFileName,
-            message:
-                'Absolute filepath found in link: $path. '
-                'Skills must use paths relative to SKILL.md so they remain '
-                'portable across machines.',
+          _buildAbsolutePathError(
+            path: path,
+            region: SourceRegion(startLine: line),
           ),
         );
       }
@@ -57,25 +58,60 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     return errors;
   }
 
+  ValidationError _buildAbsolutePathError({required String path, required SourceRegion region}) {
+    return ValidationError(
+      ruleId: name,
+      severity: severity,
+      file: _skillFileName,
+      message:
+          'Absolute filepath found in link: $path. '
+          'Skills must use paths relative to SKILL.md so they remain '
+          'portable across machines.',
+      markdownMessage:
+          '**Absolute path found in link:** `$path`\n\n'
+          '**How to fix:**\n'
+          '- Convert `$path` to a relative path pointing inside the skill directory.',
+      region: region,
+    );
+  }
+
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    if (filePath != SkillContext.skillFileName) {
+    if (filePath != _skillFileName) {
       return currentContent;
     }
 
-    return currentContent.replaceAllMapped(SkillContext.markdownLinkRegex, (match) {
-      final String path = match.group(1)!;
-      if (isAbsolute(path) || windows.isAbsolute(path)) {
-        final file = File(path);
+    final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(currentContent);
+    final int frontmatterEnd = match != null ? match.end : 0;
+    final String frontmatter = currentContent.substring(0, frontmatterEnd);
+    final String markdownContent = currentContent.substring(frontmatterEnd);
+
+    final String fixedMarkdown = markdownContent.replaceAllMapped(SkillContext.markdownLinkRegex, (
+      match,
+    ) {
+      final String rawTarget = match.group(1)!;
+      final String trimmed = rawTarget.trim();
+      final List<String> parts = trimmed.split(RegExp(r'\s+'));
+      final String pathOnly = parts.first;
+      final String? titlePart = parts.length > 1 ? trimmed.substring(pathOnly.length) : null;
+
+      if (isAbsolute(pathOnly) || windows.isAbsolute(pathOnly)) {
+        final file = File(pathOnly);
         if (file.existsSync()) {
-          final String relativePath = relative(path, from: directory.path);
+          final String relativePath = relative(pathOnly, from: directory.path);
           final String posixRelativePath = relativePath.replaceAll(r'\', '/');
+          final targetWithTitle = titlePart != null
+              ? '$posixRelativePath$titlePart'
+              : posixRelativePath;
           final String fullMatch = match.group(0)!;
           final int lastParen = fullMatch.lastIndexOf('(');
-          return '${fullMatch.substring(0, lastParen + 1)}$posixRelativePath)';
+          return '${fullMatch.substring(0, lastParen + 1)}$targetWithTitle)';
         }
       }
+
       return match.group(0)!;
     });
+
+    return '$frontmatter$fixedMarkdown';
   }
 }
