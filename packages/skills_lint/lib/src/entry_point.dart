@@ -22,8 +22,6 @@ import 'rule_registry.dart';
 import 'validation_session.dart';
 
 export 'models/output_format.dart';
-export 'models/sarif/sarif.dart';
-export 'reporters/reporters.dart';
 export 'validation_session.dart';
 
 final _log = Logger('skills_lint');
@@ -371,10 +369,10 @@ Future<Configuration?> _loadConfig(
 /// formatted diagnostic output. When [format] is set to [OutputFormat.sarif] or
 /// [OutputFormat.json], structured output is written directly to standard output.
 ///
-/// Callers who need structured in-memory access to validation models (such as
-/// [SarifLog] or [ValidationResult]s) without console emission should instantiate
-/// [ValidationSession] directly and query [ValidationSession.toSarif] or
-/// [ValidationSession.results].
+/// Callers who need access to validation output without console emission should
+/// instantiate [ValidationSession] directly and query [ValidationSession.results]
+/// for the structured [ValidationResult]s, or [ValidationSession.toSarifJson] and
+/// [ValidationSession.toJsonOutput] for the serialized forms.
 ///
 /// [skillDirPaths] is a list of directories containing multiple skills.
 /// [individualSkillPaths] is a list of paths to individual skill directories.
