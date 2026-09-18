@@ -12,6 +12,7 @@
 - Fixed CLI usage output to correctly print to standard error when triggered by an argument parsing error, while `--help` continues to print to standard output.
 - Fixed `--fix` for `absolute-paths` rule to preserve optional markdown link titles when rewriting absolute paths to relative paths.
 - Fixed `name-format` and `published-skill-name` auto-fixing to safely handle empty or null frontmatter name fields without corrupting YAML delimiters or scalar spans.
+- Exported `MissingDefaultsException`, which `validateSkills` already threw when no skill directories, individual skill paths, or configuration targets were supplied and no default location existed. Callers can now catch it by name instead of inspecting `runtimeType`.
 
 ## 0.5.1
 

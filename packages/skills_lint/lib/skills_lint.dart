@@ -4,6 +4,7 @@
 
 export 'src/config_parser.dart';
 export 'src/entry_point.dart';
+export 'src/missing_defaults_exception.dart';
 export 'src/models/analysis_severity.dart';
 export 'src/models/custom_rule_parameters.dart';
 export 'src/models/output_format.dart';

@@ -57,5 +57,34 @@ void main() {
       final Configuration parsed = ConfigParser.parse(yamlString);
       expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
+
+    test('validateSkills throws MissingDefaultsException a caller can catch by name', () async {
+      // The `on MissingDefaultsException` clause below only compiles while the
+      // type is reachable from the public library. Dropping the export turns
+      // this into an analysis error rather than a silent regression, which is
+      // the point of the test: a caller must be able to name what it catches.
+      final Directory emptyDir = await Directory.systemTemp.createTemp('skills_lint_no_defaults.');
+      addTearDown(() async {
+        if (emptyDir.existsSync()) {
+          await emptyDir.delete(recursive: true);
+        }
+      });
+
+      Future<bool> validateWithNoTargets() => IOOverrides.runZoned(
+        () => validateSkills(quiet: true),
+        getCurrentDirectory: () => emptyDir,
+      );
+
+      await expectLater(validateWithNoTargets(), throwsA(isA<MissingDefaultsException>()));
+
+      List<String>? reportedDefaults;
+      try {
+        await validateWithNoTargets();
+      } on MissingDefaultsException catch (e) {
+        reportedDefaults = e.defaults;
+      }
+
+      expect(reportedDefaults, containsAll(['.claude/skills', '.agents/skills']));
+    });
   });
 }
