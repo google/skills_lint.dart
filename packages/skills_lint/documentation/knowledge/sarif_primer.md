@@ -32,28 +32,19 @@ All SARIF locations in `skills_lint` use 1-based coordinates in accordance with 
 - `endColumn`: Optional 1-based ending character column offset.
 - Whole-File Diagnostics: Whole-file violations (such as missing skill files or directory structure failures) default to line 1.
 
-## GitHub Code Scanning CI Workflow
+## GitHub Code Scanning Integration
 
-To ingest `skills_lint` findings directly into GitHub Security / Code Scanning tabs:
+To ingest SARIF findings into GitHub Code Scanning:
 
 ```yaml
-- name: Run skills_lint SARIF generation
-  id: lint
+- name: Run linter and generate SARIF
+  run: dart run skills_lint --format=sarif > results.sarif
   continue-on-error: true
-  run: dart run skills_lint --format=sarif > skills-lint.sarif
 
-- name: Upload SARIF report to GitHub Code Scanning
-  if: ${{ !cancelled() && steps.lint.conclusion != 'skipped' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+- name: Upload SARIF to GitHub Code Scanning
   uses: github/codeql-action/upload-sarif@v3
   with:
-    sarif_file: skills-lint.sarif
-    category: skills_lint
-
-- name: Check linter status
-  if: steps.lint.outcome != 'success'
-  run: |
-    echo "skills_lint detected lint violations or failed with an error."
-    exit 1
+    sarif_file: results.sarif
 ```
 
-> Note: `upload-sarif` requires `security-events: write` repository workflow permissions.
+> Note: `upload-sarif` requires `security-events: write` repository workflow permissions. For the full CI workflow with fork guards and exit code enforcement, see [.github/workflows/code_scanning.yaml](../../../../.github/workflows/code_scanning.yaml).
