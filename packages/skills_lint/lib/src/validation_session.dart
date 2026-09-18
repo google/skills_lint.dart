@@ -67,7 +67,6 @@ class ValidationSession {
   /// * [fixApply] is the deprecated flag indicating if fixes should be automatically applied.
   // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
   /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
-  /// * [reporter] optionally specifies a custom [Reporter] instance.
   ValidationSession({
     required this.config,
     // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
@@ -84,9 +83,7 @@ class ValidationSession {
     // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
     required this.fixApply,
     this.format = OutputFormat.text,
-    Reporter? reporter,
-  }) : reporter =
-           reporter ?? Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
+  }) : _reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
        resolvedRuleConfigs = _mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
        ignoreFileOverride = _ingestOptionalPath(ignoreFileOverride),
        _normalizedDirectoryConfigs = [
@@ -143,7 +140,7 @@ class ValidationSession {
   // TODO(reidbaker): Remove deprecated fixApply field on next major version bump.
   final bool fixApply;
   final OutputFormat format;
-  final Reporter reporter;
+  final Reporter _reporter;
 
   final List<ValidationResult> _results = [];
 
@@ -172,11 +169,11 @@ class ValidationSession {
   /// caller to continue.
   Future<bool> processIndividualSkill(String skillPath) async {
     final String normalizedSkillPath = _ingestPath(skillPath);
-    reporter.onDirectoryEvaluating(normalizedSkillPath);
+    _reporter.onDirectoryEvaluating(normalizedSkillPath);
     final skillDir = Directory(normalizedSkillPath);
 
     if (!skillDir.existsSync()) {
-      reporter.onNoSkillsFound('Specified skill directory does not exist: $normalizedSkillPath');
+      _reporter.onNoSkillsFound('Specified skill directory does not exist: $normalizedSkillPath');
       _results.add(
         ValidationResult(
           validationErrors: [
@@ -219,7 +216,7 @@ class ValidationSession {
       final String fullPath = p.absolute(skillDir.path);
       for (final ignore in skillIgnores) {
         if (!ignore.used) {
-          reporter.onStaleIgnoreFound(
+          _reporter.onStaleIgnoreFound(
             ruleId: ignore.ruleId,
             skillName: skillName,
             fullPath: fullPath,
@@ -247,11 +244,11 @@ class ValidationSession {
   /// run so far.
   Future<bool> processSkillRoot(String rootPath) async {
     final String normalizedRootPath = _ingestPath(rootPath);
-    reporter.onDirectoryEvaluating(normalizedRootPath);
+    _reporter.onDirectoryEvaluating(normalizedRootPath);
     final rootDir = Directory(normalizedRootPath);
 
     if (!rootDir.existsSync()) {
-      reporter.onNoSkillsFound('Specified root directory does not exist: $normalizedRootPath');
+      _reporter.onNoSkillsFound('Specified root directory does not exist: $normalizedRootPath');
       _results.add(
         ValidationResult(
           validationErrors: [
@@ -272,7 +269,7 @@ class ValidationSession {
     try {
       entities = await rootDir.list().toList();
     } catch (_) {
-      reporter.onDirectoryError(
+      _reporter.onDirectoryError(
         normalizedRootPath,
         'Failed to list children of: $normalizedRootPath',
       );
@@ -394,7 +391,7 @@ class ValidationSession {
       for (final IgnoreEntry ignore in skillEntry.value) {
         if (!ignore.used) {
           final String fullPath = p.normalize(p.join(rootDir.path, skillName));
-          reporter.onStaleIgnoreFound(
+          _reporter.onStaleIgnoreFound(
             ruleId: ignore.ruleId,
             skillName: skillName,
             fullPath: fullPath,
@@ -419,7 +416,7 @@ class ValidationSession {
         final message =
             'Directory "$expandedRootPath" appears to be an individual skill. '
             'Use --skill / -s instead of -d / --skills-directory.';
-        reporter.onIndividualSkillHint(message);
+        _reporter.onIndividualSkillHint(message);
         _results.add(
           ValidationResult(
             validationErrors: [
@@ -437,7 +434,7 @@ class ValidationSession {
     }
     if (!foundSingleSkillPassedToD) {
       const message = 'No skills found to validate in the specified directories.';
-      reporter.onNoSkillsFound(message);
+      _reporter.onNoSkillsFound(message);
       _results.add(
         ValidationResult(
           validationErrors: [
@@ -699,10 +696,10 @@ class ValidationSession {
     required List<IgnoreEntry> skillIgnores,
   }) async {
     final String skillName = p.basename(skillDir.path);
-    reporter.onSkillEvaluating(skillName);
+    _reporter.onSkillEvaluating(skillName);
     final ValidationResult result = await validator.validate(skillDir);
     _applyIgnores(result, skillIgnores, skillDir);
-    reporter.onSkillValidationComplete(result);
+    _reporter.onSkillValidationComplete(result);
     return result;
   }
 
@@ -775,7 +772,7 @@ class ValidationSession {
         );
         currentContent = newContent;
       } catch (e) {
-        reporter.onFixFailed(ruleName: rule.name, error: e);
+        _reporter.onFixFailed(ruleName: rule.name, error: e);
       }
     }
 
@@ -801,7 +798,7 @@ class ValidationSession {
 
     if (fixApply) {
       await skillMdFile.writeAsString(currentContent);
-      reporter.onFixApplied(oldSkillName);
+      _reporter.onFixApplied(oldSkillName);
 
       final Directory effectiveSkillDir = nameChangedByFix
           ? await _alignSkillDirectory(
@@ -817,7 +814,7 @@ class ValidationSession {
     }
 
     if (fix) {
-      reporter.onDryRunProposed(
+      _reporter.onDryRunProposed(
         skillName: oldSkillName,
         targetSkillName: nameChangedByFix ? targetSkillName : null,
         originalContent: originalContent,
@@ -843,7 +840,7 @@ class ValidationSession {
     final newDir = Directory(newDirPath);
 
     if (newDir.existsSync()) {
-      reporter.onRenameTargetExists(
+      _reporter.onRenameTargetExists(
         oldSkillName: oldSkillName,
         targetSkillName: targetSkillName,
         destinationPath: newDir.path,
@@ -853,10 +850,10 @@ class ValidationSession {
 
     try {
       final Directory renamed = await skillDir.rename(newDirPath);
-      reporter.onSkillRenamed(oldSkillName, targetSkillName);
+      _reporter.onSkillRenamed(oldSkillName, targetSkillName);
       return renamed;
     } catch (e) {
-      reporter.onRenameFailed(
+      _reporter.onRenameFailed(
         oldSkillName: oldSkillName,
         targetSkillName: targetSkillName,
         error: e,
@@ -924,7 +921,7 @@ class ValidationSession {
     try {
       await SkillsIgnoresStorage().save(ignorePath, ignores);
     } catch (e) {
-      reporter.onBaselineFailed(ignorePath, e);
+      _reporter.onBaselineFailed(ignorePath, e);
     }
   }
 
@@ -933,7 +930,7 @@ class ValidationSession {
     if (sink != null) {
       Reporter.fromFormat(format, out: sink).onSessionComplete(_results, customRules: customRules);
     } else {
-      reporter.onSessionComplete(_results, customRules: customRules);
+      _reporter.onSessionComplete(_results, customRules: customRules);
     }
   }
 
@@ -968,8 +965,8 @@ class ValidationSession {
     return buffer.toString();
   }
 
-  /// Converts accumulated validation results into a [SarifLog].
-  SarifLog toSarif({String? toolVersion, String? rootDirectory}) {
+  /// Converts accumulated validation results into a SARIF log.
+  SarifLog _toSarif({String? toolVersion, String? rootDirectory}) {
     return SarifSerializer.toSarifLog(
       _results,
       toolVersion: toolVersion,
@@ -979,9 +976,9 @@ class ValidationSession {
     );
   }
 
-  /// Serializes the [toSarif] output to a JSON string.
+  /// Serializes the accumulated validation results as a SARIF JSON string.
   String toSarifJson({bool pretty = true, String? toolVersion, String? rootDirectory}) {
-    final SarifLog sarif = toSarif(toolVersion: toolVersion, rootDirectory: rootDirectory);
+    final SarifLog sarif = _toSarif(toolVersion: toolVersion, rootDirectory: rootDirectory);
     final encoder = pretty ? const JsonEncoder.withIndent('  ') : const JsonEncoder();
     return encoder.convert(sarif.toJson());
   }

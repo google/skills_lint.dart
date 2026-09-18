@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:skills_lint/skills_lint.dart';
+import 'package:skills_lint/src/reporters/reporters.dart';
 import 'package:test/test.dart';
 
 void main() {

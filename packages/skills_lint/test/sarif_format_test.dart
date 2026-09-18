@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
+import 'package:skills_lint/src/models/sarif/sarif.dart';
 import 'package:test/test.dart';
 import 'test_utils.dart';
 

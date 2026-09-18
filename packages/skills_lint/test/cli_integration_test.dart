@@ -10,6 +10,7 @@ import 'package:skills_lint/src/entry_point.dart';
 import 'package:skills_lint/src/models/check_type.dart';
 import 'package:skills_lint/src/models/ignore_entry.dart';
 import 'package:skills_lint/src/models/skills_ignores.dart';
+import 'package:skills_lint/src/reporters/reporters.dart';
 import 'package:skills_lint/src/rule_registry.dart';
 import 'package:skills_lint/src/validator.dart';
 import 'package:test/test.dart';

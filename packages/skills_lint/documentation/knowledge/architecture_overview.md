@@ -113,6 +113,9 @@ sequenceDiagram
 6. **Class Constants for Serialization and Schema Keys**  
    Schema, serialization, YAML, and configuration keys are declared as static class constants co-located on their owning data models rather than inline string literals. Centralizing property keys ensures a single source of truth for wire representations and causes downstream key renames to fail at compile time.
 
+7. **Single-Anchor Path Canonicalization at the Boundary**  
+   A relative path is resolved exactly once, at the point where it enters the tool, and the anchor is determined by how the path arrived rather than by who consumes it. Paths written inside a configuration file anchor to the directory holding that configuration file; paths supplied as CLI arguments or public API arguments anchor to the current working directory. A configuration file therefore means the same thing whether it was auto-discovered or named explicitly with `--config`, and reading the file is sufficient to know what it selects. Only three call sites may canonicalize — [`ConfigParser`](../../lib/src/config_parser.dart), `validateSkillsInternal` in [`entry_point.dart`](../../lib/src/entry_point.dart), and [`ValidationSession`](../../lib/src/validation_session.dart) — so every layer beneath them can assume it already holds an absolute path. [`test/path_boundary_test.dart`](../../test/path_boundary_test.dart) fails when a fourth call site appears.
+
 ---
 
 ## 🚫 Rejected Architectural Anti-Patterns
