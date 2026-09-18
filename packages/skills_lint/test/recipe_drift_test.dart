@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -104,6 +105,89 @@ void main() {
       await _runHookAgainst(hookBody, validFixture, expectZeroExit: true);
       await _runHookAgainst(hookBody, invalidFixture, expectZeroExit: false);
     });
+
+    test('Code Scanning recipe wires up a guarded SARIF upload', () {
+      final YamlMap doc = reader.codeScanningYaml;
+
+      final jobs = doc['jobs'] as YamlMap;
+      expect(jobs.keys, contains('scan-skills'));
+      final scanJob = jobs['scan-skills'] as YamlMap;
+
+      final jobPermissions = scanJob['permissions'] as YamlMap;
+      expect(
+        jobPermissions['security-events'],
+        'write',
+        reason: 'the upload step cannot publish findings without security-events: write',
+      );
+
+      final steps = scanJob['steps'] as YamlList;
+      expect(
+        reader.stepsUsing(steps).any((u) => u.startsWith('github/codeql-action/upload-sarif@')),
+        isTrue,
+        reason: 'recipe no longer uploads the report to Code Scanning',
+      );
+
+      final YamlMap lintStep = steps.whereType<YamlMap>().firstWhere(
+        (s) => s['id'] == 'lint',
+        orElse: () => fail('recipe lost the identified lint step'),
+      );
+      expect(
+        lintStep['continue-on-error'],
+        isTrue,
+        reason: 'without continue-on-error the job dies before findings are uploaded',
+      );
+      expect(lintStep['run'] as String, contains('--format=sarif'));
+
+      expect(
+        steps.whereType<YamlMap>().any(
+          (s) => (s['if'] as String? ?? '').contains("steps.lint.outcome != 'success'"),
+        ),
+        isTrue,
+        reason: 'recipe no longer fails the job when the linter reports violations',
+      );
+    });
+
+    test('documented --format=sarif command produces an uploadable SARIF report', () async {
+      // The recipe's value depends on the linter emitting a report GitHub
+      // will accept. Run the documented invocation against the invalid
+      // fixture and assert the parts Code Scanning reads: SARIF version,
+      // a rule-linked result, and a repository-relative artifact URI.
+      final ProcessResult run = await Process.run('dart', [
+        cliPath,
+        '--skill',
+        invalidFixture,
+        '--format=sarif',
+      ], workingDirectory: p.dirname(cliPath));
+
+      expect(
+        run.exitCode,
+        1,
+        reason: 'the invalid fixture should report violations so the recipe fails the job',
+      );
+
+      final Object? decoded = jsonDecode(run.stdout as String);
+      expect(decoded, isA<Map<String, Object?>>(), reason: 'report is not a JSON object');
+      final report = decoded! as Map<String, Object?>;
+      expect(report['version'], '2.1.0');
+
+      final runs = report['runs']! as List<Object?>;
+      final firstRun = runs.single! as Map<String, Object?>;
+      final results = firstRun['results']! as List<Object?>;
+      expect(results, isNotEmpty, reason: 'invalid fixture produced no SARIF results');
+
+      final firstResult = results.first! as Map<String, Object?>;
+      expect(firstResult['ruleId'], isNotNull, reason: 'results must be attributable to a rule');
+
+      final locations = firstResult['locations']! as List<Object?>;
+      final physical =
+          (locations.first! as Map<String, Object?>)['physicalLocation']! as Map<String, Object?>;
+      final artifact = physical['artifactLocation']! as Map<String, Object?>;
+      expect(
+        p.isRelative(artifact['uri']! as String),
+        isTrue,
+        reason: 'Code Scanning cannot map an absolute URI onto the checked-out tree',
+      );
+    });
   }, skip: Platform.isWindows ? 'recipe drift uses POSIX shell' : null);
 }
 
@@ -167,6 +251,17 @@ class _RecipeReader {
     );
     final Object? doc = loadYaml(block.body);
     expect(doc, isA<YamlMap>(), reason: 'workflow YAML failed to parse as a map');
+    return doc! as YamlMap;
+  }
+
+  /// The YAML block for the Code Scanning (SARIF) workflow recipe.
+  YamlMap get codeScanningYaml {
+    final _RecipeBlock block = yamlBlocks.firstWhere(
+      (b) => b.body.contains('scan-skills:'),
+      orElse: () => fail('no Code Scanning workflow YAML block found under Recipes'),
+    );
+    final Object? doc = loadYaml(block.body);
+    expect(doc, isA<YamlMap>(), reason: 'Code Scanning workflow YAML failed to parse as a map');
     return doc! as YamlMap;
   }
 
