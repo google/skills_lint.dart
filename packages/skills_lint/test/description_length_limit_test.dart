@@ -9,7 +9,7 @@ import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/check_type.dart';
 import 'package:skills_lint/src/models/custom_rule_parameters.dart';
-import 'package:skills_lint/src/models/parameter_value_checks.dart';
+import 'package:skills_lint/src/models/parameter_constraint.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/rule_parameter_type.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
@@ -43,7 +43,8 @@ Future<List<ValidationError>> _validate(DescriptionLengthRule rule, int length) 
 
 void main() {
   test('parameter name is namespaced to the description length', () {
-    expect(_param, 'max_description_length');
+    expect(_param, 'description-length-max');
+    expect(_flag, '--description-too-long-description-length-max');
   });
 
   group('DescriptionLengthRule limit', () {
@@ -65,14 +66,12 @@ void main() {
   });
 
   group('diagnostic when the limit equals the specification maximum', () {
-    test('text and markdown are unchanged from the fixed 1024 limit', () async {
+    test('uses the specification wording and link', () async {
       final ValidationError error = (await _validate(DescriptionLengthRule(), 1120)).single;
 
       expect(
         error.message,
-        startsWith(
-          'Description field is 1120 characters; maximum is 1024. Cutoff at character 1024: ',
-        ),
+        startsWith('Description field is 1120 characters; maximum is 1024. Cutoff: ...'),
       );
       expect(error.message, endsWith('(see $_specUrl)'));
       expect(error.message, isNot(contains('configured')));
@@ -80,7 +79,8 @@ void main() {
         error.markdownMessage,
         startsWith(
           '**Frontmatter `description` exceeds maximum allowed length.**\n\n'
-          '**1120** characters (**96** characters over the **1024** limit).\n\n',
+          '**1120** characters (**96** characters over the **1024** limit).\n\n'
+          '**Cutoff excerpt:**\n> ...',
         ),
       );
       expect(error.markdownMessage, endsWith('*(See [Agent Skills Specification]($_specUrl))*'));
@@ -97,10 +97,7 @@ void main() {
 
       expect(
         error.message,
-        startsWith(
-          'Description field is 620 characters; configured maximum is 500. '
-          'Cutoff at character 500: ',
-        ),
+        startsWith('Description field is 620 characters; configured maximum is 500. Cutoff: ...'),
       );
       expect(error.message, endsWith('...'));
       expect(error.message, isNot(contains('agentskills.io')));
@@ -108,7 +105,8 @@ void main() {
         error.markdownMessage,
         startsWith(
           '**Frontmatter `description` exceeds configured maximum length.**\n\n'
-          '**620** characters (**120** characters over the configured **500** limit).\n\n',
+          '**620** characters (**120** characters over the configured **500** limit).\n\n'
+          '**Cutoff excerpt:**\n> ...',
         ),
       );
       expect(error.markdownMessage, isNot(contains('agentskills.io')));
@@ -136,7 +134,7 @@ void main() {
         error.message,
         startsWith(
           'Description field is 2100 characters; configured maximum is 2000 '
-          '(specification maximum is 1024). Cutoff at character 2000: ',
+          '(specification maximum is 1024). Cutoff: ...',
         ),
       );
       expect(error.message, endsWith('(see $_specUrl)'));
@@ -145,7 +143,8 @@ void main() {
         startsWith(
           '**Frontmatter `description` exceeds configured maximum length.**\n\n'
           '**2100** characters (**100** characters over the configured **2000** limit; '
-          'the specification maximum is **1024**).\n\n',
+          'the specification maximum is **1024**).\n\n'
+          '**Cutoff excerpt:**\n> ...',
         ),
       );
       expect(error.markdownMessage, endsWith('*(See [Agent Skills Specification]($_specUrl))*'));
@@ -164,27 +163,44 @@ void main() {
     });
   });
 
-  group('CheckType parameter value checks', () {
+  group('ParameterConstraint.positiveInteger', () {
+    test('accepts integers of at least 1', () {
+      expect(ParameterConstraint.positiveInteger.accepts(1), isTrue);
+      expect(ParameterConstraint.positiveInteger.accepts(2000), isTrue);
+    });
+
+    test('rejects zero, negative numbers, and non-integers', () {
+      for (final Object value in [0, -1, 1.5, '1']) {
+        expect(ParameterConstraint.positiveInteger.accepts(value), isFalse, reason: '$value');
+      }
+    });
+
+    test('describes the accepted values', () {
+      expect(ParameterConstraint.positiveInteger.description, 'a positive integer');
+    });
+  });
+
+  group('CheckType parameter constraints', () {
     const check = CheckType(
       name: 'mock-rule',
       defaultSeverity: AnalysisSeverity.disabled,
       help: 'Mock rule.',
       parameterSchema: {'count': RuleParameterType.integer},
-      parameterValueChecks: {'count': requirePositiveInteger},
+      parameterConstraints: {'count': ParameterConstraint.positiveInteger},
     );
 
-    test('accept values that pass the check', () {
+    test('accept values that meet the constraint', () {
       expect(check.validateParameters(CustomRuleParameters(const {'count': 1})), isEmpty);
     });
 
-    test('reject values that fail the check with the accepted values', () {
+    test('reject values that break the constraint with the accepted values', () {
       const expected =
           'Invalid value for parameter "count" in rule "mock-rule". '
           'Expected a positive integer, got "0".';
       expect(check.validateParameters(CustomRuleParameters(const {'count': 0})), [expected]);
     });
 
-    test('report a type mismatch without running the check', () {
+    test('report a type mismatch without checking the constraint', () {
       expect(check.validateParameters(CustomRuleParameters(const {'count': 'x'})), [
         'Invalid value/type for parameter "count" in rule "mock-rule". Expected int, got "x".',
       ]);

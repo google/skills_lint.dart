@@ -88,32 +88,31 @@ governs how changes to these rules ship.
 - **Default severity:** error
 - **Fixable:** no
 - **What it checks:** the YAML frontmatter `description:` field is
-  at most `max_description_length` characters (1024 by default, the
+  at most `description-length-max` characters (1024 by default, the
   Agent Skills specification limit).
 - **Diagnostic shape:** at the default limit of 1024:
-  `Description field is <N> characters; maximum is 1024. Cutoff at
-  character 1024: ...<40 chars before>|HERE|<40 chars after>... (see
+  `Description field is <N> characters; maximum is 1024. Cutoff:
+  ...<40 chars before>|HERE|<40 chars after>... (see
   https://agentskills.io/specification#description-field)`
   A configured limit below 1024 is a repository policy rather than a
   specification requirement, so the diagnostic omits the link:
   `Description field is <N> characters; configured maximum is <limit>.
-  Cutoff at character <limit>: ...<40 chars before>|HERE|<40 chars
-  after>...`
+  Cutoff: ...<40 chars before>|HERE|<40 chars after>...`
   A configured limit above 1024 allows descriptions that break the
   specification. When a description exceeds it, the diagnostic names
   the specification maximum and keeps the link:
   `Description field is <N> characters; configured maximum is <limit>
-  (specification maximum is 1024). Cutoff at character <limit>:
-  ...<40 chars before>|HERE|<40 chars after>... (see
+  (specification maximum is 1024). Cutoff: ...<40 chars
+  before>|HERE|<40 chars after>... (see
   https://agentskills.io/specification#description-field)`
-  The `|HERE|` marker pins the exact cutoff point so the author can
+  The `|HERE|` marker sits at character `<limit>`, so the author can
   see what slipped past the limit without having to count characters.
 - **Parameters:**
-  - `max_description_length` (positive integer): maximum description
+  - `description-length-max` (positive integer): maximum description
     length in characters. Defaults to `1024`. Set it in
     `skills_lint.yaml`
-    (`description-too-long: { severity: error, max_description_length: 500 }`)
-    or with `--description-too-long-max_description_length=500`. The CLI
+    (`description-too-long: { severity: error, description-length-max: 500 }`)
+    or with `--description-too-long-description-length-max=500`. The CLI
     flag takes precedence over the configuration file. Zero, negative,
     and non-integer values are rejected.
 - **Auto-fix behavior:** none. The fix is editorial; the linter
@@ -204,7 +203,7 @@ governs how changes to these rules ship.
   - `Invalid YAML metadata: <parser error> (see
     https://agentskills.io/specification#frontmatter)`
   - `Missing required field: <field> (see ...)`
-  - `Compatibility field is <N> characters; maximum is 500. Cutoff at character 500: ...<context>|HERE|<context>... (see https://agentskills.io/specification#compatibility-field)`
+  - `Compatibility field is <N> characters; maximum is 500. Cutoff: ...<context>|HERE|<context>... (see https://agentskills.io/specification#compatibility-field)`
     — same shape as `description-too-long`, produced by the shared
     `buildLengthDiagnostic` helper.
 - **Auto-fix behavior:** none. A broken frontmatter block isn't

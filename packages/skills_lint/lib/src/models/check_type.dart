@@ -4,7 +4,7 @@
 
 import 'analysis_severity.dart';
 import 'custom_rule_parameters.dart';
-import 'parameter_value_checks.dart';
+import 'parameter_constraint.dart';
 import 'rule_parameter_type.dart';
 
 /// Encapsulates metadata and severity state for a specific validation rule.
@@ -14,7 +14,7 @@ class CheckType {
     required this.defaultSeverity,
     required this.help,
     this.parameterSchema = const {},
-    this.parameterValueChecks = const {},
+    this.parameterConstraints = const {},
   });
   final String name;
 
@@ -27,16 +27,17 @@ class CheckType {
   /// Custom configuration options supported by this check.
   final Map<String, RuleParameterType> parameterSchema;
 
-  /// Value checks for parameters in [parameterSchema], keyed by parameter name.
+  /// Constraints on parameters in [parameterSchema], keyed by parameter name.
   ///
-  /// A check runs only after the value matches its [RuleParameterType].
-  final Map<String, ParameterValueCheck> parameterValueChecks;
+  /// A constraint is checked only after the value matches its
+  /// [RuleParameterType].
+  final Map<String, ParameterConstraint> parameterConstraints;
 
   /// Validates the given [parameters] against this check's [parameterSchema]
-  /// and [parameterValueChecks].
+  /// and [parameterConstraints].
   ///
   /// Returns a list of error messages for any unrecognized parameters, type
-  /// mismatches, or values rejected by a [ParameterValueCheck]. Null values
+  /// mismatches, or values that break a [ParameterConstraint]. Null values
   /// clear a parameter and are not checked.
   List<String> validateParameters(CustomRuleParameters parameters) {
     final List<String> errors = [];
@@ -74,10 +75,10 @@ class CheckType {
       return 'Invalid value/type for parameter "$key" in rule "$name". '
           'Expected ${expectedType.description}, got "$actualValue".';
     }
-    final String? accepted = parameterValueChecks[key]?.call(actualValue);
-    if (accepted != null) {
+    final ParameterConstraint? constraint = parameterConstraints[key];
+    if (constraint != null && !constraint.accepts(actualValue)) {
       return 'Invalid value for parameter "$key" in rule "$name". '
-          'Expected $accepted, got "$actualValue".';
+          'Expected ${constraint.description}, got "$actualValue".';
     }
     return null;
   }

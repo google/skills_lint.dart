@@ -5,7 +5,7 @@
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/custom_rule_parameters.dart';
-import 'models/parameter_value_checks.dart';
+import 'models/parameter_constraint.dart';
 import 'models/rule_parameter_type.dart';
 import 'models/skill_rule.dart';
 import 'rules/absolute_paths_rule.dart';
@@ -42,8 +42,8 @@ class RuleRegistry {
       parameterSchema: {
         DescriptionLengthRule.maxDescriptionLengthParameter: RuleParameterType.integer,
       },
-      parameterValueChecks: {
-        DescriptionLengthRule.maxDescriptionLengthParameter: requirePositiveInteger,
+      parameterConstraints: {
+        DescriptionLengthRule.maxDescriptionLengthParameter: ParameterConstraint.positiveInteger,
       },
     ),
     const CheckType(

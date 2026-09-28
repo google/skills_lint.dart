@@ -4,6 +4,7 @@
 
 import 'package:yaml/yaml.dart';
 import '../cutoff_excerpt.dart';
+import '../length_limit.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
@@ -123,13 +124,13 @@ class ValidYamlMetadataRule extends SkillRule {
       message: buildLengthDiagnostic(
         fieldName: 'Compatibility',
         value: compatibility,
-        maxLength: maxCompatibilityLength,
+        limit: const LengthLimit(maxLength: maxCompatibilityLength),
         docUrl: _compatibilityFieldUrl,
       ),
       markdownMessage: buildLengthMarkdownDiagnostic(
         fieldName: keyCompatibility,
         value: compatibility,
-        maxLength: maxCompatibilityLength,
+        limit: const LengthLimit(maxLength: maxCompatibilityLength),
         docUrl: _compatibilityFieldUrl,
       ),
       region: region,

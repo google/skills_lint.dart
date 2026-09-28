@@ -274,10 +274,7 @@ Body''');
         final String error = result.errors.firstWhere((e) => e.contains('Description field is'));
         expect(error, contains('Description field is ${longDesc.length} characters'));
         expect(error, contains('maximum is ${DescriptionLengthRule.maxDescriptionLength}'));
-        expect(
-          error,
-          contains('Cutoff at character ${DescriptionLengthRule.maxDescriptionLength}'),
-        );
+        expect(error, contains('Cutoff: ...'));
         expect(error, contains('|HERE|'));
         // The chars right before/after the cutoff should appear in the excerpt.
         expect(error, contains('BBBBB|HERE|AAAAA'));
@@ -333,10 +330,11 @@ Body''');
         // shared buildLengthDiagnostic helper.
         expect(error, contains('Compatibility field is ${longComp.length} characters'));
         expect(error, contains('maximum is ${ValidYamlMetadataRule.maxCompatibilityLength}'));
-        expect(
-          error,
-          contains('Cutoff at character ${ValidYamlMetadataRule.maxCompatibilityLength}'),
-        );
+        // Compatibility has no configurable limit, so it never uses the
+        // configured-limit wording or drops its specification link.
+        expect(error, isNot(contains('configured')));
+        expect(error, endsWith('(see https://agentskills.io/specification#compatibility-field)'));
+        expect(error, contains('Cutoff: ...'));
         expect(error, contains('BBBBB|HERE|AAAAA'));
       });
 

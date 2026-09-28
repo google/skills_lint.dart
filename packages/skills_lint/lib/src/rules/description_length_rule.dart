@@ -5,6 +5,7 @@
 import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
 import '../cutoff_excerpt.dart';
+import '../length_limit.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
@@ -25,7 +26,7 @@ class DescriptionLengthRule extends SkillRule {
   static const AnalysisSeverity defaultSeverity = AnalysisSeverity.error;
 
   /// The rule parameter that sets the maximum description length in characters.
-  static const String maxDescriptionLengthParameter = 'max_description_length';
+  static const String maxDescriptionLengthParameter = 'description-length-max';
 
   /// The maximum description length set by the Agent Skills specification.
   static const maxDescriptionLength = 1024;
@@ -65,15 +66,13 @@ class DescriptionLengthRule extends SkillRule {
           message: buildLengthDiagnostic(
             fieldName: 'Description',
             value: description,
-            maxLength: maxLength,
-            specMaxLength: maxDescriptionLength,
+            limit: LengthLimit(maxLength: maxLength, specMaxLength: maxDescriptionLength),
             docUrl: _descriptionFieldUrl,
           ),
           markdownMessage: buildLengthMarkdownDiagnostic(
             fieldName: 'description',
             value: description,
-            maxLength: maxLength,
-            specMaxLength: maxDescriptionLength,
+            limit: LengthLimit(maxLength: maxLength, specMaxLength: maxDescriptionLength),
             docUrl: _descriptionFieldUrl,
           ),
           region: region,

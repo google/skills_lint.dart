@@ -11,26 +11,27 @@
 // across rules so downstream tooling that parses lint output doesn't
 // have to learn two formats.
 
+import 'length_limit.dart';
+
 /// Number of characters of context to show on either side of the cutoff.
 const int _excerptContextChars = 40;
 
 /// Builds a length-overflow diagnostic for a frontmatter field whose
-/// value is longer than [maxLength].
+/// value is longer than `limit.maxLength`.
 ///
 /// Output shape (placeholders shown in backticks):
 ///
 ///     `fieldName` field is `N` characters; maximum is `maxLength`.
-///     Cutoff at character `maxLength`: ...`context`|HERE|`context`...
-///     (see `docUrl`)
+///     Cutoff: ...`context`|HERE|`context`... (see `docUrl`)
 ///
-/// [specMaxLength] is the maximum set by the specification. Pass it when
-/// [maxLength] comes from repository configuration. When the two differ,
+/// The `|HERE|` marker sits at character `maxLength`, so the message does not
+/// repeat the position. When [LengthLimit.isConfigured] is true,
 /// `maximum is` reads `configured maximum is`, and:
 ///
-/// * a [maxLength] below [specMaxLength] omits the `(see ...)` clause,
+/// * a limit below the specification maximum omits the `(see ...)` clause,
 ///   because the limit is a repository policy rather than a specification
 ///   requirement;
-/// * a [maxLength] above [specMaxLength] adds
+/// * a limit above the specification maximum adds
 ///   `(specification maximum is specMaxLength)` after the configured maximum,
 ///   because the value also breaks the specification.
 ///
@@ -39,73 +40,57 @@ const int _excerptContextChars = 40;
 String buildLengthDiagnostic({
   required String fieldName,
   required String value,
-  required int maxLength,
-  int? specMaxLength,
+  required LengthLimit limit,
   String? docUrl,
 }) {
-  final limit = _LengthLimit(maxLength, specMaxLength);
-  final String excerpt = _buildCutoffExcerpt(value, maxLength);
-  final String? url = limit.isBelowSpec ? null : docUrl;
-  final docsClause = url != null ? ' (see $url)' : '';
+  final String excerpt = _buildCutoffExcerpt(value, limit.maxLength);
+  final docsClause = limit.isBelowSpec || docUrl == null ? '' : ' (see $docUrl)';
   final String maximumClause = switch (limit) {
-    _LengthLimit(isAboveSpec: true) =>
-      'configured maximum is $maxLength (specification maximum is $specMaxLength)',
-    _LengthLimit(isConfigured: true) => 'configured maximum is $maxLength',
-    _ => 'maximum is $maxLength',
+    LengthLimit(isAboveSpec: true) =>
+      'configured maximum is ${limit.maxLength} '
+          '(specification maximum is ${limit.specMaxLength})',
+    LengthLimit(isConfigured: true) => 'configured maximum is ${limit.maxLength}',
+    _ => 'maximum is ${limit.maxLength}',
   };
   return '$fieldName field is ${value.length} characters; '
       '$maximumClause. '
-      'Cutoff at character $maxLength: $excerpt'
+      'Cutoff: $excerpt'
       '$docsClause';
 }
 
 /// Builds a rich Markdown length-overflow diagnostic for SARIF and PR review comments.
 ///
-/// [specMaxLength] and [docUrl] behave as in [buildLengthDiagnostic].
+/// Unlike the one-line [buildLengthDiagnostic], the Markdown form also states
+/// how many characters are over the limit. [limit] and [docUrl] otherwise
+/// behave as in [buildLengthDiagnostic].
 String buildLengthMarkdownDiagnostic({
   required String fieldName,
   required String value,
-  required int maxLength,
-  int? specMaxLength,
+  required LengthLimit limit,
   String? docUrl,
 }) {
-  final limit = _LengthLimit(maxLength, specMaxLength);
+  final int maxLength = limit.maxLength;
   final int overCount = value.length - maxLength;
   final String excerpt = _buildCutoffExcerpt(value, maxLength);
   final String boldExcerpt = excerpt.replaceAll('|HERE|', '**|HERE|**');
-  final String? url = limit.isBelowSpec ? null : docUrl;
-  final docsClause = url != null ? '\n\n*(See [Agent Skills Specification]($url))*' : '';
+  final docsClause = limit.isBelowSpec || docUrl == null
+      ? ''
+      : '\n\n*(See [Agent Skills Specification]($docUrl))*';
   final heading = limit.isConfigured
       ? 'exceeds configured maximum length'
       : 'exceeds maximum allowed length';
   final String limitClause = switch (limit) {
-    _LengthLimit(isAboveSpec: true) =>
+    LengthLimit(isAboveSpec: true) =>
       'over the configured **$maxLength** limit; '
-          'the specification maximum is **$specMaxLength**',
-    _LengthLimit(isConfigured: true) => 'over the configured **$maxLength** limit',
+          'the specification maximum is **${limit.specMaxLength}**',
+    LengthLimit(isConfigured: true) => 'over the configured **$maxLength** limit',
     _ => 'over the **$maxLength** limit',
   };
   return '**Frontmatter `$fieldName` $heading.**\n\n'
       '**${value.length}** characters (**$overCount** characters $limitClause).\n\n'
-      '**Cutoff excerpt (at character $maxLength):**\n'
+      '**Cutoff excerpt:**\n'
       '> $boldExcerpt'
       '$docsClause';
-}
-
-/// How an enforced length limit relates to the specification maximum.
-class _LengthLimit {
-  _LengthLimit(this.maxLength, this.specMaxLength);
-
-  final int maxLength;
-  final int? specMaxLength;
-
-  /// Whether the limit comes from repository configuration that differs from
-  /// the specification maximum.
-  bool get isConfigured => specMaxLength != null && maxLength != specMaxLength;
-
-  bool get isBelowSpec => isConfigured && maxLength < specMaxLength!;
-
-  bool get isAboveSpec => isConfigured && maxLength > specMaxLength!;
 }
 
 String _buildCutoffExcerpt(String value, int maxLength) {
