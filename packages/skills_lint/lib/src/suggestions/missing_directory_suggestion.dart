@@ -9,6 +9,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../path_utils.dart';
 import 'sibling_suggestion.dart';
 
 /// Returns the path the user most likely meant by [declaredText], written the
@@ -31,14 +32,18 @@ import 'sibling_suggestion.dart';
 ///    the deepest existing ancestor is swapped for its closest sibling
 ///    directory, and the result is kept only if the whole path exists.
 ///
-/// An absolute [declaredText], or one starting with `~/`, yields an absolute
-/// suggestion. Otherwise the suggestion is relative to [baseDirectory] and
-/// uses forward slashes.
+/// A [declaredText] starting with `~/` yields a suggestion starting with `~/`
+/// when the match is inside [homeDirectory], which defaults to the user's
+/// home directory. An absolute [declaredText], or a `~/` one whose match is
+/// outside [homeDirectory], yields an absolute suggestion. Otherwise the
+/// suggestion is relative to [baseDirectory]. Relative and `~/` suggestions
+/// use forward slashes.
 String? suggestDirectory({
   required String declaredText,
   required String resolvedPath,
   required String baseDirectory,
   String? workingDirectory,
+  String? homeDirectory,
 }) {
   if (workingDirectory != null &&
       _existsFromWorkingDirectory(declaredText, resolvedPath, workingDirectory)) {
@@ -48,7 +53,10 @@ String? suggestDirectory({
   if (corrected == null) {
     return null;
   }
-  if (p.isAbsolute(declaredText) || _isHomeRelative(declaredText)) {
+  if (_isHomeRelative(declaredText)) {
+    return _underHome(corrected, homeDirectory ?? expandPath('~'));
+  }
+  if (p.isAbsolute(declaredText)) {
     return corrected;
   }
   return p.relative(corrected, from: baseDirectory).replaceAll(r'\', '/');
@@ -57,6 +65,15 @@ String? suggestDirectory({
 /// Whether [text] starts with a home-directory prefix that `expandPath`
 /// expands.
 bool _isHomeRelative(String text) => text == '~' || text.startsWith('~/') || text.startsWith(r'~\');
+
+/// [path] written as `~/...` when it is inside [home], or unchanged when it
+/// is not.
+String _underHome(String path, String home) {
+  if (!p.isWithin(home, path)) {
+    return path;
+  }
+  return '~/${p.relative(path, from: home).replaceAll(r'\', '/')}';
+}
 
 /// Whether a relative [declaredText] resolved against [workingDirectory] is an
 /// existing directory other than [resolvedPath].

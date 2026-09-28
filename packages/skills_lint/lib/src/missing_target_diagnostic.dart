@@ -23,11 +23,10 @@ enum MissingTargetKind {
 /// A diagnostic for a target that does not exist.
 ///
 /// [text] is the plain-text message, [markdown] the rich form for SARIF and
-/// JSON (or `null` when [text] says everything), and [file] and [region] the
-/// location to report.
+/// JSON, and [file] and [region] the location to report.
 typedef MissingTargetDiagnostic = ({
   String text,
-  String? markdown,
+  String markdown,
   String file,
   SourceRegion? region,
 });
@@ -44,6 +43,10 @@ typedef MissingTargetDiagnostic = ({
 /// - [cliText]: a command-line target, as typed. A second line appears only
 ///   when there is a suggestion.
 /// - Neither: the first line alone.
+///
+/// The markdown always has the headline and how to fix it, and adds only the
+/// facts that apply: the anchor directory for a configuration target and the
+/// suggestion when there is one.
 ///
 /// [workingDirectory] is the directory the tool runs in.
 MissingTargetDiagnostic missingTargetDiagnostic({
@@ -72,7 +75,12 @@ MissingTargetDiagnostic missingTargetDiagnostic({
       cliText: cliText,
     );
   }
-  return (text: headline, markdown: null, file: resolvedPath, region: null);
+  return (
+    text: headline,
+    markdown: _markdown(kind, resolvedPath, null),
+    file: resolvedPath,
+    region: null,
+  );
 }
 
 /// Explains a configuration target: the path as declared, where it was
@@ -109,8 +117,8 @@ MissingTargetDiagnostic _configurationDiagnostic({
   );
 }
 
-/// Explains a command-line target, which only has more to say when a nearby
-/// directory can be suggested.
+/// Explains a command-line target. The text only has more to say when a
+/// nearby directory can be suggested.
 MissingTargetDiagnostic _commandLineDiagnostic({
   required MissingTargetKind kind,
   required String headline,
@@ -123,11 +131,8 @@ MissingTargetDiagnostic _commandLineDiagnostic({
     resolvedPath: resolvedPath,
     baseDirectory: workingDirectory,
   );
-  if (suggestion == null) {
-    return (text: headline, markdown: null, file: resolvedPath, region: null);
-  }
   return (
-    text: '$headline\n  Did you mean "$suggestion"?',
+    text: suggestion == null ? headline : '$headline\n  Did you mean "$suggestion"?',
     markdown: _markdown(kind, cliText, suggestion),
     file: resolvedPath,
     region: null,

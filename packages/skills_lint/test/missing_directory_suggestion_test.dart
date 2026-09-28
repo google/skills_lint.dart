@@ -133,6 +133,34 @@ void main() {
       );
     });
 
+    group('for a path under the home directory', () {
+      late String home;
+
+      setUp(() {
+        home = p.join(tempDir.path, 'home');
+        createAll(['home/.agents/skills', 'elsewhere/skills']);
+      });
+
+      /// Suggests a directory for [declared], expanding `~` to [home].
+      String? suggestFromHome(String declared) => suggestDirectory(
+        declaredText: declared,
+        resolvedPath: p.normalize(p.join(home, declared.substring(2))),
+        baseDirectory: tempDir.path,
+        homeDirectory: home,
+      );
+
+      test('keeps the "~/" form the author wrote', () {
+        expect(suggestFromHome('~/.agent/skills'), '~/.agents/skills');
+      });
+
+      test('writes an absolute suggestion when the match is outside the home directory', () {
+        expect(
+          suggestFromHome('~/../elsewhere/skils'),
+          p.join(tempDir.path, 'elsewhere', 'skills'),
+        );
+      });
+    });
+
     test('treats a name that merely starts with "~" as relative', () {
       createAll(['~foo/skills']);
       expect(suggest('~foo/skils'), '~foo/skills');

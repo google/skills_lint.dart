@@ -136,8 +136,46 @@ void main() {
 
         expect(diagnostic.text, contains('skill directory does not exist'));
         expect(diagnostic.text.split('\n'), hasLength(1));
-        expect(diagnostic.markdown, isNull);
       });
+
+      test('still explains the typed path in markdown when nothing is close', () {
+        final MissingTargetDiagnostic diagnostic = missingTargetDiagnostic(
+          kind: MissingTargetKind.skill,
+          resolvedPath: p.join(repo, 'unrelated'),
+          workingDirectory: repo,
+          cliText: 'unrelated',
+        );
+
+        expect(
+          diagnostic.markdown,
+          allOf(
+            contains('skill directory does not exist'),
+            contains('`unrelated`'),
+            isNot(contains('Did you mean')),
+            isNot(contains('configuration')),
+          ),
+        );
+      });
+    });
+
+    test('a target from neither a configuration nor the command line gets markdown', () {
+      final String missing = p.join(repo, 'missing');
+      final MissingTargetDiagnostic diagnostic = missingTargetDiagnostic(
+        kind: MissingTargetKind.skillsRoot,
+        resolvedPath: missing,
+        workingDirectory: repo,
+      );
+
+      expect(diagnostic.text.split('\n'), hasLength(1));
+      expect(
+        diagnostic.markdown,
+        allOf(
+          contains('root directory does not exist'),
+          contains('`$missing`'),
+          isNot(contains('Did you mean')),
+          isNot(contains('configuration')),
+        ),
+      );
     });
   });
 }
