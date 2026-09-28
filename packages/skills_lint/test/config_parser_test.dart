@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/config_parser.dart';
+import 'package:skills_lint/src/models/target_declaration.dart';
 import 'package:test/test.dart';
 
 /// Builds a configuration document declaring [directories] and
@@ -209,6 +210,71 @@ skills_lint:
       final Configuration config = await ConfigParser.loadConfig(path: configFile.path);
 
       expect(config.parsingErrors.single, contains('Failed to parse'));
+    });
+  });
+
+  group('declarationOf', () {
+    late Directory tempDir;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('config_parser_declaration_test.');
+    });
+
+    tearDown(() {
+      if (tempDir.existsSync()) {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('records the declared text, file, line and anchor of each target', () async {
+      final configFile = File(p.join(tempDir.path, 'tool', 'skills_lint.yaml'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('''
+# A comment above everything.
+skills_lint:
+
+  # Where the skills live.
+  directories:
+    - path: ".agents/skills"
+  individual_skills:
+    - path: "one/skill"
+''');
+
+      final Configuration config = await ConfigParser.loadConfig(path: configFile.path);
+      final String expectedFile = p.normalize(p.absolute(configFile.path));
+      final String expectedAnchor = p.dirname(expectedFile);
+
+      final TargetDeclaration? directory = declarationOf(config.directoryConfigs.single);
+      expect(directory?.declaredPath, '.agents/skills');
+      expect(directory?.file, expectedFile);
+      expect(directory?.line, 6);
+      expect(directory?.anchorDirectory, expectedAnchor);
+
+      final TargetDeclaration? skill = declarationOf(config.individualSkillConfigs.single);
+      expect(skill?.declaredPath, 'one/skill');
+      expect(skill?.line, 8);
+    });
+
+    test('records the line of an entry in a flow-style list', () {
+      final Configuration config = ConfigParser.parse(
+        'skills_lint:\n'
+        '  directories: [{path: a}, {path: b}]\n',
+        sourcePath: p.join(tempDir.path, 'skills_lint.yaml'),
+      );
+
+      expect(config.directoryConfigs.map((t) => declarationOf(t)?.line), [2, 2]);
+    });
+
+    test('names no file for content parsed without a source path', () {
+      final Configuration config = ConfigParser.parse(configYaml(individualSkills: ['a']));
+
+      final TargetDeclaration? declaration = declarationOf(config.individualSkillConfigs.single);
+      expect(declaration?.declaredPath, 'a');
+      expect(declaration?.file, isNull);
+    });
+
+    test('a target built directly has no declaration', () {
+      expect(declarationOf(const LintTargetConfig(path: 'skills')), isNull);
     });
   });
 }

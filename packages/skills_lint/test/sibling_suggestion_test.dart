@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
+import 'package:skills_lint/src/suggestions/sibling_suggestion.dart';
 import 'package:test/test.dart';
 
 /// Unit tests for findSiblingSuggestion. The full path-rule integration is
@@ -76,6 +77,28 @@ void main() {
         resolvedPath: p.join(tempDir.path, 'DEATILS.md'),
       );
       expect(result, isNull);
+    });
+  });
+
+  group('closestSiblingName', () {
+    late Directory tempDir;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('closest_sibling_name_test.');
+    });
+
+    tearDown(() {
+      if (tempDir.existsSync()) {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('in directory mode, ignores files — only directories are candidates', () {
+      // A file whose name is closer to the missing name than the directory.
+      File(p.join(tempDir.path, 'skill')).writeAsStringSync('not a directory');
+      Directory(p.join(tempDir.path, 'skils_')).createSync();
+
+      expect(closestSiblingName(tempDir, 'skills', kind: SiblingKind.directory), 'skils_');
     });
   });
 }

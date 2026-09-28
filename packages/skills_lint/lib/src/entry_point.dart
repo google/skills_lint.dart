@@ -480,13 +480,13 @@ Future<bool> validateSkillsInternal({
 
   final bool hasCliTargets =
       canonicalSkillDirPaths.isNotEmpty || canonicalIndividualSkillPaths.isNotEmpty;
-  final List<String> effectiveIndividualSkillPaths = [
-    ...canonicalIndividualSkillPaths,
-    if (config != null && !hasCliTargets) ...config.individualSkillConfigs.map((e) => e.path),
+  final List<_Target> effectiveIndividualSkills = [
+    ..._cliTargets(individualSkillPaths, canonicalIndividualSkillPaths),
+    if (config != null && !hasCliTargets) ..._configTargets(config.individualSkillConfigs),
   ];
 
-  final List<String> effectiveSkillDirPaths = _getEffectiveSkillDirPaths(
-    skillDirPaths: canonicalSkillDirPaths,
+  final List<_Target> effectiveSkillDirs = _getEffectiveSkillDirs(
+    skillDirs: _cliTargets(skillDirPaths, canonicalSkillDirPaths),
     individualSkillPaths: canonicalIndividualSkillPaths,
     config: config,
     workingDirectory: workingDirectory,
@@ -506,8 +506,12 @@ Future<bool> validateSkillsInternal({
     format: format,
   );
 
-  for (final skillPath in effectiveIndividualSkillPaths) {
-    final bool keepGoing = await session.processIndividualSkill(skillPath);
+  for (final skill in effectiveIndividualSkills) {
+    final bool keepGoing = await session.processIndividualSkill(
+      skill.path,
+      declaredBy: skill.declaredBy,
+      cliText: skill.cliText,
+    );
     if (!keepGoing) {
       break;
     }
@@ -519,14 +523,18 @@ Future<bool> validateSkillsInternal({
     return false;
   }
 
-  for (final rootPath in effectiveSkillDirPaths) {
-    final bool keepGoing = await session.processSkillRoot(rootPath);
+  for (final root in effectiveSkillDirs) {
+    final bool keepGoing = await session.processSkillRoot(
+      root.path,
+      declaredBy: root.declaredBy,
+      cliText: root.cliText,
+    );
     if (!keepGoing) {
       break;
     }
   }
 
-  session.reportNoSkillsValidated(effectiveSkillDirPaths);
+  session.reportNoSkillsValidated([for (final _Target root in effectiveSkillDirs) root.path]);
 
   if (format != OutputFormat.text) {
     session.emitFormattedOutput();
@@ -538,26 +546,43 @@ Future<bool> validateSkillsInternal({
   return !session.anyFailed;
 }
 
-/// Computes the list of skill directory paths to validate.
+/// A path to validate, with where it came from.
 ///
-/// If paths are not explicitly provided, falls back to configured directory
-/// paths, and then to default locations (`.claude/skills`, `.agents/skills`)
-/// resolved against [workingDirectory].
+/// [declaredBy] is set for a configuration target and [cliText] (the path as
+/// the caller typed it) for a command-line or API path. Both are `null` for a
+/// default location. A missing target is explained using whichever is set.
+typedef _Target = ({String path, LintTargetConfig? declaredBy, String? cliText});
+
+/// Pairs each of [canonicalPaths] with the [rawPaths] entry it came from.
+List<_Target> _cliTargets(List<String> rawPaths, List<String> canonicalPaths) => [
+  for (final (int i, String path) in canonicalPaths.indexed)
+    (path: path, declaredBy: null, cliText: rawPaths[i]),
+];
+
+/// Turns configuration [targets] into targets that remember their declaration.
+List<_Target> _configTargets(List<LintTargetConfig> targets) => [
+  for (final LintTargetConfig target in targets)
+    (path: target.path, declaredBy: target, cliText: null),
+];
+
+/// Computes the list of skill directories to validate.
+///
+/// If [skillDirs] is empty, falls back to configured directories, and then to
+/// default locations (`.claude/skills`, `.agents/skills`) resolved against
+/// [workingDirectory].
 /// Throws [MissingDefaultsException] if no directories are found.
-List<String> _getEffectiveSkillDirPaths({
-  required List<String> skillDirPaths,
+List<_Target> _getEffectiveSkillDirs({
+  required List<_Target> skillDirs,
   required List<String> individualSkillPaths,
   required String workingDirectory,
   Configuration? config,
 }) {
-  final effectiveSkillDirPaths = List<String>.from(skillDirPaths);
-
-  if (effectiveSkillDirPaths.isEmpty && individualSkillPaths.isEmpty) {
+  if (skillDirs.isEmpty && individualSkillPaths.isEmpty) {
     // If the config specifies any targets (even if it's only individual_skills
     // and directories is empty), we avoid the default directory fallback.
     if (config != null &&
         (config.directoryConfigs.isNotEmpty || config.individualSkillConfigs.isNotEmpty)) {
-      return config.directoryConfigs.map((e) => e.path).toList();
+      return _configTargets(config.directoryConfigs);
     } else {
       const defaults = ['.claude/skills', '.agents/skills'];
       final List<String> existingDefaults = canonicalizePaths(
@@ -567,11 +592,13 @@ List<String> _getEffectiveSkillDirPaths({
       if (existingDefaults.isEmpty) {
         throw MissingDefaultsException(defaults);
       }
-      return existingDefaults;
+      return [
+        for (final String path in existingDefaults) (path: path, declaredBy: null, cliText: null),
+      ];
     }
   }
 
-  return effectiveSkillDirPaths;
+  return skillDirs;
 }
 
 @visibleForTesting

@@ -5,12 +5,12 @@
 import 'dart:io';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart';
-import '../levenshtein.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
+import '../suggestions/sibling_suggestion.dart';
 
 /// Enforces that relative links in SKILL.md point to existing files.
 class RelativePathsRule extends SkillRule {
@@ -106,7 +106,8 @@ class RelativePathsRule extends SkillRule {
 /// Returns `null` when:
 /// - the original link has no parent dir on disk,
 /// - the parent dir can't be listed (e.g. permission error),
-/// - or no candidate is close enough to the missing basename.
+/// - no candidate is close enough to the missing basename,
+/// - or two candidates are equally close.
 ///
 /// [originalLink] is the link text as written in the SKILL.md
 /// (`docs/DEATILS.md`); [resolvedPath] is the same link resolved
@@ -117,44 +118,12 @@ class RelativePathsRule extends SkillRule {
 /// a directory would be misleading.
 @visibleForTesting
 String? findSiblingSuggestion({required String originalLink, required String resolvedPath}) {
-  final String parentPath = dirname(resolvedPath);
-  final parentDir = Directory(parentPath);
-  if (!parentDir.existsSync()) {
-    return null;
-  }
-
-  final String missingBase = basename(resolvedPath).toLowerCase();
-  if (missingBase.isEmpty) {
-    return null;
-  }
-
-  final int threshold = (missingBase.length ~/ 3).clamp(1, missingBase.length);
-
-  final List<FileSystemEntity> entries;
-  try {
-    entries = parentDir.listSync();
-  } on FileSystemException {
-    return null;
-  }
-
-  String? best;
-  int bestDistance = threshold + 1;
-  for (final entity in entries) {
-    if (entity is Directory) {
-      continue;
-    }
-    final String candidate = basename(entity.path);
-    if (candidate == basename(resolvedPath)) {
-      continue;
-    }
-    final int distance = levenshtein(missingBase, candidate.toLowerCase());
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = candidate;
-    }
-  }
-
-  if (best == null || bestDistance > threshold) {
+  final String? best = closestSiblingName(
+    Directory(dirname(resolvedPath)),
+    basename(resolvedPath),
+    kind: SiblingKind.file,
+  );
+  if (best == null) {
     return null;
   }
 

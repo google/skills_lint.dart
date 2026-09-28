@@ -1169,6 +1169,99 @@ Body with trailing space
     });
   });
 
+  group('Missing configured targets', () {
+    late Directory repo;
+
+    setUp(() {
+      repo = Directory.systemTemp.createTempSync('cli_missing_target_test.');
+      Directory(p.join(repo.path, '.agents', 'skills', 'some-skill')).createSync(recursive: true);
+      Directory(p.join(repo.path, 'tool')).createSync();
+    });
+
+    tearDown(() {
+      if (repo.existsSync()) {
+        repo.deleteSync(recursive: true);
+      }
+    });
+
+    /// Writes `tool/skills_lint.yaml` declaring `.agents/skills` under [key] on
+    /// line 3, as in issue #38.
+    void writeToolConfig(String key) {
+      File(
+        p.join(repo.path, 'tool', 'skills_lint.yaml'),
+      ).writeAsStringSync('skills_lint:\n  $key:\n    - path: ".agents/skills"\n');
+    }
+
+    /// Runs the CLI from the repository root with [args].
+    Future<({String stdout, String stderr})> run(List<String> args) async {
+      final TestProcess process = await TestProcess.start('dart', [
+        p.normalize(p.absolute('bin/skills_lint.dart')),
+        ...args,
+      ], workingDirectory: repo.path);
+      final String stdout = await process.stdoutStream().join('\n');
+      final String stderr = await process.stderrStream().join('\n');
+      await process.shouldExit(1);
+      return (stdout: stdout, stderr: stderr);
+    }
+
+    test('explains a directory anchored to the configuration file', () async {
+      writeToolConfig('directories');
+
+      final ({String stdout, String stderr}) result = await run([
+        '--config',
+        'tool/skills_lint.yaml',
+      ]);
+
+      expect(result.stderr, contains('Specified root directory does not exist:'));
+      expect(result.stderr, contains('Declared as ".agents/skills"'));
+      expect(result.stderr, contains('${p.join('tool', 'skills_lint.yaml')}:3'));
+      expect(result.stderr, contains('Did you mean "../.agents/skills"?'));
+    });
+
+    test('locates the SARIF result at the declaring configuration line', () async {
+      writeToolConfig('directories');
+
+      final ({String stdout, String stderr}) result = await run([
+        '--config',
+        'tool/skills_lint.yaml',
+        '--format',
+        'sarif',
+      ]);
+
+      final sarif = jsonDecode(result.stdout) as Map<String, dynamic>;
+      final results = ((sarif['runs'] as List).single as Map<String, dynamic>)['results'] as List;
+      final Map<String, dynamic> missing = results.cast<Map<String, dynamic>>().firstWhere(
+        (r) => ((r['message'] as Map)['text'] as String).contains('Declared as'),
+      );
+      final physical =
+          ((missing['locations'] as List).single as Map)['physicalLocation']
+              as Map<String, dynamic>;
+      expect((physical['artifactLocation'] as Map)['uri'], 'tool/skills_lint.yaml');
+      expect((physical['region'] as Map)['startLine'], 3);
+    });
+
+    test('explains a missing individual skill the same way', () async {
+      writeToolConfig('individual_skills');
+
+      final ({String stdout, String stderr}) result = await run([
+        '--config',
+        'tool/skills_lint.yaml',
+      ]);
+
+      expect(result.stderr, contains('Specified skill directory does not exist:'));
+      expect(result.stderr, contains('Declared as ".agents/skills"'));
+    });
+
+    test('suggests a near-miss for a directory typed on the command line', () async {
+      Directory(p.join(repo.path, '.claude', 'skills')).createSync(recursive: true);
+
+      final ({String stdout, String stderr}) result = await run(['-d', '.claude/skils']);
+
+      expect(result.stderr, contains('Did you mean ".claude/skills"?'));
+      expect(result.stderr, isNot(contains('Declared as')));
+    });
+  });
+
   group('Output Format Logging Hygiene', () {
     late Directory tempDir;
 

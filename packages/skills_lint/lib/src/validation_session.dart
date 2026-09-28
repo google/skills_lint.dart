@@ -12,6 +12,7 @@ import 'package:yaml/yaml.dart';
 
 import 'config_parser.dart';
 import 'fixable_rule.dart';
+import 'missing_target_diagnostic.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/ignore_entry.dart';
@@ -161,32 +162,65 @@ class ValidationSession {
   bool get anyFailed => _anyFailed;
   bool get anySkillsValidated => _anySkillsValidated;
 
+  /// Reports that the [kind] of target at [normalizedPath] does not exist,
+  /// explained with where it came from, and marks the session failed.
+  void _reportMissingTarget(
+    MissingTargetKind kind,
+    String normalizedPath, {
+    required LintTargetConfig? declaredBy,
+    required String? cliText,
+  }) {
+    final MissingTargetDiagnostic diagnostic = missingTargetDiagnostic(
+      kind: kind,
+      resolvedPath: normalizedPath,
+      workingDirectory: Directory.current.path,
+      declaration: declaredBy == null ? null : declarationOf(declaredBy),
+      cliText: cliText,
+    );
+    _reporter.onNoSkillsFound(diagnostic.text);
+    _results.add(
+      ValidationResult(
+        validationErrors: [
+          ValidationError(
+            ruleId: Validator.pathDoesNotExist,
+            file: diagnostic.file,
+            message: diagnostic.text,
+            markdownMessage: diagnostic.markdown,
+            region: diagnostic.region,
+            severity: AnalysisSeverity.error,
+          ),
+        ],
+      ),
+    );
+    _anyFailed = true;
+  }
+
   /// Validates a single skill directory passed via `--skill` / `-s`.
   ///
   /// Returns `true` if the caller should continue iterating, `false` to
   /// stop. Only a real validation failure under [fastFail] returns `false`;
   /// a missing directory contributes to [anyFailed] but still allows the
   /// caller to continue.
-  Future<bool> processIndividualSkill(String skillPath) async {
+  ///
+  /// Pass [declaredBy] when the path came from a configuration target, or
+  /// [cliText] with the path as typed when it came from the command line, so
+  /// that a missing directory is explained in terms the user wrote.
+  Future<bool> processIndividualSkill(
+    String skillPath, {
+    LintTargetConfig? declaredBy,
+    String? cliText,
+  }) async {
     final String normalizedSkillPath = _ingestPath(skillPath);
     _reporter.onDirectoryEvaluating(normalizedSkillPath);
     final skillDir = Directory(normalizedSkillPath);
 
     if (!skillDir.existsSync()) {
-      _reporter.onNoSkillsFound('Specified skill directory does not exist: $normalizedSkillPath');
-      _results.add(
-        ValidationResult(
-          validationErrors: [
-            ValidationError(
-              ruleId: Validator.pathDoesNotExist,
-              file: normalizedSkillPath,
-              message: 'Specified skill directory does not exist: $normalizedSkillPath',
-              severity: AnalysisSeverity.error,
-            ),
-          ],
-        ),
+      _reportMissingTarget(
+        MissingTargetKind.skill,
+        normalizedSkillPath,
+        declaredBy: declaredBy,
+        cliText: cliText,
       );
-      _anyFailed = true;
       return true;
     }
 
@@ -242,26 +276,25 @@ class ValidationSession {
   /// but allow the caller to continue. After a successful iteration, returns
   /// `false` if [fastFail] is set and any failure has accumulated across the
   /// run so far.
-  Future<bool> processSkillRoot(String rootPath) async {
+  ///
+  /// [declaredBy] and [cliText] describe where [rootPath] came from, as for
+  /// [processIndividualSkill].
+  Future<bool> processSkillRoot(
+    String rootPath, {
+    LintTargetConfig? declaredBy,
+    String? cliText,
+  }) async {
     final String normalizedRootPath = _ingestPath(rootPath);
     _reporter.onDirectoryEvaluating(normalizedRootPath);
     final rootDir = Directory(normalizedRootPath);
 
     if (!rootDir.existsSync()) {
-      _reporter.onNoSkillsFound('Specified root directory does not exist: $normalizedRootPath');
-      _results.add(
-        ValidationResult(
-          validationErrors: [
-            ValidationError(
-              ruleId: Validator.pathDoesNotExist,
-              file: normalizedRootPath,
-              message: 'Specified root directory does not exist: $normalizedRootPath',
-              severity: AnalysisSeverity.error,
-            ),
-          ],
-        ),
+      _reportMissingTarget(
+        MissingTargetKind.skillsRoot,
+        normalizedRootPath,
+        declaredBy: declaredBy,
+        cliText: cliText,
       );
-      _anyFailed = true;
       return true;
     }
 

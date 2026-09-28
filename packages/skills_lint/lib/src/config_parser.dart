@@ -14,6 +14,7 @@ import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/custom_rule_parameters.dart';
 import 'models/rule_config.dart';
+import 'models/target_declaration.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
 
@@ -114,8 +115,11 @@ class ConfigParser {
         return Configuration(parsingErrors: <String>[message]);
       }
       final parsingErrors = <String>[];
+      final String? sourceFile = sourcePath == null
+          ? null
+          : canonicalizePath(sourcePath, baseDirectory: Directory.current.path);
       final String anchor = _resolveAnchorDirectory(
-        sourcePath: sourcePath,
+        sourceFile: sourceFile,
         baseDirectory: baseDirectory,
       );
 
@@ -129,12 +133,14 @@ class ConfigParser {
         directoriesKey,
         parsingErrors,
         anchor,
+        sourceFile,
       );
       final List<LintTargetConfig> individualSkillConfigs = _parseConfigList(
         toolConfig,
         individualSkillsKey,
         parsingErrors,
         anchor,
+        sourceFile,
       );
 
       return Configuration(
@@ -151,14 +157,16 @@ class ConfigParser {
   /// against.
   ///
   /// Uses [baseDirectory] when supplied, otherwise the directory holding
-  /// [sourcePath], otherwise [Directory.current].
-  static String _resolveAnchorDirectory({String? sourcePath, String? baseDirectory}) {
+  /// [sourceFile], otherwise [Directory.current].
+  ///
+  /// [sourceFile] is the configuration file, already canonicalized.
+  static String _resolveAnchorDirectory({String? sourceFile, String? baseDirectory}) {
     final String cwd = Directory.current.path;
     if (baseDirectory != null) {
       return canonicalizePath(baseDirectory, baseDirectory: cwd);
     }
-    if (sourcePath != null) {
-      return p.dirname(canonicalizePath(sourcePath, baseDirectory: cwd));
+    if (sourceFile != null) {
+      return p.dirname(sourceFile);
     }
     return p.normalize(p.absolute(cwd));
   }
@@ -318,13 +326,15 @@ class ConfigParser {
   /// and parses each element into a [LintTargetConfig].
   ///
   /// Delegates validation of an individual list element to [_parseTargetEntry].
-  /// Every parsed path is anchored to [anchorDirectory].
+  /// Every parsed path is anchored to [anchorDirectory] and records that it
+  /// was declared in [sourceFile].
   /// Returns an empty list if [configKey] is omitted or not a list.
   static List<LintTargetConfig> _parseConfigList(
     YamlMap toolConfig,
     String configKey,
     List<String> parsingErrors,
     String anchorDirectory,
+    String? sourceFile,
   ) {
     if (!toolConfig.containsKey(configKey)) {
       return const <LintTargetConfig>[];
@@ -352,6 +362,7 @@ class ConfigParser {
         entryLabelLower,
         parsingErrors,
         anchorDirectory,
+        sourceFile,
       );
       if (config != null) {
         configs.add(config);
@@ -368,13 +379,15 @@ class ConfigParser {
   /// (`ignore_file`). Returns `null` if `path` is invalid or missing.
   ///
   /// Diagnostics quote the path as authored so that error messages match the
-  /// configuration file.
+  /// configuration file. The returned target also records where it was
+  /// declared, read back with [declarationOf].
   static LintTargetConfig? _parseTargetEntry(
     YamlMap dir,
     String entryLabelCap,
     String entryLabelLower,
     List<String> parsingErrors,
     String anchorDirectory,
+    String? sourceFile,
   ) {
     final Object? pathValue = dir[pathKey];
     if (pathValue is! String) {
@@ -408,12 +421,20 @@ class ConfigParser {
       anchorDirectory,
     );
 
+    // package:yaml records a 0-based position for every node, block or flow.
+    final int? line = dir.nodes[pathKey]?.span.start.line;
     return LintTargetConfig._parsed(
       path: canonicalizePath(path, baseDirectory: anchorDirectory),
       ruleConfigs: ruleConfigs,
       ignoreFile: ignoreFile.resolved,
       authoredPath: path,
       authoredIgnoreFile: ignoreFile.authored,
+      declaration: TargetDeclaration(
+        declaredPath: path,
+        anchorDirectory: anchorDirectory,
+        file: sourceFile,
+        line: sourceFile == null || line == null ? null : line + 1,
+      ),
     );
   }
 
@@ -487,7 +508,8 @@ class LintTargetConfig {
     this.ruleConfigs = const <String, RuleConfigPatch>{},
     this.ignoreFile,
   }) : _authoredPath = null,
-       _authoredIgnoreFile = null;
+       _authoredIgnoreFile = null,
+       _declaration = null;
 
   /// Builds a target that remembers the path text it was declared with.
   ///
@@ -499,8 +521,10 @@ class LintTargetConfig {
     required this.ignoreFile,
     required String? authoredPath,
     required String? authoredIgnoreFile,
+    required TargetDeclaration declaration,
   }) : _authoredPath = authoredPath,
-       _authoredIgnoreFile = authoredIgnoreFile;
+       _authoredIgnoreFile = authoredIgnoreFile,
+       _declaration = declaration;
 
   /// The path to the directory containing skills, or to an individual skill.
   ///
@@ -530,6 +554,10 @@ class LintTargetConfig {
   /// [ignoreFile] as spelled in the configuration file, or `null` for a target
   /// built by a caller rather than read from a file.
   final String? _authoredIgnoreFile;
+
+  /// Where this target was declared, or `null` for a target built by a caller
+  /// rather than read from a configuration. Read with [declarationOf].
+  final TargetDeclaration? _declaration;
 
   /// Converts this target configuration into its YAML representation.
   Map<String, Object?> toYaml() {
@@ -563,6 +591,13 @@ class LintTargetConfig {
     return resolvedSeverities;
   }
 }
+
+/// Returns where [target] was declared, or `null` for a target built by a
+/// caller rather than read by [ConfigParser].
+///
+/// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
+/// function, so the shape of [TargetDeclaration] can change freely.
+TargetDeclaration? declarationOf(LintTargetConfig target) => target._declaration;
 
 /// Structured configuration for the linter.
 @immutable

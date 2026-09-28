@@ -1,6 +1,9 @@
 ## 0.5.3-wip
 
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
+- Explained missing `directories` and `individual_skills` paths: the diagnostic shows the path as declared, the configuration file and line, the directory it resolved from, and a `Did you mean` suggestion when a nearby directory exists. Paths given with `-d` and `--skill` also get suggestions (#38).
+- **Behavior change:** for a missing configuration target, the SARIF and JSON `file` points at the configuration file and the `region` at the line that declared it, rather than at the missing directory. The missing directory is still named in the message.
+- **Behavior change:** `check-relative-paths` no longer suggests a file when two candidates are equally close, since which one was suggested depended on file system listing order.
 
 ## 0.5.2
 

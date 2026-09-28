@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-export 'src/config_parser.dart';
+export 'src/config_parser.dart' hide declarationOf;
 export 'src/entry_point.dart';
 export 'src/missing_defaults_exception.dart';
 export 'src/models/analysis_severity.dart';
