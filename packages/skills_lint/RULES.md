@@ -94,17 +94,6 @@ governs how changes to these rules ship.
   `Description field is <N> characters; maximum is 1024. Cutoff:
   ...<40 chars before>|HERE|<40 chars after>... (see
   https://agentskills.io/specification#description-field)`
-  A configured limit below 1024 is a repository policy rather than a
-  specification requirement, so the diagnostic omits the link:
-  `Description field is <N> characters; configured maximum is <limit>.
-  Cutoff: ...<40 chars before>|HERE|<40 chars after>...`
-  A configured limit above 1024 allows descriptions that break the
-  specification. When a description exceeds it, the diagnostic names
-  the specification maximum and keeps the link:
-  `Description field is <N> characters; configured maximum is <limit>
-  (specification maximum is 1024). Cutoff: ...<40 chars
-  before>|HERE|<40 chars after>... (see
-  https://agentskills.io/specification#description-field)`
   The `|HERE|` marker sits at character `<limit>`, so the author can
   see what slipped past the limit without having to count characters.
 - **Parameters:**
