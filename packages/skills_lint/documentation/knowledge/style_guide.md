@@ -44,6 +44,8 @@ class SourceRegion {
 
 **Rationale:** Centralizing keys prevents typo bugs, eliminates magic string duplication, and ensures downstream renames fail at compile time.
 
+Group constants by concept (for example CLI flags, then messages). Separate each group with a blank line.
+
 ---
 
 ## 📦 Value Objects and Immutability
@@ -58,6 +60,16 @@ class SourceRegion {
 Extract multi-line strings, diagnostics, and formatted markdown message construction into focused private helper methods. Keeping string assembly separate from analysis routines prevents bloated `validate()` methods, ensures consistent diagnostic formatting, and makes rule logic straightforward to read and test.
 
 ---
+
+## 🪟 Windows Compatibility
+
+CI runs every test on Windows, macOS, and Linux.
+
+- Build every path with `package:path` (`p.join`). Never hardcode `/` or `\`.
+- If a test depends on an OS-specific command (such as `chmod`), give a Windows equivalent (such as `icacls`) or mock the call.
+
+---
+
 ## 📺 Standard Output & Error Hygiene
 
 - **Stdout:** Reserved exclusively for standard human-readable lint reports (`--format=text`) and valid, parseable machine documents (`--format=json`, `--format=sarif`).

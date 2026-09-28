@@ -15,6 +15,7 @@ Before stating that a task is complete, you MUST execute and pass the following 
 
 1.  **Format**: Run `dart format .` to format files, or `dart format --output=none --set-exit-if-changed .` to check without modifying. Ensure all files are formatted correctly.
 2.  **Analysis**: Run `dart analyze --fatal-infos` and ensure there are zero issues (including info-level issues).
+    Then check new code against the [Style Guide](../../../packages/skills_lint/documentation/knowledge/style_guide.md) for rules the analyzer cannot check.
 3.  **Metrics**: From the repository root, run `dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/example packages/skills_lint/skills .agents/skills` and ensure there are zero issues. This checks for cognitive complexity. It is the exact command CI runs in [`.github/workflows/skills_lint_workflow.yaml`](../../../.github/workflows/skills_lint_workflow.yaml), and [`packages/skills_lint/test/workflow_consistency_test.dart`](../../../packages/skills_lint/test/workflow_consistency_test.dart) fails if the two differ.
 4.  **Tests**: Run `dart test` and ensure all tests pass successfully.
 5.  **Skills**: If any skill files were modified, run `dart run skills_lint -d .agents/skills` to ensure they are valid.
@@ -23,7 +24,17 @@ Before stating that a task is complete, you MUST execute and pass the following 
     - **Explicit N/A**: If the task is internal-only, leave `CHANGELOG.md` untouched and output `[x] Changelog: (N/A) <reason>`.
     - Audit all entries against the *previously released version* (do not document changes to intermediate PR development code or new unreleased APIs as breaking changes).
 7.  **Temporal**: Ensure that code and code comments contain no relative temporal terms (e.g., 'now', 'currently', 'new', 'old', 'existing behavior').
-8.  **Documentation**: Ensure that any relevant documentation is updated.
+8.  **Documentation**: Update every document the change affects. If you change CLI flags, output, or config parsing, check `README.md`, `RULES.md`, and the other docs next to the code. Documented behavior must match the code.
+9.  **No Silent Deletions**: Diff the branch against its merge base. Name every removed comment, docstring, test, or eval assertion in the PR description, with the reason. Restore any removal you did not intend.
+10. **Citations**: Open every URL the change adds. Each URL must resolve and support the claim it is attached to. Cite the Agent Skills specification only for rules the specification states.
+
+## 🔍 Review Triage
+
+When you triage review comments, do not edit workspace files during the analysis. Write your proposed changes and wait for approval.
+
+## 🚀 Submission
+
+Push to GitHub over HTTPS as `reidbaker-agent`. Run `gh auth status` first to confirm the active account. Never push over SSH or with personal credentials.
 
 ## 🚦 Output Formatting
 

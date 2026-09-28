@@ -11,8 +11,10 @@ const int _maxCognitiveComplexityThreshold = 20;
 
 /// Documents that state the cognitive complexity gate, relative to the
 /// repository root. Each must quote the command CI runs verbatim.
+///
+/// `AGENTS.md` is absent because it links to the definition-of-done skill
+/// instead of restating the command.
 const List<String> _documentsQuotingCognitiveComplexityCommand = <String>[
-  'AGENTS.md',
   '.agents/skills/definition-of-done/SKILL.md',
 ];
 

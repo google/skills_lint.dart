@@ -74,6 +74,16 @@ in the
 [`skills-lint-validation`](packages/skills_lint/skills/skills-lint-validation/SKILL.md)
 skill.
 
+## Dart SDK on `PATH`
+
+Non-interactive shells, such as an agent's persistent terminal, do not load your
+shell profile. If `dart` is not found there, put the SDK on `PATH` first:
+
+```bash
+export PATH="/path/to/dart-sdk/bin:$PATH"
+dart run bin/skills_lint.dart
+```
+
 ## Testing and coverage
 
 Run the test suite from the package root (`packages/skills_lint`):
