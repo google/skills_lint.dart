@@ -22,6 +22,25 @@ Skills vendored here are symlinked into `.agents/skills/` so agents working on t
 
 All skill operations use the official Dart `skills` package (`dart install skills@^1.0.0`).
 
+### Running `skills add` in a Vendor Directory
+
+`skills` 1.0.0 refuses to run in a directory without a `pubspec.yaml`
+(`Bad state: No pubspec.yaml found in ...`), and vendor directories have none.
+Run every `skills add` below inside a throwaway pubspec, then delete it and the
+files `skills add` generates alongside it:
+
+```bash
+printf 'name: vendor_roll_tmp\nenvironment:\n  sdk: ^3.0.0\n' > pubspec.yaml
+skills add <upstream-repo> --skill <skill-name> --agent generic
+rm -rf pubspec.yaml pubspec.lock .dart_tool
+```
+
+Repeat `--skill` to install several skills from the same repository in one run.
+Never commit `pubspec.yaml`, `pubspec.lock`, or `.dart_tool` from a vendor
+directory. `skills add` also records every upstream skill that was not selected
+in `skills_config.json` with `"isInstalled": false`; commit those entries as
+written.
+
 ### Adding a New Skill from an Existing Vendored Repository
 
 1. Navigate to the target repository directory:
@@ -29,14 +48,16 @@ All skill operations use the official Dart `skills` package (`dart install skill
    cd third_party/skill-repos/<repo-slug>
    ```
 
-2. Add the skill using `skills add`:
+2. Add the skill using `skills add`, wrapped in a throwaway pubspec (see [Running `skills add` in a Vendor Directory](#running-skills-add-in-a-vendor-directory)):
    ```bash
+   printf 'name: vendor_roll_tmp\nenvironment:\n  sdk: ^3.0.0\n' > pubspec.yaml
    skills add <upstream-repo> --skill <skill-name> --agent generic
+   rm -rf pubspec.yaml pubspec.lock .dart_tool
    ```
 
 3. Create a relative symlink from `.agents/skills/`:
    ```bash
-   cd ../../.agents/skills
+   cd ../../../.agents/skills
    ln -s ../../third_party/skill-repos/<repo-slug>/.agents/skills/<skill-name> <skill-name>
    ```
 
@@ -52,14 +73,16 @@ All skill operations use the official Dart `skills` package (`dart install skill
 
 2. Copy the upstream repository's `LICENSE` file into the new directory.
 
-3. Install the desired skill(s):
+3. Install the desired skill(s), wrapped in a throwaway pubspec (see [Running `skills add` in a Vendor Directory](#running-skills-add-in-a-vendor-directory)):
    ```bash
+   printf 'name: vendor_roll_tmp\nenvironment:\n  sdk: ^3.0.0\n' > pubspec.yaml
    skills add <upstream-repo> --skill <skill-name> --agent generic
+   rm -rf pubspec.yaml pubspec.lock .dart_tool
    ```
 
 4. Create relative symlink(s) in `.agents/skills/`:
    ```bash
-   cd ../../.agents/skills
+   cd ../../../.agents/skills
    ln -s ../../third_party/skill-repos/<new-repo-slug>/.agents/skills/<skill-name> <skill-name>
    ```
 
@@ -74,16 +97,18 @@ To roll or update an existing skill to the latest upstream version:
    cd third_party/skill-repos/<repo-slug>
    ```
 
-2. Re-run `skills add`:
+2. Re-run `skills add`, wrapped in a throwaway pubspec (see [Running `skills add` in a Vendor Directory](#running-skills-add-in-a-vendor-directory)):
    ```bash
+   printf 'name: vendor_roll_tmp\nenvironment:\n  sdk: ^3.0.0\n' > pubspec.yaml
    skills add <upstream-repo> --skill <skill-name> --agent generic
+   rm -rf pubspec.yaml pubspec.lock .dart_tool
    ```
 
 3. Verify the diff in `.agents/skills/<skill-name>/` and `.config/dart_skills/skills_config.json`.
 
 4. Run linter and tests in `packages/skills_lint`:
    ```bash
-   cd ../../packages/skills_lint
+   cd ../../../packages/skills_lint
    dart test
    ```
 
