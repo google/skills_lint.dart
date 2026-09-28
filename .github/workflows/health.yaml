@@ -1,0 +1,25 @@
+# PR health checks from dart-lang/ecosystem. Check docs:
+# https://github.com/dart-lang/ecosystem/tree/main/pkgs/firehose#health
+
+name: Health
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  health:
+    uses: dart-lang/ecosystem/.github/workflows/health.yaml@16dca7ae5d3ff896a4db47e1ed6cd50f7ebbf115 # main
+    with:
+      # license is omitted because test/copyright_header_test.dart checks
+      # headers. coverage is omitted because skills_lint_workflow.yaml gates
+      # coverage with very_good_coverage.
+      checks: "changelog,breaking,do-not-submit,unused-dependencies"
+      fail_on: "changelog,do-not-submit"
+      warn_on: "breaking,unused-dependencies"
+    permissions:
+      pull-requests: write # Required for writing the pull request note
