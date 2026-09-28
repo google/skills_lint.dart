@@ -6,50 +6,74 @@
         "skills": [
           {
             "name": "dart-long-lines",
-            "installedAt": "2026-08-18T17:27:49.436543Z",
-            "contentHash": "0Ow+sE4/e0GP4e0lgVpI9Q==",
+            "installedAt": "2026-09-28T20:15:59.170302Z",
+            "contentHash": "guKRa4eZ/PCgg3i48ojd6Q==",
             "path": "skills/dart-long-lines"
           },
           {
             "name": "dart-doc-validation",
-            "installedAt": "2026-08-18T17:27:49.438564Z",
-            "contentHash": "n2IqfdFOc9Gvr6Hc+ncRbA==",
+            "installedAt": "2026-09-28T20:15:59.172508Z",
+            "contentHash": "/vuktDmaCEyYf9USy83+YQ==",
             "path": "skills/dart-doc-validation"
           },
           {
+            "name": "dart-seal-type-hierarchies",
+            "installedAt": "2026-09-28T20:15:59.172528Z",
+            "isInstalled": false,
+            "path": "skills/dart-seal-type-hierarchies"
+          },
+          {
+            "name": "dart-multiline-strings",
+            "installedAt": "2026-09-28T20:15:59.172532Z",
+            "isInstalled": false,
+            "path": "skills/dart-multiline-strings"
+          },
+          {
+            "name": "dash-discover",
+            "installedAt": "2026-09-28T20:15:59.172533Z",
+            "isInstalled": false,
+            "path": "skills/dash-discover"
+          },
+          {
             "name": "dart-test-coverage",
-            "installedAt": "2026-08-18T17:36:39.025422Z",
-            "contentHash": "3o+cHW7PINj+cVkKQ/hj9g==",
+            "installedAt": "2026-09-28T20:15:59.178939Z",
+            "contentHash": "6d5bWaMNXKbc7wdoXFMyKw==",
             "path": "skills/dart-test-coverage"
           },
           {
             "name": "dart-modern-features",
-            "installedAt": "2026-08-18T17:36:39.026875Z",
-            "contentHash": "AnrNPoAjYf3jrPsLb2FHXA==",
+            "installedAt": "2026-09-28T20:15:59.181005Z",
+            "contentHash": "bbOidkIx9IIL+ESfEJBv3w==",
             "path": "skills/dart-modern-features"
           },
           {
+            "name": "profile-dart-code",
+            "installedAt": "2026-09-28T20:15:59.181018Z",
+            "isInstalled": false,
+            "path": "skills/profile-dart-code"
+          },
+          {
             "name": "dart-matcher-best-practices",
-            "installedAt": "2026-08-18T17:27:49.440200Z",
-            "contentHash": "gj8wmAmQa/OoLAkNFUjhdw==",
+            "installedAt": "2026-09-28T20:15:59.184210Z",
+            "contentHash": "waRDIgTHyLM99qvUINENUw==",
             "path": "skills/dart-matcher-best-practices"
           },
           {
             "name": "dart-best-practices",
-            "installedAt": "2026-08-18T17:27:49.441665Z",
-            "contentHash": "xQp+0QhvcC1FKY6hf/YUIQ==",
+            "installedAt": "2026-09-28T20:15:59.186576Z",
+            "contentHash": "/CF6thB4fT8rQivXeJb3og==",
             "path": "skills/dart-best-practices"
           },
           {
             "name": "dart-package-maintenance",
-            "installedAt": "2026-08-18T17:27:49.443160Z",
-            "contentHash": "0H+7OSgyv3E0/rjt8kwlEQ==",
+            "installedAt": "2026-09-28T20:15:59.188688Z",
+            "contentHash": "XK229gcbfgaxpHAymIPkFg==",
             "path": "skills/dart-package-maintenance"
           },
           {
             "name": "dart-test-fundamentals",
-            "installedAt": "2026-08-18T17:36:39.028109Z",
-            "contentHash": "2HW6ObOpIuGZPyW7BMmXTA==",
+            "installedAt": "2026-09-28T20:15:59.190665Z",
+            "contentHash": "uOGLkeUv21/4sEtM5E0fGw==",
             "path": "skills/dart-test-fundamentals"
           }
         ]

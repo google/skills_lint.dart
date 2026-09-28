@@ -5,10 +5,94 @@
       "https://github.com/obra/superpowers.git": {
         "skills": [
           {
+            "name": "using-git-worktrees",
+            "installedAt": "2026-09-28T20:16:01.469937Z",
+            "isInstalled": false,
+            "path": "skills/using-git-worktrees"
+          },
+          {
             "name": "test-driven-development",
-            "installedAt": "2026-08-18T17:27:53.864197Z",
-            "contentHash": "PCdssGu3iJFLGNY7FvIIYA==",
+            "installedAt": "2026-09-28T20:16:01.472351Z",
+            "contentHash": "pSGVhtQUXJnky2TvJBbrVw==",
             "path": "skills/test-driven-development"
+          },
+          {
+            "name": "systematic-debugging",
+            "installedAt": "2026-09-28T20:16:01.472443Z",
+            "isInstalled": false,
+            "path": "skills/systematic-debugging"
+          },
+          {
+            "name": "using-superpowers",
+            "installedAt": "2026-09-28T20:16:01.472444Z",
+            "isInstalled": false,
+            "path": "skills/using-superpowers"
+          },
+          {
+            "name": "dispatching-parallel-agents",
+            "installedAt": "2026-09-28T20:16:01.472445Z",
+            "isInstalled": false,
+            "path": "skills/dispatching-parallel-agents"
+          },
+          {
+            "name": "executing-plans",
+            "installedAt": "2026-09-28T20:16:01.472445Z",
+            "isInstalled": false,
+            "path": "skills/executing-plans"
+          },
+          {
+            "name": "finishing-a-development-branch",
+            "installedAt": "2026-09-28T20:16:01.472446Z",
+            "isInstalled": false,
+            "path": "skills/finishing-a-development-branch"
+          },
+          {
+            "name": "brainstorming",
+            "installedAt": "2026-09-28T20:16:01.472446Z",
+            "isInstalled": false,
+            "path": "skills/brainstorming"
+          },
+          {
+            "name": "diagnosing-superpowers",
+            "installedAt": "2026-09-28T20:16:01.472447Z",
+            "isInstalled": false,
+            "path": "skills/diagnosing-superpowers"
+          },
+          {
+            "name": "writing-plans",
+            "installedAt": "2026-09-28T20:16:01.472447Z",
+            "isInstalled": false,
+            "path": "skills/writing-plans"
+          },
+          {
+            "name": "requesting-code-review",
+            "installedAt": "2026-09-28T20:16:01.472448Z",
+            "isInstalled": false,
+            "path": "skills/requesting-code-review"
+          },
+          {
+            "name": "receiving-code-review",
+            "installedAt": "2026-09-28T20:16:01.472448Z",
+            "isInstalled": false,
+            "path": "skills/receiving-code-review"
+          },
+          {
+            "name": "writing-skills",
+            "installedAt": "2026-09-28T20:16:01.472449Z",
+            "isInstalled": false,
+            "path": "skills/writing-skills"
+          },
+          {
+            "name": "verification-before-completion",
+            "installedAt": "2026-09-28T20:16:01.472450Z",
+            "isInstalled": false,
+            "path": "skills/verification-before-completion"
+          },
+          {
+            "name": "subagent-driven-development",
+            "installedAt": "2026-09-28T20:16:01.472450Z",
+            "isInstalled": false,
+            "path": "skills/subagent-driven-development"
           }
         ]
       }
