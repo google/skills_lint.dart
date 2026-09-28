@@ -22,6 +22,9 @@ packages/skills_lint/example/api_boundary_runner/pubspec.lock
 .agents/*.log
 /.claude/
 
+# Local git worktrees created by agents and developers
+.worktrees/
+
 # Build and test coverage artifacts
 coverage/
 
