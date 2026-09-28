@@ -57,6 +57,13 @@ void main() {
       expect(errors.single.message, contains('Cutoff at character 1024:'));
       expect(errors.single.message, endsWith('(see $_specUrl)'));
       expect(errors.single.message, isNot(contains('configured')));
+      expect(
+        errors.single.markdownMessage,
+        startsWith('**Frontmatter `description` exceeds maximum allowed length.**'),
+      );
+      expect(errors.single.markdownMessage, contains('over the **1024** limit)'));
+      expect(errors.single.markdownMessage, contains(_specUrl));
+      expect(errors.single.markdownMessage, isNot(contains('configured')));
     });
 
     test('a description of exactly maxChars passes and maxChars + 1 fails', () async {
@@ -82,6 +89,33 @@ void main() {
       expect(message, isNot(contains('agentskills.io')));
       expect(errors.single.markdownMessage, isNot(contains('agentskills.io')));
       expect(errors.single.markdownMessage, contains('configured'));
+    });
+
+    test('a limit of 1023 is the highest that uses the configured wording', () async {
+      final List<ValidationError> errors = await _validate(
+        DescriptionLengthRule(maxChars: 1023),
+        1024,
+      );
+
+      expect(errors.single.message, contains('configured maximum is 1023.'));
+      expect(errors.single.message, isNot(contains('agentskills.io')));
+      expect(
+        errors.single.markdownMessage,
+        startsWith('**Frontmatter `description` exceeds configured maximum length.**'),
+      );
+      expect(errors.single.markdownMessage, isNot(contains('agentskills.io')));
+    });
+
+    test('a limit of exactly 1024 uses the spec wording', () async {
+      final List<ValidationError> errors = await _validate(
+        // Explicit so the boundary stays pinned if the default changes.
+        // ignore: avoid_redundant_argument_values
+        DescriptionLengthRule(maxChars: 1024),
+        1025,
+      );
+
+      expect(errors.single.message, contains('; maximum is 1024.'));
+      expect(errors.single.message, endsWith('(see $_specUrl)'));
     });
 
     test('a limit of 1024 or higher reports the spec wording with the link', () async {
