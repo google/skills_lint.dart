@@ -26,7 +26,7 @@ import 'package:yaml/yaml.dart';
 import 'test_utils.dart';
 
 const _specUrl = 'https://agentskills.io/specification#description-field';
-const String _param = DescriptionLengthRule.maxDescriptionLengthParameter;
+const String _param = DescriptionLengthRule.maxLengthParameter;
 const String _flag = '--description-too-long-$_param';
 
 SkillContext _contextWithDescription(String description) {
@@ -44,9 +44,9 @@ Future<List<ValidationError>> _validate(DescriptionLengthRule rule, int length) 
 }
 
 void main() {
-  test('parameter name is namespaced to the description length', () {
-    expect(_param, 'description-length-max');
-    expect(_flag, '--description-too-long-description-length-max');
+  test('parameter key is max-length because the CLI flag already carries the rule name', () {
+    expect(_param, 'max-length');
+    expect(_flag, '--description-too-long-max-length');
   });
 
   group('DescriptionLengthRule limit', () {
@@ -166,7 +166,7 @@ void main() {
   });
 
   group('$_param constraint', () {
-    const ParameterConstraint constraint = DescriptionLengthRule.maxDescriptionLengthConstraint;
+    const ParameterConstraint constraint = DescriptionLengthRule.maxLengthConstraint;
 
     test('accepts integers of at least 1', () {
       expect(constraint.accepts(1), isTrue);
@@ -346,6 +346,14 @@ $rule
         ...args,
       ], workingDirectory: tempDir.path);
     }
+
+    test('--help lists the flag', () async {
+      final TestProcess process = await TestProcess.start('dart', [binPath, '--help']);
+
+      await process.shouldExit(0);
+      final String stdout = (await process.stdout.rest.toList()).join('\n');
+      expect(stdout, contains(_flag));
+    });
 
     test('passes a 600 character description with the default limit', () async {
       final TestProcess process = await run([]);

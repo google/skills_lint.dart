@@ -34,7 +34,7 @@ const _mockCheck = CheckType(
 /// A test below fails when a built-in rule declares a constraint that has no
 /// entry here, so every new constraint gets the end-to-end checks.
 const Map<String, Map<String, Object>> _rejectedValues = {
-  DescriptionLengthRule.ruleName: {DescriptionLengthRule.maxDescriptionLengthParameter: 0},
+  DescriptionLengthRule.ruleName: {DescriptionLengthRule.maxLengthParameter: 0},
 };
 
 List<(CheckType, String)> _builtInConstrainedParameters() => [

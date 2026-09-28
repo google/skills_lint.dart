@@ -39,12 +39,9 @@ class RuleRegistry {
       name: DescriptionLengthRule.ruleName,
       defaultSeverity: DescriptionLengthRule.defaultSeverity,
       help: 'Check if description is too long.',
-      parameterSchema: {
-        DescriptionLengthRule.maxDescriptionLengthParameter: RuleParameterType.integer,
-      },
+      parameterSchema: {DescriptionLengthRule.maxLengthParameter: RuleParameterType.integer},
       parameterConstraints: {
-        DescriptionLengthRule.maxDescriptionLengthParameter:
-            DescriptionLengthRule.maxDescriptionLengthConstraint,
+        DescriptionLengthRule.maxLengthParameter: DescriptionLengthRule.maxLengthConstraint,
       },
     ),
     const CheckType(
@@ -114,7 +111,7 @@ class RuleRegistry {
         return DescriptionLengthRule(
           severity: severity,
           maxLength:
-              parameters?.getInt(DescriptionLengthRule.maxDescriptionLengthParameter) ??
+              parameters?.getInt(DescriptionLengthRule.maxLengthParameter) ??
               DescriptionLengthRule.maxDescriptionLength,
         );
       case DisallowedFieldRule.ruleName:

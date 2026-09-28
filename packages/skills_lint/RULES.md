@@ -88,7 +88,7 @@ governs how changes to these rules ship.
 - **Default severity:** error
 - **Fixable:** no
 - **What it checks:** the YAML frontmatter `description:` field is
-  at most `description-length-max` characters (1024 by default, the
+  at most `max-length` characters (1024 by default, the
   Agent Skills specification limit).
 - **Diagnostic shape:** at the default limit of 1024:
   `Description field is <N> characters; maximum is 1024. Cutoff:
@@ -97,11 +97,11 @@ governs how changes to these rules ship.
   The `|HERE|` marker sits at character `<limit>`, so the author can
   see what slipped past the limit without having to count characters.
 - **Parameters:**
-  - `description-length-max` (positive integer): maximum description
+  - `max-length` (positive integer): maximum description
     length in characters. Defaults to `1024`. Set it in
     `skills_lint.yaml`
-    (`description-too-long: { severity: error, description-length-max: 500 }`)
-    or with `--description-too-long-description-length-max=500`. The CLI
+    (`description-too-long: { severity: error, max-length: 500 }`)
+    or with `--description-too-long-max-length=500`. The CLI
     flag takes precedence over the configuration file. Zero, negative,
     and non-integer values are rejected.
 - **Auto-fix behavior:** none. The fix is editorial; the linter

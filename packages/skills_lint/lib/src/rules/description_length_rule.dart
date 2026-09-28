@@ -18,7 +18,7 @@ import 'valid_yaml_metadata_rule.dart';
 ///
 /// The limit defaults to [maxDescriptionLength], the maximum set by the
 /// Agent Skills specification ([_descriptionFieldUrl]). Repositories can set
-/// a longer or shorter limit with the [maxDescriptionLengthParameter] rule
+/// a longer or shorter limit with the [maxLengthParameter] rule
 /// parameter.
 class DescriptionLengthRule extends SkillRule {
   DescriptionLengthRule({this.severity = defaultSeverity, this.maxLength = maxDescriptionLength});
@@ -27,10 +27,10 @@ class DescriptionLengthRule extends SkillRule {
   static const AnalysisSeverity defaultSeverity = AnalysisSeverity.error;
 
   /// The rule parameter that sets the maximum description length in characters.
-  static const String maxDescriptionLengthParameter = 'description-length-max';
+  static const String maxLengthParameter = 'max-length';
 
-  /// Restricts [maxDescriptionLengthParameter] to integers of at least 1.
-  static const maxDescriptionLengthConstraint = ParameterConstraint(
+  /// Restricts [maxLengthParameter] to integers of at least 1.
+  static const maxLengthConstraint = ParameterConstraint(
     description: 'a positive integer',
     accepts: _isPositiveInteger,
   );
