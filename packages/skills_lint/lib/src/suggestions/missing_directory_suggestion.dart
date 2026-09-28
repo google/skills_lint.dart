@@ -89,7 +89,7 @@ bool _existsFromWorkingDirectory(
     return false;
   }
   final String candidate = p.normalize(p.join(workingDirectory, declaredText));
-  return !p.equals(candidate, resolvedPath) && Directory(candidate).existsSync();
+  return !p.equals(candidate, resolvedPath) && _isDirectory(candidate);
 }
 
 /// Rewrites [declaredText], which exists relative to [workingDirectory], so
@@ -100,9 +100,19 @@ bool _existsFromWorkingDirectory(
 /// Comparing the two directories by their physical paths keeps a symlinked
 /// spelling from turning the suggestion into a machine-specific path, and
 /// leaves any symlinks inside [declaredText] as the author wrote them.
+///
+/// The tool resolves the suggestion lexically from [baseDirectory], so when
+/// [baseDirectory] is a symlink to a directory at a different depth the
+/// physical form does not lead back. It is kept only if it resolves that way
+/// to an existing directory; otherwise the lexical form is used.
 String _relativeAcrossAnchors(String declaredText, String workingDirectory, String baseDirectory) {
   final String hop = p.relative(_physical(workingDirectory), from: _physical(baseDirectory));
-  return p.normalize(p.join(hop, declaredText)).replaceAll(r'\', '/');
+  final String physical = p.normalize(p.join(hop, declaredText));
+  if (_isDirectory(p.normalize(p.join(baseDirectory, physical)))) {
+    return physical.replaceAll(r'\', '/');
+  }
+  final String target = p.normalize(p.join(workingDirectory, declaredText));
+  return p.relative(target, from: baseDirectory).replaceAll(r'\', '/');
 }
 
 /// [directory] with symlinks resolved, or unchanged when it cannot be resolved.
@@ -118,7 +128,7 @@ String _physical(String directory) {
 /// existing sibling, returning the corrected path only if it exists.
 String? _withOneFolderCorrected(String resolvedPath) {
   String existing = p.dirname(resolvedPath);
-  while (!Directory(existing).existsSync()) {
+  while (!_isDirectory(existing)) {
     final String up = p.dirname(existing);
     if (up == existing) {
       return null;
@@ -136,5 +146,16 @@ String? _withOneFolderCorrected(String resolvedPath) {
     return null;
   }
   final String candidate = p.joinAll(<String>[existing, match, ...missing.skip(1)]);
-  return Directory(candidate).existsSync() ? candidate : null;
+  return _isDirectory(candidate) ? candidate : null;
+}
+
+/// Whether [path] is an existing directory, or `false` when the operating
+/// system refuses to say, for example because a folder on the way cannot be
+/// read. Suggestions are best-effort and must never stop the run.
+bool _isDirectory(String path) {
+  try {
+    return Directory(path).existsSync();
+  } on FileSystemException {
+    return false;
+  }
 }

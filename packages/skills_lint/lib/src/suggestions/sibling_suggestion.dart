@@ -32,10 +32,6 @@ enum SiblingKind {
 /// order depends on the file system, so picking either one of a tie would
 /// make the suggestion differ between platforms.
 String? closestSiblingName(Directory parent, String missingName, {required SiblingKind kind}) {
-  if (!parent.existsSync()) {
-    return null;
-  }
-
   final String missing = missingName.toLowerCase();
   if (missing.isEmpty) {
     return null;

@@ -17,6 +17,17 @@ bool isCaseInsensitive(Directory directory) {
   return insensitive;
 }
 
+/// Creates a symlink at [link] pointing to [target], returning `false` when
+/// this platform cannot create one here.
+bool tryCreateLink(String link, String target) {
+  try {
+    Link(link).createSync(target);
+    return true;
+  } on FileSystemException {
+    return false;
+  }
+}
+
 void main() {
   group('suggestDirectory', () {
     late Directory tempDir;
@@ -112,9 +123,7 @@ void main() {
       Directory(p.join(real.path, '.agents', 'skills')).createSync(recursive: true);
       Directory(p.join(real.path, 'tool')).createSync();
       final String linked = p.join(tempDir.path, 'linked');
-      try {
-        Link(linked).createSync(real.path);
-      } on FileSystemException {
+      if (!tryCreateLink(linked, real.path)) {
         markTestSkipped('This platform cannot create a directory symlink here.');
         return;
       }
@@ -159,6 +168,41 @@ void main() {
           p.join(tempDir.path, 'elsewhere', 'skills'),
         );
       });
+    });
+
+    test('returns normally when a probed directory cannot be read', () {
+      createAll(['locked/skills']);
+      final String locked = p.join(tempDir.path, 'locked');
+      Process.runSync('chmod', ['000', locked]);
+      addTearDown(() => Process.runSync('chmod', ['755', locked]));
+
+      // "lockd" is one edit from "locked", so the suggestion probes
+      // "locked/skills", which the operating system refuses to stat.
+      expect(() => suggest('lockd/skills'), returnsNormally);
+    }, testOn: '!windows');
+
+    test('suggests a lexical path from a configuration directory linked elsewhere', () {
+      createAll(['repo/.agents/skills', 'a/b/c/shared-tool']);
+      // Run from the repository, as the operating system reports it, with the
+      // configuration in "tool", which links to "a/b/c/shared-tool".
+      final String repo = Directory(p.join(tempDir.path, 'repo')).resolveSymbolicLinksSync();
+      final String anchor = p.join(repo, 'tool');
+      if (!tryCreateLink(anchor, p.join(tempDir.path, 'a', 'b', 'c', 'shared-tool'))) {
+        markTestSkipped('This platform cannot create a directory symlink here.');
+        return;
+      }
+
+      // The tool resolves "../.agents/skills" from "repo/tool" lexically, so
+      // the suggestion must not walk up from the link's physical target.
+      expect(
+        suggestDirectory(
+          declaredText: '.agents/skills',
+          resolvedPath: p.join(anchor, '.agents', 'skills'),
+          baseDirectory: anchor,
+          workingDirectory: repo,
+        ),
+        '../.agents/skills',
+      );
     });
 
     test('treats a name that merely starts with "~" as relative', () {
