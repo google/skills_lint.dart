@@ -246,13 +246,16 @@ skills_lint:
 
       final TargetDeclaration? directory = declarationOf(config.directoryConfigs.single);
       expect(directory?.declaredPath, '.agents/skills');
-      expect(directory?.file, expectedFile);
-      expect(directory?.line, 6);
+      expect(directory?.source?.file, expectedFile);
+      // Line 6 of the file above: a comment, `skills_lint:`, a blank line,
+      // another comment and `directories:` all come before the entry.
+      expect(directory?.source?.line, 6);
       expect(directory?.anchorDirectory, expectedAnchor);
 
       final TargetDeclaration? skill = declarationOf(config.individualSkillConfigs.single);
       expect(skill?.declaredPath, 'one/skill');
-      expect(skill?.line, 8);
+      // Line 8: `individual_skills:` on line 7 is followed by its entry.
+      expect(skill?.source?.line, 8);
     });
 
     test('records the line of an entry in a flow-style list', () {
@@ -262,7 +265,7 @@ skills_lint:
         sourcePath: p.join(tempDir.path, 'skills_lint.yaml'),
       );
 
-      expect(config.directoryConfigs.map((t) => declarationOf(t)?.line), [2, 2]);
+      expect(config.directoryConfigs.map((t) => declarationOf(t)?.source?.line), [2, 2]);
     });
 
     test('names no file for content parsed without a source path', () {
@@ -270,7 +273,7 @@ skills_lint:
 
       final TargetDeclaration? declaration = declarationOf(config.individualSkillConfigs.single);
       expect(declaration?.declaredPath, 'a');
-      expect(declaration?.file, isNull);
+      expect(declaration?.source, isNull);
     });
 
     test('a target built directly has no declaration', () {

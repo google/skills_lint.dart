@@ -3,9 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 /// Suggests the directory a user meant when a target directory is missing.
-///
-/// `lib/src/suggestions/` holds the code that works out "Did you mean"
-/// suggestions for rules and diagnostics. Nothing in it is exported.
 library;
 
 import 'dart:io';

@@ -12,12 +12,7 @@ import 'package:meta/meta.dart';
 /// library.
 @immutable
 class TargetDeclaration {
-  const TargetDeclaration({
-    required this.declaredPath,
-    required this.anchorDirectory,
-    this.file,
-    this.line,
-  });
+  const TargetDeclaration({required this.declaredPath, required this.anchorDirectory, this.source});
 
   /// The target path exactly as written in the configuration.
   final String declaredPath;
@@ -25,12 +20,8 @@ class TargetDeclaration {
   /// The absolute directory that a relative [declaredPath] resolved against.
   final String anchorDirectory;
 
-  /// The absolute path of the configuration file, or `null` for
-  /// configuration content that did not come from a file.
-  final String? file;
-
-  /// The 1-based line of [declaredPath] in [file], or `null` when unknown.
-  ///
-  /// Only meaningful when [file] is not `null`.
-  final int? line;
+  /// The absolute path of the configuration file and the 1-based line of
+  /// [declaredPath] in it, or `null` for configuration content that did not
+  /// come from a file.
+  final ({String file, int line})? source;
 }

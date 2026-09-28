@@ -43,8 +43,7 @@ void main() {
           declaration: TargetDeclaration(
             declaredPath: '.agents/skills',
             anchorDirectory: tool,
-            file: configFile,
-            line: 3,
+            source: (file: configFile, line: 3),
           ),
         );
       });
@@ -73,10 +72,10 @@ void main() {
         expect(diagnostic.region?.startLine, 3);
       });
 
-      test('explains in markdown that the path is relative to the configuration file', () {
+      test('explains in markdown that the path is not relative to the working directory', () {
         expect(
           diagnostic.markdown,
-          allOf(contains('configuration file'), contains(tool), contains('.agents/skills')),
+          allOf(contains('working directory'), contains(tool), contains('.agents/skills')),
         );
       });
     });
@@ -94,7 +93,7 @@ void main() {
       expect(diagnostic.text, allOf(contains('in configuration'), isNot(contains('.yaml'))));
       expect(diagnostic.file, missing);
       expect(diagnostic.region, isNull);
-      expect(diagnostic.markdown, allOf(contains(repo), isNot(contains('containing that file'))));
+      expect(diagnostic.markdown, contains(repo));
     });
 
     test('names a root anchor without doubling its separator', () {
@@ -107,8 +106,7 @@ void main() {
             declaration: TargetDeclaration(
               declaredPath: 'no-such-dir-for-skills-lint',
               anchorDirectory: root,
-              file: p.join(root, 'skills_lint.yaml'),
-              line: 3,
+              source: (file: p.join(root, 'skills_lint.yaml'), line: 3),
             ),
           );
 
@@ -127,7 +125,7 @@ void main() {
 
         expect(diagnostic.text, contains('Did you mean ".agents/skills"?'));
         expect(diagnostic.text, isNot(contains('Declared as')));
-        expect(diagnostic.markdown, isNot(contains('configuration file')));
+        expect(diagnostic.markdown, isNot(contains('configuration')));
         expect(diagnostic.file, p.join(repo, '.agents', 'skils'));
         expect(diagnostic.region, isNull);
       });

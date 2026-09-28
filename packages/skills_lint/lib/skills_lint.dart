@@ -2,6 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// declarationOf reads where a configuration target was declared. It exists
+// so the tool can explain a missing target; hiding it keeps that data out of
+// the public API, so its shape can change without a breaking release.
 export 'src/config_parser.dart' hide declarationOf;
 export 'src/entry_point.dart';
 export 'src/missing_defaults_exception.dart';

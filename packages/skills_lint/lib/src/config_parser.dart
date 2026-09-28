@@ -115,6 +115,10 @@ class ConfigParser {
         return Configuration(parsingErrors: <String>[message]);
       }
       final parsingErrors = <String>[];
+      // [baseDirectory] anchors the paths written inside the configuration.
+      // It does not locate the configuration file itself, so a relative
+      // [sourcePath] resolves against the working directory, the same way
+      // `loadConfig` resolves its `path`.
       final String? sourceFile = sourcePath == null
           ? null
           : canonicalizePath(sourcePath, baseDirectory: Directory.current.path);
@@ -421,8 +425,9 @@ class ConfigParser {
       anchorDirectory,
     );
 
-    // package:yaml records a 0-based position for every node, block or flow.
-    final int? line = dir.nodes[pathKey]?.span.start.line;
+    final ({String file, int line})? source = sourceFile == null
+        ? null
+        : (file: sourceFile, line: _lineOf(dir, pathKey));
     return LintTargetConfig._parsed(
       path: canonicalizePath(path, baseDirectory: anchorDirectory),
       ruleConfigs: ruleConfigs,
@@ -432,11 +437,16 @@ class ConfigParser {
       declaration: TargetDeclaration(
         declaredPath: path,
         anchorDirectory: anchorDirectory,
-        file: sourceFile,
-        line: sourceFile == null || line == null ? null : line + 1,
+        source: source,
       ),
     );
   }
+
+  /// The 1-based line on which the value of [key] starts in [map].
+  ///
+  /// `package:yaml` records a position for every node, in block and flow
+  /// style alike. Falls back to the start of [map] if [key] is absent.
+  static int _lineOf(YamlMap map, String key) => (map.nodes[key]?.span ?? map.span).start.line + 1;
 
   /// Parses path-specific rule overrides under a target entry's `rules` key.
   ///

@@ -1,9 +1,9 @@
 ## 0.5.3-wip
 
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
-- Explained missing `directories` and `individual_skills` paths: the diagnostic shows the path as declared, the configuration file and line, the directory it resolved from, and a `Did you mean` suggestion when a nearby directory exists. Paths given with `-d` and `--skill` also get suggestions (#38).
-- **Behavior change:** for a missing configuration target, the SARIF and JSON `file` points at the configuration file and the `region` at the line that declared it, rather than at the missing directory. The missing directory is still named in the message.
-- **Behavior change:** `check-relative-paths` no longer suggests a file when two candidates are equally close, since which one was suggested depended on file system listing order.
+- When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from. If a similar directory exists, for example because the path is written relative to the wrong directory or a folder name has a typo, the error also asks `Did you mean "..."?`. Paths passed with `-d` or `--skill` get the same suggestion (#38).
+- **Behavior change:** in `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory. GitHub Code Scanning annotates the line you need to fix.
+- **Behavior change:** `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link. Which one it offered depended on the operating system, so the same skill could get different suggestions on different machines.
 
 ## 0.5.2
 

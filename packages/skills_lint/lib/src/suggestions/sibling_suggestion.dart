@@ -3,9 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 /// Picks the existing sibling closest to a name that does not exist.
-///
-/// `lib/src/suggestions/` holds the code that works out "Did you mean"
-/// suggestions for rules and diagnostics. Nothing in it is exported.
 library;
 
 import 'dart:io';

@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:path/path.dart' as p;
-
 import 'models/source_region.dart';
 import 'models/target_declaration.dart';
 import 'suggestions/missing_directory_suggestion.dart';
@@ -77,6 +75,9 @@ MissingTargetDiagnostic missingTargetDiagnostic({
   return (text: headline, markdown: null, file: resolvedPath, region: null);
 }
 
+/// Explains a configuration target: the path as declared, where it was
+/// declared, and the directory it resolved against. Points at the declaring
+/// line when the configuration came from a file.
 MissingTargetDiagnostic _configurationDiagnostic({
   required MissingTargetKind kind,
   required String headline,
@@ -86,8 +87,7 @@ MissingTargetDiagnostic _configurationDiagnostic({
 }) {
   final String declared = declaration.declaredPath;
   final String anchor = declaration.anchorDirectory;
-  final String? file = declaration.file;
-  final int? line = declaration.line;
+  final ({String file, int line})? source = declaration.source;
   final String? suggestion = suggestDirectory(
     declaredText: declared,
     resolvedPath: resolvedPath,
@@ -95,27 +95,22 @@ MissingTargetDiagnostic _configurationDiagnostic({
     workingDirectory: workingDirectory,
   );
 
-  final String where = switch ((file, line)) {
-    (null, _) => 'configuration',
-    (final String f, null) => f,
-    (final String f, final int l) => '$f:$l',
-  };
-  final didYouMean = suggestion == null ? '' : ' Did you mean "$suggestion"?';
-
-  final anchorShown = anchor.endsWith(p.separator) ? anchor : '$anchor${p.separator}';
-  final anchorGuidance = file != null && p.equals(p.dirname(file), anchor)
-      ? 'Paths in a configuration file are relative to the directory containing '
-            'that file (`$anchorShown`).'
-      : 'Paths in this configuration are relative to `$anchorShown`.';
+  final where = source == null ? 'configuration' : '${source.file}:${source.line}';
+  final details = StringBuffer('  Declared as "$declared" in $where, relative to $anchor.');
+  if (suggestion != null) {
+    details.write(' Did you mean "$suggestion"?');
+  }
 
   return (
-    text: '$headline\n  Declared as "$declared" in $where, relative to $anchor.$didYouMean',
-    markdown: _markdown(kind, declared, suggestion, anchorGuidance: anchorGuidance),
-    file: file ?? resolvedPath,
-    region: file != null && line != null ? SourceRegion(startLine: line) : null,
+    text: '$headline\n$details',
+    markdown: _markdown(kind, declared, suggestion, anchor: anchor),
+    file: source?.file ?? resolvedPath,
+    region: source == null ? null : SourceRegion(startLine: source.line),
   );
 }
 
+/// Explains a command-line target, which only has more to say when a nearby
+/// directory can be suggested.
 MissingTargetDiagnostic _commandLineDiagnostic({
   required MissingTargetKind kind,
   required String headline,
@@ -140,19 +135,15 @@ MissingTargetDiagnostic _commandLineDiagnostic({
 }
 
 /// Builds the markdown form, laid out like the `check-relative-paths`
-/// diagnostic.
-String _markdown(
-  MissingTargetKind kind,
-  String declared,
-  String? suggestion, {
-  String? anchorGuidance,
-}) {
+/// diagnostic. [anchor] is given for configuration targets only.
+String _markdown(MissingTargetKind kind, String declared, String? suggestion, {String? anchor}) {
   return <String>[
     '**Specified ${kind.label} does not exist:** `$declared`',
     '',
     '**How to fix:**',
     '- Check for typos in `$declared`.',
-    if (anchorGuidance != null) '- $anchorGuidance',
+    if (anchor != null)
+      '- Paths in this configuration are relative to `$anchor`, not to the working directory.',
     if (suggestion != null) ...<String>['', '*Did you mean `$suggestion`?*'],
   ].join('\n');
 }

@@ -3,9 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 /// Edit-distance scoring for "Did you mean" suggestions.
-///
-/// `lib/src/suggestions/` holds the code that works out "Did you mean"
-/// suggestions for rules and diagnostics. Nothing in it is exported.
 library;
 
 import 'dart:math' as math;
