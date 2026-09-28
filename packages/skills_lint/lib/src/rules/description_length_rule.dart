@@ -7,6 +7,7 @@ import 'package:yaml/yaml.dart';
 import '../cutoff_excerpt.dart';
 import '../length_limit.dart';
 import '../models/analysis_severity.dart';
+import '../models/parameter_constraint.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
@@ -27,6 +28,12 @@ class DescriptionLengthRule extends SkillRule {
 
   /// The rule parameter that sets the maximum description length in characters.
   static const String maxDescriptionLengthParameter = 'description-length-max';
+
+  /// Restricts [maxDescriptionLengthParameter] to integers of at least 1.
+  static const maxDescriptionLengthConstraint = ParameterConstraint(
+    description: 'a positive integer',
+    accepts: _isPositiveInteger,
+  );
 
   /// The maximum description length set by the Agent Skills specification.
   static const maxDescriptionLength = 1024;
@@ -83,3 +90,5 @@ class DescriptionLengthRule extends SkillRule {
     return errors;
   }
 }
+
+bool _isPositiveInteger(Object value) => value is int && value >= 1;

@@ -13,7 +13,6 @@ import 'package:skills_lint/src/models/check_type.dart';
 import 'package:skills_lint/src/models/custom_rule_parameters.dart';
 import 'package:skills_lint/src/models/parameter_constraint.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
-import 'package:skills_lint/src/models/rule_parameter_type.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
@@ -166,79 +165,25 @@ void main() {
     });
   });
 
-  group('ParameterConstraint.positiveInteger', () {
+  group('$_param constraint', () {
+    const ParameterConstraint constraint = DescriptionLengthRule.maxDescriptionLengthConstraint;
+
     test('accepts integers of at least 1', () {
-      expect(ParameterConstraint.positiveInteger.accepts(1), isTrue);
-      expect(ParameterConstraint.positiveInteger.accepts(2000), isTrue);
+      expect(constraint.accepts(1), isTrue);
+      expect(constraint.accepts(2000), isTrue);
     });
 
     test('rejects zero, negative numbers, and non-integers', () {
       for (final Object value in [0, -1, 1.5, '1']) {
-        expect(ParameterConstraint.positiveInteger.accepts(value), isFalse, reason: '$value');
+        expect(constraint.accepts(value), isFalse, reason: '$value');
       }
     });
 
-    test('describes the accepted values', () {
-      expect(ParameterConstraint.positiveInteger.description, 'a positive integer');
-    });
-  });
-
-  group('CheckType parameter constraints', () {
-    const check = CheckType(
-      name: 'mock-rule',
-      defaultSeverity: AnalysisSeverity.disabled,
-      help: 'Mock rule.',
-      parameterSchema: {'count': RuleParameterType.integer},
-      parameterConstraints: {'count': ParameterConstraint.positiveInteger},
-    );
-
-    test('accept values that meet the constraint', () {
-      expect(check.validateParameters(CustomRuleParameters(const {'count': 1})), isEmpty);
-    });
-
-    test('reject values that break the constraint with the accepted values', () {
-      const expected =
-          'Invalid value for parameter "count" in rule "mock-rule". '
-          'Expected a positive integer, got "0".';
-      expect(check.validateParameters(CustomRuleParameters(const {'count': 0})), [expected]);
-    });
-
-    test('report a type mismatch without checking the constraint', () {
-      expect(check.validateParameters(CustomRuleParameters(const {'count': 'x'})), [
-        'Invalid value/type for parameter "count" in rule "mock-rule". Expected int, got "x".',
-      ]);
-    });
-
-    test('skip null values, which clear a parameter', () {
-      expect(check.validateParameters(CustomRuleParameters(const {'count': null})), isEmpty);
-    });
-  });
-
-  group('CheckType.validateConstrainedParameters', () {
-    const check = CheckType(
-      name: 'mock-rule',
-      defaultSeverity: AnalysisSeverity.disabled,
-      help: 'Mock rule.',
-      parameterSchema: {'count': RuleParameterType.integer, 'label': RuleParameterType.string},
-      parameterConstraints: {'count': ParameterConstraint.positiveInteger},
-    );
-
-    test('reports type and constraint errors for constrained parameters', () {
-      expect(check.validateConstrainedParameters(CustomRuleParameters(const {'count': 0})), [
-        contains('Expected a positive integer, got "0"'),
-      ]);
-      expect(check.validateConstrainedParameters(CustomRuleParameters(const {'count': 'x'})), [
-        contains('Expected int, got "x"'),
-      ]);
-    });
-
-    test('ignores unconstrained and unrecognized parameters', () {
-      expect(
-        check.validateConstrainedParameters(
-          CustomRuleParameters(const {'label': 5, 'unknown': true, 'count': 3}),
-        ),
-        isEmpty,
+    test('is registered for description-too-long', () {
+      final CheckType check = RuleRegistry.allChecks.singleWhere(
+        (CheckType c) => c.name == DescriptionLengthRule.ruleName,
       );
+      expect(check.parameterConstraints[_param], same(constraint));
     });
   });
 

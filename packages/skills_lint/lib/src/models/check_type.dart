@@ -62,11 +62,19 @@ class CheckType {
   /// parameters supplied through the Dart API use this so that only
   /// parameters that need validation are rejected before a rule is built.
   List<String> validateConstrainedParameters(CustomRuleParameters parameters) {
-    return [
-      for (final String key in parameters.params.keys)
-        if (parameterConstraints.containsKey(key) && parameterSchema.containsKey(key))
-          ?_validateValue(key, parameters.params[key]),
-    ];
+    final List<String> errors = [];
+    for (final String key in parameters.params.keys) {
+      final bool isConstrained =
+          parameterConstraints.containsKey(key) && parameterSchema.containsKey(key);
+      if (!isConstrained) {
+        continue;
+      }
+      final String? error = _validateValue(key, parameters.params[key]);
+      if (error != null) {
+        errors.add(error);
+      }
+    }
+    return errors;
   }
 
   String? _validateValue(String key, Object? actualValue) {

@@ -1,7 +1,6 @@
 ## 0.5.3-wip
 
-- Added a `description-length-max` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { description-length-max: 500 }`) or with the `--description-too-long-description-length-max=500` CLI flag. The default stays at the specification limit of 1024 characters. A limit below 1024 reports `configured maximum is <N>` and omits the specification link. A limit above 1024 also names the specification maximum (#11).
-- **Diagnostic wording change:** `description-too-long` and the `valid-yaml-metadata` compatibility length check no longer repeat the maximum as the cutoff position. The text diagnostic reads `Cutoff: ...|HERE|...` instead of `Cutoff at character <N>: ...|HERE|...`, and the Markdown (SARIF) diagnostic reads `Cutoff excerpt:` instead of `Cutoff excerpt (at character <N>):`. Tooling that matches the full message text must be updated.
+- Added a `description-length-max` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { description-length-max: 500 }`) or with the `--description-too-long-description-length-max=500` CLI flag.
 
 ## 0.5.2
 

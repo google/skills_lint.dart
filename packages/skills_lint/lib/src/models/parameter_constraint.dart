@@ -19,12 +19,6 @@ class ParameterConstraint {
     required bool Function(Object value) accepts,
   }) : _accepts = accepts;
 
-  /// Accepts integers greater than or equal to 1.
-  static const positiveInteger = ParameterConstraint(
-    description: 'a positive integer',
-    accepts: _isPositiveInteger,
-  );
-
   /// Describes the accepted values, such as `a positive integer`.
   final String description;
 
@@ -36,5 +30,3 @@ class ParameterConstraint {
   /// `RuleParameterType`.
   bool accepts(Object value) => _accepts(value);
 }
-
-bool _isPositiveInteger(Object value) => value is int && value >= 1;

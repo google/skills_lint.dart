@@ -43,7 +43,8 @@ class RuleRegistry {
         DescriptionLengthRule.maxDescriptionLengthParameter: RuleParameterType.integer,
       },
       parameterConstraints: {
-        DescriptionLengthRule.maxDescriptionLengthParameter: ParameterConstraint.positiveInteger,
+        DescriptionLengthRule.maxDescriptionLengthParameter:
+            DescriptionLengthRule.maxDescriptionLengthConstraint,
       },
     ),
     const CheckType(

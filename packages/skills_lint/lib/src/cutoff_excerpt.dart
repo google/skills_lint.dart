@@ -16,27 +16,11 @@ import 'length_limit.dart';
 /// Number of characters of context to show on either side of the cutoff.
 const int _excerptContextChars = 40;
 
-/// Builds a length-overflow diagnostic for a frontmatter field whose
-/// value is longer than `limit.maxLength`.
+/// Builds a one-line diagnostic for a frontmatter field whose value is longer
+/// than `limit.maxLength`, with a `|HERE|` excerpt at the cutoff.
 ///
-/// Output shape (placeholders shown in backticks):
-///
-///     `fieldName` field is `N` characters; maximum is `maxLength`.
-///     Cutoff: ...`context`|HERE|`context`... (see `docUrl`)
-///
-/// The `|HERE|` marker sits at character `maxLength`, so the message does not
-/// repeat the position. When [LengthLimit.isConfigured] is true,
-/// `maximum is` reads `configured maximum is`, and:
-///
-/// * a limit below the specification maximum omits the `(see ...)` clause,
-///   because the limit is a repository policy rather than a specification
-///   requirement;
-/// * a limit above the specification maximum adds
-///   `(specification maximum is specMaxLength)` after the configured maximum,
-///   because the value also breaks the specification.
-///
-/// The `(see ...)` clause is also omitted when [docUrl] is null. Newlines in
-/// the excerpt are escaped to `\n` so the message stays on one line.
+/// [docUrl] is omitted when [limit] is below the specification maximum,
+/// because that limit is a repository policy.
 String buildLengthDiagnostic({
   required String fieldName,
   required String value,
@@ -58,11 +42,8 @@ String buildLengthDiagnostic({
       '$docsClause';
 }
 
-/// Builds a rich Markdown length-overflow diagnostic for SARIF and PR review comments.
-///
-/// Unlike the one-line [buildLengthDiagnostic], the Markdown form also states
-/// how many characters are over the limit. [limit] and [docUrl] otherwise
-/// behave as in [buildLengthDiagnostic].
+/// Builds the Markdown form of [buildLengthDiagnostic], used in SARIF output
+/// and PR review comments.
 String buildLengthMarkdownDiagnostic({
   required String fieldName,
   required String value,
