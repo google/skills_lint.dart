@@ -141,16 +141,6 @@ class Validator {
         ),
       );
       return null;
-    } catch (e) {
-      fatalErrors.add(
-        ValidationError(
-          ruleId: unexpectedError,
-          file: skillMdFile.path,
-          message: 'Unexpected error reading $_skillFileName: $e',
-          severity: _getSeverity(unexpectedError, AnalysisSeverity.error),
-        ),
-      );
-      return null;
     }
 
     YamlMap? parsedYaml;
@@ -168,7 +158,7 @@ class Validator {
           yamlParsingError = 'YAML frontmatter is not a map';
         }
       }
-    } catch (e) {
+    } on YamlException catch (e) {
       yamlParsingError = 'Failed to parse YAML: $e';
     }
 

@@ -175,5 +175,85 @@ void main() {
       final String sarifOutput = sarifSession.formatOutput();
       expect(sarifOutput, contains('"version": "2.1.0"'));
     });
+
+    test('records a failure and continues when the skills root cannot be listed', () async {
+      final rootDir = Directory(p.join(tempDir.path, 'unlistable'))..createSync();
+      await createDummySkill(
+        rootDir,
+        name: 'some-skill',
+        skillContent: '${buildFrontmatter(name: 'some-skill')}\n# Skill\n',
+      );
+      _chmod('000', rootDir.path);
+      addTearDown(() => _chmod('755', rootDir.path));
+
+      final ValidationSession session = createTestSession();
+      final bool shouldContinue = await session.processSkillRoot(rootDir.path);
+
+      expect(shouldContinue, isTrue);
+      expect(session.anyFailed, isTrue);
+      expect(
+        session.results.expand((r) => r.validationErrors).map((e) => e.message),
+        contains(contains('Failed to list children of')),
+      );
+    }, testOn: '!windows');
+
+    test('continues when the custom ignore file and baseline cannot be written', () async {
+      final Directory skillDir = await createDummySkill(
+        tempDir,
+        name: 'baseline-skill',
+        skillContent: '${buildFrontmatter(name: 'Bad_Name')}\n# Skill\n',
+      );
+      // The parent directory does not exist, so both the empty ignore file
+      // created on load and the baseline written afterwards fail with a
+      // FileSystemException.
+      final String ignorePath = p.join(tempDir.path, 'missing-dir', 'ignores.json');
+
+      final ValidationSession session = createTestSession(
+        ignoreFileOverride: ignorePath,
+        generateBaseline: true,
+      );
+      final bool shouldContinue = await session.processIndividualSkill(skillDir.path);
+
+      expect(shouldContinue, isTrue);
+      expect(session.anySkillsValidated, isTrue);
+      expect(File(ignorePath).existsSync(), isFalse);
+    });
+
+    test('leaves the skill directory in place when the rename fails', () async {
+      final pkgDir = Directory(p.join(tempDir.path, 'test_pkg'))..createSync(recursive: true);
+      File(p.join(pkgDir.path, 'pubspec.yaml')).writeAsStringSync('name: test_pkg\n');
+      final skillsDir = Directory(p.join(pkgDir.path, 'skills'))..createSync(recursive: true);
+      final Directory skillDir = await createDummySkill(
+        skillsDir,
+        name: 'dart-test-pkg-setup',
+        skillContent:
+            '${buildFrontmatter(name: 'dart-test-pkg-setup', description: 'Setup skill.')}\n# Setup\n',
+      );
+      // A read-only parent lets the fixer rewrite SKILL.md but makes the
+      // directory rename fail with a FileSystemException.
+      _chmod('555', skillsDir.path);
+      addTearDown(() => _chmod('755', skillsDir.path));
+
+      final ValidationSession session = createTestSession(
+        fix: true,
+        fixApply: true,
+        resolvedRuleConfigs: {
+          PublishedSkillNameRule.ruleName: const RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+      );
+      final bool shouldContinue = await session.processIndividualSkill(skillDir.path);
+
+      expect(shouldContinue, isTrue);
+      expect(skillDir.existsSync(), isTrue);
+      expect(Directory(p.join(skillsDir.path, 'test-pkg-setup')).existsSync(), isFalse);
+    }, testOn: '!windows');
   });
+}
+
+/// Sets POSIX permission [mode] on [path].
+void _chmod(String mode, String path) {
+  final ProcessResult result = Process.runSync('chmod', [mode, path]);
+  if (result.exitCode != 0) {
+    throw StateError('chmod $mode $path failed: ${result.stderr}');
+  }
 }

@@ -141,7 +141,10 @@ Future<void> runApp(List<String> args) async {
       return;
     }
     resolvedRuleConfigs = resolveRuleConfigsFromCli(results);
-  } catch (e) {
+  } on FormatException catch (e) {
+    // ArgParserException (a FormatException) for unknown flags or disallowed
+    // values, and FormatException from resolveRuleConfigsFromCli for invalid
+    // rule parameter values.
     _printUsage(parser, e.toString());
     exitCode = 64; // Bad usage
     return;
@@ -337,9 +340,6 @@ Future<Configuration?> _loadConfig(
       config = await ConfigParser.loadConfig(path: configPath);
     } on FileSystemException catch (e) {
       _log.severe('Error: ${e.message} (${e.path})');
-      return null;
-    } catch (e) {
-      _log.severe('Error loading configuration: $e');
       return null;
     }
   }

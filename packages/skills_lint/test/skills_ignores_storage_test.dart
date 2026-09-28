@@ -85,5 +85,21 @@ void main() {
       expect(ignores.skills['skill-b']!.length, equals(2));
       expect(ignores.skills['skill-c']!.length, equals(3));
     });
+
+    test('returns empty ignores when the file is not valid JSON', () async {
+      final file = File('${tempDir.path}/malformed.json');
+      await file.writeAsString('{"skills": ');
+
+      final SkillsIgnores ignores = await storage.load(file.path);
+      expect(ignores.skills, isEmpty);
+    });
+
+    test('returns empty ignores when the JSON has the wrong shape', () async {
+      final file = File('${tempDir.path}/wrong_shape.json');
+      await file.writeAsString('{"skills": ["not", "a", "map"]}');
+
+      final SkillsIgnores ignores = await storage.load(file.path);
+      expect(ignores.skills, isEmpty);
+    });
   });
 }

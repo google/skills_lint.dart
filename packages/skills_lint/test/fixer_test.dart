@@ -87,6 +87,15 @@ class RuleThrows extends SkillRule implements FixableRule {
       Future<String>.error(Exception('Fix failed'));
 }
 
+class RuleThrowsError extends RuleThrows {
+  @override
+  String get name => 'rule-throws-error';
+
+  @override
+  Future<String> fix(String filePath, String currentContent, Directory directory) =>
+      Future.error(StateError('Fixer bug'));
+}
+
 void main() {
   group('Fixer Sequential Execution', () {
     late Directory tempDir;
@@ -166,6 +175,25 @@ void main() {
 
       final String content = await skillFile.readAsString();
       expect(content, 'Original');
+    });
+
+    test('an Error thrown by one fixer does not stop the other fixers', () async {
+      final skillDir = Directory(p.join(tempDir.path, 'test-skill'));
+      await skillDir.create();
+      final skillFile = File(p.join(skillDir.path, 'SKILL.md'));
+      await skillFile.writeAsString('Original');
+
+      final bool success = await validateSkillsInternal(
+        individualSkillPaths: [skillDir.path],
+        fixApply: true,
+        quiet: true,
+        customRules: [RuleA(), RuleThrowsError(), RuleB()],
+      );
+
+      expect(success, isFalse);
+
+      final String content = await skillFile.readAsString();
+      expect(content, 'Original A B');
     });
   });
 }

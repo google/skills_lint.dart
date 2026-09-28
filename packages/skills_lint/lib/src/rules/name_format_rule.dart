@@ -266,31 +266,38 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final String frontmatter = match.group(1)!;
 
-    // Replace the name node span while preserving comments and formatting precisely
+    final Object? yaml;
     try {
-      final yaml = loadYaml(frontmatter) as YamlMap;
-      final YamlNode? nameNode = getNameNode(yaml);
-      if (nameNode == null ||
-          nameNode is! YamlScalar ||
-          nameNode.value == null ||
-          nameNode.value.toString().trim().isEmpty) {
-        return currentContent;
-      }
-
-      final SourceSpan span = nameNode.span;
-      final String beforeName = frontmatter.substring(0, span.start.offset);
-      final String afterName = frontmatter.substring(span.end.offset);
-
-      final fixedFrontmatter = '$beforeName$targetName$afterName';
-      final int yamlOffset = currentContent.indexOf(frontmatter, match.start);
-      return currentContent.replaceRange(
-        yamlOffset,
-        yamlOffset + frontmatter.length,
-        fixedFrontmatter,
-      );
-    } catch (_) {
+      yaml = loadYaml(frontmatter);
+    } on YamlException {
+      // Malformed frontmatter has no name node to rewrite. The validator
+      // reports the YAML error, so leave the content unchanged.
       return currentContent;
     }
+    if (yaml is! YamlMap) {
+      return currentContent;
+    }
+
+    // Replace the name node span while preserving comments and formatting precisely
+    final YamlNode? nameNode = getNameNode(yaml);
+    if (nameNode == null ||
+        nameNode is! YamlScalar ||
+        nameNode.value == null ||
+        nameNode.value.toString().trim().isEmpty) {
+      return currentContent;
+    }
+
+    final SourceSpan span = nameNode.span;
+    final String beforeName = frontmatter.substring(0, span.start.offset);
+    final String afterName = frontmatter.substring(span.end.offset);
+
+    final fixedFrontmatter = '$beforeName$targetName$afterName';
+    final int yamlOffset = currentContent.indexOf(frontmatter, match.start);
+    return currentContent.replaceRange(
+      yamlOffset,
+      yamlOffset + frontmatter.length,
+      fixedFrontmatter,
+    );
   }
 
   @visibleForTesting

@@ -171,13 +171,22 @@ class SarifSerializer {
   }
 
   static String? _findGitRoot() {
+    final ProcessResult result;
     try {
-      final ProcessResult result = Process.runSync('git', ['rev-parse', '--show-toplevel']);
-      if (result.exitCode == 0) {
-        return result.stdout.toString().trim();
-      }
-    } catch (_) {}
-    return null;
+      result = Process.runSync('git', ['rev-parse', '--show-toplevel']);
+    } on ProcessException {
+      // `git` is not installed or not on PATH. Fall back to the working
+      // directory.
+      return null;
+    } on FormatException {
+      // Outside Windows, Process.runSync decodes output as strict UTF-8, so a
+      // repository path or git message that is not valid UTF-8 throws here.
+      return null;
+    }
+    if (result.exitCode != 0) {
+      return null;
+    }
+    return result.stdout.toString().trim();
   }
 
   static ({String uri, String? uriBaseId}) _resolveUri(

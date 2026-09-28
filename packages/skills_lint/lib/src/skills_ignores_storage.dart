@@ -22,7 +22,16 @@ class SkillsIgnoresStorage {
       final String content = await file.readAsString();
       final json = jsonDecode(content) as Map<String, dynamic>;
       return SkillsIgnores.fromJson(json);
-    } catch (_) {
+    } on FileSystemException {
+      // Unreadable file (permissions, invalid UTF-8).
+      return SkillsIgnores(skills: {});
+    } on FormatException {
+      // Not valid JSON.
+      return SkillsIgnores(skills: {});
+    } on TypeError {
+      // Valid JSON of the wrong shape, including `{}` with no `skills` key.
+      // The generated _$SkillsIgnoresFromJson checks shape only through `as`
+      // casts, so a TypeError is how it reports a malformed document.
       return SkillsIgnores(skills: {});
     }
   }

@@ -76,6 +76,24 @@ void main() {
       expect(p.isAbsolute(resolved), isTrue, reason: 'resolved path "$resolved" is not absolute');
     });
 
+    test('checks a link that is not a valid URI as a file path', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      // Uri.parse rejects "1a:b.md" (a scheme must start with a letter).
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Odd link](1a:b.md)\n');
+
+      final validator = Validator(
+        ruleConfigs: {
+          RelativePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.warning),
+        },
+      );
+      final ValidationResult result = await validator.validate(skillDir);
+
+      expect(result.warnings, contains(contains('Linked file does not exist')));
+      expect(result.warnings, contains(contains('1a:b.md')));
+    });
+
     test('did-you-mean: suggests near-miss sibling file when one exists', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
       await File(
