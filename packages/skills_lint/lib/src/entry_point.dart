@@ -640,6 +640,16 @@ Object? _parseParameterValue(String paramFlag, Object? rawValue, RuleParameterTy
     return parsedInt;
   }
 
+  if (expectedType == RuleParameterType.positiveInteger) {
+    final int? parsedInt = int.tryParse(rawValue.toString());
+    if (parsedInt == null || parsedInt < 1) {
+      throw FormatException(
+        'Invalid value "$rawValue" for parameter "$paramFlag". Expected a positive integer.',
+      );
+    }
+    return parsedInt;
+  }
+
   if (expectedType == RuleParameterType.boolean) {
     final String lower = rawValue.toString().toLowerCase();
     if (lower != 'true' && lower != 'false') {

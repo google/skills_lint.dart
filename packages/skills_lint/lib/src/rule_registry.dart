@@ -38,6 +38,7 @@ class RuleRegistry {
       name: DescriptionLengthRule.ruleName,
       defaultSeverity: DescriptionLengthRule.defaultSeverity,
       help: 'Check if description is too long.',
+      parameterSchema: {DescriptionLengthRule.charsParameter: RuleParameterType.positiveInteger},
     ),
     const CheckType(
       name: DisallowedFieldRule.ruleName,
@@ -97,7 +98,15 @@ class RuleRegistry {
       case AbsolutePathsRule.ruleName:
         return AbsolutePathsRule(severity: severity);
       case DescriptionLengthRule.ruleName:
-        return DescriptionLengthRule(severity: severity);
+        return DescriptionLengthRule(
+          severity: severity,
+          maxChars: _readPositiveInt(
+            parameters,
+            DescriptionLengthRule.charsParameter,
+            ruleName: name,
+            defaultValue: DescriptionLengthRule.defaultMaxChars,
+          ),
+        );
       case DisallowedFieldRule.ruleName:
         return DisallowedFieldRule(severity: severity);
       case PreventSkillsShPublishingRule.ruleName:
@@ -119,5 +128,31 @@ class RuleRegistry {
       default:
         return null;
     }
+  }
+
+  /// Reads the positive integer parameter [key] from [parameters].
+  ///
+  /// Returns [defaultValue] when [key] is absent or null. Throws an
+  /// [ArgumentError] when the value is present but is not an integer of at
+  /// least 1. Configuration files and CLI flags are validated before this
+  /// point; this check covers parameters supplied through the Dart API.
+  static int _readPositiveInt(
+    CustomRuleParameters? parameters,
+    String key, {
+    required String ruleName,
+    required int defaultValue,
+  }) {
+    final Object? value = parameters?[key];
+    if (value == null) {
+      return defaultValue;
+    }
+    if (!RuleParameterType.positiveInteger.isValid(value)) {
+      throw ArgumentError.value(
+        value,
+        key,
+        'Parameter "$key" for rule "$ruleName" must be a positive integer',
+      );
+    }
+    return value as int;
   }
 }

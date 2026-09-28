@@ -45,8 +45,10 @@ see the [`Recipes` section of the README](../../../../README.md#recipes).
    Rules enabled by default — `check-absolute-paths`,
    `valid-yaml-metadata`, `invalid-skill-name`,
    `description-too-long` — only need to be listed if you want to
-   change their severity. See [`RULES.md`](../../RULES.md) for the
-   full list.
+   change their severity or parameters (for example,
+   `description-too-long: { severity: error, chars: 500 }` lowers the
+   description limit from the default 1024 characters). See
+   [`RULES.md`](../../RULES.md) for the full list.
 
 3. **Generate a baseline** if you're integrating into a repository
    with pre-existing skills that have legacy violations you don't

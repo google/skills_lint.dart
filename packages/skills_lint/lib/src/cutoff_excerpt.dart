@@ -23,35 +23,44 @@ const int _excerptContextChars = 40;
 ///     Cutoff at character `maxLength`: ...`context`|HERE|`context`...
 ///     (see `docUrl`)
 ///
-/// The `(see ...)` clause is omitted when [docUrl] is null. Newlines in
-/// the excerpt are escaped to `\n` so the message stays on one line.
+/// The `(see ...)` clause is omitted when [docUrl] is null. When
+/// [isConfiguredLimit] is true, `maximum` reads `configured maximum` to mark
+/// the limit as a repository policy. Newlines in the excerpt are escaped to
+/// `\n` so the message stays on one line.
 String buildLengthDiagnostic({
   required String fieldName,
   required String value,
   required int maxLength,
   String? docUrl,
+  bool isConfiguredLimit = false,
 }) {
   final String excerpt = _buildCutoffExcerpt(value, maxLength);
   final docsClause = docUrl != null ? ' (see $docUrl)' : '';
+  final maximumLabel = isConfiguredLimit ? 'configured maximum' : 'maximum';
   return '$fieldName field is ${value.length} characters; '
-      'maximum is $maxLength. '
+      '$maximumLabel is $maxLength. '
       'Cutoff at character $maxLength: $excerpt'
       '$docsClause';
 }
 
 /// Builds a rich Markdown length-overflow diagnostic for SARIF and PR review comments.
+///
+/// [docUrl] and [isConfiguredLimit] behave as in [buildLengthDiagnostic].
 String buildLengthMarkdownDiagnostic({
   required String fieldName,
   required String value,
   required int maxLength,
   String? docUrl,
+  bool isConfiguredLimit = false,
 }) {
   final int overCount = value.length - maxLength;
   final String excerpt = _buildCutoffExcerpt(value, maxLength);
   final String boldExcerpt = excerpt.replaceAll('|HERE|', '**|HERE|**');
   final docsClause = docUrl != null ? '\n\n*(See [Agent Skills Specification]($docUrl))*' : '';
-  return '**Frontmatter `$fieldName` exceeds maximum allowed length.**\n\n'
-      '**${value.length}** characters (**$overCount** characters over the **$maxLength** limit).\n\n'
+  final maximumLabel = isConfiguredLimit ? 'configured maximum' : 'maximum allowed';
+  final limitLabel = isConfiguredLimit ? 'configured limit' : 'limit';
+  return '**Frontmatter `$fieldName` exceeds $maximumLabel length.**\n\n'
+      '**${value.length}** characters (**$overCount** characters over the **$maxLength** $limitLabel).\n\n'
       '**Cutoff excerpt (at character $maxLength):**\n'
       '> $boldExcerpt'
       '$docsClause';
