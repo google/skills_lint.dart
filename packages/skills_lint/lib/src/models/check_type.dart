@@ -4,6 +4,7 @@
 
 import 'analysis_severity.dart';
 import 'custom_rule_parameters.dart';
+import 'parameter_value_checks.dart';
 import 'rule_parameter_type.dart';
 
 /// Encapsulates metadata and severity state for a specific validation rule.
@@ -13,6 +14,7 @@ class CheckType {
     required this.defaultSeverity,
     required this.help,
     this.parameterSchema = const {},
+    this.parameterValueChecks = const {},
   });
   final String name;
 
@@ -25,9 +27,17 @@ class CheckType {
   /// Custom configuration options supported by this check.
   final Map<String, RuleParameterType> parameterSchema;
 
-  /// Validates the given [options] against this check's [parameterSchema] schema.
+  /// Value checks for parameters in [parameterSchema], keyed by parameter name.
   ///
-  /// Returns a list of error messages for any unrecognized options or type mismatches.
+  /// A check runs only after the value matches its [RuleParameterType].
+  final Map<String, ParameterValueCheck> parameterValueChecks;
+
+  /// Validates the given [parameters] against this check's [parameterSchema]
+  /// and [parameterValueChecks].
+  ///
+  /// Returns a list of error messages for any unrecognized parameters, type
+  /// mismatches, or values rejected by a [ParameterValueCheck]. Null values
+  /// clear a parameter and are not checked.
   List<String> validateParameters(CustomRuleParameters parameters) {
     final List<String> errors = [];
     for (final String key in parameters.params.keys) {
@@ -35,15 +45,40 @@ class CheckType {
         errors.add('Unrecognized parameter "$key" for rule "$name".');
         continue;
       }
-      final RuleParameterType expectedType = parameterSchema[key]!;
-      final Object? actualValue = parameters.params[key];
-      if (actualValue != null && !expectedType.isValid(actualValue)) {
-        errors.add(
-          'Invalid value/type for parameter "$key" in rule "$name". '
-          'Expected ${expectedType.description}, got "$actualValue".',
-        );
+      final String? error = _validateValue(key, parameters.params[key]);
+      if (error != null) {
+        errors.add(error);
       }
     }
     return errors;
+  }
+
+  /// Validates [parameters] like [validateParameters], but ignores keys that
+  /// are not in [parameterSchema].
+  ///
+  /// Used for parameters supplied through the Dart API, where unrecognized
+  /// keys are ignored.
+  List<String> validateKnownParameterValues(CustomRuleParameters parameters) {
+    return [
+      for (final String key in parameters.params.keys)
+        if (parameterSchema.containsKey(key)) ?_validateValue(key, parameters.params[key]),
+    ];
+  }
+
+  String? _validateValue(String key, Object? actualValue) {
+    if (actualValue == null) {
+      return null;
+    }
+    final RuleParameterType expectedType = parameterSchema[key]!;
+    if (!expectedType.isValid(actualValue)) {
+      return 'Invalid value/type for parameter "$key" in rule "$name". '
+          'Expected ${expectedType.description}, got "$actualValue".';
+    }
+    final String? accepted = parameterValueChecks[key]?.call(actualValue);
+    if (accepted != null) {
+      return 'Invalid value for parameter "$key" in rule "$name". '
+          'Expected $accepted, got "$actualValue".';
+    }
+    return null;
   }
 }

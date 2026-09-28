@@ -1,6 +1,7 @@
 ## 0.5.3-wip
 
-- Added a `chars` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { chars: 500 }`) or with the `--description-too-long-chars=500` CLI flag. The default stays at the specification limit of 1024 characters. A limit below 1024 reports `configured maximum is <N>` and omits the specification link (#11).
+- Added a `max_description_length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max_description_length: 500 }`) or with the `--description-too-long-max_description_length=500` CLI flag. The default stays at the specification limit of 1024 characters. A limit below 1024 reports `configured maximum is <N>` and omits the specification link. A limit above 1024 also names the specification maximum (#11).
+- Rule parameters passed to `validateSkills` or `Validator` through the Dart API are checked against the rule's parameter types. An invalid value for a recognized parameter throws an `ArgumentError` instead of being ignored.
 
 ## 0.5.2
 

@@ -150,7 +150,6 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `--generate-baseline`: Write every current error into `skills_lint_ignore.json` so existing violations are ignored on future runs.
 - `--[no-]check-trailing-whitespace`: Enable/disable checking for trailing whitespace. (Disabled by default).
 - `--[no-]published-skill-name`: Enable/disable checking that published package skills follow the package naming convention. (Disabled by default).
-- `--description-too-long-chars=<N>`: Override the maximum description length, in characters, for the `description-too-long` rule. Must be a positive integer. Defaults to `1024`, the Agent Skills specification limit.
 - `--fix`: Write fixes for failing lints to disk.
 - `--dry-run`: When combined with `--fix`, prints the proposed diff without writing.
 - `--fix-apply`: *Deprecated* alias for `--fix`. Prints a deprecation notice on use.
@@ -176,9 +175,6 @@ skills_lint:
   rules:
     check-relative-paths: error
     check-absolute-paths: error
-    description-too-long:
-      severity: error
-      chars: 500 # Optional. Defaults to 1024, the specification limit.
   directories:
     - path: "~/.agents/skills"
       ignore_file: "~/.agents/skills/ignore.json"

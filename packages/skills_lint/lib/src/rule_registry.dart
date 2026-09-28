@@ -5,6 +5,7 @@
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/custom_rule_parameters.dart';
+import 'models/parameter_value_checks.dart';
 import 'models/rule_parameter_type.dart';
 import 'models/skill_rule.dart';
 import 'rules/absolute_paths_rule.dart';
@@ -38,7 +39,12 @@ class RuleRegistry {
       name: DescriptionLengthRule.ruleName,
       defaultSeverity: DescriptionLengthRule.defaultSeverity,
       help: 'Check if description is too long.',
-      parameterSchema: {DescriptionLengthRule.charsParameter: RuleParameterType.positiveInteger},
+      parameterSchema: {
+        DescriptionLengthRule.maxDescriptionLengthParameter: RuleParameterType.integer,
+      },
+      parameterValueChecks: {
+        DescriptionLengthRule.maxDescriptionLengthParameter: requirePositiveInteger,
+      },
     ),
     const CheckType(
       name: DisallowedFieldRule.ruleName,
@@ -82,11 +88,17 @@ class RuleRegistry {
   ];
 
   /// Creates a rule instance by name, or returns null if not a class-based rule.
+  ///
+  /// Throws an [ArgumentError] if a recognized parameter in [parameters] fails
+  /// [CheckType.validateKnownParameterValues]. Configuration files and CLI
+  /// flags are validated earlier through [CheckType.validateParameters]; this
+  /// check covers parameters supplied through the Dart API.
   static SkillRule? createRule(
     String name,
     AnalysisSeverity severity, [
     CustomRuleParameters? parameters,
   ]) {
+    _checkParameterValues(name, parameters);
     switch (name) {
       case PathDoesNotExistRule.ruleName:
         RegExp? excludeRegExp;
@@ -100,12 +112,9 @@ class RuleRegistry {
       case DescriptionLengthRule.ruleName:
         return DescriptionLengthRule(
           severity: severity,
-          maxChars: _readPositiveInt(
-            parameters,
-            DescriptionLengthRule.charsParameter,
-            ruleName: name,
-            defaultValue: DescriptionLengthRule.defaultMaxChars,
-          ),
+          maxLength:
+              parameters?.getInt(DescriptionLengthRule.maxDescriptionLengthParameter) ??
+              DescriptionLengthRule.maxDescriptionLength,
         );
       case DisallowedFieldRule.ruleName:
         return DisallowedFieldRule(severity: severity);
@@ -130,29 +139,14 @@ class RuleRegistry {
     }
   }
 
-  /// Reads the positive integer parameter [key] from [parameters].
-  ///
-  /// Returns [defaultValue] when [key] is absent or null. Throws an
-  /// [ArgumentError] when the value is present but is not an integer of at
-  /// least 1. Configuration files and CLI flags are validated before this
-  /// point; this check covers parameters supplied through the Dart API.
-  static int _readPositiveInt(
-    CustomRuleParameters? parameters,
-    String key, {
-    required String ruleName,
-    required int defaultValue,
-  }) {
-    final Object? value = parameters?[key];
-    if (value == null) {
-      return defaultValue;
+  static void _checkParameterValues(String name, CustomRuleParameters? parameters) {
+    if (parameters == null || parameters.isEmpty) {
+      return;
     }
-    if (!RuleParameterType.positiveInteger.isValid(value)) {
-      throw ArgumentError.value(
-        value,
-        key,
-        'Parameter "$key" for rule "$ruleName" must be a positive integer',
-      );
+    final CheckType? check = allChecks.where((CheckType c) => c.name == name).firstOrNull;
+    final List<String> errors = check?.validateKnownParameterValues(parameters) ?? const [];
+    if (errors.isNotEmpty) {
+      throw ArgumentError(errors.join('\n'));
     }
-    return value as int;
   }
 }

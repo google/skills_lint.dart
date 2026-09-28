@@ -6,9 +6,6 @@
 enum RuleParameterType {
   string,
   integer,
-
-  /// An integer greater than or equal to 1.
-  positiveInteger,
   boolean,
   stringList,
   regExp;
@@ -20,8 +17,6 @@ enum RuleParameterType {
         return value is String;
       case RuleParameterType.integer:
         return value is int;
-      case RuleParameterType.positiveInteger:
-        return value is int && value > 0;
       case RuleParameterType.boolean:
         return value is bool;
       case RuleParameterType.stringList:
@@ -46,8 +41,6 @@ enum RuleParameterType {
         return 'String';
       case RuleParameterType.integer:
         return 'int';
-      case RuleParameterType.positiveInteger:
-        return 'positive integer (int >= 1)';
       case RuleParameterType.boolean:
         return 'bool';
       case RuleParameterType.stringList:
