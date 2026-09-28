@@ -151,11 +151,13 @@ class _DocRule {
 /// `Default severity:` and `Fixable:` lines. The format the test
 /// enforces:
 ///
-///   ## <rule-name>
+/// ```markdown
+/// ## <rule-name>
 ///
-///   - **Default severity:** <error|warning|disabled>
-///   - **Fixable:** <yes|no>
-///   ...
+/// - **Default severity:** <error|warning|disabled>
+/// - **Fixable:** <yes|no>
+/// ...
+/// ```
 ///
 /// Sections whose heading does not look like a kebab-case rule name
 /// (e.g. the introductory "Rules" `#` heading) are ignored.

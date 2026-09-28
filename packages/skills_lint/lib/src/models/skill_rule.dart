@@ -12,10 +12,10 @@ import 'validation_error.dart';
 /// 1. **Unique Name**: The [name] must be unique to allow for overrides in
 ///    configuration.
 /// 2. **Statelessness**: Rules should not maintain state between [validate] calls.
-/// 3. **Use Context**: Prefer using data in [SkillContext] (like [context.parsedYaml])
+/// 3. **Use Context**: Prefer using data in [SkillContext] (like [SkillContext.parsedYaml])
 ///    rather than reading files manually to avoid duplicate I/O.
-/// 4. **Handle Parsing Errors**: If [context.parsedYaml] is null, check
-///    [context.yamlParsingError]. Rules that require valid YAML should return
+/// 4. **Handle Parsing Errors**: If [SkillContext.parsedYaml] is null, check
+///    [SkillContext.yamlParsingError]. Rules that require valid YAML should return
 ///    quickly if parsing failed.
 /// 5. **Respect Severity**: The rule should use its [severity] when creating
 ///    [ValidationError]s unless there is a good reason not to.

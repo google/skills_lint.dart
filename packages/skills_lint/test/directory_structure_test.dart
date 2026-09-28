@@ -22,9 +22,8 @@ class MockInaccessibleFile implements File {
   bool existsSync() => true;
 
   @override
-  Future<String> readAsString({Encoding encoding = utf8}) async {
-    throw FileSystemException('File is inaccessible', _path);
-  }
+  Future<String> readAsString({Encoding encoding = utf8}) =>
+      Future<String>.error(FileSystemException('File is inaccessible', _path));
 
   @override
   Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

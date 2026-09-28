@@ -74,7 +74,6 @@ void main() {
           expect(
             () => validateSkills(
               individualSkillPaths: [skillDir.path],
-              // ignore: deprecated_member_use_from_same_package
               resolvedRules: {'valid-yaml-metadata': AnalysisSeverity.warning},
               resolvedRuleConfigs: {
                 'valid-yaml-metadata': const RuleConfigPatch(severity: AnalysisSeverity.error),
@@ -96,10 +95,8 @@ void main() {
           final bool failedByDefault = await validateSkills(individualSkillPaths: [skillDir.path]);
           expect(failedByDefault, isFalse);
 
-          // ignore: deprecated_member_use_from_same_package
           final bool passedWhenDisabled = await validateSkills(
             individualSkillPaths: [skillDir.path],
-            // ignore: deprecated_member_use_from_same_package
             resolvedRules: {'valid-yaml-metadata': AnalysisSeverity.disabled},
           );
           expect(passedWhenDisabled, isTrue);
@@ -109,7 +106,6 @@ void main() {
     test('Validator throws ArgumentError when passing both ruleOverrides and ruleConfigs', () {
       expect(
         () => Validator(
-          // ignore: deprecated_member_use_from_same_package
           ruleOverrides: {'foo': AnalysisSeverity.warning},
           ruleConfigs: {'foo': const RuleConfig(severity: AnalysisSeverity.error)},
         ),
@@ -118,7 +114,6 @@ void main() {
     });
 
     test('Validator maps deprecated ruleOverrides properly', () {
-      // ignore: deprecated_member_use_from_same_package
       final validator = Validator(ruleOverrides: {'foo': AnalysisSeverity.warning});
       // Ensure the mapping happened without error. Validation runs successfully.
       expect(validator, isNotNull);
@@ -129,7 +124,6 @@ void main() {
         path: 'foo',
         ruleConfigs: {'foo': RuleConfigPatch(severity: AnalysisSeverity.warning)},
       );
-      // ignore: deprecated_member_use_from_same_package
       expect(config.rules['foo'], equals(AnalysisSeverity.warning));
     });
 
@@ -137,7 +131,6 @@ void main() {
       const config = Configuration(
         ruleConfigs: {'bar': RuleConfigPatch(severity: AnalysisSeverity.error)},
       );
-      // ignore: deprecated_member_use_from_same_package
       expect(config.configuredRules['bar'], equals(AnalysisSeverity.error));
     });
 
@@ -149,9 +142,7 @@ void main() {
       );
       const topConfig = Configuration(ruleConfigs: {'path-does-not-exist': patchWithoutSeverity});
 
-      // ignore: deprecated_member_use_from_same_package
       expect(targetConfig.rules.containsKey('path-does-not-exist'), isFalse);
-      // ignore: deprecated_member_use_from_same_package
       expect(topConfig.configuredRules.containsKey('path-does-not-exist'), isFalse);
     });
   });

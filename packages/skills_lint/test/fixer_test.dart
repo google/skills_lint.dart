@@ -83,9 +83,8 @@ class RuleThrows extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    throw Exception('Fix failed');
-  }
+  Future<String> fix(String filePath, String currentContent, Directory directory) =>
+      Future<String>.error(Exception('Fix failed'));
 }
 
 void main() {

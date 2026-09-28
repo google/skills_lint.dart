@@ -2,6 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+/// @docImport 'skill_rule.dart';
+library;
+
 import 'dart:io';
 import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
@@ -56,7 +59,7 @@ class SkillContext {
   /// Resolves the 1-based [SourceRegion] in [rawContent] for a given [YamlNode].
   ///
   /// Calculates the absolute character offsets of [node] by combining the frontmatter
-  /// boundary offset with [node.span.start.offset] and [node.span.end.offset],
+  /// boundary offset with the start and end offsets of [node]'s [YamlNode.span],
   /// then converts them to 1-based line and column coordinates.
   /// Returns `null` if [node] is null or if frontmatter is not found in [rawContent].
   SourceRegion? yamlNodeToRegion(YamlNode? node) {

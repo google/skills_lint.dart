@@ -34,10 +34,10 @@ class ValidationResult {
     return ValidationResult(validationErrors: errors, warnings: manualWarnings);
   }
 
-  /// JSON key for [skillName].
+  /// JSON key for the skill name, the basename of [context]'s [SkillContext.directory].
   static const String keySkillName = 'skillName';
 
-  /// JSON key for [skillPath].
+  /// JSON key for the path of [context]'s [SkillContext.directory].
   static const String keySkillPath = 'skillPath';
 
   /// JSON key for [isValid].

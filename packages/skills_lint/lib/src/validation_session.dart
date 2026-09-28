@@ -777,7 +777,7 @@ class ValidationSession {
     );
   }
 
-  /// Runs all fixable rules against [context.rawContent] sequentially and
+  /// Runs all fixable rules against the [SkillContext.rawContent] of [context] sequentially and
   /// returns the resulting content string.
   Future<String> _runFixableRules({
     required SkillContext context,

@@ -220,7 +220,7 @@ void main() {
       expect(errors, isEmpty);
     });
 
-    test('caches resolved package name in memory across upward tree walk on instance', () async {
+    test('caches resolved package name in memory across upward tree walk on instance', () {
       final pkgDir = Directory(p.join(tempDir.path, 'cached_pkg'))..createSync(recursive: true);
       final pubspecFile = File(p.join(pkgDir.path, 'pubspec.yaml'))
         ..writeAsStringSync('name: cached_pkg\n');
