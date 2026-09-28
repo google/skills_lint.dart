@@ -14,7 +14,7 @@ const Set<String> optionalRootKeys = {'repo_criteria', 'test_data', 'type'};
 
 /// Optional item keys permitted across all `evals.json` and rubric files.
 /// Maintainers can add optional keys to this set.
-const Set<String> optionalItemKeys = {'test_data'};
+const Set<String> optionalItemKeys = {'test_data', 'agent_config'};
 
 void main() {
   group('Evals structure consistency', () {
