@@ -102,10 +102,11 @@ MissingTargetDiagnostic _configurationDiagnostic({
   };
   final didYouMean = suggestion == null ? '' : ' Did you mean "$suggestion"?';
 
+  final anchorShown = anchor.endsWith(p.separator) ? anchor : '$anchor${p.separator}';
   final anchorGuidance = file != null && p.equals(p.dirname(file), anchor)
       ? 'Paths in a configuration file are relative to the directory containing '
-            'that file (`$anchor${p.separator}`).'
-      : 'Paths in this configuration are relative to `$anchor${p.separator}`.';
+            'that file (`$anchorShown`).'
+      : 'Paths in this configuration are relative to `$anchorShown`.';
 
   return (
     text: '$headline\n  Declared as "$declared" in $where, relative to $anchor.$didYouMean',

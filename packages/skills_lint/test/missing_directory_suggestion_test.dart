@@ -106,5 +106,36 @@ void main() {
       }
       expect(suggest('.Agents/skills'), '.agents/skills');
     });
+
+    test('writes a portable relative suggestion when the anchor is spelled through a symlink', () {
+      final real = Directory(p.join(tempDir.path, 'real'));
+      Directory(p.join(real.path, '.agents', 'skills')).createSync(recursive: true);
+      Directory(p.join(real.path, 'tool')).createSync();
+      final String linked = p.join(tempDir.path, 'linked');
+      try {
+        Link(linked).createSync(real.path);
+      } on FileSystemException {
+        markTestSkipped('This platform cannot create a directory symlink here.');
+        return;
+      }
+
+      // The configuration is named through the link; the working directory is
+      // reported by the operating system as its physical path.
+      final String anchor = p.join(linked, 'tool');
+      expect(
+        suggestDirectory(
+          declaredText: '.agents/skills',
+          resolvedPath: p.join(anchor, '.agents', 'skills'),
+          baseDirectory: anchor,
+          workingDirectory: real.resolveSymbolicLinksSync(),
+        ),
+        '../.agents/skills',
+      );
+    });
+
+    test('treats a name that merely starts with "~" as relative', () {
+      createAll(['~foo/skills']);
+      expect(suggest('~foo/skils'), '~foo/skills');
+    });
   });
 }

@@ -94,6 +94,25 @@ void main() {
       expect(diagnostic.text, allOf(contains('in configuration'), isNot(contains('.yaml'))));
       expect(diagnostic.file, missing);
       expect(diagnostic.region, isNull);
+      expect(diagnostic.markdown, allOf(contains(repo), isNot(contains('containing that file'))));
+    });
+
+    test('names a root anchor without doubling its separator', () {
+      final String root = p.rootPrefix(repo);
+      final ({String text, String? markdown, String file, SourceRegion? region}) diagnostic =
+          missingTargetDiagnostic(
+            kind: MissingTargetKind.skillsRoot,
+            resolvedPath: p.join(root, 'no-such-dir-for-skills-lint'),
+            workingDirectory: repo,
+            declaration: TargetDeclaration(
+              declaredPath: 'no-such-dir-for-skills-lint',
+              anchorDirectory: root,
+              file: p.join(root, 'skills_lint.yaml'),
+              line: 3,
+            ),
+          );
+
+      expect(diagnostic.markdown, isNot(contains('${p.separator}${p.separator}')));
     });
 
     group('for a target typed on the command line', () {

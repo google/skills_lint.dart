@@ -34,7 +34,7 @@ import 'sibling_suggestion.dart';
 ///    the deepest existing ancestor is swapped for its closest sibling
 ///    directory, and the result is kept only if the whole path exists.
 ///
-/// An absolute [declaredText], or one starting with `~`, yields an absolute
+/// An absolute [declaredText], or one starting with `~/`, yields an absolute
 /// suggestion. Otherwise the suggestion is relative to [baseDirectory] and
 /// uses forward slashes.
 String? suggestDirectory({
@@ -43,36 +43,61 @@ String? suggestDirectory({
   required String baseDirectory,
   String? workingDirectory,
 }) {
-  final String? candidate =
-      _resolvedFromWorkingDirectory(declaredText, resolvedPath, workingDirectory) ??
-      _withOneFolderCorrected(resolvedPath);
-  if (candidate == null) {
+  if (workingDirectory != null &&
+      _existsFromWorkingDirectory(declaredText, resolvedPath, workingDirectory)) {
+    return _relativeAcrossAnchors(declaredText, workingDirectory, baseDirectory);
+  }
+  final String? corrected = _withOneFolderCorrected(resolvedPath);
+  if (corrected == null) {
     return null;
   }
-  if (p.isAbsolute(declaredText) || declaredText.startsWith('~')) {
-    return candidate;
+  if (p.isAbsolute(declaredText) || _isHomeRelative(declaredText)) {
+    return corrected;
   }
-  return p.relative(candidate, from: baseDirectory).replaceAll(r'\', '/');
+  return p.relative(corrected, from: baseDirectory).replaceAll(r'\', '/');
 }
 
-/// Resolves a relative [declaredText] against [workingDirectory], returning
-/// the result when it is an existing directory other than [resolvedPath].
+/// Whether [text] starts with a home-directory prefix that `expandPath`
+/// expands.
+bool _isHomeRelative(String text) => text == '~' || text.startsWith('~/') || text.startsWith(r'~\');
+
+/// Whether a relative [declaredText] resolved against [workingDirectory] is an
+/// existing directory other than [resolvedPath].
 ///
 /// This builds a hypothetical path to test for existence; it does not anchor
 /// a path the tool goes on to use, so it stays out of `canonicalizePath`.
-String? _resolvedFromWorkingDirectory(
+bool _existsFromWorkingDirectory(
   String declaredText,
   String resolvedPath,
-  String? workingDirectory,
+  String workingDirectory,
 ) {
-  if (workingDirectory == null || !p.isRelative(declaredText) || declaredText.startsWith('~')) {
-    return null;
+  if (!p.isRelative(declaredText) || _isHomeRelative(declaredText)) {
+    return false;
   }
   final String candidate = p.normalize(p.join(workingDirectory, declaredText));
-  if (p.equals(candidate, resolvedPath) || !Directory(candidate).existsSync()) {
-    return null;
+  return !p.equals(candidate, resolvedPath) && Directory(candidate).existsSync();
+}
+
+/// Rewrites [declaredText], which exists relative to [workingDirectory], so
+/// that it reads relative to [baseDirectory].
+///
+/// The operating system reports the working directory as a physical path,
+/// while [baseDirectory] keeps whatever spelling named the configuration file.
+/// Comparing the two directories by their physical paths keeps a symlinked
+/// spelling from turning the suggestion into a machine-specific path, and
+/// leaves any symlinks inside [declaredText] as the author wrote them.
+String _relativeAcrossAnchors(String declaredText, String workingDirectory, String baseDirectory) {
+  final String hop = p.relative(_physical(workingDirectory), from: _physical(baseDirectory));
+  return p.normalize(p.join(hop, declaredText)).replaceAll(r'\', '/');
+}
+
+/// [directory] with symlinks resolved, or unchanged when it cannot be resolved.
+String _physical(String directory) {
+  try {
+    return Directory(directory).resolveSymbolicLinksSync();
+  } on FileSystemException {
+    return directory;
   }
-  return candidate;
 }
 
 /// Corrects the first missing folder of [resolvedPath] to its closest

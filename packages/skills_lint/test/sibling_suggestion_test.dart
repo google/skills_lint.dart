@@ -100,5 +100,18 @@ void main() {
 
       expect(closestSiblingName(tempDir, 'skills', kind: SiblingKind.directory), 'skils_');
     });
+
+    test('suggests nothing for a link when two files are equally close', () {
+      File(p.join(tempDir.path, 'details.md')).writeAsStringSync('a');
+      File(p.join(tempDir.path, 'detais.md')).writeAsStringSync('b');
+
+      expect(
+        findSiblingSuggestion(
+          originalLink: 'detals.md',
+          resolvedPath: p.join(tempDir.path, 'detals.md'),
+        ),
+        isNull,
+      );
+    });
   });
 }
