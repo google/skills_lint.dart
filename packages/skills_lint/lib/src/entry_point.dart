@@ -622,7 +622,9 @@ Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults resu
       checkOverrides[paramName] = _parseParameterValue(paramFlag, results[paramFlag], expectedType);
     }
   }
-  final List<String> errors = check.validateParameters(CustomRuleParameters(checkOverrides));
+  final List<String> errors = check.validateConstrainedParameters(
+    CustomRuleParameters(checkOverrides),
+  );
   if (errors.isNotEmpty) {
     throw FormatException(errors.join('\n'));
   }

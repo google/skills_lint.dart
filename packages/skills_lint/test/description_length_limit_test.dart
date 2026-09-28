@@ -4,8 +4,10 @@
 
 import 'dart:io';
 
+import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/config_parser.dart';
+import 'package:skills_lint/src/entry_point.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/check_type.dart';
 import 'package:skills_lint/src/models/custom_rule_parameters.dart';
@@ -17,6 +19,7 @@ import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rule_registry.dart';
 import 'package:skills_lint/src/rules/description_length_rule.dart';
+import 'package:skills_lint/src/rules/path_does_not_exist_rule.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 import 'package:yaml/yaml.dart';
@@ -211,6 +214,34 @@ void main() {
     });
   });
 
+  group('CheckType.validateConstrainedParameters', () {
+    const check = CheckType(
+      name: 'mock-rule',
+      defaultSeverity: AnalysisSeverity.disabled,
+      help: 'Mock rule.',
+      parameterSchema: {'count': RuleParameterType.integer, 'label': RuleParameterType.string},
+      parameterConstraints: {'count': ParameterConstraint.positiveInteger},
+    );
+
+    test('reports type and constraint errors for constrained parameters', () {
+      expect(check.validateConstrainedParameters(CustomRuleParameters(const {'count': 0})), [
+        contains('Expected a positive integer, got "0"'),
+      ]);
+      expect(check.validateConstrainedParameters(CustomRuleParameters(const {'count': 'x'})), [
+        contains('Expected int, got "x"'),
+      ]);
+    });
+
+    test('ignores unconstrained and unrecognized parameters', () {
+      expect(
+        check.validateConstrainedParameters(
+          CustomRuleParameters(const {'label': 5, 'unknown': true, 'count': 3}),
+        ),
+        isEmpty,
+      );
+    });
+  });
+
   group('RuleRegistry.createRule for description-too-long', () {
     test('uses the specification maximum when the parameter is not configured', () {
       final SkillRule? rule = RuleRegistry.createRule(
@@ -248,6 +279,48 @@ void main() {
         );
       });
     }
+  });
+
+  group('parameters without a constraint keep their unvalidated API and CLI behaviour', () {
+    test('a badly typed exclude through the Dart API is ignored', () {
+      final SkillRule? rule = RuleRegistry.createRule(
+        PathDoesNotExistRule.ruleName,
+        AnalysisSeverity.error,
+        CustomRuleParameters(const {PathDoesNotExistRule.excludeParameter: 5}),
+      );
+
+      expect(
+        rule,
+        isA<PathDoesNotExistRule>().having((r) => r.excludeRegExp, 'excludeRegExp', isNull),
+      );
+    });
+
+    test('an invalid exclude pattern through the Dart API fails when the RegExp is built', () {
+      expect(
+        () => RuleRegistry.createRule(
+          PathDoesNotExistRule.ruleName,
+          AnalysisSeverity.error,
+          CustomRuleParameters(const {PathDoesNotExistRule.excludeParameter: '[bad'}),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('an invalid exclude pattern from the CLI is passed through unchanged', () {
+      final parser = ArgParser()
+        ..addFlag(PathDoesNotExistRule.ruleName)
+        ..addOption('${PathDoesNotExistRule.ruleName}-${PathDoesNotExistRule.excludeParameter}');
+      final ArgResults results = parser.parse([
+        '--${PathDoesNotExistRule.ruleName}-${PathDoesNotExistRule.excludeParameter}=[bad',
+      ]);
+
+      final Map<String, RuleConfigPatch> configs = resolveRuleConfigsFromCli(results);
+
+      expect(
+        configs[PathDoesNotExistRule.ruleName]?.parameters?[PathDoesNotExistRule.excludeParameter],
+        '[bad',
+      );
+    });
   });
 
   group('skills_lint.yaml $_param parameter', () {

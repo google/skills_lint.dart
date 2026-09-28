@@ -54,15 +54,18 @@ class CheckType {
     return errors;
   }
 
-  /// Validates [parameters] like [validateParameters], but ignores keys that
-  /// are not in [parameterSchema].
+  /// Validates only the parameters in [parameters] that declare a
+  /// [ParameterConstraint], checking both their [RuleParameterType] and the
+  /// constraint.
   ///
-  /// Used for parameters supplied through the Dart API, where unrecognized
-  /// keys are ignored.
-  List<String> validateKnownParameterValues(CustomRuleParameters parameters) {
+  /// Unconstrained and unrecognized parameters are ignored. CLI flags and
+  /// parameters supplied through the Dart API use this so that only
+  /// parameters that need validation are rejected before a rule is built.
+  List<String> validateConstrainedParameters(CustomRuleParameters parameters) {
     return [
       for (final String key in parameters.params.keys)
-        if (parameterSchema.containsKey(key)) ?_validateValue(key, parameters.params[key]),
+        if (parameterConstraints.containsKey(key) && parameterSchema.containsKey(key))
+          ?_validateValue(key, parameters.params[key]),
     ];
   }
 

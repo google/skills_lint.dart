@@ -89,10 +89,10 @@ class RuleRegistry {
 
   /// Creates a rule instance by name, or returns null if not a class-based rule.
   ///
-  /// Throws an [ArgumentError] if a recognized parameter in [parameters] fails
-  /// [CheckType.validateKnownParameterValues]. Configuration files and CLI
-  /// flags are validated earlier through [CheckType.validateParameters]; this
-  /// check covers parameters supplied through the Dart API.
+  /// Throws an [ArgumentError] if a parameter in [parameters] that declares a
+  /// [ParameterConstraint] fails [CheckType.validateConstrainedParameters].
+  /// Configuration files and CLI flags are validated earlier; this check
+  /// covers parameters supplied through the Dart API.
   static SkillRule? createRule(
     String name,
     AnalysisSeverity severity, [
@@ -144,7 +144,7 @@ class RuleRegistry {
       return;
     }
     final CheckType? check = allChecks.where((CheckType c) => c.name == name).firstOrNull;
-    final List<String> errors = check?.validateKnownParameterValues(parameters) ?? const [];
+    final List<String> errors = check?.validateConstrainedParameters(parameters) ?? const [];
     if (errors.isNotEmpty) {
       throw ArgumentError(errors.join('\n'));
     }
