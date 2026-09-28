@@ -1,9 +1,9 @@
 ## 0.5.3-wip
 
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
-- When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from. If a similar directory exists, for example because the path is written relative to the wrong directory or a folder name has a typo, the error also asks `Did you mean "..."?`. Paths passed with `-d` or `--skill` get the same suggestion (#38).
-- **Behavior change:** in `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory. GitHub Code Scanning annotates the line you need to fix.
-- **Behavior change:** `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link. Which one it offered depended on the operating system, so the same skill could get different suggestions on different machines.
+- When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
+- **Behavior change:** in `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
+- **Behavior change:** `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link.
 
 ## 0.5.2
 

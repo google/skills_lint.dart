@@ -247,8 +247,7 @@ skills_lint:
       final TargetDeclaration? directory = declarationOf(config.directoryConfigs.single);
       expect(directory?.declaredPath, '.agents/skills');
       expect(directory?.source?.file, expectedFile);
-      // Line 6 of the file above: a comment, `skills_lint:`, a blank line,
-      // another comment and `directories:` all come before the entry.
+      // Line 6: `directories:` on line 5 is followed by its entry.
       expect(directory?.source?.line, 6);
       expect(directory?.anchorDirectory, expectedAnchor);
 

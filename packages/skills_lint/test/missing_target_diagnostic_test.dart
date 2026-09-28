@@ -6,7 +6,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/missing_target_diagnostic.dart';
-import 'package:skills_lint/src/models/source_region.dart';
 import 'package:skills_lint/src/models/target_declaration.dart';
 import 'package:test/test.dart';
 
@@ -33,7 +32,7 @@ void main() {
     });
 
     group('for a target declared in a configuration file', () {
-      late ({String text, String? markdown, String file, SourceRegion? region}) diagnostic;
+      late MissingTargetDiagnostic diagnostic;
 
       setUp(() {
         diagnostic = missingTargetDiagnostic(
@@ -82,13 +81,12 @@ void main() {
 
     test('an in-memory configuration names no file or line', () {
       final String missing = p.join(repo, 'missing');
-      final ({String text, String? markdown, String file, SourceRegion? region}) diagnostic =
-          missingTargetDiagnostic(
-            kind: MissingTargetKind.skillsRoot,
-            resolvedPath: missing,
-            workingDirectory: repo,
-            declaration: TargetDeclaration(declaredPath: 'missing', anchorDirectory: repo),
-          );
+      final MissingTargetDiagnostic diagnostic = missingTargetDiagnostic(
+        kind: MissingTargetKind.skillsRoot,
+        resolvedPath: missing,
+        workingDirectory: repo,
+        declaration: TargetDeclaration(declaredPath: 'missing', anchorDirectory: repo),
+      );
 
       expect(diagnostic.text, allOf(contains('in configuration'), isNot(contains('.yaml'))));
       expect(diagnostic.file, missing);
@@ -98,30 +96,28 @@ void main() {
 
     test('names a root anchor without doubling its separator', () {
       final String root = p.rootPrefix(repo);
-      final ({String text, String? markdown, String file, SourceRegion? region}) diagnostic =
-          missingTargetDiagnostic(
-            kind: MissingTargetKind.skillsRoot,
-            resolvedPath: p.join(root, 'no-such-dir-for-skills-lint'),
-            workingDirectory: repo,
-            declaration: TargetDeclaration(
-              declaredPath: 'no-such-dir-for-skills-lint',
-              anchorDirectory: root,
-              source: (file: p.join(root, 'skills_lint.yaml'), line: 3),
-            ),
-          );
+      final MissingTargetDiagnostic diagnostic = missingTargetDiagnostic(
+        kind: MissingTargetKind.skillsRoot,
+        resolvedPath: p.join(root, 'no-such-dir-for-skills-lint'),
+        workingDirectory: repo,
+        declaration: TargetDeclaration(
+          declaredPath: 'no-such-dir-for-skills-lint',
+          anchorDirectory: root,
+          source: (file: p.join(root, 'skills_lint.yaml'), line: 3),
+        ),
+      );
 
       expect(diagnostic.markdown, isNot(contains('${p.separator}${p.separator}')));
     });
 
     group('for a target typed on the command line', () {
       test('suggests a near-miss directory without describing a declaration', () {
-        final ({String text, String? markdown, String file, SourceRegion? region}) diagnostic =
-            missingTargetDiagnostic(
-              kind: MissingTargetKind.skillsRoot,
-              resolvedPath: p.join(repo, '.agents', 'skils'),
-              workingDirectory: repo,
-              cliText: '.agents/skils',
-            );
+        final MissingTargetDiagnostic diagnostic = missingTargetDiagnostic(
+          kind: MissingTargetKind.skillsRoot,
+          resolvedPath: p.join(repo, '.agents', 'skils'),
+          workingDirectory: repo,
+          cliText: '.agents/skils',
+        );
 
         expect(diagnostic.text, contains('Did you mean ".agents/skills"?'));
         expect(diagnostic.text, isNot(contains('Declared as')));
@@ -131,13 +127,12 @@ void main() {
       });
 
       test('stays a single line when nothing is close', () {
-        final ({String text, String? markdown, String file, SourceRegion? region}) diagnostic =
-            missingTargetDiagnostic(
-              kind: MissingTargetKind.skill,
-              resolvedPath: p.join(repo, 'unrelated'),
-              workingDirectory: repo,
-              cliText: 'unrelated',
-            );
+        final MissingTargetDiagnostic diagnostic = missingTargetDiagnostic(
+          kind: MissingTargetKind.skill,
+          resolvedPath: p.join(repo, 'unrelated'),
+          workingDirectory: repo,
+          cliText: 'unrelated',
+        );
 
         expect(diagnostic.text, contains('skill directory does not exist'));
         expect(diagnostic.text.split('\n'), hasLength(1));
