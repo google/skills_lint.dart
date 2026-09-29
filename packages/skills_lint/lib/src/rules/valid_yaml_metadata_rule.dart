@@ -41,7 +41,9 @@ class ValidYamlMetadataRule extends SkillRule {
 
   static const Set<String> _requiredFields = {keyName, keyDescription};
   static const String _skillFileName = 'SKILL.md';
-  static const String _metadataUrl = 'https://agentskills.io/specification#frontmatter';
+
+  /// Specification section that defines SKILL.md frontmatter.
+  static const String metadataUrl = 'https://agentskills.io/specification#frontmatter';
   static const int maxCompatibilityLength = 500;
   static const String _compatibilityFieldUrl =
       'https://agentskills.io/specification#compatibility-field';
@@ -81,7 +83,7 @@ class ValidYamlMetadataRule extends SkillRule {
       ruleId: name,
       severity: severity,
       file: _skillFileName,
-      message: 'Invalid YAML metadata: ${parsingError ?? 'Missing or invalid'} (see $_metadataUrl)',
+      message: 'Invalid YAML metadata: ${parsingError ?? 'Missing or invalid'} (see $metadataUrl)',
       markdownMessage:
           '**Invalid YAML frontmatter.**\n\n'
           '${parsingError ?? 'Missing or malformed YAML frontmatter block.'}\n\n'
@@ -93,7 +95,7 @@ class ValidYamlMetadataRule extends SkillRule {
           'description: <skill-description>\n'
           '---\n'
           '```\n'
-          '*(See [Agent Skills Specification]($_metadataUrl))*',
+          '*(See [Agent Skills Specification]($metadataUrl))*',
       region: SourceRegion.wholeFile,
     );
   }
@@ -103,12 +105,12 @@ class ValidYamlMetadataRule extends SkillRule {
       ruleId: name,
       severity: severity,
       file: _skillFileName,
-      message: 'Missing required field: $field (see $_metadataUrl)',
+      message: 'Missing required field: $field (see $metadataUrl)',
       markdownMessage:
           '**Missing required frontmatter field:** `$field`\n\n'
           '**How to fix:**\n'
           'Add `$field:` to the YAML frontmatter in `SKILL.md`.\n\n'
-          '*(See [Agent Skills Specification]($_metadataUrl))*',
+          '*(See [Agent Skills Specification]($metadataUrl))*',
       region: SourceRegion.wholeFile,
     );
   }

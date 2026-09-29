@@ -408,24 +408,10 @@ Future<bool> validateSkills({
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
 }) {
-  if (resolvedRules.isNotEmpty && resolvedRuleConfigs.isNotEmpty) {
-    throw ArgumentError(
-      'Cannot specify both deprecated resolvedRules and new resolvedRuleConfigs. '
-      'Please migrate all overrides to resolvedRuleConfigs.',
-    );
-  }
-
-  final Map<String, RuleConfigPatch> mergedConfigs = Map.from(resolvedRuleConfigs);
-  if (resolvedRules.isNotEmpty) {
-    for (final String ruleName in resolvedRules.keys) {
-      mergedConfigs[ruleName] = RuleConfigPatch(severity: resolvedRules[ruleName]);
-    }
-  }
-
   return validateSkillsInternal(
     skillDirPaths: skillDirPaths,
     individualSkillPaths: individualSkillPaths,
-    resolvedRuleConfigs: mergedConfigs,
+    resolvedRuleConfigs: ValidationSession.mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
     printWarnings: printWarnings,
     fastFail: fastFail,
     quiet: quiet,

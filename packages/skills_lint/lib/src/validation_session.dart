@@ -85,7 +85,7 @@ class ValidationSession {
     required this.fixApply,
     this.format = OutputFormat.text,
   }) : _reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
-       resolvedRuleConfigs = _mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
+       resolvedRuleConfigs = mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
        ignoreFileOverride = _ingestOptionalPath(ignoreFileOverride),
        _normalizedDirectoryConfigs = [
          for (final dc in [...config.directoryConfigs, ...config.individualSkillConfigs])
@@ -109,7 +109,11 @@ class ValidationSession {
   static String? _ingestOptionalPath(String? rawPath) =>
       rawPath == null ? null : _ingestPath(rawPath);
 
-  static Map<String, RuleConfigPatch> _mergeDeprecatedRules(
+  /// Converts deprecated severity-only [deprecatedRules] into config
+  /// patches and merges them with [configPatches].
+  ///
+  /// Throws an [ArgumentError] if both maps are non-empty.
+  static Map<String, RuleConfigPatch> mergeDeprecatedRules(
     Map<String, AnalysisSeverity> deprecatedRules,
     Map<String, RuleConfigPatch> configPatches,
   ) {

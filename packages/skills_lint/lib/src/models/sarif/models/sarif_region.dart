@@ -8,7 +8,7 @@ import 'package:meta/meta.dart';
 @immutable
 class SarifRegion {
   const SarifRegion({required this.startLine, this.startColumn, this.endLine, this.endColumn})
-    : assert(startLine >= 1, 'SARIF 2.1.0 requires startLine >= 1');
+    : assert(startLine >= 1, invalidStartLineMessage);
 
   /// Constructs a [SarifRegion] from a JSON map.
   factory SarifRegion.fromJson(Map<String, Object?> json) {
@@ -19,6 +19,9 @@ class SarifRegion {
       endColumn: json[keyEndColumn] as int?,
     );
   }
+
+  /// Assertion message for a [startLine] below 1.
+  static const String invalidStartLineMessage = 'SARIF 2.1.0 requires startLine >= 1';
 
   /// JSON key for [startLine].
   static const String keyStartLine = 'startLine';

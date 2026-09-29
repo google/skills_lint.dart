@@ -38,7 +38,7 @@ class SarifLog {
       throw FormatException('Unsupported SARIF version: $version (expected $specVersion)');
     }
     return SarifLog(
-      schema: (json[keySchema] ?? json['schema'] ?? schemaUri) as String,
+      schema: (json[keySchema] ?? json[_keySchemaWithoutDollar] ?? schemaUri) as String,
       version: version,
       runs:
           (json[keyRuns] as List<Object?>?)
@@ -50,6 +50,9 @@ class SarifLog {
 
   /// JSON key for [schema].
   static const String keySchema = r'$schema';
+
+  /// Spelling of [keySchema] without the leading `$`, accepted when reading.
+  static const String _keySchemaWithoutDollar = 'schema';
 
   /// JSON key for [version].
   static const String keyVersion = 'version';

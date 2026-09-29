@@ -24,8 +24,6 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
   @override
   final AnalysisSeverity severity;
 
-  static const String _skillFileName = SkillContext.skillFileName;
-
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
     final errors = <ValidationError>[];
@@ -62,7 +60,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
+      file: SkillContext.skillFileName,
       message:
           'Absolute filepath found in link: $path. '
           'Skills must use paths relative to SKILL.md so they remain '
@@ -77,7 +75,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
 
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    if (filePath != _skillFileName) {
+    if (filePath != SkillContext.skillFileName) {
       return currentContent;
     }
 

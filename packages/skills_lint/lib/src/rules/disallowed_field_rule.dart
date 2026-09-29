@@ -8,6 +8,7 @@ import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
+import 'valid_yaml_metadata_rule.dart';
 
 /// Enforces that only allowed fields are present in YAML metadata.
 class DisallowedFieldRule extends SkillRule {
@@ -36,7 +37,6 @@ class DisallowedFieldRule extends SkillRule {
   };
 
   static const _skillFileName = 'SKILL.md';
-  static const _metadataUrl = 'https://agentskills.io/specification#frontmatter';
 
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
@@ -61,12 +61,12 @@ class DisallowedFieldRule extends SkillRule {
             ruleId: name,
             severity: severity,
             file: _skillFileName,
-            message: 'Disallowed field: $keyStr (see $_metadataUrl)',
+            message: 'Disallowed field: $keyStr (see ${ValidYamlMetadataRule.metadataUrl})',
             markdownMessage:
                 '**Disallowed frontmatter field:** `$keyStr`\n\n'
                 '**How to fix:**\n'
                 '- Remove `$keyStr` from frontmatter, or move it under `metadata:` if it is custom tool configuration.\n\n'
-                '*(See [Agent Skills Specification - Frontmatter]($_metadataUrl))*',
+                '*(See [Agent Skills Specification - Frontmatter](${ValidYamlMetadataRule.metadataUrl}))*',
             region: region,
           ),
         );

@@ -21,7 +21,6 @@ class PathDoesNotExistRule extends SkillRule {
 
   static const String ruleName = 'path-does-not-exist';
   static const String excludeParameter = 'exclude';
-  static const String _skillFileName = SkillContext.skillFileName;
   static const String _dirStructureUrl = 'https://agentskills.io/specification#directory-structure';
 
   @override
@@ -72,14 +71,15 @@ class PathDoesNotExistRule extends SkillRule {
       return errors;
     }
 
-    final skillMdFile = File(p.join(dir.path, _skillFileName));
+    final skillMdFile = File(p.join(dir.path, SkillContext.skillFileName));
     if (!skillMdFile.existsSync()) {
       final String dirName = p.basename(dir.path);
       errors.add(
         ValidationError(
           ruleId: ruleName,
           file: dir.path,
-          message: '$_skillFileName is missing in directory: ${dir.path} (see $_dirStructureUrl)',
+          message:
+              '${SkillContext.skillFileName} is missing in directory: ${dir.path} (see $_dirStructureUrl)',
           markdownMessage:
               '**`SKILL.md` is missing in directory.**\n\n'
               '**How to fix:**\n'

@@ -23,6 +23,9 @@ class SarifArtifactLocation {
   /// JSON key for [uriBaseId].
   static const String keyUriBaseId = 'uriBaseId';
 
+  /// JSON key for the optional description message of an artifact location.
+  static const String keyDescription = 'description';
+
   /// A relative or absolute URI pointing to the target artifact.
   final String uri;
 

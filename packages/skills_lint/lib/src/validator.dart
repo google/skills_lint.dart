@@ -62,8 +62,6 @@ class Validator {
     return merged;
   }
 
-  static const String _skillFileName = SkillContext.skillFileName;
-
   /// The name of the special check for missing files or directories.
   static const String pathDoesNotExist = 'path-does-not-exist';
 
@@ -88,7 +86,7 @@ class Validator {
   /// Scans the directory for `SKILL.md`, parses its YAML metadata, and validates
   /// constraints like name format and field lengths using registered rules.
   Future<ValidationResult> validate(Directory dir) async {
-    final skillMdFile = File(p.join(dir.path, _skillFileName));
+    final skillMdFile = File(p.join(dir.path, SkillContext.skillFileName));
     final bool skillMdExists = dir.existsSync() && skillMdFile.existsSync();
 
     final fatalErrors = <ValidationError>[];
@@ -136,7 +134,7 @@ class Validator {
         ValidationError(
           ruleId: skillFileInaccessible,
           file: skillMdFile.path,
-          message: 'Failed to read $_skillFileName: $e',
+          message: 'Failed to read ${SkillContext.skillFileName}: $e',
           severity: _getSeverity(skillFileInaccessible, AnalysisSeverity.error),
         ),
       );
@@ -146,7 +144,7 @@ class Validator {
         ValidationError(
           ruleId: unexpectedError,
           file: skillMdFile.path,
-          message: 'Unexpected error reading $_skillFileName: $e',
+          message: 'Unexpected error reading ${SkillContext.skillFileName}: $e',
           severity: _getSeverity(unexpectedError, AnalysisSeverity.error),
         ),
       );
@@ -158,7 +156,7 @@ class Validator {
     try {
       final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(content);
       if (match == null) {
-        yamlParsingError = 'Missing YAML metadata in $_skillFileName';
+        yamlParsingError = 'Missing YAML metadata in ${SkillContext.skillFileName}';
       } else {
         final String yamlStr = match.group(1)!;
         final Object? doc = loadYaml(yamlStr);

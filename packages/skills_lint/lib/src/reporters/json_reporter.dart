@@ -60,11 +60,7 @@ class JsonReporter implements Reporter {
 
   @override
   void onFixFailed({required String ruleName, required Object error}) {
-    _err.writeln(
-      "${Reporter.toolErrorPrefix} could not apply the '$ruleName' fix.\n"
-      '  This is a bug in skills_lint, not a problem with your skill.\n'
-      '  Your skill was left unmodified. Cause: $error',
-    );
+    _err.writeln(Reporter.fixFailedMessage(ruleName: ruleName, error: error));
   }
 
   @override
@@ -74,9 +70,11 @@ class JsonReporter implements Reporter {
     required Object error,
   }) {
     _err.writeln(
-      "${Reporter.toolErrorPrefix} could not rename skill directory from '$oldSkillName' to '$targetSkillName'.\n"
-      '  This is a bug in skills_lint, not a problem with your skill.\n'
-      "  Your skill directory was left at '$oldSkillName'. Cause: $error",
+      Reporter.renameFailedMessage(
+        oldSkillName: oldSkillName,
+        targetSkillName: targetSkillName,
+        error: error,
+      ),
     );
   }
 
@@ -87,19 +85,17 @@ class JsonReporter implements Reporter {
     required String destinationPath,
   }) {
     _err.writeln(
-      "${Reporter.toolErrorPrefix} cannot rename skill directory from '$oldSkillName' to '$targetSkillName': destination directory '$destinationPath' already exists.\n"
-      '  This is a bug in skills_lint, not a problem with your skill.\n'
-      "  Your skill directory was left at '$oldSkillName'.",
+      Reporter.renameTargetExistsMessage(
+        oldSkillName: oldSkillName,
+        targetSkillName: targetSkillName,
+        destinationPath: destinationPath,
+      ),
     );
   }
 
   @override
   void onBaselineFailed(String ignorePath, Object error) {
-    _err.writeln(
-      "${Reporter.toolErrorPrefix} failed to generate baseline file at '$ignorePath'.\n"
-      '  This is a bug in skills_lint, not a problem with your skill.\n'
-      '  Your baseline file was left unmodified. Cause: $error',
-    );
+    _err.writeln(Reporter.baselineFailedMessage(ignorePath, error));
   }
 
   @override
