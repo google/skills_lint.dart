@@ -31,7 +31,7 @@ Before stating that a task is complete, you MUST execute and pass the following 
 9.  **No Silent Deletions**: Diff the branch against its merge base. Name every removed comment, docstring, test, or eval assertion in the PR description, with the reason. Restore any removal you did not intend.
 10. **Citations**: Open every URL the change adds. Each URL must resolve and support the claim it is attached to. Cite the Agent Skills specification only for rules the specification states.
 11. **Comments**: Comments describe what the code does. Don't describe what isn't there, what a caller does, or work that was not done, unless someone is likely to redo it by accident.
-12. **Doc scope**: Dartdoc states what callers rely on. Never quote message text in dartdoc. `README.md` covers setup and usage. `RULES.md` covers rules. Don't write feature write-ups in `README.md`.
+12. **Doc scope**: Dartdoc states what callers rely on.
 
 ## 🚦 Output Formatting
 
@@ -48,4 +48,4 @@ Examples:
 - `[x] Changelog: (N/A) Not necessary since we're updating internal eval fixtures.`
 - `[x] Temporal: no added words.`
 - `[x] Comments: new comments describe only what the code does.`
-- `[x] Doc scope: dartdoc quotes no message text.`
+- `[x] Doc scope: dartdoc states only what callers rely on.`

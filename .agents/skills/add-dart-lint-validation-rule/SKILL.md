@@ -92,10 +92,8 @@ Then, add a case to `RuleRegistry.createRule` to instantiate your rule:
 
 ### Naming parameters
 
-- Config keys are kebab-case. Don't mix `_` and `-` ([#43 C12](https://github.com/google/skills_lint.dart/pull/43#discussion_r4124386302)).
-- The generated `--<rule>-<param>` flag must not repeat a word from the rule name. Use `--description-too-long-chars`, not `--description-too-long-max-description-length` ([#43 C5](https://github.com/google/skills_lint.dart/pull/43#discussion_r4124140803)).
-- Name the parameter for what it limits. Keep helper names private or `@visibleForTesting` ([#43 C7](https://github.com/google/skills_lint.dart/pull/43#discussion_r4124169338)).
-- `package_name` and `pubspec_path` in `published-skill-name` are older exceptions. Don't copy them.
+- Config keys are kebab-case. Don't mix `_` and `-`.
+- The generated `--<rule>-<param>` flag must not repeat words from the rule name.
 
 ### 3. Handle Disabled by Default Rules (If applicable)
 If the rule is disabled by default (`defaultSeverity: AnalysisSeverity.disabled`), passing the flag `--check-my-new-rule` will automatically enable it with `AnalysisSeverity.error` severity (handled in `entry_point.dart`).

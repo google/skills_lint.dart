@@ -34,18 +34,12 @@ Always use the following template (or a very similar structure) when drafting a 
 - Added `FooClass` to handle XYZ.
 - Updated `BarMethod` to return `Result`.
 
-## API surface
-[Optional: New or changed public types, parameters, CLI flags, config keys, and constraints
-(e.g. positiveInteger). Write "None" if nothing changed.]
-
 ## Testing Instructions
 [Explain how reviewers can test your changes locally. Mention any manual verification steps.]
 - Run `dart test` to ensure all tests pass.
 - [Any specific manual testing steps]
 
 ```
-
-For changes users can see, include the approved before/after output. See [User-facing changes](../../../packages/skills_lint/documentation/knowledge/user_facing_changes.md).
 
 ## Tone and Style
 
