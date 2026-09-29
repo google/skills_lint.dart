@@ -14,7 +14,7 @@ const Set<String> optionalRootKeys = {'repo_criteria', 'test_data', 'type'};
 
 /// Optional item keys permitted across all `evals.json` and rubric files.
 /// Maintainers can add optional keys to this set.
-const Set<String> optionalItemKeys = {'test_data', 'agent_config'};
+const Set<String> optionalItemKeys = {'test_data'};
 
 void main() {
   group('Evals structure consistency', () {
@@ -328,6 +328,22 @@ List<File> _findEvalsFiles(Directory baseDir) {
   }
   return baseDir.listSync(recursive: true).whereType<File>().where((File f) {
     final String name = p.basename(f.path);
-    return name == 'evals.json' || name.endsWith('_evals.json');
+    return (name == 'evals.json' || name.endsWith('_evals.json')) && !_isVendored(f);
   }).toList();
+}
+
+/// Whether [file] belongs to a third-party skill vendored under
+/// `third_party/skill-repos/`.
+///
+/// Vendored skills are symlinked into `.agents/skills/`, so the resolved path
+/// is the source of truth. Their upstream owners control their evals schema,
+/// so this test only checks first-party skills.
+bool _isVendored(File file) {
+  final List<String> parts = p.split(file.resolveSymbolicLinksSync());
+  for (var i = 0; i + 1 < parts.length; i++) {
+    if (parts[i] == 'third_party' && parts[i + 1] == 'skill-repos') {
+      return true;
+    }
+  }
+  return false;
 }
