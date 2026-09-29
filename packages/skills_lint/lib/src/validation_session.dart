@@ -305,7 +305,7 @@ class ValidationSession {
     List<FileSystemEntity> entities;
     try {
       entities = await rootDir.list().toList();
-    } catch (_) {
+    } on FileSystemException {
       _reporter.onDirectoryError(
         normalizedRootPath,
         'Failed to list children of: $normalizedRootPath',
@@ -583,7 +583,7 @@ class ValidationSession {
       _log.warning('File not found generating-baseline');
       try {
         await file.writeAsString(jsonEncode({SkillsIgnores.skillsKey: <String, dynamic>{}}));
-      } catch (_) {
+      } on FileSystemException {
         // Ignore write errors, we will just return empty ignores.
       }
     }
@@ -808,6 +808,11 @@ class ValidationSession {
           context.directory,
         );
         currentContent = newContent;
+        // A fixer is rule code: built in, or a custom rule that implements
+        // FixableRule. Any throw from it, Error included, is a bug in that
+        // rule, and onFixFailed reports it as a tool bug. Catching everything
+        // stops one broken fixer from aborting the remaining rules and skills.
+        // ignore: avoid_catches_without_on_clauses
       } catch (e) {
         _reporter.onFixFailed(ruleName: rule.name, error: e);
       }
@@ -885,11 +890,10 @@ class ValidationSession {
       return skillDir;
     }
 
+    final Directory renamed;
     try {
-      final Directory renamed = await skillDir.rename(newDirPath);
-      _reporter.onSkillRenamed(oldSkillName, targetSkillName);
-      return renamed;
-    } catch (e) {
+      renamed = await skillDir.rename(newDirPath);
+    } on FileSystemException catch (e) {
       _reporter.onRenameFailed(
         oldSkillName: oldSkillName,
         targetSkillName: targetSkillName,
@@ -897,6 +901,8 @@ class ValidationSession {
       );
       return skillDir;
     }
+    _reporter.onSkillRenamed(oldSkillName, targetSkillName);
+    return renamed;
   }
 
   /// Extracts the frontmatter `name:` string from raw [content], returning
@@ -909,7 +915,7 @@ class ValidationSession {
         if (doc is YamlMap && doc['name'] != null) {
           return doc['name'].toString().trim();
         }
-      } catch (_) {
+      } on YamlException {
         // Ignore YAML parsing errors during fix post-processing.
       }
     }
@@ -957,7 +963,7 @@ class ValidationSession {
   Future<void> _saveBaseline(String ignorePath, SkillsIgnores ignores) async {
     try {
       await SkillsIgnoresStorage().save(ignorePath, ignores);
-    } catch (e) {
+    } on FileSystemException catch (e) {
       _reporter.onBaselineFailed(ignorePath, e);
     }
   }

@@ -198,6 +198,17 @@ Body''');
         expect(fixedMap, equals(mapNameContent));
       });
 
+      test('fix leaves content unchanged when frontmatter is malformed or not a map', () async {
+        final Directory skillDir = await Directory('${tempDir.path}/my-skill').create();
+        final rule = NameFormatRule();
+
+        const malformedContent = '---\nname: [unclosed\ndescription: A test skill\n---\nBody\n';
+        expect(await rule.fix('SKILL.md', malformedContent, skillDir), equals(malformedContent));
+
+        const scalarContent = '---\njust a string\n---\nBody\n';
+        expect(await rule.fix('SKILL.md', scalarContent, skillDir), equals(scalarContent));
+      });
+
       test('validate does not coerce null name value to literal null string', () async {
         final Directory skillDir = await Directory('${tempDir.path}/empty-name').create();
         const content = '---\nname:\ndescription: A test skill\n---\nBody\n';

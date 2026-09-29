@@ -112,6 +112,22 @@ void main() {
       expect(errors.first.message, contains('Suggested name: "my-awesome-pkg-setup"'));
     });
 
+    test('skips a malformed pubspec.yaml and keeps searching ancestors', () async {
+      final pkgDir = Directory(p.join(tempDir.path, 'outer_pkg'))..createSync(recursive: true);
+      File(p.join(pkgDir.path, 'pubspec.yaml')).writeAsStringSync('name: outer_pkg\n');
+      final innerDir = Directory(p.join(pkgDir.path, 'inner'))..createSync(recursive: true);
+      File(p.join(innerDir.path, 'pubspec.yaml')).writeAsStringSync('name: [unclosed\n');
+      final skillDir = Directory(p.join(innerDir.path, 'skills', 'setup'))
+        ..createSync(recursive: true);
+
+      final rule = PublishedSkillNameRule(severity: AnalysisSeverity.error);
+      final SkillContext context = createTestSkillContext(directory: skillDir);
+
+      final List<ValidationError> errors = await rule.validate(context);
+      expect(errors, hasLength(1));
+      expect(errors.first.message, contains('package "outer_pkg"'));
+    });
+
     test(
       'explicit package_name parameter takes precedence over autodiscovered pubspec.yaml',
       () async {
@@ -351,6 +367,18 @@ description: Setup skill
 
         expect(fixedContent, contains('name: skills-lint-setup'));
         expect(fixedContent, contains('description: Setup skill'));
+      });
+
+      test('leaves content unchanged if frontmatter is malformed YAML', () async {
+        final rule = PublishedSkillNameRule(
+          severity: AnalysisSeverity.error,
+          packageName: 'skills_lint',
+        );
+        const originalContent = '---\nname: [unclosed\ndescription: Setup skill\n---\n\n# Setup\n';
+
+        final String fixedContent = await rule.fix('SKILL.md', originalContent, tempDir);
+
+        expect(fixedContent, originalContent);
       });
 
       test('leaves content unchanged if already valid', () async {

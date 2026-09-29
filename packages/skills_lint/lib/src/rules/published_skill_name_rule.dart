@@ -235,15 +235,26 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
   }
 
   static String? _extractPackageNameFromPubspec(File pubspecFile) {
+    final String content;
     try {
-      final String content = pubspecFile.readAsStringSync();
-      final pubspec = Pubspec.parse(content);
-      final String name = pubspec.name.trim();
-      return name.isNotEmpty ? name : null;
-    } catch (_) {
-      // Ignore syntax/read errors in pubspec
+      content = pubspecFile.readAsStringSync();
+    } on FileSystemException {
+      // Unreadable (permissions, invalid UTF-8): treat as having no package
+      // name so the caller keeps searching parent directories.
+      return null;
     }
-    return null;
+    final Pubspec pubspec;
+    try {
+      pubspec = Pubspec.parse(content);
+    } on Exception {
+      // Pubspec.parse reports malformed YAML and invalid fields as
+      // ParsedYamlException from package:checked_yaml. That package is not a
+      // direct dependency, so match on Exception, which still lets Errors
+      // from bugs escape.
+      return null;
+    }
+    final String name = pubspec.name.trim();
+    return name.isNotEmpty ? name : null;
   }
 
   /// Suggests a valid skill name complying with the package published skill naming convention.
@@ -310,7 +321,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     final Object? yamlObj;
     try {
       yamlObj = loadYaml(yamlStr);
-    } catch (_) {
+    } on YamlException {
       return currentContent;
     }
 

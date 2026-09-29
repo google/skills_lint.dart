@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// CI runs this program (skills_lint_workflow.yaml) and its stdout is the
+// progress log a reader sees in the job output, so it writes with print.
 // ignore_for_file: avoid_print
 
 import 'dart:io';

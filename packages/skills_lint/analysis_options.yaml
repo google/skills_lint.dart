@@ -18,6 +18,11 @@ analyzer:
     # something (https://github.com/flutter/flutter/issues/143312)
     deprecated_member_use: ignore
     deprecated_member_use_from_same_package: ignore
+  exclude:
+    # Intentionally defective fixtures for the eval harness. For example,
+    # bad_code/tmp/bad_script.dart carries an undocumented ignore_for_file on
+    # purpose, which document_ignores would otherwise report.
+    - "evals/test_data/**"
 
 formatter:
   page_width: 100
@@ -35,7 +40,7 @@ linter:
     - annotate_redeclares
     # - avoid_annotating_with_dynamic # conflicts with type_annotate_public_apis
     - avoid_bool_literals_in_conditional_expressions
-    # - avoid_catches_without_on_clauses # blocked on https://github.com/dart-lang/linter/issues/3023
+    - avoid_catches_without_on_clauses
     # - avoid_catching_errors # blocked on https://github.com/dart-lang/linter/issues/4998
     # - avoid_classes_with_only_static_members # we do this commonly for `abstract final class`es
     - avoid_double_and_int_checks
@@ -93,7 +98,7 @@ linter:
     - directives_ordering
     # - discarded_futures # too many false positives, similar to unawaited_futures
     # - do_not_use_environment # there are appropriate times to use the environment, especially in our tests and build logic
-    # - document_ignores # not yet tested
+    - document_ignores
     - empty_catches
     - empty_constructor_bodies
     - empty_statements

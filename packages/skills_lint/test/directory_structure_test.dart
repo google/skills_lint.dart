@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
+import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/validator.dart';
 import 'package:test/test.dart';
 
@@ -90,24 +91,14 @@ void main() {
 
       final overrides = TestIOOverrides(filePath);
       await IOOverrides.runWithIOOverrides(() async {
-        try {
-          final validator = Validator();
-          final ValidationResult validationResult = await validator.validate(skillDir);
+        final validator = Validator();
+        final ValidationResult validationResult = await validator.validate(skillDir);
 
-          // ignore: avoid_print
-          print(
-            'DEBUG errors: ${validationResult.validationErrors.map((e) => "${e.ruleId}: ${e.message}").toList()}',
-          );
-          expect(validationResult.isValid, isFalse);
-          expect(
-            validationResult.validationErrors.any(
-              (e) => e.ruleId == Validator.skillFileInaccessible,
-            ),
-            isTrue,
-          );
-        } catch (e, s) {
-          fail('Unexpected exception during validation: $e\n$s');
-        }
+        expect(validationResult.isValid, isFalse);
+        expect(
+          _describe(validationResult.validationErrors),
+          contains(_hasRule(Validator.skillFileInaccessible)),
+        );
       }, overrides);
     });
 
@@ -118,30 +109,22 @@ void main() {
 
       final overrides = TestIOOverrides(filePath);
       await IOOverrides.runWithIOOverrides(() async {
-        try {
-          final validator = Validator(
-            ruleConfigs: {
-              Validator.skillFileInaccessible: const RuleConfig(severity: AnalysisSeverity.warning),
-            },
-          );
-          final ValidationResult validationResult = await validator.validate(skillDir);
+        final validator = Validator(
+          ruleConfigs: {
+            Validator.skillFileInaccessible: const RuleConfig(severity: AnalysisSeverity.warning),
+          },
+        );
+        final ValidationResult validationResult = await validator.validate(skillDir);
 
-          // ignore: avoid_print
-          print(
-            'DEBUG errors (override): ${validationResult.validationErrors.map((e) => "${e.ruleId}: ${e.message}").toList()}',
-          );
-          expect(validationResult.isValid, isTrue);
-          expect(
-            validationResult.validationErrors.any(
-              (e) =>
-                  e.ruleId == Validator.skillFileInaccessible &&
-                  e.severity == AnalysisSeverity.warning,
-            ),
-            isTrue,
-          );
-        } catch (e, s) {
-          fail('Unexpected exception during validation: $e\n$s');
-        }
+        expect(
+          validationResult.isValid,
+          isTrue,
+          reason: '${_describe(validationResult.validationErrors)}',
+        );
+        expect(
+          _describe(validationResult.validationErrors),
+          contains(_hasRule(Validator.skillFileInaccessible, severity: AnalysisSeverity.warning)),
+        );
       }, overrides);
     });
 
@@ -163,3 +146,19 @@ Body''');
     });
   });
 }
+
+/// Describes each error as a record so a failed `expect` prints the rule ID,
+/// severity, file, and message of every error the validator reported.
+List<({String ruleId, AnalysisSeverity severity, String file, String message})> _describe(
+  List<ValidationError> errors,
+) => [
+  for (final e in errors)
+    (ruleId: e.ruleId, severity: e.severity, file: e.file, message: e.message),
+];
+
+/// Matches a record from [_describe] whose `ruleId` is [ruleId].
+Matcher _hasRule(String ruleId, {AnalysisSeverity? severity}) =>
+    predicate<({String ruleId, AnalysisSeverity severity, String file, String message})>(
+      (e) => e.ruleId == ruleId && (severity == null || e.severity == severity),
+      'an error with ruleId $ruleId${severity == null ? '' : ' and severity $severity'}',
+    );

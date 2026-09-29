@@ -36,7 +36,7 @@ All skill operations use the official Dart `skills` package (`dart install skill
 
 3. Create a relative symlink from `.agents/skills/`:
    ```bash
-   cd ../../.agents/skills
+   cd ../../../.agents/skills
    ln -s ../../third_party/skill-repos/<repo-slug>/.agents/skills/<skill-name> <skill-name>
    ```
 
@@ -59,7 +59,7 @@ All skill operations use the official Dart `skills` package (`dart install skill
 
 4. Create relative symlink(s) in `.agents/skills/`:
    ```bash
-   cd ../../.agents/skills
+   cd ../../../.agents/skills
    ln -s ../../third_party/skill-repos/<new-repo-slug>/.agents/skills/<skill-name> <skill-name>
    ```
 
@@ -83,7 +83,7 @@ To roll or update an existing skill to the latest upstream version:
 
 4. Run linter and tests in `packages/skills_lint`:
    ```bash
-   cd ../../packages/skills_lint
+   cd ../../../packages/skills_lint
    dart test
    ```
 

@@ -57,7 +57,7 @@ class RelativePathsRule extends SkillRule {
           continue; // Ignore web URLs, email links, anchors, etc.
         }
         effectivePath = uri.path;
-      } catch (_) {
+      } on FormatException {
         // If Uri parsing fails, treat it as a potential filepath.
       }
 

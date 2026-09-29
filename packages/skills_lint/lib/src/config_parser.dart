@@ -82,7 +82,7 @@ class ConfigParser {
     try {
       final Object? yaml = loadYaml(content);
       return fromYaml(yaml, sourcePath: sourcePath, baseDirectory: baseDirectory);
-    } catch (e) {
+    } on YamlException catch (e) {
       final String source = sourcePath ?? 'content';
       final message = 'Failed to parse $source: $e';
       _log.severe(message);

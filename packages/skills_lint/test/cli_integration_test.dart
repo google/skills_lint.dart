@@ -1405,12 +1405,7 @@ skills_lint:
       final String stdoutString = await process.stdoutStream().join('\n');
       await process.shouldExit(0);
 
-      try {
-        jsonDecode(stdoutString);
-        fail('Expected stdout to NOT be JSON');
-      } catch (e) {
-        // Expected
-      }
+      expect(() => jsonDecode(stdoutString), throwsFormatException);
     });
   });
 
