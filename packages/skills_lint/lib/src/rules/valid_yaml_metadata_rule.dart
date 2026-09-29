@@ -41,7 +41,6 @@ class ValidYamlMetadataRule extends SkillRule {
   final AnalysisSeverity severity;
 
   static const Set<String> _requiredFields = {keyName, keyDescription};
-  static const String _skillFileName = 'SKILL.md';
   static const int maxCompatibilityLength = 500;
   static const String _compatibilityFieldUrl =
       'https://agentskills.io/specification#compatibility-field';
@@ -80,7 +79,7 @@ class ValidYamlMetadataRule extends SkillRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
+      file: SkillContext.skillFileName,
       message:
           'Invalid YAML metadata: ${parsingError ?? 'Missing or invalid'} (see ${SpecificationUrls.frontmatter})',
       markdownMessage:
@@ -103,7 +102,7 @@ class ValidYamlMetadataRule extends SkillRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
+      file: SkillContext.skillFileName,
       message: 'Missing required field: $field (see ${SpecificationUrls.frontmatter})',
       markdownMessage:
           '**Missing required frontmatter field:** `$field`\n\n'
@@ -121,7 +120,7 @@ class ValidYamlMetadataRule extends SkillRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
+      file: SkillContext.skillFileName,
       message: buildLengthDiagnostic(
         fieldName: 'Compatibility',
         value: compatibility,

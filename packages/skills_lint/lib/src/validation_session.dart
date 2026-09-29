@@ -112,6 +112,7 @@ class ValidationSession {
   /// Converts deprecated severity-only [deprecatedRules] into config
   /// patches and merges them with [configPatches].
   ///
+  /// Returns an empty, unmodifiable const map when both inputs are empty.
   /// Throws an [ArgumentError] if both maps are non-empty.
   static Map<String, RuleConfigPatch> mergeDeprecatedRules(
     Map<String, AnalysisSeverity> deprecatedRules,

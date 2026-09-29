@@ -74,9 +74,14 @@ const String _sharedLiteralFix =
     'into a function that takes those values. Do not declare a second '
     'constant that aliases the first; the const-alias check rejects that.';
 
-const String _forbiddenOverrideFix =
-    'Remove the override. The only allowed override is `toString()` in '
-    'lib/src/config_serializer.dart.';
+/// Built from [_allowedOverrides] so the message and the allowlist agree.
+final String _forbiddenOverrideFix = () {
+  final List<String> allowed = [
+    for (final MapEntry(key: path, value: names) in _allowedOverrides.entries)
+      for (final name in names) '`$name()` in $path',
+  ];
+  return 'Remove the override. The only allowed overrides are ${allowed.join(', ')}.';
+}();
 
 const String _constAliasFix =
     'Delete the second constant and reference the original constant directly.';

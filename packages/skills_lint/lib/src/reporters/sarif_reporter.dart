@@ -100,7 +100,7 @@ class SarifReporter implements Reporter {
 
   @override
   void onBaselineFailed(String ignorePath, Object error) {
-    _err.writeln(ToolErrorMessages.baselineFailedMessage(ignorePath, error));
+    _err.writeln(ToolErrorMessages.baselineFailedMessage(ignorePath: ignorePath, error: error));
   }
 
   @override

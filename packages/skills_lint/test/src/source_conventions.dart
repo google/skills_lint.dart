@@ -71,13 +71,18 @@ List<Violation> findSharedLiterals(Iterable<Source> sources) {
 }
 
 /// The number of characters in [literal] that are not interpolated.
-int _literalLength(SingleStringLiteral literal) => switch (literal) {
-  SimpleStringLiteral(:final value) => value.length,
-  StringInterpolation(:final elements) => elements.whereType<InterpolationString>().fold(
-    0,
-    (sum, part) => sum + part.value.length,
-  ),
-};
+int _literalLength(SingleStringLiteral literal) {
+  switch (literal) {
+    case SimpleStringLiteral(:final value):
+      return value.length;
+    case StringInterpolation(:final elements):
+      var length = 0;
+      for (final InterpolationString part in elements.whereType<InterpolationString>()) {
+        length += part.value.length;
+      }
+      return length;
+  }
+}
 
 /// Whether [node] is inside a directive or an annotation.
 bool _isMetadata(AstNode node) =>
@@ -201,6 +206,7 @@ class Source {
       Violation(path, _parsed.lineInfo.getLocation(offset).lineNumber, problem);
 }
 
+/// One convention violation: where it is and what is wrong.
 class Violation {
   Violation(this.path, this.line, this.problem);
 
