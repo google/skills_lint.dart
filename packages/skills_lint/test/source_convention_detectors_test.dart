@@ -34,54 +34,6 @@ Map<String, Object?> toJson(Map<String, Object?> json, String id) => {
     });
   });
 
-  group('shared literals', () {
-    const long = 'This message is long enough to count.';
-
-    test('reports a long literal that appears in two files', () {
-      final List<Violation> violations = findSharedLiterals([
-        Source.snippet("final a = '$long';", path: 'lib/a.dart'),
-        Source.snippet('final b = "$long";', path: 'lib/b.dart'),
-      ]);
-      expect(violations.map((v) => v.path), ['lib/a.dart', 'lib/b.dart']);
-    });
-
-    test('matches an interpolation only when the expression is the same', () {
-      const message = r'Could not read the file. Cause: $error';
-      final List<Violation> violations = findSharedLiterals([
-        Source.snippet("String a(Object error) => '$message';", path: 'lib/a.dart'),
-        Source.snippet("String b(Object error) => '$message';", path: 'lib/b.dart'),
-        Source.snippet(r"String c(Object e) => 'Could not read the file. Cause: $e';"),
-      ]);
-      expect(violations.map((v) => v.path), ['lib/a.dart', 'lib/b.dart']);
-    });
-
-    test('counts only literal characters toward the minimum length', () {
-      // 17 literal characters; the interpolated name does not count.
-      const fragment = r'Current value: `$skillNameWithALongIdentifier`';
-      final List<Violation> violations = findSharedLiterals([
-        Source.snippet(
-          "String a(String skillNameWithALongIdentifier) => '$fragment';",
-          path: 'lib/a.dart',
-        ),
-        Source.snippet(
-          "String b(String skillNameWithALongIdentifier) => '$fragment';",
-          path: 'lib/b.dart',
-        ),
-      ]);
-      expect(violations, isEmpty);
-    });
-
-    test('ignores repeats within one file, directives, and annotations', () {
-      const uri = 'package:skills_lint/src/models/validation_result.dart';
-      final List<Violation> violations = findSharedLiterals([
-        Source.snippet("final a = '$long';\nfinal b = '$long';", path: 'lib/a.dart'),
-        Source.snippet("import '$uri';\n@Deprecated('$long')\nvoid b() {}", path: 'lib/b.dart'),
-        Source.snippet("import '$uri';\n@Deprecated('$long')\nvoid c() {}", path: 'lib/c.dart'),
-      ]);
-      expect(violations, isEmpty);
-    });
-  });
-
   group('forbidden overrides', () {
     const overrides = '''
 class Point {

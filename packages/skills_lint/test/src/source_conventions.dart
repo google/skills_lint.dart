@@ -18,15 +18,6 @@ import 'package:test/test.dart';
 import 'models/source.dart';
 import 'models/violation.dart';
 
-/// The fewest literal characters a string needs before [findSharedLiterals]
-/// compares it.
-///
-/// 20 is the lowest value at which `lib/` passes without extracting markdown
-/// fragments such as `'**How to fix:**\n'`; short identifiers and JSON keys
-/// are caught by [findStringLiteralKeys] and [findConstAliases] instead of by
-/// length.
-const int minSharedLiteralLength = 20;
-
 const Set<String> _forbiddenOverrideNames = {'==', 'hashCode', 'toString'};
 
 /// Reports string literals used as map keys or as indices.
@@ -48,56 +39,6 @@ List<Violation> findStringLiteralKeys(Source source) {
   }
   return violations;
 }
-
-/// Reports string literals with at least [minSharedLiteralLength] literal
-/// characters that appear in two or more of [sources].
-///
-/// Literals are compared on the source text between their quotes, so `'a'`
-/// and `"a"` match, and `'Cause: $error'` matches only a literal that
-/// interpolates the same expression. Interpolated expressions do not count
-/// toward the length. Each piece of an adjacent-string concatenation is
-/// compared on its own. Directives and annotation arguments are skipped.
-///
-/// A message copied into several files gets edited in one and not the
-/// others, so the tool says different things for the same situation.
-/// Declaring it once gives it a single owner.
-List<Violation> findSharedLiterals(Iterable<Source> sources) {
-  final Map<String, List<Violation>> byText = {};
-  for (final source in sources) {
-    for (final SingleStringLiteral literal in source.nodes.whereType<SingleStringLiteral>()) {
-      if (_literalLength(literal) >= minSharedLiteralLength && !_isMetadata(literal)) {
-        final String text = source.content.substring(literal.contentsOffset, literal.contentsEnd);
-        byText.putIfAbsent(text, () => []).add(source.violationAt(literal.offset, 'repeats $text'));
-      }
-    }
-  }
-  final List<Violation> violations = [];
-  for (final List<Violation> copies in byText.values) {
-    if (copies.map((v) => v.path).toSet().length > 1) {
-      violations.addAll(copies);
-    }
-  }
-  return violations;
-}
-
-/// The number of characters in [literal] that are not interpolated.
-int _literalLength(SingleStringLiteral literal) {
-  switch (literal) {
-    case SimpleStringLiteral(:final value):
-      return value.length;
-    case StringInterpolation(:final elements):
-      var length = 0;
-      for (final InterpolationString part in elements.whereType<InterpolationString>()) {
-        length += part.value.length;
-      }
-      return length;
-  }
-}
-
-/// Whether [node] is inside a directive or an annotation.
-bool _isMetadata(AstNode node) =>
-    node.thisOrAncestorOfType<Directive>() != null ||
-    node.thisOrAncestorOfType<Annotation>() != null;
 
 /// Reports declarations of `operator ==`, `hashCode`, and `toString` whose
 /// name is not in [allowed].

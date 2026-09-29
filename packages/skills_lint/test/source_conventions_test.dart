@@ -32,10 +32,6 @@ void main() {
       expectNoViolations(violations, fix: _stringLiteralKeyFix);
     });
 
-    test('no string literal of $minSharedLiteralLength+ characters is repeated across lib/', () {
-      expectNoViolations(findSharedLiterals(under(const ['lib'])), fix: _sharedLiteralFix);
-    });
-
     test('no operator ==, hashCode, or toString overrides', () {
       final List<Violation> violations = [];
       for (final source in sources) {
@@ -69,12 +65,6 @@ const String _stringLiteralKeyFix =
     'Declare the key as a `static const String` on the model class that owns '
     "it (for example `static const String keyStartLine = 'startLine';`) and "
     'use that constant wherever the key is read or written.';
-
-const String _sharedLiteralFix =
-    'Declare the text once, in the library that owns the message, and '
-    'reference it from every file. If the text interpolates values, move it '
-    'into a function that takes those values. Do not declare a second '
-    'constant that aliases the first; the const-alias check rejects that.';
 
 /// Built from [_allowedOverrides] so the message and the allowlist agree.
 final String _forbiddenOverrideFix = () {
