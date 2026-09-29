@@ -8,6 +8,7 @@ import 'dart:io';
 import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
 import 'reporter.dart';
+import 'tool_error_messages.dart';
 
 /// Machine-readable JSON array reporter.
 class JsonReporter implements Reporter {
@@ -60,7 +61,7 @@ class JsonReporter implements Reporter {
 
   @override
   void onFixFailed({required String ruleName, required Object error}) {
-    _err.writeln(Reporter.fixFailedMessage(ruleName: ruleName, error: error));
+    _err.writeln(ToolErrorMessages.fixFailedMessage(ruleName: ruleName, error: error));
   }
 
   @override
@@ -70,7 +71,7 @@ class JsonReporter implements Reporter {
     required Object error,
   }) {
     _err.writeln(
-      Reporter.renameFailedMessage(
+      ToolErrorMessages.renameFailedMessage(
         oldSkillName: oldSkillName,
         targetSkillName: targetSkillName,
         error: error,
@@ -85,7 +86,7 @@ class JsonReporter implements Reporter {
     required String destinationPath,
   }) {
     _err.writeln(
-      Reporter.renameTargetExistsMessage(
+      ToolErrorMessages.renameTargetExistsMessage(
         oldSkillName: oldSkillName,
         targetSkillName: targetSkillName,
         destinationPath: destinationPath,
@@ -95,7 +96,7 @@ class JsonReporter implements Reporter {
 
   @override
   void onBaselineFailed(String ignorePath, Object error) {
-    _err.writeln(Reporter.baselineFailedMessage(ignorePath, error));
+    _err.writeln(ToolErrorMessages.baselineFailedMessage(ignorePath, error));
   }
 
   @override

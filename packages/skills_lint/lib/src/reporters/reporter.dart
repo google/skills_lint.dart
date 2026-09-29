@@ -34,43 +34,6 @@ abstract class Reporter {
   /// Prefix used for internal tool failure messages routed to stderr.
   static const String toolErrorPrefix = 'skills_lint internal error:';
 
-  /// Line shared by every internal-error message, telling the user that the
-  /// fault is in the tool and not in their skill.
-  static const String _toolBugNotice =
-      '  This is a bug in skills_lint, not a problem with your skill.';
-
-  /// The stderr message every format writes for [onFixFailed].
-  static String fixFailedMessage({required String ruleName, required Object error}) =>
-      "$toolErrorPrefix could not apply the '$ruleName' fix.\n"
-      '$_toolBugNotice\n'
-      '  Your skill was left unmodified. Cause: $error';
-
-  /// The stderr message every format writes for [onRenameFailed].
-  static String renameFailedMessage({
-    required String oldSkillName,
-    required String targetSkillName,
-    required Object error,
-  }) =>
-      "$toolErrorPrefix could not rename skill directory from '$oldSkillName' to '$targetSkillName'.\n"
-      '$_toolBugNotice\n'
-      "  Your skill directory was left at '$oldSkillName'. Cause: $error";
-
-  /// The stderr message every format writes for [onRenameTargetExists].
-  static String renameTargetExistsMessage({
-    required String oldSkillName,
-    required String targetSkillName,
-    required String destinationPath,
-  }) =>
-      "$toolErrorPrefix cannot rename skill directory from '$oldSkillName' to '$targetSkillName': destination directory '$destinationPath' already exists.\n"
-      '$_toolBugNotice\n'
-      "  Your skill directory was left at '$oldSkillName'.";
-
-  /// The stderr message every format writes for [onBaselineFailed].
-  static String baselineFailedMessage(String ignorePath, Object error) =>
-      "$toolErrorPrefix failed to generate baseline file at '$ignorePath'.\n"
-      '$_toolBugNotice\n'
-      '  Your baseline file was left unmodified. Cause: $error';
-
   /// Called when evaluation of a container directory begins.
   void onDirectoryEvaluating(String directoryPath);
 

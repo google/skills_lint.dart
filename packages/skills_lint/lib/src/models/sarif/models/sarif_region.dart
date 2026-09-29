@@ -4,11 +4,13 @@
 
 import 'package:meta/meta.dart';
 
+import '../sarif_constants.dart';
+
 /// A 1-based coordinate region within an artifact (OASIS SARIF 2.1.0 §3.30).
 @immutable
 class SarifRegion {
   const SarifRegion({required this.startLine, this.startColumn, this.endLine, this.endColumn})
-    : assert(startLine >= 1, invalidStartLineMessage);
+    : assert(startLine >= 1, SarifConstants.invalidStartLineMessage);
 
   /// Constructs a [SarifRegion] from a JSON map.
   factory SarifRegion.fromJson(Map<String, Object?> json) {
@@ -19,9 +21,6 @@ class SarifRegion {
       endColumn: json[keyEndColumn] as int?,
     );
   }
-
-  /// Assertion message for a [startLine] below 1.
-  static const String invalidStartLineMessage = 'SARIF 2.1.0 requires startLine >= 1';
 
   /// JSON key for [startLine].
   static const String keyStartLine = 'startLine';

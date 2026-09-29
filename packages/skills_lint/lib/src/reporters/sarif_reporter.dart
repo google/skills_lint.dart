@@ -11,6 +11,7 @@ import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
 import '../rule_registry.dart';
 import 'reporter.dart';
+import 'tool_error_messages.dart';
 
 /// SARIF 2.1.0 document reporter for CI and GitHub Code Scanning.
 class SarifReporter implements Reporter {
@@ -64,7 +65,7 @@ class SarifReporter implements Reporter {
 
   @override
   void onFixFailed({required String ruleName, required Object error}) {
-    _err.writeln(Reporter.fixFailedMessage(ruleName: ruleName, error: error));
+    _err.writeln(ToolErrorMessages.fixFailedMessage(ruleName: ruleName, error: error));
   }
 
   @override
@@ -74,7 +75,7 @@ class SarifReporter implements Reporter {
     required Object error,
   }) {
     _err.writeln(
-      Reporter.renameFailedMessage(
+      ToolErrorMessages.renameFailedMessage(
         oldSkillName: oldSkillName,
         targetSkillName: targetSkillName,
         error: error,
@@ -89,7 +90,7 @@ class SarifReporter implements Reporter {
     required String destinationPath,
   }) {
     _err.writeln(
-      Reporter.renameTargetExistsMessage(
+      ToolErrorMessages.renameTargetExistsMessage(
         oldSkillName: oldSkillName,
         targetSkillName: targetSkillName,
         destinationPath: destinationPath,
@@ -99,7 +100,7 @@ class SarifReporter implements Reporter {
 
   @override
   void onBaselineFailed(String ignorePath, Object error) {
-    _err.writeln(Reporter.baselineFailedMessage(ignorePath, error));
+    _err.writeln(ToolErrorMessages.baselineFailedMessage(ignorePath, error));
   }
 
   @override
