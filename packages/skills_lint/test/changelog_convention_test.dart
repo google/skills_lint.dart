@@ -17,7 +17,8 @@ const int maxBulletLength = 300;
 /// tell users only what they need to know (see [maxBulletLength]).
 ///
 /// Only the section under the first `## ` heading is checked. Released
-/// sections are not rewritten, so they are not checked.
+/// sections are not rewritten, so they are not checked. Entries are flat
+/// `- ` bullets.
 void main() {
   test('top CHANGELOG section entries tell users only what they need', () {
     final List<String> lines = File('CHANGELOG.md').readAsLinesSync();

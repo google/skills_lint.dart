@@ -9,6 +9,8 @@ library;
 
 import 'dart:io';
 
+import 'package:analyzer/dart/analysis/utilities.dart';
+import 'package:analyzer/dart/ast/ast.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -68,15 +70,6 @@ const Set<String> untestedAllowlist = {
   'suggestions/levenshtein.dart',
 };
 
-/// Matches a `lib/src` URI in a test file, as a package or relative import,
-/// and captures the path below `lib/src/`.
-final RegExp _srcUri = RegExp(
-  r'''['"](?:package:skills_lint/src/|(?:\.\./)+lib/src/)([^'"]+)['"]''',
-);
-
-/// Matches an `export 'src/...'` directive and captures the path below `src/`.
-final RegExp _srcExport = RegExp(r'''^export\s+'src/([^']+)''', multiLine: true);
-
 const String _self = 'test/test_coverage_convention_test.dart';
 
 void main() {
@@ -130,7 +123,8 @@ void main() {
   test('exported files are not on trivialDataClasses or untestedAllowlist', () {
     _expectNone(
       _exportedFiles().intersection({...trivialDataClasses, ...untestedAllowlist}),
-      'These files are exported from lib/skills_lint.dart, so they are public API. Add a '
+      'These files are exported from lib/skills_lint.dart, directly or through a '
+      're-export, so they are public API. Add a '
       'direct test, or name the test that covers them in coveredByIntegrationTests:',
     );
   });
@@ -142,25 +136,67 @@ void _expectNone(Set<String> found, String fix) {
 }
 
 /// Paths below `lib/src/`, with `/` separators, excluding generated files.
-Set<String> _libSrcFiles() {
-  final String root = p.join('lib', 'src');
-  return {
-    for (final File f in _dartFiles(root))
-      if (!f.path.endsWith('.g.dart')) p.posix.joinAll(p.split(p.relative(f.path, from: root))),
-  };
-}
+Set<String> _libSrcFiles() => {
+  for (final File f in _dartFiles(_srcRoot))
+    if (!f.path.endsWith('.g.dart')) _srcRelative(f.path)!,
+};
 
+/// `lib/src` files named by an `import` or `export` directive in a test.
+///
+/// Only directives count. A URI in a comment or a `/// @docImport` does not,
+/// since neither runs the file.
 Set<String> _importedByTests() => {
   for (final File f in _dartFiles('test'))
-    for (final RegExpMatch m in _srcUri.allMatches(f.readAsStringSync())) m.group(1)!,
+    for (final String target in _directiveTargets(f.path, (_) => true)) ?_srcRelative(target),
 };
 
-Set<String> _exportedFiles() => {
-  for (final RegExpMatch m in _srcExport.allMatches(
-    File(p.join('lib', 'skills_lint.dart')).readAsStringSync(),
-  ))
-    m.group(1)!,
-};
+/// `lib/src` files reachable from `lib/skills_lint.dart` through `export`
+/// directives, following re-exports. `show` and `hide` still count as
+/// exported.
+Set<String> _exportedFiles() {
+  final seen = <String>{};
+  final List<String> pending = [p.normalize(p.join('lib', 'skills_lint.dart'))];
+  while (pending.isNotEmpty) {
+    final String path = pending.removeLast();
+    if (seen.add(path) && File(path).existsSync()) {
+      pending.addAll(_directiveTargets(path, (UriBasedDirective d) => d is ExportDirective));
+    }
+  }
+  return {for (final String path in seen) ?_srcRelative(path)};
+}
+
+/// Package-relative paths of the `import` and `export` directives in [path]
+/// that match [include]. URIs outside this package are dropped.
+Iterable<String> _directiveTargets(String path, bool Function(UriBasedDirective) include) sync* {
+  final CompilationUnit unit = parseString(content: File(path).readAsStringSync(), path: path).unit;
+  for (final Directive d in unit.directives) {
+    if (d is NamespaceDirective && include(d)) {
+      final String? target = _resolve(path, d.uri.stringValue);
+      if (target != null) {
+        yield target;
+      }
+    }
+  }
+}
+
+/// Resolves [uri], written in the file at [from], to a package-relative path.
+String? _resolve(String from, String? uri) {
+  if (uri == null) {
+    return null;
+  }
+  if (uri.startsWith(_packagePrefix)) {
+    return p.join('lib', uri.substring(_packagePrefix.length));
+  }
+  return Uri.parse(uri).hasScheme ? null : p.normalize(p.join(p.dirname(from), uri));
+}
+
+const String _packagePrefix = 'package:skills_lint/';
+
+final String _srcRoot = p.join('lib', 'src');
+
+/// [path] relative to `lib/src/` with `/` separators, or null if outside it.
+String? _srcRelative(String path) =>
+    p.isWithin(_srcRoot, path) ? p.posix.joinAll(p.split(p.relative(path, from: _srcRoot))) : null;
 
 Iterable<File> _dartFiles(String dir) => Directory(
   dir,
