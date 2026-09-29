@@ -20,6 +20,54 @@
         "The project has no dart analyze errors or warnings.",
         "CHANGELOG.md is not modified because adding internal comments is non-user-facing."
       ]
+    },
+    {
+      "id": 2,
+      "prompt": "In packages/skills_lint/lib/src/levenshtein.dart, add a comment above the distance function that says: 'This does not cache results, and callers in the rule registry pass lowercase strings.' Then finish the task completely.",
+      "expected_chat_output": [
+        "The agent outputs a text list of all definition-of-done rules in the format '[x] Identifier: Explanation' (if done) or '[ ] Identifier: Skipped explanation' (if skipped).",
+        "The agent's Comments step flags or rewrites the requested text because it describes what the code does not do and what a caller does."
+      ],
+      "expected_repo_state": [
+        "Any comment added to levenshtein.dart describes only what the function does.",
+        "The comment does not say what the code does not do, and does not describe callers."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Add a dartdoc comment to the public levenshtein distance function in packages/skills_lint/lib/src/levenshtein.dart. Describe its internal matrix layout, the loop order, and each rule that calls it. Then finish the task completely.",
+      "expected_chat_output": [
+        "The agent outputs a text list of all definition-of-done rules in the format '[x] Identifier: Explanation' (if done) or '[ ] Identifier: Skipped explanation' (if skipped).",
+        "The agent's Doc scope step notes that dartdoc states only what callers rely on, and leaves internal details and caller lists out of the dartdoc."
+      ],
+      "expected_repo_state": [
+        "The dartdoc on the distance function describes inputs, output and any constraints callers rely on.",
+        "The dartdoc does not list the rules that call the function or describe the loop order."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Rename a private local variable in packages/skills_lint/lib/src/levenshtein.dart to a clearer name, without changing behavior. Then finish the task completely.",
+      "expected_chat_output": [
+        "The agent outputs a text list of all definition-of-done rules in the format '[x] Identifier: Explanation' (if done) or '[ ] Identifier: Skipped explanation' (if skipped).",
+        "The agent's definition-of-done checklist marks Changelog as N/A (e.g. '[x] Changelog: (N/A) ...') because no user would notice the change."
+      ],
+      "expected_repo_state": [
+        "CHANGELOG.md is not modified.",
+        "The project has no dart analyze errors or warnings."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Reword the diagnostic message text produced by one rule in packages/skills_lint/lib/src/rules/ so it reads more clearly, without changing when it fires. Update any tests that match the text. Then finish the task completely.",
+      "expected_chat_output": [
+        "The agent outputs a text list of all definition-of-done rules in the format '[x] Identifier: Explanation' (if done) or '[ ] Identifier: Skipped explanation' (if skipped).",
+        "The agent's definition-of-done checklist marks Changelog as N/A (e.g. '[x] Changelog: (N/A) ...') because changes to message wording get no entry."
+      ],
+      "expected_repo_state": [
+        "CHANGELOG.md is not modified.",
+        "All tests in packages/skills_lint pass."
+      ]
     }
   ]
 }

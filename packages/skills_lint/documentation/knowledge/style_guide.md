@@ -28,6 +28,17 @@ All Dart code across this repository must adhere strictly to the official [Effec
 
 ---
 
+## Temporal Words
+
+Don't use relative temporal terms in code, comments or docs. Examples: "now", "currently", "new", "old", "legacy", "existing behavior", "used to", "previously", "no longer", "originally".
+
+Their meaning changes over time. What is "new" or "legacy" today won't be tomorrow. They are a documentation smell:
+
+- Humans usually use them for lack of a better name. Pick a name that says what the thing is.
+- Agents usually use them to refer to earlier versions of the code. The reader of the code today doesn't care about those versions.
+
+---
+
 ## 🔑 Class Constants for Schema and Property Keys
 
 All JSON schema property keys, serialization map keys, YAML frontmatter keys, and CLI option names must be declared as `static const String` constants co-located on their owning model classes (e.g., `keyRuleId`, `keyStartLine`, `keyName`).
