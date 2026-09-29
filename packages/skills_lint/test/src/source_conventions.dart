@@ -15,8 +15,8 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import 'models/convention_violation.dart';
 import 'models/source.dart';
-import 'models/violation.dart';
 
 const Set<String> _forbiddenOverrideNames = {'==', 'hashCode', 'toString'};
 
@@ -25,8 +25,8 @@ const Set<String> _forbiddenOverrideNames = {'==', 'hashCode', 'toString'};
 /// A key typed as a literal can be misspelled in one place and still
 /// compile, so a model that reads and writes the same key can drift apart.
 /// A named constant makes every use refer to one spelling.
-List<Violation> findStringLiteralKeys(Source source) {
-  final List<Violation> violations = [];
+List<ConventionViolation> findStringLiteralKeys(Source source) {
+  final List<ConventionViolation> violations = [];
   for (final AstNode node in source.nodes) {
     final Expression? key = switch (node) {
       MapLiteralEntry(:final key) => key,
@@ -46,8 +46,8 @@ List<Violation> findStringLiteralKeys(Source source) {
 /// These overrides change equality and printing for every caller, and a
 /// hand-written `==` and `hashCode` pair silently breaks when a field is
 /// added and only one of them is updated.
-List<Violation> findForbiddenOverrides(Source source, {Set<String> allowed = const {}}) {
-  final List<Violation> violations = [];
+List<ConventionViolation> findForbiddenOverrides(Source source, {Set<String> allowed = const {}}) {
+  final List<ConventionViolation> violations = [];
   for (final MethodDeclaration method in source.nodes.whereType<MethodDeclaration>()) {
     final String name = method.name.lexeme;
     if (_forbiddenOverrideNames.contains(name) && !allowed.contains(name)) {
@@ -62,7 +62,7 @@ List<Violation> findForbiddenOverrides(Source source, {Set<String> allowed = con
 ///
 /// An alias gives one value two names, so readers must check that both
 /// still mean the same thing, and a search for one name misses the other.
-List<Violation> findConstAliases(Iterable<Source> sources) {
+List<ConventionViolation> findConstAliases(Iterable<Source> sources) {
   // Enum values are not constant declarations, so
   // `static const Severity defaultSeverity = Severity.error;` passes.
   final Set<String> declared = {};
@@ -71,7 +71,7 @@ List<Violation> findConstAliases(Iterable<Source> sources) {
       declared.add(_qualifiedName(constant, constant.name.lexeme));
     }
   }
-  final List<Violation> violations = [];
+  final List<ConventionViolation> violations = [];
   for (final source in sources) {
     for (final VariableDeclaration constant in _constDeclarations(source)) {
       final String? target = _aliasTarget(constant, declared);
@@ -120,7 +120,7 @@ String _qualifiedName(AstNode node, String name) {
 }
 
 /// Fails with one line per violation, followed by how to fix it.
-void expectNoViolations(Iterable<Violation> violations, {required String fix}) {
+void expectNoViolations(Iterable<ConventionViolation> violations, {required String fix}) {
   if (violations.isEmpty) {
     return;
   }

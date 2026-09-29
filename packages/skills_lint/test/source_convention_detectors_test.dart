@@ -4,8 +4,8 @@
 
 import 'package:test/test.dart';
 
+import 'src/models/convention_violation.dart';
 import 'src/models/source.dart';
-import 'src/models/violation.dart';
 import 'src/source_conventions.dart';
 
 /// Runs each source-convention detector over small inline snippets, which
@@ -53,7 +53,7 @@ class Point {
     });
 
     test('skips the names in allowed', () {
-      final List<Violation> violations = findForbiddenOverrides(
+      final List<ConventionViolation> violations = findForbiddenOverrides(
         Source.snippet(overrides),
         allowed: const {'toString'},
       );
@@ -90,7 +90,7 @@ class Other {
     });
 
     test('reports an alias of a const declared in another file', () {
-      final List<Violation> violations = findConstAliases([
+      final List<ConventionViolation> violations = findConstAliases([
         Source.snippet("class SkillContext { static const String fileName = 'SKILL.md'; }"),
         Source.snippet('class Rule { static const String _fileName = SkillContext.fileName; }'),
       ]);
@@ -115,4 +115,4 @@ class Rule {
   });
 }
 
-List<int> _lines(Iterable<Violation> violations) => [for (final v in violations) v.line];
+List<int> _lines(Iterable<ConventionViolation> violations) => [for (final v in violations) v.line];

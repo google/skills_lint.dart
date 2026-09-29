@@ -7,7 +7,7 @@ import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 
-import 'violation.dart';
+import 'convention_violation.dart';
 
 /// A parsed Dart file and every node in its syntax tree.
 class Source {
@@ -24,8 +24,8 @@ class Source {
   /// Every node of the syntax tree, in source order.
   late final List<AstNode> nodes = (_NodeCollector()..visitNode(_parsed.unit)).nodes;
 
-  Violation violationAt(int offset, String problem) =>
-      Violation(path, _parsed.lineInfo.getLocation(offset).lineNumber, problem);
+  ConventionViolation violationAt(int offset, String problem) =>
+      ConventionViolation(path, _parsed.lineInfo.getLocation(offset).lineNumber, problem);
 }
 
 /// Collects every node of a syntax tree in source order.

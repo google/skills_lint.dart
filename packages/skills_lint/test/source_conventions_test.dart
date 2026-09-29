@@ -4,8 +4,8 @@
 
 import 'package:test/test.dart';
 
+import 'src/models/convention_violation.dart';
 import 'src/models/source.dart';
-import 'src/models/violation.dart';
 import 'src/source_conventions.dart';
 
 /// Source conventions that reviewers enforce, checked across the package.
@@ -25,7 +25,7 @@ void main() {
         sources.where((source) => directories.any((d) => source.path.startsWith('$d/')));
 
     test('map keys and indices under lib/src/models/ are not string literals', () {
-      final List<Violation> violations = [];
+      final List<ConventionViolation> violations = [];
       for (final Source source in under(const ['lib/src/models'])) {
         violations.addAll(findStringLiteralKeys(source));
       }
@@ -33,7 +33,7 @@ void main() {
     });
 
     test('no operator ==, hashCode, or toString overrides', () {
-      final List<Violation> violations = [];
+      final List<ConventionViolation> violations = [];
       for (final source in sources) {
         final Set<String> allowed = _allowedOverrides[source.path] ?? const {};
         violations.addAll(findForbiddenOverrides(source, allowed: allowed));

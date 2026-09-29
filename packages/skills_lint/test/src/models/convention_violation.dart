@@ -2,9 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// One convention violation: where it is and what is wrong.
-class Violation {
-  Violation(this.path, this.line, this.problem);
+/// One repo-convention finding: where it is and what is wrong.
+class ConventionViolation {
+  ConventionViolation(this.path, this.line, this.problem);
 
   final String path;
 
