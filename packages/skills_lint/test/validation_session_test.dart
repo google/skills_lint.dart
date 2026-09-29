@@ -195,6 +195,9 @@ void main() {
         session.results.expand((r) => r.validationErrors).map((e) => e.message),
         contains(contains('Failed to list children of')),
       );
+      // Skipped on Windows: the test removes permissions with the POSIX `chmod`
+      // command (see `_chmod`), which Windows does not provide, and NTFS access
+      // is controlled by ACLs rather than mode bits.
     }, testOn: '!windows');
 
     test('continues when the custom ignore file and baseline cannot be written', () async {
@@ -246,6 +249,9 @@ void main() {
       expect(shouldContinue, isTrue);
       expect(skillDir.existsSync(), isTrue);
       expect(Directory(p.join(skillsDir.path, 'test-pkg-setup')).existsSync(), isFalse);
+      // Skipped on Windows: the test removes permissions with the POSIX `chmod`
+      // command (see `_chmod`), which Windows does not provide, and NTFS access
+      // is controlled by ACLs rather than mode bits.
     }, testOn: '!windows');
   });
 }

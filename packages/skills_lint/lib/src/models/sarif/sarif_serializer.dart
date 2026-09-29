@@ -175,12 +175,12 @@ class SarifSerializer {
     try {
       result = Process.runSync('git', ['rev-parse', '--show-toplevel']);
     } on ProcessException {
-      // `git` is not installed or not on PATH. Fall back to the working
-      // directory.
+      // `git` is not installed or not on PATH.
       return null;
     } on FormatException {
-      // Outside Windows, Process.runSync decodes output as strict UTF-8, so a
-      // repository path or git message that is not valid UTF-8 throws here.
+      // Process.runSync decodes output with `systemEncoding`, which is UTF-8
+      // on macOS and Linux (Windows uses the code page instead). If the
+      // repository path or git's output is not valid UTF-8, decoding throws.
       return null;
     }
     if (result.exitCode != 0) {
