@@ -9,15 +9,6 @@ import 'package:test/test.dart';
 
 const int _maxCognitiveComplexityThreshold = 20;
 
-/// Documents that state the cognitive complexity gate, relative to the
-/// repository root. Each must quote the command CI runs verbatim.
-///
-/// `AGENTS.md` is absent because it links to the definition-of-done skill
-/// instead of restating the command.
-const List<String> _documentsQuotingCognitiveComplexityCommand = <String>[
-  '.agents/skills/definition-of-done/SKILL.md',
-];
-
 void main() {
   group('CI workflow consistency', () {
     test('CI workflow cognitive complexity fail-threshold does not exceed 20', () {
@@ -42,18 +33,19 @@ void main() {
     test('documents quote the CI cognitive complexity command exactly', () {
       final String commandLine = _parseCognitiveComplexityInvocation().group(0)!.trim();
       final String repoRoot = _getWorkflowFile().parent.parent.parent.path;
-      for (final String doc in _documentsQuotingCognitiveComplexityCommand) {
-        final String text = File(p.join(repoRoot, doc)).readAsStringSync();
-        // The backticks pin both ends, so a document that drops or appends a
-        // path root does not match.
-        expect(
-          text,
-          contains('`$commandLine`'),
-          reason:
-              '$doc describes the cognitive complexity gate but does not quote '
-              'the command CI runs. Copy this line verbatim:\n  $commandLine',
-        );
-      }
+      final String text = File(
+        p.join(repoRoot, '.agents', 'skills', 'definition-of-done', 'SKILL.md'),
+      ).readAsStringSync();
+      // The backticks pin both ends, so a document that drops or appends a
+      // path root does not match.
+      expect(
+        text,
+        contains('`$commandLine`'),
+        reason:
+            '.agents/skills/definition-of-done/SKILL.md describes the cognitive '
+            'complexity gate but does not quote the command CI runs. Copy this '
+            'line verbatim:\n  $commandLine',
+      );
     });
   });
 }

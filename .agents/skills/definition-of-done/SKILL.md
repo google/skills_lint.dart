@@ -28,14 +28,6 @@ Before stating that a task is complete, you MUST execute and pass the following 
 9.  **No Silent Deletions**: Diff the branch against its merge base. Name every removed comment, docstring, test, or eval assertion in the PR description, with the reason. Restore any removal you did not intend.
 10. **Citations**: Open every URL the change adds. Each URL must resolve and support the claim it is attached to. Cite the Agent Skills specification only for rules the specification states.
 
-## 🔍 Review Triage
-
-When you triage review comments, do not edit workspace files during the analysis. Write your proposed changes and wait for approval.
-
-## 🚀 Submission
-
-Push to GitHub over HTTPS as `reidbaker-agent`. Run `gh auth status` first to confirm the active account. Never push over SSH or with personal credentials.
-
 ## 🚦 Output Formatting
 
 You MUST include a text list of all mandatory verification steps in your final response to the user. Use the exact following format:
