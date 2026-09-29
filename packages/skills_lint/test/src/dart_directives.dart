@@ -45,21 +45,18 @@ class DartPackage {
     return p.normalize(p.join(p.dirname(from), uri));
   }
 
-  /// Returns the paths named by the `import` and `export` directives in the
-  /// file at [path], or only by its `export` directives if [exportsOnly] is
-  /// true. URIs that [resolve] drops are left out.
-  List<String> directiveTargets(String path, {bool exportsOnly = false}) {
-    final source = Source(path, File(path).readAsStringSync());
+  /// Returns the paths named by the `import` and `export` directives in
+  /// [source], or only by its `export` directives if [exportsOnly] is true.
+  /// URIs that [resolve] drops are left out.
+  List<String> directiveTargets(Source source, {bool exportsOnly = false}) {
     final targets = <String>[];
-    for (final NamespaceDirective directive in source.nodes.whereType<NamespaceDirective>()) {
+    for (final NamespaceDirective directive
+        in source.unit.directives.whereType<NamespaceDirective>()) {
       final String? uri = directive.uri.stringValue;
-      if (directive.parent is! CompilationUnit || uri == null) {
+      if (uri == null || (exportsOnly && directive is! ExportDirective)) {
         continue;
       }
-      if (exportsOnly && directive is! ExportDirective) {
-        continue;
-      }
-      final String? target = resolve(uri, from: path);
+      final String? target = resolve(uri, from: source.path);
       if (target != null) {
         targets.add(target);
       }
@@ -74,19 +71,20 @@ class DartPackage {
     final List<String> pending = [p.normalize(library)];
     while (pending.isNotEmpty) {
       final String path = pending.removeLast();
-      if (seen.add(path) && File(path).existsSync()) {
-        pending.addAll(directiveTargets(path, exportsOnly: true));
+      final file = File(path);
+      if (seen.add(path) && file.existsSync()) {
+        pending.addAll(directiveTargets(Source(path, file.readAsStringSync()), exportsOnly: true));
       }
     }
     return seen;
   }
 
   /// Returns the files below [srcRoot] named by an `import` or `export`
-  /// directive in any Dart file below [dir], as [srcRelative] paths.
-  Set<String> filesImportedFrom(String dir) {
+  /// directive in [sources], as [srcRelative] paths.
+  Set<String> filesImportedBy(Iterable<Source> sources) {
     final imported = <String>{};
-    for (final File file in dartFiles(dir)) {
-      for (final String target in directiveTargets(file.path)) {
+    for (final source in sources) {
+      for (final String target in directiveTargets(source)) {
         final String? relative = srcRelative(target);
         if (relative != null) {
           imported.add(relative);
@@ -105,8 +103,3 @@ class DartPackage {
     return p.posix.joinAll(p.split(p.relative(path, from: srcRoot)));
   }
 }
-
-/// Returns every `.dart` file below [dir], recursively.
-Iterable<File> dartFiles(String dir) => Directory(
-  dir,
-).listSync(recursive: true).whereType<File>().where((File f) => f.path.endsWith('.dart'));

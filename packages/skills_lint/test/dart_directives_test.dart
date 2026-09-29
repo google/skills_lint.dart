@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'src/dart_directives.dart';
+import 'src/source_conventions.dart';
 
 void main() {
   late Directory root;
@@ -29,10 +30,10 @@ void main() {
 
   String libPath(String relative) => p.join(root.path, 'lib', relative);
 
-  group('filesImportedFrom', () {
+  group('filesImportedBy', () {
     test('ignores a path in a comment', () {
       write('test/a_test.dart', "// See 'package:pkg/src/a.dart'.\nvoid main() {}\n");
-      expect(package.filesImportedFrom(p.join(root.path, 'test')), isEmpty);
+      expect(package.filesImportedBy(parseDirectories([p.join(root.path, 'test')])), isEmpty);
     });
 
     test('ignores a @docImport', () {
@@ -40,7 +41,7 @@ void main() {
         'test/a_test.dart',
         "/// @docImport 'package:pkg/src/a.dart';\nlibrary;\n\nvoid main() {}\n",
       );
-      expect(package.filesImportedFrom(p.join(root.path, 'test')), isEmpty);
+      expect(package.filesImportedBy(parseDirectories([p.join(root.path, 'test')])), isEmpty);
     });
 
     test('counts package and relative imports with either quote style', () {
@@ -51,7 +52,7 @@ void main() {
             "import '../lib/src/c.dart';\n"
             'export "../lib/src/nested/d.dart";\n',
       );
-      expect(package.filesImportedFrom(p.join(root.path, 'test')), {
+      expect(package.filesImportedBy(parseDirectories([p.join(root.path, 'test')])), {
         'a.dart',
         'b.dart',
         'c.dart',
@@ -67,7 +68,7 @@ void main() {
             "import 'package:pkg/pkg.dart';\n"
             "import 'helper.dart';\n",
       );
-      expect(package.filesImportedFrom(p.join(root.path, 'test')), isEmpty);
+      expect(package.filesImportedBy(parseDirectories([p.join(root.path, 'test')])), isEmpty);
     });
   });
 

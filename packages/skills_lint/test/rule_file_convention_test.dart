@@ -14,20 +14,20 @@
 /// or other packages use, such as a parameter type exported for callers.
 library;
 
-import 'dart:io';
-
-import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import 'src/models/source.dart';
+import 'src/source_conventions.dart';
+
 void main() {
   test('each rule file declares at most one public type', () {
     final problems = <String>[];
-    for (final File file in _ruleFiles()) {
-      final List<String> public = _publicTypes(file);
+    for (final Source source in parseDirectories([p.join('lib', 'src', 'rules')])) {
+      final List<String> public = _publicTypes(source);
       if (public.length > 1) {
-        problems.add('${p.relative(file.path)}: ${public.join(', ')}');
+        problems.add('${source.path}: ${public.join(', ')}');
       }
     }
     expect(
@@ -41,18 +41,10 @@ void main() {
   });
 }
 
-List<File> _ruleFiles() =>
-    Directory(
-        p.join('lib', 'src', 'rules'),
-      ).listSync().whereType<File>().where((File f) => f.path.endsWith('.dart')).toList()
-      ..sort((File a, File b) => a.path.compareTo(b.path));
-
-/// The public top-level class, enum, mixin and extension type names in [file].
-List<String> _publicTypes(File file) => [
-  for (final CompilationUnitMember member in parseString(
-    content: file.readAsStringSync(),
-    path: file.path,
-  ).unit.declarations)
+/// Returns the public top-level class, enum, mixin and extension type names
+/// in [source].
+List<String> _publicTypes(Source source) => [
+  for (final CompilationUnitMember member in source.unit.declarations)
     if (_typeName(member) case final String name when !name.startsWith('_')) name,
 ];
 

@@ -13,6 +13,8 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'src/dart_directives.dart';
+import 'src/models/source.dart';
+import 'src/source_conventions.dart';
 
 /// Files with nothing worth unit testing: constants, plain data holders, or
 /// barrels of `export` directives. A test for one of these would only repeat
@@ -138,13 +140,13 @@ void _expectNone(Set<String> found, String fix) {
 /// Returns the paths below `lib/src/` with `/` separators, excluding
 /// generated files.
 Set<String> _libSrcFiles() => {
-  for (final File f in dartFiles(_package.srcRoot))
-    if (!f.path.endsWith('.g.dart')) _package.srcRelative(f.path)!,
+  for (final Source source in parseDirectories([_package.srcRoot]))
+    _package.srcRelative(source.path)!,
 };
 
 /// Returns the `lib/src` files named by an `import` or `export` directive in
 /// a test.
-Set<String> _importedByTests() => _package.filesImportedFrom('test');
+Set<String> _importedByTests() => _package.filesImportedBy(parseDirectories(['test']));
 
 /// Returns the `lib/src` files reachable from `lib/skills_lint.dart` through
 /// `export` directives.
