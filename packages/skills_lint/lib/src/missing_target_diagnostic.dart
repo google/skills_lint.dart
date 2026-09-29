@@ -22,8 +22,9 @@ enum MissingTargetKind {
 
 /// A diagnostic for a target that does not exist.
 ///
-/// [text] is the plain-text message, [markdown] the rich form for SARIF and
-/// JSON, and [file] and [region] the location to report.
+/// The `text` field is the plain-text message, `markdown` the rich form for
+/// SARIF and JSON, and `file` and the optional [SourceRegion] `region` the
+/// location to report.
 typedef MissingTargetDiagnostic = ({
   String text,
   String markdown,
