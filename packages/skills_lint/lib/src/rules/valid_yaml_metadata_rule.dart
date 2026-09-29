@@ -10,6 +10,7 @@ import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
+import '../specification_urls.dart';
 
 /// Enforces that SKILL.md has valid YAML frontmatter and required fields.
 class ValidYamlMetadataRule extends SkillRule {
@@ -40,8 +41,6 @@ class ValidYamlMetadataRule extends SkillRule {
   final AnalysisSeverity severity;
 
   static const Set<String> _requiredFields = {keyName, keyDescription};
-  static const String _skillFileName = 'SKILL.md';
-  static const String _metadataUrl = 'https://agentskills.io/specification#frontmatter';
   static const int maxCompatibilityLength = 500;
   static const String _compatibilityFieldUrl =
       'https://agentskills.io/specification#compatibility-field';
@@ -80,8 +79,9 @@ class ValidYamlMetadataRule extends SkillRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
-      message: 'Invalid YAML metadata: ${parsingError ?? 'Missing or invalid'} (see $_metadataUrl)',
+      file: SkillContext.skillFileName,
+      message:
+          'Invalid YAML metadata: ${parsingError ?? 'Missing or invalid'} (see ${SpecificationUrls.frontmatter})',
       markdownMessage:
           '**Invalid YAML frontmatter.**\n\n'
           '${parsingError ?? 'Missing or malformed YAML frontmatter block.'}\n\n'
@@ -93,7 +93,7 @@ class ValidYamlMetadataRule extends SkillRule {
           'description: <skill-description>\n'
           '---\n'
           '```\n'
-          '*(See [Agent Skills Specification]($_metadataUrl))*',
+          '*(See [Agent Skills Specification](${SpecificationUrls.frontmatter}))*',
       region: SourceRegion.wholeFile,
     );
   }
@@ -102,13 +102,13 @@ class ValidYamlMetadataRule extends SkillRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
-      message: 'Missing required field: $field (see $_metadataUrl)',
+      file: SkillContext.skillFileName,
+      message: 'Missing required field: $field (see ${SpecificationUrls.frontmatter})',
       markdownMessage:
           '**Missing required frontmatter field:** `$field`\n\n'
           '**How to fix:**\n'
           'Add `$field:` to the YAML frontmatter in `SKILL.md`.\n\n'
-          '*(See [Agent Skills Specification]($_metadataUrl))*',
+          '*(See [Agent Skills Specification](${SpecificationUrls.frontmatter}))*',
       region: SourceRegion.wholeFile,
     );
   }
@@ -120,7 +120,7 @@ class ValidYamlMetadataRule extends SkillRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
+      file: SkillContext.skillFileName,
       message: buildLengthDiagnostic(
         fieldName: 'Compatibility',
         value: compatibility,

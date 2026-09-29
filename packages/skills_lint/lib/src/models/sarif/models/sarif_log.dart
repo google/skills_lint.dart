@@ -38,7 +38,7 @@ class SarifLog {
       throw FormatException('Unsupported SARIF version: $version (expected $specVersion)');
     }
     return SarifLog(
-      schema: (json[keySchema] ?? json['schema'] ?? schemaUri) as String,
+      schema: (json[keyDollarSchema] ?? json[_keySchema] ?? schemaUri) as String,
       version: version,
       runs:
           (json[keyRuns] as List<Object?>?)
@@ -48,8 +48,11 @@ class SarifLog {
     );
   }
 
-  /// JSON key for [schema].
-  static const String keySchema = r'$schema';
+  /// JSON key for [schema], as written by SARIF 2.1.0.
+  static const String keyDollarSchema = r'$schema';
+
+  /// JSON key read for [schema] when [keyDollarSchema] is absent.
+  static const String _keySchema = 'schema';
 
   /// JSON key for [version].
   static const String keyVersion = 'version';
@@ -75,7 +78,7 @@ class SarifLog {
 
   /// Converts this SARIF log to a JSON map.
   Map<String, Object?> toJson() => {
-    keySchema: schema,
+    keyDollarSchema: schema,
     keyVersion: version,
     keyRuns: runs.map((r) => r.toJson()).toList(),
   };

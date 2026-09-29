@@ -18,6 +18,9 @@ import 'models/models.dart';
 
 /// Serializes validation results into OASIS SARIF 2.1.0 document format.
 class SarifSerializer {
+  /// The `uriBaseId` that repository-relative artifact URIs resolve against.
+  static const String _srcRootBaseId = '%SRCROOT%';
+
   /// Converts an [AnalysisSeverity] to the corresponding SARIF 2.1.0 level string.
   ///
   /// * `AnalysisSeverity.error` -> `'error'`
@@ -70,9 +73,11 @@ class SarifSerializer {
           tool: SarifTool(driver: driver),
           results: sarifResults,
           originalUriBaseIds: {
-            '%SRCROOT%': {
-              'uri': Uri.directory(effectiveRoot).toString(),
-              'description': const {'text': 'The root directory for all project files.'},
+            _srcRootBaseId: {
+              SarifArtifactLocation.keyUri: Uri.directory(effectiveRoot).toString(),
+              SarifArtifactLocation.keyDescription: const {
+                SarifMessage.keyText: 'The root directory for all project files.',
+              },
             },
           },
         ),
@@ -215,7 +220,7 @@ class SarifSerializer {
 
     if (p.equals(normalizedRoot, absolutePath) || p.isWithin(normalizedRoot, absolutePath)) {
       final String relative = p.relative(absolutePath, from: normalizedRoot);
-      return (uri: p.toUri(relative).toString(), uriBaseId: '%SRCROOT%');
+      return (uri: p.toUri(relative).toString(), uriBaseId: _srcRootBaseId);
     }
 
     return (uri: p.toUri(absolutePath).toString(), uriBaseId: null);

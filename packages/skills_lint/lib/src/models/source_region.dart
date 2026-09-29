@@ -4,6 +4,8 @@
 
 import 'package:meta/meta.dart';
 
+import 'sarif/sarif_constants.dart';
+
 /// A 1-based span within a source file.
 ///
 /// All coordinates are 1-based, matching the SARIF 2.1.0 `region` object
@@ -12,7 +14,7 @@ import 'package:meta/meta.dart';
 @immutable
 class SourceRegion {
   const SourceRegion({required this.startLine, this.startColumn, this.endLine, this.endColumn})
-    : assert(startLine >= 1, 'SARIF 2.1.0 requires startLine >= 1');
+    : assert(startLine >= 1, SarifConstants.invalidStartLineMessage);
 
   /// Constructs a [SourceRegion] from a JSON map.
   factory SourceRegion.fromJson(Map<String, Object?> json) => SourceRegion(

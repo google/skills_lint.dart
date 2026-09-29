@@ -30,7 +30,6 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
   static const maxNameLength = 64;
   static final _validNameRegex = RegExp(r'^[a-z0-9-]+$');
-  static const String _skillFileName = SkillContext.skillFileName;
   static const _nameFieldUrl = 'https://agentskills.io/specification#name-field';
 
   @override
@@ -107,7 +106,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
+      file: SkillContext.skillFileName,
       message:
           'Frontmatter `name` "$skillName" does not match the parent '
           'directory name "$dirName". '
@@ -136,7 +135,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
+      file: SkillContext.skillFileName,
       message:
           'Frontmatter `name` "$skillName" must be lowercase. '
           'Suggested: "$suggestion" (see $_nameFieldUrl)',
@@ -158,7 +157,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
+      file: SkillContext.skillFileName,
       message:
           'Frontmatter `name` is ${skillName.length} characters; '
           'maximum is $maxNameLength. '
@@ -181,7 +180,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
+      file: SkillContext.skillFileName,
       message:
           'Frontmatter `name` "$skillName" contains invalid characters. '
           'Only lowercase letters, digits, and hyphens are allowed. '
@@ -208,7 +207,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
+      file: SkillContext.skillFileName,
       message:
           'Frontmatter `name` "$skillName" has leading or trailing hyphens. '
           'Suggested: "$suggestion" (see $_nameFieldUrl)',
@@ -233,7 +232,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return ValidationError(
       ruleId: name,
       severity: severity,
-      file: _skillFileName,
+      file: SkillContext.skillFileName,
       message:
           'Frontmatter `name` "$skillName" has consecutive hyphens. '
           'Suggested: "$suggestion" (see $_nameFieldUrl)',
@@ -252,7 +251,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    if (filePath != _skillFileName) {
+    if (filePath != SkillContext.skillFileName) {
       return currentContent;
     }
 
