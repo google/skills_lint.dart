@@ -4,6 +4,8 @@
 
 import 'package:test/test.dart';
 
+import 'src/models/source.dart';
+import 'src/models/violation.dart';
 import 'src/source_conventions.dart';
 
 /// Source conventions that reviewers enforce, checked across the package.

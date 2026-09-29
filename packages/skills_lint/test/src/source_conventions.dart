@@ -11,23 +11,29 @@ library;
 
 import 'dart:io';
 
-import 'package:analyzer/dart/analysis/results.dart';
-import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
-import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+
+import 'models/source.dart';
+import 'models/violation.dart';
 
 /// The fewest literal characters a string needs before [findSharedLiterals]
 /// compares it.
 ///
-/// Shorter strings repeat for good reasons, such as JSON keys that belong
-/// to different models, flag names, and `'SKILL.md'`.
-const int minSharedLiteralLength = 25;
+/// 20 is the lowest value at which `lib/` passes without extracting markdown
+/// fragments such as `'**How to fix:**\n'`; short identifiers and JSON keys
+/// are caught by [findStringLiteralKeys] and [findConstAliases] instead of by
+/// length.
+const int minSharedLiteralLength = 20;
 
 const Set<String> _forbiddenOverrideNames = {'==', 'hashCode', 'toString'};
 
 /// Reports string literals used as map keys or as indices.
+///
+/// A key typed as a literal can be misspelled in one place and still
+/// compile, so a model that reads and writes the same key can drift apart.
+/// A named constant makes every use refer to one spelling.
 List<Violation> findStringLiteralKeys(Source source) {
   final List<Violation> violations = [];
   for (final AstNode node in source.nodes) {
@@ -51,6 +57,10 @@ List<Violation> findStringLiteralKeys(Source source) {
 /// interpolates the same expression. Interpolated expressions do not count
 /// toward the length. Each piece of an adjacent-string concatenation is
 /// compared on its own. Directives and annotation arguments are skipped.
+///
+/// A message copied into several files gets edited in one and not the
+/// others, so the tool says different things for the same situation.
+/// Declaring it once gives it a single owner.
 List<Violation> findSharedLiterals(Iterable<Source> sources) {
   final Map<String, List<Violation>> byText = {};
   for (final source in sources) {
@@ -91,6 +101,10 @@ bool _isMetadata(AstNode node) =>
 
 /// Reports declarations of `operator ==`, `hashCode`, and `toString` whose
 /// name is not in [allowed].
+///
+/// These overrides change equality and printing for every caller, and a
+/// hand-written `==` and `hashCode` pair silently breaks when a field is
+/// added and only one of them is updated.
 List<Violation> findForbiddenOverrides(Source source, {Set<String> allowed = const {}}) {
   final List<Violation> violations = [];
   for (final MethodDeclaration method in source.nodes.whereType<MethodDeclaration>()) {
@@ -105,9 +119,11 @@ List<Violation> findForbiddenOverrides(Source source, {Set<String> allowed = con
 /// Reports top-level and static constants whose initializer is only the name
 /// of another constant declared in [sources].
 ///
-/// Enum values are not constant declarations, so
-/// `static const Severity defaultSeverity = Severity.error;` passes.
+/// An alias gives one value two names, so readers must check that both
+/// still mean the same thing, and a search for one name misses the other.
 List<Violation> findConstAliases(Iterable<Source> sources) {
+  // Enum values are not constant declarations, so
+  // `static const Severity defaultSeverity = Severity.error;` passes.
   final Set<String> declared = {};
   for (final source in sources) {
     for (final VariableDeclaration constant in _constDeclarations(source)) {
@@ -171,13 +187,14 @@ void expectNoViolations(Iterable<Violation> violations, {required String fix}) {
   fail('${violations.length} violation(s):\n$report\n\nFix: $fix');
 }
 
-/// Parses every Dart file under [directories], skipping generated
-/// `*.g.dart` files.
+/// Returns a [Source] for every Dart file under [directories], sorted by
+/// path, skipping generated `*.g.dart` files.
 List<Source> parseDirectories(List<String> directories) {
+  final skippedSourceFile = RegExp(r'\.g\.dart$');
   final List<Source> sources = [];
   for (final directory in directories) {
     for (final File file in Directory(directory).listSync(recursive: true).whereType<File>()) {
-      if (file.path.endsWith('.dart') && !file.path.endsWith('.g.dart')) {
+      if (file.path.endsWith('.dart') && !skippedSourceFile.hasMatch(file.path)) {
         final String path = p.posix.joinAll(p.split(p.normalize(file.path)));
         sources.add(Source(path, file.readAsStringSync()));
       }
@@ -185,47 +202,4 @@ List<Source> parseDirectories(List<String> directories) {
   }
   sources.sort((a, b) => a.path.compareTo(b.path));
   return sources;
-}
-
-/// A parsed Dart file and every node in its syntax tree.
-class Source {
-  Source(this.path, this.content) : _parsed = parseString(content: content, path: path);
-
-  /// Wraps an inline [content] snippet for the detector tests.
-  Source.snippet(String content, {String path = 'lib/snippet.dart'}) : this(path, content);
-
-  /// Package-relative path with `/` separators.
-  final String path;
-  final String content;
-  final ParseStringResult _parsed;
-
-  /// Every node of the syntax tree, in source order.
-  late final List<AstNode> nodes = (_NodeCollector()..visitNode(_parsed.unit)).nodes;
-
-  Violation violationAt(int offset, String problem) =>
-      Violation(path, _parsed.lineInfo.getLocation(offset).lineNumber, problem);
-}
-
-/// One convention violation: where it is and what is wrong.
-class Violation {
-  Violation(this.path, this.line, this.problem);
-
-  final String path;
-
-  /// 1-based line of the offending code.
-  final int line;
-  final String problem;
-
-  String describe() => '$path:$line: $problem';
-}
-
-/// Collects every node of a syntax tree in source order.
-class _NodeCollector extends GeneralizingAstVisitor<void> {
-  final List<AstNode> nodes = [];
-
-  @override
-  void visitNode(AstNode node) {
-    nodes.add(node);
-    super.visitNode(node);
-  }
 }
