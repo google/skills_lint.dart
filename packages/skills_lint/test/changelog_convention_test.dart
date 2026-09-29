@@ -7,12 +7,20 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 /// The longest bullet allowed in the top CHANGELOG section.
+///
+/// This is a proxy. The goal is that each entry tells a user what they need
+/// to know about a change, briefly. An entry longer than this is likely
+/// carrying detail that belongs in the docs or the pull request. Splitting a
+/// long entry into several bullets passes the check but misses the goal.
 const int maxBulletLength = 300;
 
-/// Checks the section under the first `## ` heading of CHANGELOG.md only.
-/// Released sections are not rewritten, so they are not checked.
+/// Checks that each entry in the top CHANGELOG section is short enough to
+/// tell users only what they need to know (see [maxBulletLength]).
+///
+/// Only the section under the first `## ` heading is checked. Released
+/// sections are not rewritten, so they are not checked.
 void main() {
-  test('top CHANGELOG section bullets stay short', () {
+  test('top CHANGELOG section entries tell users only what they need', () {
     final List<String> lines = File('CHANGELOG.md').readAsLinesSync();
     final int start = lines.indexWhere((String l) => l.startsWith('## '));
     expect(start, isNot(-1), reason: 'CHANGELOG.md has no "## " version heading.');
@@ -25,8 +33,10 @@ void main() {
       long,
       isEmpty,
       reason:
-          'Shorten these bullets in the "$heading" section of CHANGELOG.md to at most '
-          '$maxBulletLength characters, or split them into several bullets:\n'
+          'These entries in the "$heading" section of CHANGELOG.md are longer than '
+          '$maxBulletLength characters. Shorten each one to what a user needs to know '
+          'about the change, and move the rest of the detail to the docs or the pull '
+          'request:\n'
           '${long.map(_preview).join('\n')}',
     );
   });

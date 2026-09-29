@@ -2,6 +2,18 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+/// Each file in `lib/src/rules/` declares at most one public type.
+///
+/// Why this matters:
+/// - One rule per file, so a rule is found by its file name.
+/// - `RuleRegistry` maps 1:1 to the files in `lib/src/rules/`.
+/// - Helper types either stay private to the rule file, or move to their own
+///   file with their own tests.
+///
+/// Revisit this if a rule needs a public companion type that configuration
+/// or other packages use, such as a parameter type exported for callers.
+library;
+
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
