@@ -1,6 +1,5 @@
 ## 0.5.3-wip
 
-- Internal errors propagate instead of being hidden by catch-all handlers. Expected failures (malformed YAML, unreadable files, invalid command-line flags, a missing `git`) are handled as before. An unexpected `Error` while loading configuration, reading `SKILL.md`, parsing frontmatter, or renaming and saving files stops the run with a stack trace instead of being reported as a parse failure. The `unexpected-error` diagnostic (`Validator.unexpectedError`) is not emitted, because reading `SKILL.md` can only fail with a `FileSystemException`, which is reported as `skill-file-inaccessible`.
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
 - When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
 - **Behavior change:** in `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
