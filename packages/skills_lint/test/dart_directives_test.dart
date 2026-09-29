@@ -25,10 +25,10 @@ void main() {
   String write(String relativePath, String content) {
     final file = File(p.join(root.path, relativePath))..createSync(recursive: true);
     file.writeAsStringSync(content);
-    return file.path;
+    return p.normalize(file.path);
   }
 
-  String libPath(String relative) => p.join(root.path, 'lib', relative);
+  String libPath(String relative) => p.normalize(p.join(root.path, 'lib', relative));
 
   group('filesImportedBy', () {
     test('ignores a path in a comment', () {
