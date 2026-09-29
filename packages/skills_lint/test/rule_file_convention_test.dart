@@ -16,23 +16,16 @@ library;
 
 import 'dart:io';
 
+import 'package:analyzer/dart/analysis/utilities.dart';
+import 'package:analyzer/dart/ast/ast.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-/// Matches a top-level (unindented) class, enum, mixin, or extension type
-/// declaration, with any class modifiers, and captures its name.
-final RegExp _topLevelType = RegExp(
-  r'^(?:(?:abstract|base|final|interface|sealed|mixin)\s+)*'
-  r'(?:class|enum|mixin|extension\s+type)\s+(?:const\s+)?([A-Za-z_$][\w$]*)',
-  multiLine: true,
-);
-
-/// Each file in `lib/src/rules/` declares at most one public type.
 void main() {
   test('each rule file declares at most one public type', () {
     final problems = <String>[];
     for (final File file in _ruleFiles()) {
-      final List<String> public = _publicTypes(file.readAsStringSync());
+      final List<String> public = _publicTypes(file);
       if (public.length > 1) {
         problems.add('${p.relative(file.path)}: ${public.join(', ')}');
       }
@@ -54,7 +47,19 @@ List<File> _ruleFiles() =>
       ).listSync().whereType<File>().where((File f) => f.path.endsWith('.dart')).toList()
       ..sort((File a, File b) => a.path.compareTo(b.path));
 
-List<String> _publicTypes(String source) => [
-  for (final RegExpMatch m in _topLevelType.allMatches(source))
-    if (!m.group(1)!.startsWith('_')) m.group(1)!,
+/// The public top-level class, enum, mixin and extension type names in [file].
+List<String> _publicTypes(File file) => [
+  for (final CompilationUnitMember member in parseString(
+    content: file.readAsStringSync(),
+    path: file.path,
+  ).unit.declarations)
+    if (_typeName(member) case final String name when !name.startsWith('_')) name,
 ];
+
+String? _typeName(CompilationUnitMember member) => switch (member) {
+  final ClassDeclaration type => type.namePart.typeName.lexeme,
+  final EnumDeclaration type => type.namePart.typeName.lexeme,
+  final MixinDeclaration type => type.name.lexeme,
+  final ExtensionTypeDeclaration type => type.primaryConstructor.typeName.lexeme,
+  _ => null,
+};

@@ -12,22 +12,27 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-/// Files so simple that a unit test would only restate the code, such as
-/// plain data holders or barrels with no logic.
+/// Files with nothing worth unit testing: constants, plain data holders, or
+/// barrels of `export` directives. A test for one of these would only repeat
+/// the code.
 ///
-/// This list does not need to shrink. Files exported from
-/// `lib/skills_lint.dart` may not be listed here. When in doubt, use
-/// [untestedAllowlist] instead.
+/// Add a file here only if it has no logic. If you are unsure, put it on
+/// [untestedAllowlist] instead. Files exported from `lib/skills_lint.dart`
+/// are public API and cannot be listed here.
 const Set<String> trivialDataClasses = {
   // A barrel of `export` directives with no code.
   'models/sarif/models/models.dart',
+  // One string constant.
+  'models/sarif/sarif_constants.dart',
+  // One URL constant.
+  'specification_urls.dart',
 };
 
-/// Files best tested through a broader test, mapped to the test file that
-/// exercises them.
+/// Files whose behavior is best tested through a broader test, mapped to
+/// that test file.
 ///
-/// This list does not need to shrink. Each named test file must exist and
-/// must execute the listed file.
+/// Add a file here only after checking that the named test runs it, for
+/// example with `dart test --coverage`. The named test file must exist.
 const Map<String, String> coveredByIntegrationTests = {
   'cutoff_excerpt.dart': 'test/description_length_limit_test.dart',
   'missing_defaults_exception.dart': 'test/api_boundary_test.dart',
@@ -50,14 +55,16 @@ const Map<String, String> coveredByIntegrationTests = {
   'reporters/reporter.dart': 'test/sarif_format_test.dart',
   'reporters/sarif_reporter.dart': 'test/sarif_format_test.dart',
   'reporters/text_reporter.dart': 'test/reporter_error_prefix_test.dart',
+  'reporters/tool_error_messages.dart': 'test/reporter_error_prefix_test.dart',
 };
 
-/// Files that should have a direct test but do not yet.
+/// Files that need a direct test and do not have one yet.
 ///
-/// This list only shrinks. When a test imports one of these files directly,
-/// remove it from the list. Do not add new files; add a test instead.
+/// Do not add files here; write the test instead. When a test imports one of
+/// these files directly, remove it from this list. The test fails until you
+/// do.
 const Set<String> untestedAllowlist = {
-  // Pure algorithm, exercised only through the "Did you mean" suggestion tests.
+  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/58 add unit tests.
   'suggestions/levenshtein.dart',
 };
 

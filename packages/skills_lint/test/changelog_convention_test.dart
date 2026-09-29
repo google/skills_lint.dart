@@ -10,8 +10,7 @@ import 'package:test/test.dart';
 ///
 /// This is a proxy. The goal is that each entry tells a user what they need
 /// to know about a change, briefly. An entry longer than this is likely
-/// carrying detail that belongs in the docs or the pull request. Splitting a
-/// long entry into several bullets passes the check but misses the goal.
+/// carrying detail that belongs in the docs or the pull request.
 const int maxBulletLength = 300;
 
 /// Checks that each entry in the top CHANGELOG section is short enough to
