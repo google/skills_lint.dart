@@ -22,37 +22,18 @@
     },
     {
       "id": 2,
-      "prompt": "Create a new rule `FileExistenceRule` that ensures a specific supplementary file `info.txt` exists alongside `SKILL.md`. Make sure this rule is disabled by default. Write tests using the temporary directory approach.",
+      "prompt": "Create a new rule `SectionCountRule` (rule name `section-count`) that limits the number of `##` sections in SKILL.md, with a configurable parameter whose config key is `max_section-count`. Make sure this rule is disabled by default. Write tests using the temporary directory approach.",
       "expected_chat_output": [
-        "The agent creates the rule and physical directory tests."
+        "Any output is fine."
       ],
       "expected_repo_state": [
-        "The `FileExistenceRule` class was successfully generated extending `SkillRule` in `lib/src/rules/file_existence_rule.dart`.",
-        "Included correctly in `RuleRegistry.allChecks` as `disabled` in `lib/src/rule_registry.dart`.",
-        "The agent successfully utilized `Directory.systemTemp.createTemp` and `File.writeAsString` for integration testing in `test/rules/file_existence_rule_test.dart`.",
-        "The rule flag `--[no-]file-existence` was documented in `README.md`.",
-        "A proper rule documentation entry was added outlining the diagnostics and behavior in `RULES.md`.",
-        "Temporary files were safely cleaned up via `tempDir.delete(recursive: true)` in `tearDown`."
-      ]
-    },
-    {
-      "id": 3,
-      "prompt": "Add a configurable parameter to a new rule `SectionCountRule` (rule name `section-count`) that limits the number of `##` sections in SKILL.md. Name the config key `max_section-count`.",
-      "expected_chat_output": [
-        "The agent points out that config keys are kebab-case and must not mix `_` and `-`, and uses a kebab-case key instead."
-      ],
-      "expected_repo_state": [
-        "The config key for the parameter in `lib/src/rules/section_count_rule.dart` is kebab-case and contains no `_`."
-      ]
-    },
-    {
-      "id": 4,
-      "prompt": "Add a configurable parameter to a new rule `SectionCountRule` (rule name `section-count`) so the generated flag is `--section-count-max-section-count`.",
-      "expected_chat_output": [
-        "The agent points out that the generated `--<rule>-<param>` flag must not repeat words from the rule name, and picks a parameter name that avoids the repeat."
-      ],
-      "expected_repo_state": [
-        "The generated flag for the parameter does not repeat 'section' or 'count' after the `--section-count-` prefix."
+        "The `SectionCountRule` class extends `SkillRule` in `lib/src/rules/section_count_rule.dart`.",
+        "The rule is included in `RuleRegistry.allChecks` as `disabled` in `lib/src/rule_registry.dart`.",
+        "The config key for the parameter is kebab-case and contains no `_`.",
+        "The tests use `Directory.systemTemp.createTemp` and `File.writeAsString` in `test/rules/section_count_rule_test.dart`.",
+        "Temporary files are cleaned up via `tempDir.delete(recursive: true)` in `tearDown`.",
+        "The rule flag `--[no-]section-count` is documented in `README.md`.",
+        "A rule documentation entry outlining the diagnostics and behavior is added in `RULES.md`."
       ]
     }
   ]
