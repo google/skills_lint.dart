@@ -9,10 +9,10 @@ library;
 
 import 'dart:io';
 
-import 'package:analyzer/dart/analysis/utilities.dart';
-import 'package:analyzer/dart/ast/ast.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+
+import 'src/dart_directives.dart';
 
 /// Files with nothing worth unit testing: constants, plain data holders, or
 /// barrels of `export` directives. A test for one of these would only repeat
@@ -135,69 +135,22 @@ void _expectNone(Set<String> found, String fix) {
   expect(sorted, isEmpty, reason: '$fix\n${sorted.join('\n')}');
 }
 
-/// Paths below `lib/src/`, with `/` separators, excluding generated files.
+/// Returns the paths below `lib/src/` with `/` separators, excluding
+/// generated files.
 Set<String> _libSrcFiles() => {
-  for (final File f in _dartFiles(_srcRoot))
-    if (!f.path.endsWith('.g.dart')) _srcRelative(f.path)!,
+  for (final File f in dartFiles(_package.srcRoot))
+    if (!f.path.endsWith('.g.dart')) _package.srcRelative(f.path)!,
 };
 
-/// `lib/src` files named by an `import` or `export` directive in a test.
-///
-/// Only directives count. A URI in a comment or a `/// @docImport` does not,
-/// since neither runs the file.
-Set<String> _importedByTests() => {
-  for (final File f in _dartFiles('test'))
-    for (final String target in _directiveTargets(f.path, (_) => true)) ?_srcRelative(target),
+/// Returns the `lib/src` files named by an `import` or `export` directive in
+/// a test.
+Set<String> _importedByTests() => _package.filesImportedFrom('test');
+
+/// Returns the `lib/src` files reachable from `lib/skills_lint.dart` through
+/// `export` directives.
+Set<String> _exportedFiles() => {
+  for (final String path in _package.exportedFiles(p.join('lib', 'skills_lint.dart')))
+    ?_package.srcRelative(path),
 };
 
-/// `lib/src` files reachable from `lib/skills_lint.dart` through `export`
-/// directives, following re-exports. `show` and `hide` still count as
-/// exported.
-Set<String> _exportedFiles() {
-  final seen = <String>{};
-  final List<String> pending = [p.normalize(p.join('lib', 'skills_lint.dart'))];
-  while (pending.isNotEmpty) {
-    final String path = pending.removeLast();
-    if (seen.add(path) && File(path).existsSync()) {
-      pending.addAll(_directiveTargets(path, (UriBasedDirective d) => d is ExportDirective));
-    }
-  }
-  return {for (final String path in seen) ?_srcRelative(path)};
-}
-
-/// Package-relative paths of the `import` and `export` directives in [path]
-/// that match [include]. URIs outside this package are dropped.
-Iterable<String> _directiveTargets(String path, bool Function(UriBasedDirective) include) sync* {
-  final CompilationUnit unit = parseString(content: File(path).readAsStringSync(), path: path).unit;
-  for (final Directive d in unit.directives) {
-    if (d is NamespaceDirective && include(d)) {
-      final String? target = _resolve(path, d.uri.stringValue);
-      if (target != null) {
-        yield target;
-      }
-    }
-  }
-}
-
-/// Resolves [uri], written in the file at [from], to a package-relative path.
-String? _resolve(String from, String? uri) {
-  if (uri == null) {
-    return null;
-  }
-  if (uri.startsWith(_packagePrefix)) {
-    return p.join('lib', uri.substring(_packagePrefix.length));
-  }
-  return Uri.parse(uri).hasScheme ? null : p.normalize(p.join(p.dirname(from), uri));
-}
-
-const String _packagePrefix = 'package:skills_lint/';
-
-final String _srcRoot = p.join('lib', 'src');
-
-/// [path] relative to `lib/src/` with `/` separators, or null if outside it.
-String? _srcRelative(String path) =>
-    p.isWithin(_srcRoot, path) ? p.posix.joinAll(p.split(p.relative(path, from: _srcRoot))) : null;
-
-Iterable<File> _dartFiles(String dir) => Directory(
-  dir,
-).listSync(recursive: true).whereType<File>().where((File f) => f.path.endsWith('.dart'));
+final DartPackage _package = DartPackage(name: 'skills_lint', srcRoot: p.join('lib', 'src'));
