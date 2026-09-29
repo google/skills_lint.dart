@@ -9,6 +9,7 @@ Before making changes or implementing features, consult the following knowledge 
 - [Architecture Overview](packages/skills_lint/documentation/knowledge/architecture_overview.md): System boundaries, execution lifecycle, and durable architectural patterns.
 - [Style Guide](packages/skills_lint/documentation/knowledge/style_guide.md): Effective Dart conventions, documentation standards, class constants, and diagnostic formatting.
 - [SARIF Primer](packages/skills_lint/documentation/knowledge/sarif_primer.md): OASIS SARIF 2.1.0 document model, GitHub Code Scanning integration, and severity mappings.
+- [User-facing Changes](packages/skills_lint/documentation/knowledge/user_facing_changes.md): Agree on before/after output with the maintainer before writing code.
 - [Contributing](CONTRIBUTING.md): Local setup, file headers, coverage, and the rule-stability policy.
 
 ---
