@@ -48,7 +48,7 @@ To ingest SARIF findings into GitHub Code Scanning, give the job `security-event
 # cannot be granted security-events: write.
 - name: Upload SARIF to GitHub Code Scanning
   if: ${{ !cancelled() && steps.lint.conclusion != 'skipped' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
-  uses: github/codeql-action/upload-sarif@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3.38.0
+  uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
   with:
     sarif_file: results.sarif
     category: skills_lint
