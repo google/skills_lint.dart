@@ -1,0 +1,26 @@
+# Posts the PR Health summary as a comment on the pull request.
+#
+# The Health workflow (health.yaml) runs on `pull_request` and uploads an
+# `output` artifact with the comment markdown. This workflow runs after it
+# completes, downloads that artifact, and creates or updates the comment.
+# See https://github.com/dart-lang/ecosystem/tree/main/pkgs/firehose#pr-health
+#
+# `workflow_run` only triggers when this file is on the default branch.
+
+name: Comment on the pull request
+
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] never checks out PR code; only posts the artifact's markdown.
+    workflows:
+      # Must match the `name:` of health.yaml.
+      - Health
+      # Publish is not listed: publish.yaml uses the default
+      # `write-comments: true`, so it comments itself and uploads no artifact.
+    types:
+      - completed
+
+jobs:
+  upload:
+    uses: dart-lang/ecosystem/.github/workflows/post_summaries.yaml@16dca7ae5d3ff896a4db47e1ed6cd50f7ebbf115 # main
+    permissions:
+      pull-requests: write # Required for writing the pull request comment
