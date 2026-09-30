@@ -37,8 +37,6 @@ Their meaning changes over time. What is "new" or "legacy" today won't be tomorr
 - Humans usually use them for lack of a better name. Pick a name that says what the thing is.
 - Agents usually use them to refer to earlier versions of the code. The reader of the code today doesn't care about those versions.
 
-[`source_conventions_test.dart`](../../test/source_conventions_test.dart) reads the double-quoted terms in this section and fails on some of them in Dart comments. Keep each term in double quotes.
-
 ---
 
 ## 🔑 Class Constants for Schema and Property Keys

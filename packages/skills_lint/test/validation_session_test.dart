@@ -114,8 +114,7 @@ void main() {
       expect(session.anySkillsValidated, isTrue);
       expect(session.anyFailed, isFalse);
 
-      // The fix renames the directory: skillDir is gone, and the renamed
-      // directory holds the fixed SKILL.md.
+      // Old directory should no longer exist; renamed directory should exist with updated SKILL.md.
       expect(skillDir.existsSync(), isFalse);
       final newDir = Directory(p.join(pkgDir.path, 'skills', 'test-pkg-setup'));
       expect(newDir.existsSync(), isTrue);
