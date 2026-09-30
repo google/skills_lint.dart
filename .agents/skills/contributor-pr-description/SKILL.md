@@ -46,7 +46,7 @@ Always use the following template (or a very similar structure) when drafting a 
 1. **Be clear and concise**: Avoid rambling. Use bullet points for readability.
 2. **Focus on the "Why"**: The diff shows *what* changed. The description should explain *why* it changed.
 3. **Be professional**: Use natural, accessible language.
-4. **Explain scope**: Explain every change outside the PR's stated scope, or move it to its own PR.
+4. **Explain scope**: Explain every change outside the PR's primary scope. Some changes should be pulled out into a separate PR.
 
 ## Examples of Bad vs Good Summaries
 

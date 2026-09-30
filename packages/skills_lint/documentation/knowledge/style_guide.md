@@ -39,14 +39,9 @@ Their meaning changes over time. What is "new" or "legacy" today won't be tomorr
 
 ---
 
-## Where Code Lives
+## Naming
 
-A reader should find code by the concept it belongs to, and a change to one concept should touch one place.
-
-- Give each class and file one job. Don't grow catch-all files, such as a shared strings file.
-- Put a constant on the type that owns the concept, not on the first class that uses it. [Class Constants](#-class-constants-for-schema-and-property-keys) applies this to keys.
-- Before adding a type, check whether another type already models the same idea. If you add one anyway, say in the PR description why the other type doesn't fit.
-- Name things for what they are, not for what they are not (`keySchema`, not `keySchemaWithoutDollar`).
+Name things for what they are, not for what they are not. A name that describes what is missing only makes sense next to the thing it excludes.
 
 ---
 
@@ -85,8 +80,9 @@ Extract multi-line strings, diagnostics, and formatted markdown message construc
 
 ## Tests
 
-Tests are read most when they fail, often in CI logs from an OS the author didn't run. These rules keep a failure debuggable and a gap in coverage visible.
+Tests give confidence that the code keeps working through refactors and added features, and that customers don't break. A failing test is often read only in CI logs, from an OS the author didn't run.
 
+- Don't write tautological tests or change detectors. A test that restates the code, or breaks on every change, gives no confidence.
 - A failing test's output must be enough to debug from CI logs alone. Name the input, the expected value and the actual value.
 - Every `skip:` or `testOn:` gives the reason at that spot.
 - "Hard to test" is not a reason to skip unit tests for pure logic. Pure logic is the cheapest code to test.
