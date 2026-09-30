@@ -20,5 +20,4 @@ Agents follow guidance literally, and it outlives the change that prompted it. W
 
 ## Evals
 
-- Every changed instruction gets an expectation in an eval. To choose between extending an eval and adding one, follow [Minimal & Orthogonal Evaluations](../../../packages/skills_lint/evals/README.md#minimal--orthogonal-evaluations).
-- Audit each changed `evals.json` against [`eval_quality_rubric.json`](../../../packages/skills_lint/evals/eval_quality_rubric.json) with the static audit in [`run-evals`](../run-evals/SKILL.md).
+- Add an eval expectation for an instruction that would really hurt if it regressed. Not every change needs one, because evals are expensive to run. To choose between extending an eval and adding one, follow [Minimal & Orthogonal Evaluations](../../../packages/skills_lint/evals/README.md#minimal--orthogonal-evaluations).
