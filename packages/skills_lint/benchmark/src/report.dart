@@ -16,7 +16,7 @@ import 'suite.dart';
 /// Each threshold is several times the run-to-run spread of the median
 /// measured with both targets built from the same commit, so noise alone
 /// does not cross it. `benchmark/README.md` records the measurements.
-const Map<Metric, double> regressionThresholds = {Metric.wallTime: 0.25, Metric.peakRss: 0.10};
+const Map<Metric, double> regressionThresholds = {Metric.wallTime: 0.15, Metric.peakRss: 0.10};
 
 /// The medians of one metric for a baseline and a candidate build.
 @immutable
@@ -154,7 +154,6 @@ abstract final class JsonKeys {
 
   static const String name = 'name';
   static const String description = 'description';
-  static const String runtime = 'runtime';
   static const String skillCount = 'skill_count';
   static const String seed = 'seed';
   static const String warmup = 'warmup';
@@ -186,7 +185,6 @@ Map<String, Object?> _benchmarkJson(BenchmarkResult result) {
   return {
     JsonKeys.name: definition.name,
     JsonKeys.description: definition.description,
-    JsonKeys.runtime: definition.runtime.name,
     JsonKeys.skillCount: definition.fixture.skillCount,
     JsonKeys.seed: definition.fixture.seed,
     JsonKeys.warmup: definition.warmup,

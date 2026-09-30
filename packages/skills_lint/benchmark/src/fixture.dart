@@ -83,8 +83,9 @@ const String skillsDirectoryName = 'skills';
 
 /// Contents of the `skills_lint.yaml` written at the fixture root.
 ///
-/// It turns on every rule that needs no extra context, so each rule runs on
-/// every skill.
+/// It turns on every built-in rule, so each rule runs on every skill.
+/// `published-skill-name` gets the package name `skill`, which every
+/// generated skill name starts with, so that rule reports nothing.
 const String fixtureConfig =
     '''
 skills_lint:
@@ -94,6 +95,9 @@ skills_lint:
     check-trailing-whitespace: error
     disallowed-field: error
     prevent-skills-sh-publishing: error
+    published-skill-name:
+      severity: error
+      package_name: skill
   directories:
     - path: "$skillsDirectoryName"
 ''';

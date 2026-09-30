@@ -143,28 +143,21 @@ Future<void> _run(String work, {String? baseline, String? jsonPath, String? mark
   }
 }
 
-/// Compiles the CLI in [packageDir] to a native executable and a kernel file
-/// under [work].
+/// Compiles the CLI in [packageDir] to a native executable under [work].
 Future<Target> _build(String label, String packageDir, String work) async {
   stderr.writeln('Compiling $label from $packageDir.');
   final String outDir = p.join(work, 'build', label);
   Directory(outDir).createSync(recursive: true);
   final String exe = p.join(outDir, Platform.isWindows ? 'skills_lint.exe' : 'skills_lint');
-  final String kernel = p.join(outDir, 'skills_lint.dill');
-  const entryPoint = 'bin/skills_lint.dart';
-  await _dart(['compile', 'exe', '--verbosity=error', entryPoint, '-o', exe], packageDir);
-  // `dart run` from a dependent package runs a kernel file without the
-  // platform libraries linked in, so the benchmark builds the same kind.
   await _dart([
     'compile',
-    'kernel',
+    'exe',
     '--verbosity=error',
-    '--no-link-platform',
-    entryPoint,
+    'bin/skills_lint.dart',
     '-o',
-    kernel,
+    exe,
   ], packageDir);
-  return Target(label: label, aotCommand: [exe], jitCommand: [Platform.resolvedExecutable, kernel]);
+  return Target(label: label, command: [exe]);
 }
 
 Future<void> _dart(List<String> arguments, String workingDirectory) async {

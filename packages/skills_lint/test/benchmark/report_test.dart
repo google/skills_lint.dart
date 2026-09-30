@@ -14,7 +14,6 @@ const BenchmarkDefinition _definition = BenchmarkDefinition(
   name: 'example',
   description: 'An example benchmark.',
   fixture: FixtureSpec(skillCount: 3),
-  runtime: Runtime.aot,
   warmup: 0,
   iterations: 3,
   metrics: {Metric.wallTime, Metric.peakRss},
@@ -45,15 +44,15 @@ void main() {
   group('compare', () {
     test('compares the medians of each metric that both targets recorded', () {
       final List<Comparison> comparisons = _compare(
-        _result(baseline: [90, 100, 500], candidate: [110, 120, 130], rssMib: 64),
+        _result(baseline: [90, 100, 500], candidate: [105, 110, 115], rssMib: 64),
       );
 
       expect(comparisons, hasLength(2));
       final Comparison time = comparisons.singleWhere((c) => c.metric == Metric.wallTime);
       expect(time.benchmark, 'example');
       expect(time.baseline.median, 100);
-      expect(time.candidate.median, 120);
-      expect(time.change, closeTo(0.2, 1e-9));
+      expect(time.candidate.median, 110);
+      expect(time.change, closeTo(0.1, 1e-9));
       expect(time.isRegression, isFalse);
       final Comparison rss = comparisons.singleWhere((c) => c.metric == Metric.peakRss);
       expect(rss.change, 0);
@@ -142,7 +141,7 @@ void main() {
       expect(
         markdown,
         contains(
-          '| example | wall time (ms) | 100.0 | 150.0 | +50.0% | 25.0% | possible regression |',
+          '| example | wall time (ms) | 100.0 | 150.0 | +50.0% | 15.0% | possible regression |',
         ),
       );
       expect(markdown, contains('| example | peak RSS (MiB) | 64.0 | 64.0 | +0.0% | 10.0% | ok |'));
@@ -179,7 +178,6 @@ void main() {
       final benchmark =
           (decoded[JsonKeys.benchmarks]! as List<Object?>).single! as Map<String, Object?>;
       expect(benchmark[JsonKeys.name], 'example');
-      expect(benchmark[JsonKeys.runtime], 'aot');
       expect(benchmark[JsonKeys.skillCount], 3);
       final metrics = benchmark[JsonKeys.metrics]! as Map<String, Object?>;
       expect(metrics.keys, unorderedEquals(['wallTime', 'peakRss']));

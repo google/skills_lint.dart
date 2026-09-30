@@ -21,16 +21,14 @@ void main(List<String> args) {
 }
 ''';
 
-BenchmarkDefinition _definition({required Runtime runtime, int warmup = 0, int iterations = 1}) =>
-    BenchmarkDefinition(
-      name: 'test',
-      description: 'Test benchmark.',
-      fixture: const FixtureSpec(skillCount: 3),
-      runtime: runtime,
-      warmup: warmup,
-      iterations: iterations,
-      metrics: const {Metric.wallTime, Metric.peakRss},
-    );
+BenchmarkDefinition _definition({int warmup = 0, int iterations = 1}) => BenchmarkDefinition(
+  name: 'test',
+  description: 'Test benchmark.',
+  fixture: const FixtureSpec(skillCount: 3),
+  warmup: warmup,
+  iterations: iterations,
+  metrics: const {Metric.wallTime, Metric.peakRss},
+);
 
 void main() {
   test('the benchmarks have unique names and at least one timed run', () {
@@ -74,13 +72,6 @@ void main() {
     expect(const RunSample(wallTime: Duration.zero).value(Metric.peakRss), isNull);
   });
 
-  test('Target picks the command for the runtime', () {
-    const target = Target(label: 't', aotCommand: ['aot'], jitCommand: ['dart', 'jit']);
-
-    expect(target.command(Runtime.aot), ['aot']);
-    expect(target.command(Runtime.jit), ['dart', 'jit']);
-  });
-
   group('runBenchmark', () {
     late Directory tempDir;
     late String probe;
@@ -97,15 +88,12 @@ void main() {
       tempDir.deleteSync(recursive: true);
     });
 
-    Target probeTarget(String label, {int exit = expectedExitCode}) => Target(
-      label: label,
-      aotCommand: [Platform.resolvedExecutable, probe, log, label, '$exit'],
-      jitCommand: [Platform.resolvedExecutable, probe, log, '$label-jit', '$exit'],
-    );
+    Target probeTarget(String label, {int exit = expectedExitCode}) =>
+        Target(label: label, command: [Platform.resolvedExecutable, probe, log, label, '$exit']);
 
     test('alternates the target order each round and keeps only timed runs', () async {
       final BenchmarkResult result = await runBenchmark(
-        _definition(runtime: Runtime.aot, warmup: 1, iterations: 2),
+        _definition(warmup: 1, iterations: 2),
         [probeTarget('a'), probeTarget('b')],
         workingDirectory: tempDir.path,
         scratchDirectory: tempDir.path,
@@ -117,21 +105,10 @@ void main() {
       expect(result.values('a', Metric.wallTime).every((ms) => ms > 0), isTrue);
     });
 
-    test('runs the command for the benchmark runtime', () async {
-      await runBenchmark(
-        _definition(runtime: Runtime.jit),
-        [probeTarget('a')],
-        workingDirectory: tempDir.path,
-        scratchDirectory: tempDir.path,
-      );
-
-      expect(File(log).readAsLinesSync(), ['a-jit']);
-    });
-
     test('throws when a run exits with an unexpected code', () async {
       await expectLater(
         runBenchmark(
-          _definition(runtime: Runtime.aot),
+          _definition(),
           [probeTarget('a', exit: 0)],
           workingDirectory: tempDir.path,
           scratchDirectory: tempDir.path,
@@ -149,13 +126,9 @@ void main() {
       final RssProbe? rssProbe = RssProbe.detect();
 
       final BenchmarkResult result = await runBenchmark(
-        _definition(runtime: Runtime.jit),
+        _definition(),
         [
-          Target(
-            label: 'cli',
-            aotCommand: const [],
-            jitCommand: [Platform.resolvedExecutable, cli],
-          ),
+          Target(label: 'cli', command: [Platform.resolvedExecutable, cli]),
         ],
         workingDirectory: fixture,
         scratchDirectory: tempDir.path,

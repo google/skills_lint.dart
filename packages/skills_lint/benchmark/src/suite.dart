@@ -14,17 +14,6 @@ import 'package:path/path.dart' as p;
 
 import 'fixture.dart';
 
-/// How a [Target] runs the CLI.
-enum Runtime {
-  /// A native executable from `dart compile exe`, which is what
-  /// `dart install skills_lint` and the release binaries give users.
-  aot,
-
-  /// A kernel file run by the Dart VM. `dart run skills_lint` in a package
-  /// that depends on `skills_lint` runs the same kind of file.
-  jit,
-}
-
 /// A quantity recorded for each run.
 enum Metric {
   /// Time from process start to process exit, in milliseconds.
@@ -42,14 +31,13 @@ enum Metric {
   final String unit;
 }
 
-/// One benchmark: a fixture, a runtime and fixed run counts.
+/// One benchmark: a fixture and fixed run counts.
 @immutable
 final class BenchmarkDefinition {
   const BenchmarkDefinition({
     required this.name,
     required this.description,
     required this.fixture,
-    required this.runtime,
     required this.warmup,
     required this.iterations,
     required this.metrics,
@@ -65,9 +53,6 @@ final class BenchmarkDefinition {
   /// The repository the CLI validates.
   final FixtureSpec fixture;
 
-  /// How the CLI runs.
-  final Runtime runtime;
-
   /// Untimed runs per target before the timed runs. They fill the file
   /// cache and page in the executable.
   final int warmup;
@@ -82,22 +67,12 @@ final class BenchmarkDefinition {
 /// The benchmarks that `run_benchmarks.dart` runs.
 const List<BenchmarkDefinition> benchmarks = [
   BenchmarkDefinition(
-    name: 'large_repo_aot',
-    description: 'Installed executable validating a repository of 1000 skills.',
+    name: 'validate_1000_skills_all_rules',
+    description: 'Installed executable validating 1000 skills with every built-in rule on.',
     fixture: FixtureSpec(skillCount: 1000),
-    runtime: Runtime.aot,
     warmup: 2,
     iterations: 15,
     metrics: {Metric.wallTime, Metric.peakRss},
-  ),
-  BenchmarkDefinition(
-    name: 'small_repo_jit',
-    description: '`dart run skills_lint` on a repository of 5 skills, as in a pre-commit hook.',
-    fixture: FixtureSpec(skillCount: 5),
-    runtime: Runtime.jit,
-    warmup: 3,
-    iterations: 30,
-    metrics: {Metric.wallTime},
   ),
 ];
 
@@ -111,22 +86,15 @@ const int expectedExitCode = 1;
 /// A build of the CLI to measure.
 @immutable
 final class Target {
-  const Target({required this.label, required this.aotCommand, required this.jitCommand});
+  const Target({required this.label, required this.command});
 
   /// Name of the build in reports, such as `baseline` or `candidate`.
   final String label;
 
-  /// Command line that runs the build as a native executable.
-  final List<String> aotCommand;
-
-  /// Command line that runs the build on the Dart VM.
-  final List<String> jitCommand;
-
-  /// Returns the command line for [runtime].
-  List<String> command(Runtime runtime) => switch (runtime) {
-    Runtime.aot => aotCommand,
-    Runtime.jit => jitCommand,
-  };
+  /// Command line that runs the build. The benchmarks run a native
+  /// executable from `dart compile exe`, which is what
+  /// `dart install skills_lint` and the release binaries give users.
+  final List<String> command;
 }
 
 /// The measurements from one run of the CLI.
@@ -257,7 +225,7 @@ Future<BenchmarkResult> runBenchmark(
   for (var round = 0; round < rounds; round++) {
     final Iterable<Target> order = round.isEven ? targets : targets.reversed;
     for (final target in order) {
-      final RunSample sample = await runner.run(target.command(definition.runtime));
+      final RunSample sample = await runner.run(target.command);
       if (round >= definition.warmup) {
         samples[target.label]!.add(sample);
       }
