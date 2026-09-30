@@ -39,6 +39,12 @@ Their meaning changes over time. What is "new" or "legacy" today won't be tomorr
 
 ---
 
+## Naming
+
+Name things for what they are, not for what they are not. A name that describes what is missing only makes sense next to the thing it excludes.
+
+---
+
 ## 🔑 Class Constants for Schema and Property Keys
 
 All JSON schema property keys, serialization map keys, YAML frontmatter keys, and CLI option names must be declared as `static const String` constants co-located on their owning model classes (e.g., `keyRuleId`, `keyStartLine`, `keyName`).
@@ -72,11 +78,23 @@ Extract multi-line strings, diagnostics, and formatted markdown message construc
 
 ---
 
+## Tests
+
+Tests give confidence that the code keeps working through refactors and added features, and that customers don't break. A failing test is often read only in CI logs, from an OS the author didn't run.
+
+- Don't write tautological tests or change detectors. A test that restates the code, or breaks on every change, gives no confidence.
+- A failing test's output must be enough to debug from CI logs alone. Name the input, the expected value and the actual value.
+- Every `skip:` or `testOn:` gives the reason at that spot.
+- "Hard to test" is not a reason to skip unit tests for pure logic. Pure logic is the cheapest code to test.
+
+---
+
 ## 🪟 Windows Compatibility
 
 CI runs every test on Windows, macOS, and Linux.
 
 - Build every path with `package:path` (`p.join`). Never hardcode `/` or `\`.
+- In tests, build expected paths with `p.join`, or compare both sides after `p.normalize`. An expected path with hardcoded separators passes on macOS and Linux and fails on Windows.
 - If a test depends on an OS-specific command (such as `chmod`), give a Windows equivalent (such as `icacls`) or mock the call.
 
 ---
