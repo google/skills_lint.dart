@@ -136,7 +136,11 @@ difference between the two medians is noise.
 | Machine | Runs | Wall time: median, MAD within a run | Wall time: largest change | Peak RSS: largest change |
 | --- | ---: | --- | ---: | ---: |
 | Apple M-series laptop, macOS, 16 logical CPUs | 5 | 530-541 ms, MAD 0.6-2.2% | 0.8% | 0.1% |
-| GitHub `ubuntu-latest`, 4 logical CPUs | 6 | 772-820 ms, MAD 0.3-2.2% | 1.3% | 0.1% |
+| GitHub `ubuntu-latest`, 4 logical CPUs | 6 | 613-825 ms, MAD 0.5-2.1% | 0.8% | 0.1% |
+
+The medians of separate CI runs differ by up to 35%, because each run can
+get a different runner machine. That is why both builds run in the same job
+and the report compares them only with each other.
 
 The warning thresholds in [`src/report.dart`](src/report.dart) are 15% for
 wall time and 10% for peak RSS: more than ten times the largest noise
