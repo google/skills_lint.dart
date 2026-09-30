@@ -47,13 +47,13 @@ void main() {
       expect(config.individualSkillConfigs.single.path, p.join(cwd, 'single', 'skill'));
     });
 
-    test('anchors relative paths to an explicit baseDirectory', () {
+    test('anchors relative paths to an explicit anchor directory', () {
       final Configuration config = ConfigParser.parse(
         configYaml(
           directories: [(path: 'relative/skills', ignoreFile: 'relative/ignore.json')],
           individualSkills: ['relative/single'],
         ),
-        baseDirectory: projectRoot,
+        source: ConfigSource.anchorDirectory(projectRoot),
       );
 
       expect(config.directoryConfigs.single.path, p.join(projectRoot, 'relative', 'skills'));
@@ -64,12 +64,12 @@ void main() {
       expect(config.individualSkillConfigs.single.path, p.join(projectRoot, 'relative', 'single'));
     });
 
-    test('anchors relative paths to the directory holding sourcePath', () {
+    test('anchors relative paths to the directory holding the config file', () {
       final String sourcePath = p.join(projectRoot, 'nested', 'skills_lint.yaml');
 
       final Configuration config = ConfigParser.parse(
         configYaml(directories: [(path: 'skills', ignoreFile: 'ignores.json')]),
-        sourcePath: sourcePath,
+        source: ConfigSource.file(sourcePath),
       );
 
       expect(config.directoryConfigs.single.path, p.join(projectRoot, 'nested', 'skills'));
@@ -79,11 +79,12 @@ void main() {
       );
     });
 
-    test('prefers baseDirectory over the directory holding sourcePath', () {
+    test('legacy parameters preserve baseDirectory precedence', () {
+      // ignore: deprecated_member_use_from_same_package
       final Configuration config = ConfigParser.parse(
         configYaml(directories: [(path: 'skills', ignoreFile: null)]),
         sourcePath: p.join(projectRoot, 'nested', 'skills_lint.yaml'),
-        baseDirectory: projectRoot,
+        source: ConfigSource.anchorDirectory(projectRoot),
       );
 
       expect(config.directoryConfigs.single.path, p.join(projectRoot, 'skills'));
@@ -94,7 +95,7 @@ void main() {
 
       final Configuration config = ConfigParser.parse(
         configYaml(directories: [(path: absoluteTarget, ignoreFile: null)]),
-        baseDirectory: projectRoot,
+        source: ConfigSource.anchorDirectory(projectRoot),
       );
 
       expect(config.directoryConfigs.single.path, absoluteTarget);
@@ -105,7 +106,7 @@ void main() {
 
       final Configuration config = ConfigParser.parse(
         configYaml(directories: [(path: '~/user_skills', ignoreFile: null)]),
-        baseDirectory: projectRoot,
+        source: ConfigSource.anchorDirectory(projectRoot),
       );
 
       expect(
@@ -261,7 +262,7 @@ skills_lint:
       final Configuration config = ConfigParser.parse(
         'skills_lint:\n'
         '  directories: [{path: a}, {path: b}]\n',
-        sourcePath: p.join(tempDir.path, 'skills_lint.yaml'),
+        source: ConfigSource.file(p.join(tempDir.path, 'skills_lint.yaml')),
       );
 
       expect(config.directoryConfigs.map((t) => declarationOf(t)?.source?.line), [2, 2]);
