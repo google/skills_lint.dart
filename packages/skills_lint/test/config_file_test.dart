@@ -1323,7 +1323,7 @@ skills_lint:
         const Configuration(
           directoryConfigs: [LintTargetConfig(path: '../sibling/skills')],
         ).toYamlString(),
-        baseDirectory: p.normalize(p.absolute('project')),
+        source: ConfigSource.anchorDirectory(p.normalize(p.absolute('project'))),
       );
 
       expect(
