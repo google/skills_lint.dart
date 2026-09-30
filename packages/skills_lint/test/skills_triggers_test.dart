@@ -63,8 +63,8 @@ void main() {
   });
 
   group('positive_triggers entry checks', () {
-    const String skill = 'target-skill';
-    const Set<String> knownSkills = {'target-skill', 'peer-skill', 'other-skill'};
+    const skill = 'target-skill';
+    const knownSkills = {'target-skill', 'peer-skill', 'other-skill'};
 
     List<String> errorsFor(Object? entries) {
       return checkPositiveTriggers(entries, skill: skill, knownSkills: knownSkills).errors;
