@@ -36,8 +36,7 @@
       ],
       "expected_repo_state": [
         "The evaluation artifact explicitly flags a failure for binary repo state assertions due to vague, non-binary, or subjective criteria.",
-        "The evaluation artifact explicitly flags a failure for prompt skill alignment because the prompt asks for a CHANGELOG.md entry that the definition-of-done skill forbids for internal changes.",
-        "The evaluation artifact explicitly flags a failure for expectation value because an assertion requires an exact heading that neither the skill nor the prompt requires."
+        "The evaluation artifact explicitly flags a failure for prompt skill alignment because the prompt asks for a CHANGELOG.md entry that the definition-of-done skill forbids for internal changes."
       ]
     }
   ]

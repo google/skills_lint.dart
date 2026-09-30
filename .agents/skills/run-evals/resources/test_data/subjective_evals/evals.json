@@ -6,8 +6,7 @@
       "id": 1,
       "prompt": "Using the definition-of-done skill, refactor the authentication logic in auth.dart to improve readability, and add a CHANGELOG.md entry for the refactor.",
       "expected_chat_output": [
-        "Natural language summary.",
-        "The summary starts with the exact heading 'Refactor Summary'."
+        "Natural language summary."
       ],
       "expected_repo_state": [
         "The code looks good and clean.",

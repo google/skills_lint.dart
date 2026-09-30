@@ -22,13 +22,6 @@
       "expected_repo_state": [
         "No prompt in the target evals.json file instructs the agent to do something the skill under test forbids."
       ]
-    },
-    {
-      "id": "expectation_value",
-      "expected_repo_state": [
-        "Every expected_chat_output and expected_repo_state assertion in the target evals.json file checks behavior that the skill under test or the eval's prompt requires.",
-        "No assertion in the target evals.json file requires wording or formatting details that neither the skill under test nor the eval's prompt requires."
-      ]
     }
   ]
 }
