@@ -1,0 +1,13 @@
+# Test tags for package:test. See
+# https://github.com/dart-lang/test/blob/master/pkgs/test/doc/configuration.md
+#
+# Product tests live in test/ and check that skills_lint behaves correctly.
+# Repo checks live in test/repo/ and check that this repository follows its
+# own conventions. Every test file under test/repo/ declares @Tags(['repo']);
+# test/repo/test_layout_test.dart enforces that.
+#
+#   dart test            runs both
+#   dart test -x repo    runs product tests only (CI collects coverage here)
+#   dart test -t repo    runs repo checks only
+tags:
+  repo:

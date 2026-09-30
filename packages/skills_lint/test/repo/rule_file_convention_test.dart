@@ -12,6 +12,7 @@
 ///
 /// Revisit this if a rule needs a public companion type that configuration
 /// or other packages use, such as a parameter type exported for callers.
+@Tags(['repo'])
 library;
 
 import 'package:analyzer/dart/ast/ast.dart';

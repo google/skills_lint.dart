@@ -92,11 +92,42 @@ Run the test suite from the package root (`packages/skills_lint`):
 dart test
 ```
 
+### Where tests go
+
+The package has two kinds of tests:
+
+- **Product tests** go in `test/`. They check that skills_lint behaves
+  correctly: rules, the CLI, configuration, the fixer and the public API. A
+  change to `lib/` or `bin/` can make a product test fail.
+- **Repo checks** go in `test/repo/`. They check that this repository follows
+  its own conventions: file headers, the CI workflow, docs that must match the
+  code (`RULES.md`, the README recipes), skill and eval structure, and source
+  conventions. Each file declares `@Tags(['repo'])` above `library;`, and
+  `test/repo/test_layout_test.dart` fails if a file's tag and folder disagree.
+  Helpers that only repo checks use go in `test/repo/src/`.
+
+Plain `dart test` runs both. To run one kind:
+
+```bash
+dart test -x repo  # product tests only
+dart test -t repo  # repo checks only
+```
+
+CI runs the two kinds as separate steps, so a failure shows which kind broke.
+Coverage comes from product tests only.
+
+Repo checks share this package's `dev_dependencies`. When a repo check needs a
+dev dependency that no product test uses, move `test/repo/` to its own
+unpublished workspace package (for example `packages/repo_checks/`) instead of
+adding the dependency here.
+
+### Coverage
+
 CI enforces a minimum line-coverage threshold for `lib/` (currently 73%),
 excluding generated `*.g.dart` files. To reproduce the same number locally:
 
 ```bash
-dart test --coverage=coverage
+dart test -x repo --coverage=coverage
 dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --ignore-files='**/*.g.dart'
 ```
 

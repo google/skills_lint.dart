@@ -224,7 +224,7 @@ diagnostic shapes, auto-fix behavior, and configuration options — see
 
 Drop-in snippets for the most common ways to wire `skills_lint` into a
 project's quality gates. Each recipe is exercised by
-[`test/recipe_drift_test.dart`](test/recipe_drift_test.dart), so if a
+[`test/repo/recipe_drift_test.dart`](test/repo/recipe_drift_test.dart), so if a
 flag here goes stale, CI fails.
 
 ### Recipe: GitHub Actions

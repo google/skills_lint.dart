@@ -2,10 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+@Tags(['repo'])
+library;
+
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+
+import 'src/repo_paths.dart';
 
 const int _maxCognitiveComplexityThreshold = 20;
 
@@ -30,9 +35,33 @@ void main() {
       );
     });
 
+    test('CI runs product tests and repo checks as separate steps', () {
+      final List<String> invocations = _dartTestInvocations();
+      final List<String> untagged = [
+        for (final String command in invocations)
+          if (!command.contains('-x repo') && !command.contains('-t repo')) command,
+      ];
+      expect(
+        untagged,
+        isEmpty,
+        reason:
+            'Each `dart test` step in the CI workflow must select product tests '
+            '(`-x repo`) or repo checks (`-t repo`), so a failure names its kind.',
+      );
+      expect(
+        invocations.where((command) => command.contains('-t repo')),
+        isNotEmpty,
+        reason: 'The CI workflow must run the repo checks with `dart test -t repo`.',
+      );
+      expect(
+        invocations.where((command) => command.contains('--coverage')),
+        everyElement(contains('-x repo')),
+        reason: 'Coverage must come from product tests only (`dart test -x repo --coverage=...`).',
+      );
+    });
+
     test('documents quote the CI cognitive complexity command exactly', () {
       final String commandLine = _parseCognitiveComplexityInvocation().group(0)!.trim();
-      final String repoRoot = _getWorkflowFile().parent.parent.parent.path;
       final String text = File(
         p.join(repoRoot, '.agents', 'skills', 'definition-of-done', 'SKILL.md'),
       ).readAsStringSync();
@@ -70,16 +99,18 @@ RegExpMatch _parseCognitiveComplexityInvocation() {
   return match!;
 }
 
-File _getWorkflowFile() {
-  Directory dir = Directory.current;
-  while (dir.path != '/' && dir.path.isNotEmpty) {
-    final workflowFile = File(
-      p.join(dir.path, '.github', 'workflows', 'skills_lint_workflow.yaml'),
-    );
-    if (workflowFile.existsSync()) {
-      return workflowFile;
-    }
-    dir = dir.parent;
-  }
-  return File(p.normalize(p.absolute('../../.github/workflows/skills_lint_workflow.yaml')));
+/// Returns each `dart test` command that a `run:` step of the CI workflow runs.
+List<String> _dartTestInvocations() {
+  final String content = _getWorkflowFile().readAsStringSync();
+  return [
+    for (final RegExpMatch match in RegExp(
+      r'^\s*(?:-\s+)?run:\s*(dart\s+test\b[^\r\n]*)',
+      multiLine: true,
+    ).allMatches(content))
+      match.group(1)!.trim(),
+  ];
 }
+
+File _getWorkflowFile() =>
+    File(p.join(repoRoot, '.github', 'workflows', 'skills_lint_workflow.yaml'));
+

@@ -5,6 +5,7 @@
 /// Every `lib/src` file is imported directly by at least one test, or is
 /// listed in exactly one of [trivialDataClasses], [coveredByIntegrationTests]
 /// or [untestedAllowlist].
+@Tags(['repo'])
 library;
 
 import 'dart:io';
@@ -72,7 +73,7 @@ const Set<String> untestedAllowlist = {
   'suggestions/levenshtein.dart',
 };
 
-const String _self = 'test/test_coverage_convention_test.dart';
+const String _self = 'test/repo/test_coverage_convention_test.dart';
 
 void main() {
   final Set<String> sources = _libSrcFiles();
