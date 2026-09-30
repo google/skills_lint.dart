@@ -25,8 +25,31 @@ void main() {
           'packages/skills_lint/test',
           'packages/skills_lint/example',
           'packages/skills_lint/skills',
+          'packages/skills_lint/benchmark',
+          'packages/skills_lint/evals',
           '.agents/skills',
+          'third_party',
         ]),
+      );
+    });
+
+    test('CI cognitive complexity check scans every Dart file in the repository', () {
+      final List<String> targets = _parseCognitiveComplexityInvocation()
+          .group(2)!
+          .trim()
+          .split(RegExp(r'\s+'));
+      final String repoRoot = _getWorkflowFile().parent.parent.parent.path;
+      final List<String> unscanned = [
+        for (final String file in _dartFiles(Directory(repoRoot), repoRoot))
+          if (!targets.any((String target) => file.startsWith('$target/'))) file,
+      ];
+      expect(
+        unscanned,
+        isEmpty,
+        reason:
+            'These Dart files are outside every path that the cognitive_complexity step in '
+            '.github/workflows/skills_lint_workflow.yaml scans. Add their directory to that '
+            'command and to .agents/skills/definition-of-done/SKILL.md:\n  ${unscanned.join('\n  ')}',
       );
     });
 
@@ -82,4 +105,26 @@ File _getWorkflowFile() {
     dir = dir.parent;
   }
   return File(p.normalize(p.absolute('../../.github/workflows/skills_lint_workflow.yaml')));
+}
+
+/// Hidden directories under the repository root that hold source files.
+const Set<String> _hiddenSourceDirectories = {'.agents', '.github'};
+
+/// Returns the paths, relative to [root] and with `/` separators, of the Dart
+/// files under [dir].
+///
+/// Skips `build` directories and hidden directories, such as `.dart_tool`
+/// and `.git`, apart from [_hiddenSourceDirectories].
+Iterable<String> _dartFiles(Directory dir, String root) sync* {
+  for (final FileSystemEntity entity in dir.listSync(followLinks: false)) {
+    final String name = p.basename(entity.path);
+    if (entity is Directory) {
+      final bool hidden = name.startsWith('.') && !_hiddenSourceDirectories.contains(name);
+      if (!hidden && name != 'build') {
+        yield* _dartFiles(entity, root);
+      }
+    } else if (entity is File && name.endsWith('.dart')) {
+      yield p.split(p.relative(entity.path, from: root)).join('/');
+    }
+  }
 }
