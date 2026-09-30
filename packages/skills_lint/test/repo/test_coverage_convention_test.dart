@@ -146,8 +146,11 @@ Set<String> _libSrcFiles() => {
 };
 
 /// Returns the `lib/src` files named by an `import` or `export` directive in
-/// a test.
-Set<String> _importedByTests() => _package.filesImportedBy(parseDirectories(['test']));
+/// a product test. Repo checks under `test/repo/` do not count.
+Set<String> _importedByTests() => _package.filesImportedBy([
+  for (final Source source in parseDirectories(['test']))
+    if (!source.path.startsWith('test/repo/')) source,
+]);
 
 /// Returns the `lib/src` files reachable from `lib/skills_lint.dart` through
 /// `export` directives.

@@ -20,7 +20,7 @@ import 'package:test/test.dart';
 import 'src/repo_paths.dart';
 
 void main() {
-  final Directory testRoot = Directory(p.join(packageRoot, 'test'));
+  final testRoot = Directory(p.join(packageRoot, 'test'));
   final String repoTestRoot = p.join(testRoot.path, 'repo');
   final List<File> testFiles = [
     for (final File file in testRoot.listSync(recursive: true).whereType<File>())

@@ -113,4 +113,3 @@ List<String> _dartTestInvocations() {
 
 File _getWorkflowFile() =>
     File(p.join(repoRoot, '.github', 'workflows', 'skills_lint_workflow.yaml'));
-
