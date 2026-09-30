@@ -16,6 +16,12 @@
         "expected_repo_state assertions avoid vague, open-ended, or subjective criteria.",
         "expected_chat_output assertions permit natural language variations unless a strict output format is explicitly required by the task."
       ]
+    },
+    {
+      "id": "prompt_skill_alignment",
+      "expected_repo_state": [
+        "No prompt in the target evals.json file instructs the agent to do something the skill under test forbids."
+      ]
     }
   ]
 }

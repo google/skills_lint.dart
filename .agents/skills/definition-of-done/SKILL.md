@@ -22,6 +22,7 @@ Before stating that a task is complete, you MUST execute and pass the following 
 6.  **Changelog**: If the task introduces user-facing CLI flags, package API changes, bug fixes, or user-facing behavioral changes, update `CHANGELOG.md`.
     - **Do NOT log internal chores**: Do not add entries for internal CI workflows, dev dependency updates/migrations, test refactoring, or repository infrastructure scripts.
     - **Explicit N/A**: If the task is internal-only, leave `CHANGELOG.md` untouched and output `[x] Changelog: (N/A) <reason>`.
+    - **Label**: Internal-only PRs get the `skip-changelog-check` label. Without it, the Health changelog check fails the PR.
     - Audit all entries against the *previously released version* (do not document changes to intermediate PR development code or new unreleased APIs as breaking changes).
     - Write entries for users. Incidental fixes that no user would notice get no entry.
     - Changes to message wording get no entry.

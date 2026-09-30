@@ -4,7 +4,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Refactor the authentication logic in auth.dart to improve readability.",
+      "prompt": "Using the definition-of-done skill, refactor the authentication logic in auth.dart to improve readability, and add a CHANGELOG.md entry for the refactor.",
       "expected_chat_output": [
         "Natural language summary."
       ],

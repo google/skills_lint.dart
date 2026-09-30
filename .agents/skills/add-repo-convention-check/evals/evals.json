@@ -1,0 +1,23 @@
+{
+  "repo_criteria": [
+    "evals/code_quality_rubric.json",
+    "evals/eval_quality_rubric.json"
+  ],
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Add a test that fails when any Dart file under packages/skills_lint/lib calls exit() from dart:io. The library returns exit codes to bin/, and a call to exit() would end any program that embeds the package. Then draft the pull request description.",
+      "expected_chat_output": [
+        "The drafted pull request description includes the failure output from a deliberately broken case, such as a snippet or temporary file that calls exit()."
+      ],
+      "expected_repo_state": [
+        "The detector is a function in a file under packages/skills_lint/test/src/ that takes a `Source` and returns `ConventionViolation` values. The change adds no other finding type.",
+        "The scan gets its Dart files from `parseDirectories`. The change adds no other code that lists directories or reads Dart files.",
+        "A test file runs the detector on `Source.snippet` inputs and covers at least one reported call and one ignored case.",
+        "The repo-wide scan is in a different test file from the detector's unit tests.",
+        "The check's dartdoc says why the rule exists and what would make the maintainers change it.",
+        "The failure output names each offending file and line and says how to fix it. It does not suggest a way around the check."
+      ]
+    }
+  ]
+}
