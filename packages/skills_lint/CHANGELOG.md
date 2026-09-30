@@ -4,6 +4,7 @@
 - When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
 - **Behavior change:** in `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
 - **Behavior change:** `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link.
+- Made `check-trailing-whitespace` about 20 times faster. Its diagnostics and `--fix` output are unchanged.
 
 ## 0.5.2
 

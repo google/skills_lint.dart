@@ -117,8 +117,9 @@ lock in the gain. To inspect coverage locally, render `coverage/lcov.info` with
 
 A separate workflow benchmarks the CLI on pull requests that change
 `bin/`, `lib/` or `pubspec.yaml`. It never blocks a merge; a possible
-slowdown shows as a warning annotation and in the job summary. To run the
-benchmarks locally or to read the report, see
+slowdown shows as a warning annotation and in the job summary. The job
+summary also times each rule on its own. If you add a rule, check its
+time there. To run the benchmarks locally or to read the report, see
 [`packages/skills_lint/benchmark/README.md`](packages/skills_lint/benchmark/README.md).
 
 ## Community Guidelines

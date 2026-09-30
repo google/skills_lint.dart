@@ -71,12 +71,41 @@ jobs:
           --json "$RUNNER_TEMP/benchmarks.json"
           --markdown "$RUNNER_TEMP/benchmarks.md"
 
+      # The rule timings run in process, so the baseline timings build this
+      # checkout's timing script against the baseline's code. The timings
+      # are information only: these steps never fail the job, and without
+      # baseline timings the report shows the candidate alone.
+      - name: Time each rule on the baseline
+        continue-on-error: true
+        run: |
+          baseline="$RUNNER_TEMP/baseline/packages/skills_lint"
+          rm -rf "$baseline/benchmark"
+          cp -R benchmark "$baseline/benchmark"
+          cd "$baseline"
+          dart compile exe --verbosity=error benchmark/rule_timings.dart -o "$RUNNER_TEMP/rule_timings_baseline"
+          "$RUNNER_TEMP/rule_timings_baseline" --repo-root "$GITHUB_WORKSPACE" --json "$RUNNER_TEMP/rule_timings_baseline.json" > /dev/null
+
+      - name: Time each rule
+        continue-on-error: true
+        run: |
+          baseline_args=()
+          if [ -f "$RUNNER_TEMP/rule_timings_baseline.json" ]; then
+            baseline_args=(--baseline-json "$RUNNER_TEMP/rule_timings_baseline.json")
+          fi
+          dart compile exe --verbosity=error benchmark/rule_timings.dart -o "$RUNNER_TEMP/rule_timings"
+          "$RUNNER_TEMP/rule_timings" --repo-root "$GITHUB_WORKSPACE" "${baseline_args[@]}" \
+            --json "$RUNNER_TEMP/rule_timings.json" --markdown "$RUNNER_TEMP/rule_timings.md"
+
       - name: Write the job summary
         run: |
           {
             echo "Baseline: \`$BASELINE_SHA\`. Candidate: \`$(git rev-parse HEAD)\`."
             echo
             cat "$RUNNER_TEMP/benchmarks.md"
+            if [ -f "$RUNNER_TEMP/rule_timings.md" ]; then
+              echo
+              cat "$RUNNER_TEMP/rule_timings.md"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -85,3 +114,6 @@ jobs:
           path: |
             ${{ runner.temp }}/benchmarks.json
             ${{ runner.temp }}/benchmarks.md
+            ${{ runner.temp }}/rule_timings.json
+            ${{ runner.temp }}/rule_timings.md
+            ${{ runner.temp }}/rule_timings_baseline.json
