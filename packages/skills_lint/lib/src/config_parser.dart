@@ -20,6 +20,36 @@ import 'rule_registry.dart';
 
 final Logger _log = Logger('skills_lint');
 
+/// Describes where configuration YAML came from.
+///
+/// Pass exactly one [ConfigSource] to [ConfigParser.parse] or
+/// [ConfigParser.fromYaml] when relative paths need a stable anchor.
+///
+/// A file source records the configuration file for diagnostics and declarations,
+/// and anchors relative paths to that file's directory. An anchor-directory
+/// source is for in-memory YAML with no backing file.
+sealed class ConfigSource {
+  const ConfigSource._();
+
+  /// YAML read from the configuration file at [path].
+  const factory ConfigSource.file(String path) = _ConfigFileSource;
+
+  /// In-memory YAML whose relative paths resolve from [directory].
+  const factory ConfigSource.anchorDirectory(String directory) = _ConfigAnchorDirectorySource;
+}
+
+final class _ConfigFileSource extends ConfigSource {
+  const _ConfigFileSource(this.path) : super._();
+
+  final String path;
+}
+
+final class _ConfigAnchorDirectorySource extends ConfigSource {
+  const _ConfigAnchorDirectorySource(this.directory) : super._();
+
+  final String directory;
+}
+
 /// Parses and loads YAML configuration for skills_lint.
 ///
 /// Target paths (`directories`, `individual_skills`) and `ignore_file` paths
@@ -67,24 +97,33 @@ class ConfigParser {
 
   /// Parses configuration settings from raw YAML [content].
   ///
-  /// [sourcePath] identifies the configuration file the [content] came from. It
-  /// provides file path context for error reporting, and anchors every target
-  /// path and ignore file in the returned [Configuration] to the directory that
-  /// contains that file.
-  ///
-  /// [baseDirectory] overrides the anchor directory derived from [sourcePath].
-  /// Supply it when [content] has no backing file but paths must still resolve
-  /// against a known directory.
-  ///
-  /// Callers that supply neither argument anchor paths to
+  /// [source] identifies either the backing configuration file or the anchor
+  /// directory for in-memory YAML. If omitted, relative paths resolve from
   /// [Directory.current].
-  static Configuration parse(String content, {String? sourcePath, String? baseDirectory}) {
+  ///
+  /// [sourcePath] and [baseDirectory] are compatibility forwarders for callers
+  /// compiled against 0.5.x. New code should use [source].
+  static Configuration parse(
+    String content, {
+    ConfigSource? source,
+    @Deprecated('Use source: ConfigSource.file(...) instead.') String? sourcePath,
+    @Deprecated('Use source: ConfigSource.anchorDirectory(...) instead.') String? baseDirectory,
+  }) {
+    _validateSourceArguments(source: source, sourcePath: sourcePath, baseDirectory: baseDirectory);
     try {
       final Object? yaml = loadYaml(content);
-      return fromYaml(yaml, sourcePath: sourcePath, baseDirectory: baseDirectory);
+      return _fromYaml(
+        yaml,
+        source: source,
+        sourcePath: sourcePath,
+        baseDirectory: baseDirectory,
+      );
     } on YamlException catch (e) {
-      final String source = sourcePath ?? 'content';
-      final message = 'Failed to parse $source: $e';
+      final String sourceLabel = switch (source) {
+        _ConfigFileSource(:final path) => path,
+        _ => sourcePath ?? 'content',
+      };
+      final message = 'Failed to parse $sourceLabel: $e';
       _log.severe(message);
       return Configuration(parsingErrors: <String>[message]);
     }
@@ -95,9 +134,32 @@ class ConfigParser {
   /// Use this when the YAML is already decoded, such as a configuration nested
   /// inside a larger document. [parse] handles raw text.
   ///
-  /// Target paths and ignore files resolve against [baseDirectory], or the
-  /// directory holding [sourcePath], or [Directory.current].
-  static Configuration fromYaml(Object? yaml, {String? sourcePath, String? baseDirectory}) {
+  /// Target paths and ignore files resolve from [source], or
+  /// [Directory.current] when it is omitted.
+  ///
+  /// [sourcePath] and [baseDirectory] are compatibility forwarders for callers
+  /// compiled against 0.5.x. New code should use [source].
+  static Configuration fromYaml(
+    Object? yaml, {
+    ConfigSource? source,
+    @Deprecated('Use source: ConfigSource.file(...) instead.') String? sourcePath,
+    @Deprecated('Use source: ConfigSource.anchorDirectory(...) instead.') String? baseDirectory,
+  }) {
+    _validateSourceArguments(source: source, sourcePath: sourcePath, baseDirectory: baseDirectory);
+    return _fromYaml(
+      yaml,
+      source: source,
+      sourcePath: sourcePath,
+      baseDirectory: baseDirectory,
+    );
+  }
+
+  static Configuration _fromYaml(
+    Object? yaml, {
+    ConfigSource? source,
+    String? sourcePath,
+    String? baseDirectory,
+  }) {
     if (yaml == null) {
       return const Configuration();
     }
@@ -115,16 +177,23 @@ class ConfigParser {
         return Configuration(parsingErrors: <String>[message]);
       }
       final parsingErrors = <String>[];
-      // [baseDirectory] anchors the paths written inside the configuration.
-      // It does not locate the configuration file itself, so a relative
-      // [sourcePath] resolves against the working directory, the same way
-      // `loadConfig` resolves its `path`.
-      final String? sourceFile = sourcePath == null
+      final String? configuredSourcePath = switch (source) {
+        _ConfigFileSource(:final path) => path,
+        _ => sourcePath,
+      };
+      final String? configuredAnchorDirectory = switch (source) {
+        _ConfigAnchorDirectorySource(:final directory) => directory,
+        _ => baseDirectory,
+      };
+
+      // A relative configuration file path resolves against the working
+      // directory, the same way `loadConfig` resolves its `path`.
+      final String? sourceFile = configuredSourcePath == null
           ? null
-          : canonicalizePath(sourcePath, baseDirectory: Directory.current.path);
+          : canonicalizePath(configuredSourcePath, baseDirectory: Directory.current.path);
       final String anchor = _resolveAnchorDirectory(
         sourceFile: sourceFile,
-        baseDirectory: baseDirectory,
+        baseDirectory: configuredAnchorDirectory,
       );
 
       _validateTopLevelKeys(toolConfig, parsingErrors);
@@ -155,6 +224,18 @@ class ConfigParser {
       );
     }
     return const Configuration();
+  }
+
+  static void _validateSourceArguments({
+    required ConfigSource? source,
+    required String? sourcePath,
+    required String? baseDirectory,
+  }) {
+    if (source != null && (sourcePath != null || baseDirectory != null)) {
+      throw ArgumentError(
+        'Pass source only; sourcePath and baseDirectory are deprecated compatibility arguments.',
+      );
+    }
   }
 
   /// Returns the absolute directory that target paths and ignore files resolve
@@ -200,7 +281,7 @@ class ConfigParser {
 
     try {
       final String content = await configFile.readAsString();
-      return parse(content, sourcePath: resolvedPath);
+      return parse(content, source: ConfigSource.file(resolvedPath));
     } catch (e) {
       if (e is FileSystemException) {
         rethrow;
