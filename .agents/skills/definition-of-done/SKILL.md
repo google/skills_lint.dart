@@ -25,7 +25,7 @@ Before stating that a task is complete, you MUST execute and pass the following 
     - Audit all entries against the *previously released version* (do not document changes to intermediate PR development code or new unreleased APIs as breaking changes).
     - Write entries for users. Incidental fixes that no user would notice get no entry.
     - Changes to message wording get no entry.
-7.  **Temporal**: Ensure that code and code comments contain no relative temporal terms. See [Temporal Words](../../../packages/skills_lint/documentation/knowledge/style_guide.md#temporal-words) for the list and the reason.
+7.  **Temporal**: Code, comments and docs describe the code as it is. They don't compare it with an earlier version or with your change. See [Temporal Words](../../../packages/skills_lint/documentation/knowledge/style_guide.md#temporal-words) for examples and the reason.
 8.  **Documentation**: Update every document the change affects. If you change CLI flags, output, or config parsing, check `README.md`, `RULES.md`, and the other docs next to the code. Documented behavior must match the code.
 9.  **No Silent Deletions**: Diff the branch against its merge base. Name every removed comment, docstring, test, or eval assertion in the PR description, with the reason. Restore any removal you did not intend.
 10. **Citations**: Open every URL the change adds. Each URL must resolve and support the claim it is attached to. Cite the Agent Skills specification only for rules the specification states.
@@ -45,6 +45,6 @@ Examples:
 - `[x] Analysis: Static clean (0 issues, dart analyze --fatal-infos).`
 - `[ ] Skills: Skipped because skills_lint is not installed.`
 - `[x] Changelog: (N/A) Not necessary since we're updating internal eval fixtures.`
-- `[x] Temporal: no added words.`
+- `[x] Temporal: no comparisons with earlier versions of the code.`
 - `[x] Comments: new comments describe only what the code does.`
 - `[x] Doc scope: dartdoc states only what callers rely on.`

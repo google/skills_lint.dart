@@ -70,11 +70,11 @@ void main() {
 
         // disallowed-field
         expect(stderrStr, contains('Disallowed field: secret_field'));
-        // check-absolute-paths now spells out the portability rationale
-        // in the error message itself.
+        // check-absolute-paths explains the portability rationale in the
+        // error message itself.
         expect(stderrStr, contains('Absolute filepath found in link: /tmp/this/does/not/exist.md'));
         expect(stderrStr, contains('portable'));
-        // invalid-skill-name still fires.
+        // invalid-skill-name fires alongside the escalated rules.
         expect(stderrStr, contains('Frontmatter `name`'));
 
         await process.shouldExit(1);

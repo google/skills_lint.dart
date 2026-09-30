@@ -15,7 +15,7 @@
       ],
       "expected_repo_state": [
         "The levenshtein.dart file contains a new comment explaining how edit distance is calculated.",
-        "The new comment and dartdoc contain no relative temporal words such as 'now', 'currently', 'new', 'old', 'existing' or 'previously', per the Temporal Words section of style_guide.md.",
+        "The new comment and dartdoc describe the code as it is and don't compare it with an earlier version or with the change that added them, per the Temporal Words section of style_guide.md.",
         "The levenshtein.dart file is formatted cleanly according to dart format.",
         "The project has no dart analyze errors or warnings.",
         "CHANGELOG.md is not modified because adding internal comments is non-user-facing.",

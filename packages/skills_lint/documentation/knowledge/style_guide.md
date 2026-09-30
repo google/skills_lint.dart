@@ -30,12 +30,16 @@ All Dart code across this repository must adhere strictly to the official [Effec
 
 ## Temporal Words
 
-Don't use relative temporal terms in code, comments or docs. Examples: "now", "currently", "new", "old", "legacy", "existing behavior", "used to", "previously", "no longer", "originally".
+Describe the code as it is. Don't compare it with an earlier version of the code, or with the change that produced it. This applies to code, comments and docs.
 
-Their meaning changes over time. What is "new" or "legacy" today won't be tomorrow. They are a documentation smell:
+The reader has only the code in front of them. A comparison with a version they never saw doesn't help them, and it stops being true once that version is forgotten. For example:
 
-- Humans usually use them for lack of a better name. Pick a name that says what the thing is.
-- Agents usually use them to refer to earlier versions of the code. The reader of the code today doesn't care about those versions.
+- Instead of "the legacy `--fix-apply` alias", write "the deprecated `--fix-apply` alias".
+- Instead of "the rule now explains the reason in its message", write "the rule explains the reason in its message".
+
+Words such as "now", "still", "currently", "new", "old", "legacy", "existing behavior", "used to", "previously", "no longer" and "originally" often signal a comparison. Rewrite the sentence rather than swap the word. The same words are fine when they describe what the program does at runtime, as in "the directory no longer exists after the rename".
+
+If you want to call something "new" or "legacy", pick a name that says what it is. If the history matters, put it in the commit message or PR description.
 
 ---
 
