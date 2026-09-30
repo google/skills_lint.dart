@@ -80,11 +80,12 @@ void main() {
     });
 
     test('legacy parameters preserve baseDirectory precedence', () {
-      // ignore: deprecated_member_use_from_same_package
       final Configuration config = ConfigParser.parse(
         configYaml(directories: [(path: 'skills', ignoreFile: null)]),
+        // ignore: deprecated_member_use_from_same_package
         sourcePath: p.join(projectRoot, 'nested', 'skills_lint.yaml'),
-        source: ConfigSource.anchorDirectory(projectRoot),
+        // ignore: deprecated_member_use_from_same_package
+        baseDirectory: projectRoot,
       );
 
       expect(config.directoryConfigs.single.path, p.join(projectRoot, 'skills'));
@@ -123,7 +124,7 @@ skills_lint:
     - path: "valid/dir"
 ''';
 
-      final Configuration config = ConfigParser.parse(yaml, baseDirectory: projectRoot);
+      final Configuration config = ConfigParser.parse(yaml, source: ConfigSource.anchorDirectory(projectRoot));
 
       expect(config.parsingErrors.single, contains('Directory entry "path" must be a string'));
       expect(config.directoryConfigs.single.path, p.join(projectRoot, 'valid', 'dir'));
@@ -137,7 +138,7 @@ skills_lint:
       unknown_key: true
 ''';
 
-      final Configuration config = ConfigParser.parse(yaml, baseDirectory: projectRoot);
+      final Configuration config = ConfigParser.parse(yaml, source: ConfigSource.anchorDirectory(projectRoot));
 
       expect(
         config.parsingErrors.single,
