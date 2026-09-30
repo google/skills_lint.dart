@@ -14,6 +14,16 @@ import '../../benchmark/src/fixture.dart';
 import '../../benchmark/src/timings.dart';
 
 void main() {
+  _timedRuleConfigsTests();
+  _loopsForTests();
+  _findSkillDirectoriesTests();
+  _compareTimingsTests();
+  _timingsMarkdownTests();
+  _jsonTests();
+  _timeRulesTests();
+}
+
+void _timedRuleConfigsTests() {
   group('timedRuleConfigs', () {
     test('turns on every registered rule, so the benchmarks time each rule', () {
       final Set<String> enabled = {
@@ -36,7 +46,9 @@ void main() {
       expect(() => timedRuleConfigs('skills_lint: [1, 2]'), throwsStateError);
     });
   });
+}
 
+void _loopsForTests() {
   group('loopsFor', () {
     test('repeats a small corpus to reach the minimum number of visits', () {
       expect(loopsFor(36), 28);
@@ -48,7 +60,9 @@ void main() {
       expect(() => loopsFor(0), throwsArgumentError);
     });
   });
+}
 
+void _findSkillDirectoriesTests() {
   group('findSkillDirectories', () {
     late Directory tempDir;
 
@@ -75,7 +89,9 @@ void main() {
       );
     });
   });
+}
 
+void _compareTimingsTests() {
   group('compareTimings', () {
     const candidate = CorpusTimings(
       corpus: 'fixture',
@@ -123,7 +139,9 @@ void main() {
       );
     });
   });
+}
 
+void _timingsMarkdownTests() {
   group('timingsMarkdown', () {
     const candidate = CorpusTimings(
       corpus: 'fixture',
@@ -168,7 +186,9 @@ void main() {
       expect(markdown, contains('| new-rule | no | 6.0 | 75.0% | 0.0% |'));
     });
   });
+}
 
+void _jsonTests() {
   test('CorpusTimings survives a JSON round trip', () {
     const timings = CorpusTimings(
       corpus: 'real',
@@ -187,7 +207,9 @@ void main() {
       'a-rule': [1.5, 2.25],
     });
   });
+}
 
+void _timeRulesTests() {
   group('timeRules', () {
     late Directory tempDir;
 
