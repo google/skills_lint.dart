@@ -1,0 +1,87 @@
+name: benchmarks
+permissions:
+  contents: read
+
+# Measures the CLI against a baseline build on the same runner and reports
+# the results. It never fails on a slowdown: a slowdown over the threshold
+# adds a warning annotation. See packages/skills_lint/benchmark/README.md.
+on:
+  pull_request:
+    paths:
+      - 'packages/skills_lint/bin/**'
+      - 'packages/skills_lint/lib/**'
+      - 'packages/skills_lint/benchmark/**'
+      - 'packages/skills_lint/pubspec.yaml'
+      - '.github/workflows/benchmarks.yaml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'packages/skills_lint/bin/**'
+      - 'packages/skills_lint/lib/**'
+      - 'packages/skills_lint/benchmark/**'
+      - 'packages/skills_lint/pubspec.yaml'
+      - '.github/workflows/benchmarks.yaml'
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: 'Commit, branch or tag to compare against, such as a release tag. Empty compares against the parent commit.'
+        required: false
+        default: ''
+
+concurrency:
+  group: benchmarks-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: packages/skills_lint
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: stable
+
+      - run: dart pub get
+
+      # On a pull request the checkout is the merge commit, whose first
+      # parent is the tip of the base branch. On a push it is the pushed
+      # commit, whose first parent is the previous tip of main.
+      - name: Check out the baseline
+        env:
+          BASELINE: ${{ inputs.baseline }}
+        run: |
+          sha="$(git rev-parse --verify "${BASELINE:-HEAD^1}^{commit}")"
+          echo "BASELINE_SHA=$sha" >> "$GITHUB_ENV"
+          git worktree add --detach "$RUNNER_TEMP/baseline" "$sha"
+          cd "$RUNNER_TEMP/baseline/packages/skills_lint"
+          dart pub get
+
+      - name: Run benchmarks
+        run: >-
+          dart run benchmark/run_benchmarks.dart
+          --baseline "$RUNNER_TEMP/baseline/packages/skills_lint"
+          --json "$RUNNER_TEMP/benchmarks.json"
+          --markdown "$RUNNER_TEMP/benchmarks.md"
+
+      - name: Write the job summary
+        run: |
+          {
+            echo "Baseline: \`$BASELINE_SHA\`. Candidate: \`$(git rev-parse HEAD)\`."
+            echo
+            cat "$RUNNER_TEMP/benchmarks.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmarks
+          path: |
+            ${{ runner.temp }}/benchmarks.json
+            ${{ runner.temp }}/benchmarks.md

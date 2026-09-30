@@ -134,7 +134,9 @@ final class Target {
 final class RunSample {
   const RunSample({required this.wallTime, this.peakRssBytes});
 
-  /// Time from process start to process exit.
+  /// Time from process start to process exit. With an [RssProbe] it
+  /// includes starting `time`, which adds the same small cost to every
+  /// target.
   final Duration wallTime;
 
   /// Peak resident set size in bytes, or `null` when the platform has no
