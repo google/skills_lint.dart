@@ -35,7 +35,8 @@ sealed class ConfigSource {
   const factory ConfigSource.file(String path) = _ConfigFileSource;
 
   /// In-memory YAML whose relative paths resolve from [directory].
-  const factory ConfigSource.anchorDirectory(String directory) = _ConfigAnchorDirectorySource;
+  const factory ConfigSource.anchorDirectory(String directory) =
+      _ConfigAnchorDirectorySource;
 }
 
 final class _ConfigFileSource extends ConfigSource {
@@ -109,7 +110,11 @@ class ConfigParser {
     @Deprecated('Use source: ConfigSource.file(...) instead.') String? sourcePath,
     @Deprecated('Use source: ConfigSource.anchorDirectory(...) instead.') String? baseDirectory,
   }) {
-    _validateSourceArguments(source: source, sourcePath: sourcePath, baseDirectory: baseDirectory);
+    _validateSourceArguments(
+      source: source,
+      sourcePath: sourcePath,
+      baseDirectory: baseDirectory,
+    );
     try {
       final Object? yaml = loadYaml(content);
       return _fromYaml(
@@ -145,7 +150,11 @@ class ConfigParser {
     @Deprecated('Use source: ConfigSource.file(...) instead.') String? sourcePath,
     @Deprecated('Use source: ConfigSource.anchorDirectory(...) instead.') String? baseDirectory,
   }) {
-    _validateSourceArguments(source: source, sourcePath: sourcePath, baseDirectory: baseDirectory);
+    _validateSourceArguments(
+      source: source,
+      sourcePath: sourcePath,
+      baseDirectory: baseDirectory,
+    );
     return _fromYaml(
       yaml,
       source: source,
