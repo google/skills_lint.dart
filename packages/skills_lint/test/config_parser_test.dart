@@ -124,7 +124,10 @@ skills_lint:
     - path: "valid/dir"
 ''';
 
-      final Configuration config = ConfigParser.parse(yaml, source: ConfigSource.anchorDirectory(projectRoot));
+      final Configuration config = ConfigParser.parse(
+        yaml,
+        source: ConfigSource.anchorDirectory(projectRoot),
+      );
 
       expect(config.parsingErrors.single, contains('Directory entry "path" must be a string'));
       expect(config.directoryConfigs.single.path, p.join(projectRoot, 'valid', 'dir'));
@@ -138,7 +141,10 @@ skills_lint:
       unknown_key: true
 ''';
 
-      final Configuration config = ConfigParser.parse(yaml, source: ConfigSource.anchorDirectory(projectRoot));
+      final Configuration config = ConfigParser.parse(
+        yaml,
+        source: ConfigSource.anchorDirectory(projectRoot),
+      );
 
       expect(
         config.parsingErrors.single,
