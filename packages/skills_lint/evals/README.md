@@ -26,7 +26,19 @@ Evaluates **Static Quality & Schema Consistency**: statically audits evaluation 
 ### 2. Trigger Evals (`<skill_dir>/evals/triggers.json`)
 Evaluates **Intent Routing & Skill Discovery**: tests how AI agent intent routers discover and select skills from the active skills catalog before full workflow execution begins.
 - **`skill`**: Name of the target skill.
-- **`positive_triggers`**: Array of in-domain user prompts that MUST activate this skill.
+- **`positive_triggers`**: Array of in-domain user prompts that MUST activate this skill. Each entry is either a prompt string or an object with these keys:
+  - **`prompt`**: The user prompt.
+  - **`permitted_co_triggers`**: Non-empty array of other skill names from `skills/` or `.agents/skills/` that may load together with this skill for this prompt. The runner reports `PASS (Co-Trigger)` when the target skill loads and every other loaded skill is in this list. Any other extra skill is a `FAIL (Multi-Trigger)`. A plain string entry permits no co-triggers.
+
+  ```json
+  "positive_triggers": [
+    "Run skills_lint checks against our skills directory and report any failures",
+    {
+      "prompt": "Author a custom SkillRule class in Dart to validate skill frontmatter fields",
+      "permitted_co_triggers": ["add-dart-lint-validation-rule"]
+    }
+  ]
+  ```
 - **`distractors`**: Array of out-of-domain or boundary prompts that must NOT activate this skill.
 
 ### 3. Content Evals (`<skill_dir>/evals/evals.json`)
