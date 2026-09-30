@@ -95,6 +95,8 @@ sequenceDiagram
 
 ## 🧠 Durable Design Patterns
 
+The codebase applies the [SOLID principles](https://en.wikipedia.org/wiki/SOLID). The patterns below are specific to this tool.
+
 1. **Separation of Validation from Orchestration**  
    The validation engine and individual rules are pure, deterministic functions of a skill's filesystem state. They never interact with terminal streams, environment variables, or process lifecycles. All output formatting, fix persistence, diff rendering, and exit code determination belong exclusively to the orchestrator and reporter subsystems.
 

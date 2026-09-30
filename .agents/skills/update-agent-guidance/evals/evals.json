@@ -1,0 +1,20 @@
+{
+  "repo_criteria": [
+    "evals/eval_quality_rubric.json"
+  ],
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "In the review of PR #50, a maintainer asked that a failing test print enough to debug it from the CI logs alone. Reviewers have asked for this on other PRs too. Add this as a rule to the definition-of-done skill and update its evals.",
+      "expected_chat_output": [
+        "The agent names the rule it added to the definition-of-done skill."
+      ],
+      "expected_repo_state": [
+        ".agents/skills/definition-of-done/SKILL.md contains a rule that a failing test's output must be enough to debug it from CI logs.",
+        "The text added to .agents/skills/definition-of-done/SKILL.md contains no pull request number, review thread URL or person's name.",
+        "Every repository path in the text added to .agents/skills/definition-of-done/SKILL.md is a markdown link.",
+        ".agents/skills/definition-of-done/evals/evals.json contains an expectation that checks the new rule."
+      ]
+    }
+  ]
+}

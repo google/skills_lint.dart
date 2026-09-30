@@ -1,0 +1,15 @@
+{
+  "skill": "update-agent-guidance",
+  "positive_triggers": [
+    "Add a step to the definition-of-done skill about checking Windows paths in tests",
+    "Update AGENTS.md so agents read the style guide before they edit code",
+    "Turn this review comment into a rule in one of our internal skills",
+    "Add an expectation to the definition-of-done evals.json for the new changelog step"
+  ],
+  "distractors": [
+    "Fix the failing test in validation_session_test.dart",
+    "Run skills_lint on .agents/skills and fix the errors it reports",
+    "Write the PR description for this branch",
+    "Run the evals for the definition-of-done skill"
+  ]
+}
