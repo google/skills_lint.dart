@@ -67,10 +67,7 @@ const Map<String, String> coveredByIntegrationTests = {
 /// Do not add files here; write the test instead. When a test imports one of
 /// these files directly, remove it from this list. The test fails until you
 /// do.
-const Set<String> untestedAllowlist = {
-  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/58 add unit tests.
-  'suggestions/levenshtein.dart',
-};
+const Set<String> untestedAllowlist = {};
 
 const String _self = 'test/test_coverage_convention_test.dart';
 
