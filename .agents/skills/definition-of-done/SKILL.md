@@ -45,6 +45,6 @@ Examples:
 - `[x] Analysis: Static clean (0 issues, dart analyze --fatal-infos).`
 - `[ ] Skills: Skipped because skills_lint is not installed.`
 - `[x] Changelog: (N/A) Not necessary since we're updating internal eval fixtures.`
-- `[x] Temporal: no comparisons with earlier versions of the code.`
+- `[x] Temporal: no added words.`
 - `[x] Comments: new comments describe only what the code does.`
 - `[x] Doc scope: dartdoc states only what callers rely on.`
