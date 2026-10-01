@@ -5,6 +5,7 @@
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 
 import 'convention_violation.dart';
@@ -26,6 +27,14 @@ class Source {
 
   /// Every node of the syntax tree, in source order.
   late final List<AstNode> nodes = (_NodeCollector()..visitNode(_parsed.unit)).nodes;
+
+  /// Every comment in the file, in source order. Each `//` or `///` line is
+  /// its own token.
+  late final List<Token> comments = [
+    for (Token? token = unit.beginToken; token != null; token = token.isEof ? null : token.next)
+      for (Token? comment = token.precedingComments; comment != null; comment = comment.next)
+        comment,
+  ];
 
   ConventionViolation violationAt(int offset, String problem) =>
       ConventionViolation(path, _parsed.lineInfo.getLocation(offset).lineNumber, problem);
