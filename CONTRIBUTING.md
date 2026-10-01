@@ -119,7 +119,7 @@ dart test test/repo_conventions      # or: dart test -P repo_conventions
 ```
 
 CI runs each directory as its own step, so a failure shows which kind broke.
-`workflow_consistency_test.dart` fails if a test file sits outside these three
+`test/repo_conventions/test_directories_test.dart` fails if a test file sits outside these three
 directories, because no CI step would run it. Coverage comes from
 `test/linter/` only.
 
