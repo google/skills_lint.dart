@@ -17,9 +17,9 @@ All Dart code across this repository must adhere strictly to the official [Effec
    - Capitalize acronyms longer than two letters like words (`Uri`, `Json`, not `URI`, `JSON`).
 
 2. **[Effective Dart: Documentation](https://dart.dev/effective-dart/documentation)**:
-   - Use `///` doc comments for all public declarations.
+   - Use `///` for doc comments, not block comments.
    - **Avoid Tautological Comments:** Do not write comments that merely restate member names (e.g. avoid `/// The start line.` on `final int startLine;`).
-   - **Document Contracts & Nullability:** Clearly document coordinate systems (1-based vs 0-based), units, expected value ranges, and the precise meaning of `null` values.
+   - **Document Contracts & Nullability (repo rule):** Document a public declaration when its contract isn't obvious from its name and type: coordinate systems (1-based vs 0-based), units, expected value ranges, side effects, and the precise meaning of `null` values. Don't add a doc comment only to have one; `public_member_api_docs` is off in this repo for that reason.
    - **Use Semantic Dartdoc Links:** Use square-bracketed symbol links (e.g. `[OutputFormat.text]`) rather than plain backticked strings (`\`text\``) for code entities.
 
 3. **[Effective Dart: Usage](https://dart.dev/effective-dart/usage)** & **[Design](https://dart.dev/effective-dart/design)**:
