@@ -72,15 +72,15 @@ When executing evaluation suites, the runner runs all stages across targeted ski
 2. **Batch Dispatch**: For each positive trigger and distractor across the catalog, spawn a subagent in parallel:
    - Set `Role` to `Resolver-Eval-<SkillName>-<Idx>`.
    - Set `TypeName` to `self`.
-   - Set `Prompt` to the exact trigger prompt string.
+   - Set `Prompt` to the exact trigger prompt string. A `positive_triggers` entry is either a prompt string or an object `{"prompt": "...", "permitted_co_triggers": ["<skill>", ...]}`; for an object, use its `prompt` value.
    - Set `Workspace` to `inherit`.
 3. **Turn-1 Interception & Cutoff**:
    - Inspect Step 2 (`PLANNER_RESPONSE`) `tool_calls` in the subagent's `transcript.jsonl`.
    - Immediately terminate all subagents via `manage_subagents(Action: 'kill_all')` before subsequent tool calls or shell commands execute.
 4. **Outcome Classification**:
-   - **Positive Trigger**: PASS if target `SKILL.md` is loaded via `view_file`. FAIL if another skill is loaded (Collision), plain text/unrelated tool is emitted (Under-Trigger), or multiple skills are loaded (Multi-Trigger).
+   - **Positive Trigger**: PASS if only the target `SKILL.md` is loaded via `view_file`. PASS (Co-Trigger) if the target `SKILL.md` is loaded and every other loaded skill is listed in the entry's `permitted_co_triggers`. FAIL if another skill is loaded instead of the target (Collision), plain text/unrelated tool is emitted (Under-Trigger), or the target is loaded together with any skill not listed in `permitted_co_triggers` (Multi-Trigger). A plain string entry has no permitted co-triggers.
    - **Distractor**: PASS if target skill is not loaded (Rejected / Permitted Divergence). FAIL if target skill is loaded (Over-Trigger).
-5. **Report**: Output a summary table reporting pass rates, collisions, and description boundary remedies.
+5. **Report**: Output a summary table reporting pass rates, collisions, and description boundary remedies. Count PASS (Co-Trigger) results as passes and list the co-loaded skills.
 
 ---
 
