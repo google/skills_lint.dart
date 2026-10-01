@@ -12,8 +12,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import '../src/repo_paths.dart';
-import '../src/test_categories.dart';
+import 'src/repo_paths.dart';
+import 'src/test_categories.dart';
 
 void main() {
   test('every test file is in a test directory that CI runs', () {

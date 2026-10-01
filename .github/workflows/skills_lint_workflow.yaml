@@ -45,24 +45,20 @@ jobs:
       - run: dart analyze --fatal-infos
 
       - name: Run cognitive complexity check
-        run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/example packages/skills_lint/skills .agents/skills
+        run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/repo_test packages/skills_lint/example packages/skills_lint/skills .agents/skills
         working-directory: .
 
       # One step per test directory, so a failure names its kind. See "Where
-      # tests go" in CONTRIBUTING.md. The later steps also run when an earlier
-      # test step fails, so one run reports every kind of failure.
-      - name: Run linter tests
-        id: linter_tests
-        run: dart test test/linter
+      # tests go" in CONTRIBUTING.md. Plain `dart test` runs test/ only. The
+      # repo test step also runs when the product tests fail, so one run
+      # reports both kinds of failure.
+      - name: Run tests
+        id: product_tests
+        run: dart test
 
-      - name: Run convention checker tests
-        id: convention_checker_tests
-        if: success() || steps.linter_tests.conclusion == 'failure'
-        run: dart test test/convention_checkers
-
-      - name: Run repo convention checks
-        if: success() || steps.linter_tests.conclusion == 'failure' || steps.convention_checker_tests.conclusion == 'failure'
-        run: dart test test/repo_conventions
+      - name: Run repo tests
+        if: success() || steps.product_tests.conclusion == 'failure'
+        run: dart test repo_test
 
       - name: Verify example
         run: dart run example/main.dart
@@ -83,7 +79,7 @@ jobs:
       - run: dart pub get
 
       - name: Collect coverage
-        run: dart test test/linter --coverage=coverage
+        run: dart test --coverage=coverage
 
       - name: Format coverage to LCOV
         run: dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib

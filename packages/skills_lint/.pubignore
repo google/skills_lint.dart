@@ -7,3 +7,4 @@
 /.agents/
 /coverage/
 /example/api_boundary_runner/
+/repo_test/

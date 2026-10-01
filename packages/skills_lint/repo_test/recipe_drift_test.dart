@@ -10,7 +10,7 @@ import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 import 'package:yaml/yaml.dart';
 
-import '../src/repo_paths.dart';
+import 'src/repo_paths.dart';
 
 /// Drift guard for the `## Recipes` section of README.md.
 ///

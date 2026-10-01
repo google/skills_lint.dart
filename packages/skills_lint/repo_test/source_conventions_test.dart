@@ -4,10 +4,10 @@
 
 import 'package:test/test.dart';
 
-import '../src/models/convention_violation.dart';
-import '../src/models/source.dart';
-import '../src/skip_reasons.dart';
-import '../src/source_conventions.dart';
+import 'src/models/convention_violation.dart';
+import 'src/models/source.dart';
+import 'src/skip_reasons.dart';
+import 'src/source_conventions.dart';
 
 /// Source conventions that reviewers enforce, checked across the package.
 ///
@@ -48,14 +48,16 @@ void main() {
 
     test('every skip: in test/ gives its reason as a string', () {
       final List<ConventionViolation> violations = [
-        for (final Source source in under(const ['test'])) ...findSkipsWithoutReason(source),
+        for (final Source source in under(const ['repo_test', 'test']))
+          ...findSkipsWithoutReason(source),
       ];
       expectNoViolations(violations, fix: _skipFix);
     });
 
     test('every testOn: in test/ has a comment in the call that names the platform', () {
       final List<ConventionViolation> violations = [
-        for (final Source source in under(const ['test'])) ...findTestOnWithoutComment(source),
+        for (final Source source in under(const ['repo_test', 'test']))
+          ...findTestOnWithoutComment(source),
       ];
       expectNoViolations(violations, fix: _testOnFix);
     });
@@ -66,7 +68,14 @@ void main() {
 ///
 /// `evals/test_data/` is left out because its Dart files are fixtures that
 /// are written to fail review on purpose.
-const List<String> _scannedDirectories = ['benchmark', 'bin', 'example', 'lib', 'test'];
+const List<String> _scannedDirectories = [
+  'benchmark',
+  'bin',
+  'example',
+  'lib',
+  'repo_test',
+  'test',
+];
 
 /// Overrides that are allowed, keyed by package-relative path.
 ///

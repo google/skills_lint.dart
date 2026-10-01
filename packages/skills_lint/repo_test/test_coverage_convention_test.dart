@@ -12,9 +12,9 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import '../src/dart_directives.dart';
-import '../src/models/source.dart';
-import '../src/source_conventions.dart';
+import 'src/dart_directives.dart';
+import 'src/models/source.dart';
+import 'src/source_conventions.dart';
 
 /// Files with nothing worth unit testing: constants, plain data holders, or
 /// barrels of `export` directives. A test for one of these would only repeat
@@ -38,28 +38,28 @@ const Set<String> trivialDataClasses = {
 /// Add a file here only after checking that the named test runs it, for
 /// example with `dart test --coverage`. The named test file must exist.
 const Map<String, String> coveredByIntegrationTests = {
-  'cutoff_excerpt.dart': 'test/linter/description_length_limit_test.dart',
-  'missing_defaults_exception.dart': 'test/linter/api_boundary_test.dart',
-  'models/sarif/models/sarif_artifact_location.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/models/sarif_driver.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/models/sarif_location.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/models/sarif_log.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/models/sarif_message.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/models/sarif_physical_location.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/models/sarif_region.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/models/sarif_reporting_configuration.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/models/sarif_result.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/models/sarif_rule.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/models/sarif_run.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/models/sarif_tool.dart': 'test/linter/sarif_format_test.dart',
-  'models/sarif/sarif_serializer.dart': 'test/linter/sarif_format_test.dart',
-  'models/validation_result.dart': 'test/linter/validation_result_test.dart',
-  'models/validation_target.dart': 'test/linter/api_defaults_test.dart',
-  'reporters/json_reporter.dart': 'test/linter/sarif_format_test.dart',
-  'reporters/reporter.dart': 'test/linter/sarif_format_test.dart',
-  'reporters/sarif_reporter.dart': 'test/linter/sarif_format_test.dart',
-  'reporters/text_reporter.dart': 'test/linter/reporter_error_prefix_test.dart',
-  'reporters/tool_error_messages.dart': 'test/linter/reporter_error_prefix_test.dart',
+  'cutoff_excerpt.dart': 'test/description_length_limit_test.dart',
+  'missing_defaults_exception.dart': 'test/api_boundary_test.dart',
+  'models/sarif/models/sarif_artifact_location.dart': 'test/sarif_format_test.dart',
+  'models/sarif/models/sarif_driver.dart': 'test/sarif_format_test.dart',
+  'models/sarif/models/sarif_location.dart': 'test/sarif_format_test.dart',
+  'models/sarif/models/sarif_log.dart': 'test/sarif_format_test.dart',
+  'models/sarif/models/sarif_message.dart': 'test/sarif_format_test.dart',
+  'models/sarif/models/sarif_physical_location.dart': 'test/sarif_format_test.dart',
+  'models/sarif/models/sarif_region.dart': 'test/sarif_format_test.dart',
+  'models/sarif/models/sarif_reporting_configuration.dart': 'test/sarif_format_test.dart',
+  'models/sarif/models/sarif_result.dart': 'test/sarif_format_test.dart',
+  'models/sarif/models/sarif_rule.dart': 'test/sarif_format_test.dart',
+  'models/sarif/models/sarif_run.dart': 'test/sarif_format_test.dart',
+  'models/sarif/models/sarif_tool.dart': 'test/sarif_format_test.dart',
+  'models/sarif/sarif_serializer.dart': 'test/sarif_format_test.dart',
+  'models/validation_result.dart': 'test/validation_result_test.dart',
+  'models/validation_target.dart': 'test/api_defaults_test.dart',
+  'reporters/json_reporter.dart': 'test/sarif_format_test.dart',
+  'reporters/reporter.dart': 'test/sarif_format_test.dart',
+  'reporters/sarif_reporter.dart': 'test/sarif_format_test.dart',
+  'reporters/text_reporter.dart': 'test/reporter_error_prefix_test.dart',
+  'reporters/tool_error_messages.dart': 'test/reporter_error_prefix_test.dart',
 };
 
 /// Files that need a direct test and do not have one yet.
@@ -72,7 +72,7 @@ const Set<String> untestedAllowlist = {
   'suggestions/levenshtein.dart',
 };
 
-const String _self = 'test/repo_conventions/test_coverage_convention_test.dart';
+const String _self = 'repo_test/test_coverage_convention_test.dart';
 
 void main() {
   final Set<String> sources = _libSrcFiles();
@@ -83,7 +83,7 @@ void main() {
   test('every lib/src file is imported directly by a test or listed', () {
     _expectNone(
       untested.difference(listed),
-      'No test imports these lib/src files directly. Add a test under test/linter/ that imports '
+      'No test imports these lib/src files directly. Add a test under test/ that imports '
       'each one (for example package:skills_lint/src/<path>):',
     );
   });
@@ -145,10 +145,8 @@ Set<String> _libSrcFiles() => {
 };
 
 /// Returns the `lib/src` files named by an `import` or `export` directive in
-/// a linter test under `test/linter/`, the same tests CI measures coverage
-/// with.
-Set<String> _importedByTests() =>
-    _package.filesImportedBy(parseDirectories([p.join('test', 'linter')]));
+/// a test under `test/`, the same tests CI measures coverage with.
+Set<String> _importedByTests() => _package.filesImportedBy(parseDirectories(['test']));
 
 /// Returns the `lib/src` files reachable from `lib/skills_lint.dart` through
 /// `export` directives.

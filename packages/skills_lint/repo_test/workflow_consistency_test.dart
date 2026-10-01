@@ -7,18 +7,21 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import '../src/repo_paths.dart';
-import '../src/test_categories.dart';
+import 'src/repo_paths.dart';
+import 'src/test_categories.dart';
 
 const int _maxCognitiveComplexityThreshold = 20;
 
-/// Returns the entries of [testCategories] that [command] names as a path
-/// argument.
-Set<String> _categoriesNamedBy(String command) => {
-  for (final String arg in command.split(RegExp(r'\s+')))
-    for (final String category in testCategories)
-      if (arg == category || arg == '$category/') category,
-};
+/// Returns the entries of [testCategories] that a `dart test` [command]
+/// selects. A command with no path argument selects `test`, package:test's
+/// default path.
+Set<String> _categoriesSelectedBy(String command) {
+  final Set<String> paths = {
+    for (final String arg in command.split(RegExp(r'\s+')).skip(2))
+      if (!arg.startsWith('-')) p.url.normalize(arg),
+  };
+  return paths.isEmpty ? {'test'} : paths;
+}
 
 void main() {
   group('CI workflow consistency', () {
@@ -34,6 +37,7 @@ void main() {
           'packages/skills_lint/bin',
           'packages/skills_lint/lib',
           'packages/skills_lint/test',
+          'packages/skills_lint/repo_test',
           'packages/skills_lint/example',
           'packages/skills_lint/skills',
           '.agents/skills',
@@ -41,31 +45,32 @@ void main() {
       );
     });
 
-    test('CI runs each test category as its own step', () {
+    test('CI runs each test directory as its own step', () {
       final List<String> invocations = _dartTestInvocations();
       final List<String> unselected = [
         for (final String command in invocations)
-          if (_categoriesNamedBy(command).length != 1) command,
+          if (_categoriesSelectedBy(command).length != 1 ||
+              !testCategories.contains(_categoriesSelectedBy(command).single))
+            command,
       ];
       expect(
         unselected,
         isEmpty,
         reason:
-            'Each `dart test` step in the CI workflow must name exactly one of '
+            'Each `dart test` step in the CI workflow must run exactly one of '
             '${testCategories.join(', ')}, so a failure names its kind.',
       );
       for (final String category in testCategories) {
         expect(
-          invocations.where((command) => _categoriesNamedBy(command).contains(category)),
+          invocations.where((command) => _categoriesSelectedBy(command).contains(category)),
           isNotEmpty,
-          reason: 'The CI workflow must run `dart test $category`.',
+          reason: 'The CI workflow must run the tests in $category/.',
         );
       }
       expect(
-        invocations.where((command) => command.contains('--coverage')),
-        everyElement(contains('test/linter')),
-        reason:
-            'Coverage must come from linter tests only (`dart test test/linter --coverage=...`).',
+        invocations.where((command) => command.contains('--coverage')).map(_categoriesSelectedBy),
+        everyElement(equals({'test'})),
+        reason: 'Coverage must come from test/ only (`dart test --coverage=...`).',
       );
     });
 

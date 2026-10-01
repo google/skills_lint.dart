@@ -4,7 +4,7 @@ The full rule contract for `skills_lint`. Every built-in rule listed
 here is registered in
 [`lib/src/rule_registry.dart`](lib/src/rule_registry.dart) and pinned to
 this document by
-[`test/repo_conventions/rules_md_consistency_test.dart`](test/repo_conventions/rules_md_consistency_test.dart).
+[`repo_test/rules_md_consistency_test.dart`](repo_test/rules_md_consistency_test.dart).
 If a rule is added, removed, renamed, or has its default severity /
 fixability changed, both the registry **and** this file must be updated
 in the same commit — the consistency test fails otherwise.

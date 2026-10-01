@@ -18,8 +18,8 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import '../src/models/source.dart';
-import '../src/source_conventions.dart';
+import 'src/models/source.dart';
+import 'src/source_conventions.dart';
 
 void main() {
   test('each rule file declares at most one public type', () {

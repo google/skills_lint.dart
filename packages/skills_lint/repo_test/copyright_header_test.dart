@@ -23,7 +23,7 @@ const String _copyrightHeader =
 /// Directories to scan for Dart source files, relative to the package root
 /// (i.e. the directory that contains `pubspec.yaml`, which is also the working
 /// directory when `dart test` is invoked from the package).
-const Set<String> _sourceDirs = {'bin', 'lib', 'test'};
+const Set<String> _sourceDirs = {'bin', 'lib', 'repo_test', 'test'};
 
 void main() {
   test('every Dart file has a BSD copyright header', () {

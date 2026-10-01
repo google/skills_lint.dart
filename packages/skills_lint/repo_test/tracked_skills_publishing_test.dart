@@ -56,6 +56,8 @@ void main() {
 
     for (final skillDir in trackedSkillDirs) {
       final expectedPath = '../../.agents/skills/$skillDir';
+      // The analyzer counts test/ as test code but not repo_test/.
+      // ignore: invalid_use_of_visible_for_testing_member
       final Map<String, RuleConfig> resolvedConfigs = session.resolveRuleConfigsForPath(
         expectedPath,
       );

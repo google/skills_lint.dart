@@ -4,12 +4,9 @@
 
 /// The test directories, relative to the package root, with `/` separators.
 ///
-/// CI runs each one as its own `dart test <directory>` step. See "Where tests
-/// go" in CONTRIBUTING.md.
+/// CI runs each one as its own step: `dart test` for `test/` and
+/// `dart test repo_test` for `repo_test/`. See "Where tests go" in
+/// CONTRIBUTING.md.
 library;
 
-const List<String> testCategories = [
-  'test/linter',
-  'test/convention_checkers',
-  'test/repo_conventions',
-];
+const List<String> testCategories = ['test', 'repo_test'];

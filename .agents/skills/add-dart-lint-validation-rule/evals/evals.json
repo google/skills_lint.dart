@@ -6,7 +6,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Author a custom skills_lint rule named `RequireSpecificMetadataRule` that verifies if a skill's metadata contains a `required_version` field. Wire it up into a new test file `test/linter/require_specific_metadata_rule_test.dart` using an in-memory SkillContext.",
+      "prompt": "Author a custom skills_lint rule named `RequireSpecificMetadataRule` that verifies if a skill's metadata contains a `required_version` field. Wire it up into a new test file `test/require_specific_metadata_rule_test.dart` using an in-memory SkillContext.",
       "expected_chat_output": [
         "The agent identifies the skill, spawns a with-skill subagent, and successfully implements the rule."
       ],
@@ -14,7 +14,7 @@
         "The agent successfully authored `RequireSpecificMetadataRule` extending `SkillRule` in `lib/src/rules/require_specific_metadata_rule.dart`.",
         "The rule was properly added to `RuleRegistry.allChecks` and the `createRule` switch statement in `lib/src/rule_registry.dart`.",
         "The `validate` method correctly parses `context.parsedYaml` to check for `required_version` in the metadata.",
-        "The agent authored unit tests utilizing an in-memory raw string, `loadYaml`, and a mock `SkillContext` in `test/linter/require_specific_metadata_rule_test.dart`.",
+        "The agent authored unit tests utilizing an in-memory raw string, `loadYaml`, and a mock `SkillContext` in `test/require_specific_metadata_rule_test.dart`.",
         "The toggleable flag `--[no-]require-specific-metadata` was correctly documented in `README.md`.",
         "A proper rule documentation entry was added in `RULES.md`, including severity, fixability, and diagnostic shape.",
         "The agent proactively documented the rule constraints in `SPECIFICATION.md`."
@@ -30,7 +30,7 @@
         "The `SectionCountRule` class extends `SkillRule` in `lib/src/rules/section_count_rule.dart`.",
         "The rule is included in `RuleRegistry.allChecks` as `disabled` in `lib/src/rule_registry.dart`.",
         "The config key for the parameter is kebab-case and contains no `_`.",
-        "The tests use `Directory.systemTemp.createTemp` and `File.writeAsString` in `test/linter/rules/section_count_rule_test.dart`.",
+        "The tests use `Directory.systemTemp.createTemp` and `File.writeAsString` in `test/rules/section_count_rule_test.dart`.",
         "Temporary files are cleaned up via `tempDir.delete(recursive: true)` in `tearDown`.",
         "The rule flag `--[no-]section-count` is documented in `README.md`.",
         "A rule documentation entry outlining the diagnostics and behavior is added in `RULES.md`."
