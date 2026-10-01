@@ -4,10 +4,7 @@
     "Run skills_lint checks against our skills directory and report any failures",
     "Execute skills_lint with --fix to automatically repair lint violations in our skills",
     "Analyze and fix failing skills_lint diagnostic errors in our agent skill files",
-    {
-      "prompt": "Author a custom SkillRule class in Dart to validate skill frontmatter fields",
-      "permitted_co_triggers": ["add-dart-lint-validation-rule"]
-    }
+    "Author a custom SkillRule class in Dart to validate skill frontmatter fields"
   ],
   "distractors": [
     "Install and configure skills_lint in pubspec.yaml for the first time",

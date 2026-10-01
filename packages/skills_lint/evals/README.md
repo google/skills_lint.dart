@@ -32,11 +32,11 @@ Evaluates **Intent Routing & Skill Discovery**: tests how AI agent intent router
 
   ```json
   "positive_triggers": [
-    "Run skills_lint checks against our skills directory and report any failures",
     {
-      "prompt": "Author a custom SkillRule class in Dart to validate skill frontmatter fields",
-      "permitted_co_triggers": ["add-dart-lint-validation-rule"]
-    }
+      "prompt": "Add a step to the definition-of-done skill about checking Windows paths in tests",
+      "permitted_co_triggers": ["definition-of-done"]
+    },
+    "Update AGENTS.md so agents read the style guide before they edit code"
   ]
   ```
 - **`distractors`**: Array of out-of-domain or boundary prompts that must NOT activate this skill.
