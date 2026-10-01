@@ -24,7 +24,7 @@ void main(List<String> args) {
 BenchmarkDefinition _definition({int warmup = 0, int iterations = 1}) => BenchmarkDefinition(
   name: 'test',
   description: 'Test benchmark.',
-  fixture: const FixtureSpec(skillCount: 3),
+  skillCount: 3,
   warmup: warmup,
   iterations: iterations,
   metrics: const {Metric.wallTime, Metric.peakRss},
@@ -121,7 +121,7 @@ void main() {
 
     test('the CLI reports a lint failure on a generated fixture', () async {
       final String fixture = p.join(tempDir.path, 'fixture');
-      writeFixture(fixture, const FixtureSpec(skillCount: 3));
+      writeFixture(fixture, 3);
       final String cli = p.absolute('bin', 'skills_lint.dart');
       final RssProbe? rssProbe = RssProbe.detect();
 

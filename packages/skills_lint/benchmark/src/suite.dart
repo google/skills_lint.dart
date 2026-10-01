@@ -38,7 +38,7 @@ final class BenchmarkDefinition {
   const BenchmarkDefinition({
     required this.name,
     required this.description,
-    required this.fixture,
+    required this.skillCount,
     required this.warmup,
     required this.iterations,
     required this.metrics,
@@ -51,8 +51,8 @@ final class BenchmarkDefinition {
   /// One-line description of the user workflow the benchmark stands for.
   final String description;
 
-  /// The repository the CLI validates.
-  final FixtureSpec fixture;
+  /// Number of skills in the fixture that the CLI validates.
+  final int skillCount;
 
   /// Untimed runs per target before the timed runs. They fill the file
   /// cache and page in the executable.
@@ -70,7 +70,7 @@ const List<BenchmarkDefinition> benchmarks = [
   BenchmarkDefinition(
     name: 'validate_1000_skills_all_rules',
     description: 'Installed executable validating 1000 skills with every built-in rule on.',
-    fixture: FixtureSpec(skillCount: 1000),
+    skillCount: 1000,
     warmup: 2,
     iterations: 15,
     metrics: {Metric.wallTime, Metric.peakRss},
@@ -79,7 +79,7 @@ const List<BenchmarkDefinition> benchmarks = [
 
 /// The exit code the CLI returns for every fixture.
 ///
-/// [writeFixture] always plants an error in the first skill, so the CLI
+/// [writeFixture] always plants violations in the first skill, so the CLI
 /// reports a lint failure. Any other exit code means the run did not
 /// validate the fixture, and its timing is meaningless.
 const int expectedExitCode = 1;
@@ -206,8 +206,8 @@ int? parseBsdTime(String report) {
 
 /// Runs [definition] against every target in [targets].
 ///
-/// Runs happen in [workingDirectory], which must hold the fixture for
-/// [BenchmarkDefinition.fixture]. The targets take turns, and the order
+/// Runs happen in [workingDirectory], which must hold a fixture from
+/// [writeFixture]. The targets take turns, and the order
 /// reverses on every round (A B, B A, A B, ...), so drift in machine speed
 /// affects every target alike. [scratchDirectory] holds the `time` reports.
 ///

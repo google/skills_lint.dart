@@ -6,14 +6,13 @@ import 'dart:convert';
 
 import 'package:test/test.dart';
 
-import '../../benchmark/src/fixture.dart';
 import '../../benchmark/src/report.dart';
 import '../../benchmark/src/suite.dart';
 
 const BenchmarkDefinition _definition = BenchmarkDefinition(
   name: 'example',
   description: 'An example benchmark.',
-  fixture: FixtureSpec(skillCount: 3),
+  skillCount: 3,
   warmup: 0,
   iterations: 3,
   metrics: {Metric.wallTime, Metric.peakRss},

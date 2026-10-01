@@ -2,139 +2,34 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Writes deterministic synthetic skill repositories for the benchmarks.
+/// Writes the skills repository that the benchmarks validate.
+///
+/// The repository is generated rather than checked in, because the CLI's
+/// walk over 1000 skill directories is part of what the benchmarks measure.
+/// Each skill is a copy of a template in `benchmark/fixture_templates/`.
+///
+/// The first skill always has planted violations, so the CLI exits with 1
+/// on the fixture. `expectedExitCode` in `suite.dart` relies on this.
+///
+/// Changing the templates, [violations] or [plantedViolations] changes the
+/// workload, so rename the benchmark in `suite.dart` when you change them.
 library;
 
 import 'dart:io';
-import 'dart:math';
 
-import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
-
-/// The shape of a generated skills repository.
-@immutable
-final class FixtureSpec {
-  const FixtureSpec({required this.skillCount, this.seed = defaultSeed, this.invalidEvery = 10});
-
-  /// The seed that the benchmarks use. Changing it changes the workload.
-  static const int defaultSeed = 23;
-
-  /// Number of skill directories to write under `skills/`.
-  final int skillCount;
-
-  /// Seed for the pseudo-random content. The same seed and [skillCount]
-  /// write the same files, apart from absolute paths that embed the
-  /// fixture root.
-  final int seed;
-
-  /// Every [invalidEvery]th skill, starting with the first, has planted lint
-  /// errors chosen by [invalidKindsFor]. Must be at least 1.
-  final int invalidEvery;
-}
-
-/// A lint error that the generator plants in an invalid skill.
-///
-/// Each kind violates a different built-in rule, and together they violate
-/// every built-in rule, so that every rule reports at least once.
-enum InvalidKind {
-  /// Frontmatter `name:` differs from the directory name
-  /// (`invalid-skill-name`, fixable).
-  nameMismatch,
-
-  /// A body line ends in one space (`check-trailing-whitespace`, fixable).
-  trailingWhitespace,
-
-  /// A relative link names a missing file next to a near-miss sibling
-  /// (`check-relative-paths`, which then searches for a suggestion).
-  brokenRelativeLink,
-
-  /// The description exceeds 1024 characters (`description-too-long`).
-  descriptionTooLong,
-
-  /// A link uses the absolute path of a file in the skill
-  /// (`check-absolute-paths`, fixable).
-  absoluteLink,
-
-  /// The frontmatter has a field outside the specification
-  /// (`disallowed-field`).
-  disallowedField,
-
-  /// `metadata: internal:` is `false` (`prevent-skills-sh-publishing`).
-  notInternal,
-
-  /// The skill name doesn't start with [fixturePackageName]
-  /// (`published-skill-name`).
-  unpublishedName,
-
-  /// The `compatibility:` field exceeds 500 characters
-  /// (`valid-yaml-metadata`).
-  compatibilityTooLong,
-
-  /// The skill directory has no `SKILL.md` (`path-does-not-exist`). The
-  /// other rules have nothing to read, so this kind is never combined.
-  missingSkillMd,
-}
-
-/// Returns the kinds planted in the [invalidIndex]th invalid skill.
-///
-/// Invalid skills cycle through [InvalidKind.values]. Each also gets the
-/// next kind in the cycle, so that most invalid skills have two errors,
-/// unless either kind is [InvalidKind.missingSkillMd].
-Set<InvalidKind> invalidKindsFor(int invalidIndex) {
-  const List<InvalidKind> kinds = InvalidKind.values;
-  final InvalidKind first = kinds[invalidIndex % kinds.length];
-  final InvalidKind second = kinds[(invalidIndex + 1) % kinds.length];
-  if (first == InvalidKind.missingSkillMd || second == InvalidKind.missingSkillMd) {
-    return {first};
-  }
-  return {first, second};
-}
-
-/// Counts of what [writeFixture] wrote.
-@immutable
-final class FixtureStats {
-  const FixtureStats({
-    required this.skillCount,
-    required this.invalidSkillCount,
-    required this.fileCount,
-    required this.byteCount,
-  });
-
-  /// Number of skill directories.
-  final int skillCount;
-
-  /// Number of skills that carry a planted lint error.
-  final int invalidSkillCount;
-
-  /// Number of files written, including `skills_lint.yaml`.
-  final int fileCount;
-
-  /// Total length of the files written, in characters. The generator
-  /// writes ASCII apart from fixture-root paths, so this is close to the
-  /// size on disk.
-  final int byteCount;
-}
 
 /// Name of the directory under the fixture root that holds the skills.
 const String skillsDirectoryName = 'skills';
 
+/// Directory of the templates, relative to `packages/skills_lint`.
+final String templatesDirectory = p.join('benchmark', 'fixture_templates');
+
 /// Package name that the fixture passes to `published-skill-name`.
-///
-/// Every generated skill name starts with `skill-`, apart from
-/// [InvalidKind.unpublishedName] skills.
 const String fixturePackageName = 'skill';
 
-/// Contents of the `skills_lint.yaml` written at the fixture root.
-///
-/// It turns on every built-in rule, so each rule runs on every skill.
-///
-/// `published-skill-name` checks that each skill name starts with a
-/// package name. Without `package_name`, the rule looks for a
-/// `pubspec.yaml` in the skill directory and each parent directory, so its
-/// result would depend on where the fixture is written: no `pubspec.yaml`
-/// makes the rule report every skill, and a parent Dart package makes it
-/// check against that package's name. Setting [fixturePackageName] keeps
-/// the workload the same wherever the fixture is written.
+/// Contents of the `skills_lint.yaml` written at the fixture root. It turns
+/// on every built-in rule.
 const String fixtureConfig =
     '''
 skills_lint:
@@ -146,199 +41,203 @@ skills_lint:
     prevent-skills-sh-publishing: error
     published-skill-name:
       severity: error
+      # Without package_name, the rule looks for a pubspec.yaml above each
+      # skill, so its result would depend on where the fixture is written.
       package_name: $fixturePackageName
   directories:
     - path: "$skillsDirectoryName"
 ''';
 
-/// Writes a skills repository described by [spec] into [root].
-///
-/// [root] must be an empty or missing directory. The layout is
-/// `root/skills_lint.yaml` plus one directory per skill under
-/// `root/skills/`, each with a `SKILL.md` and optional `references/` and
-/// `scripts/` files that the `SKILL.md` links to.
-FixtureStats writeFixture(String root, FixtureSpec spec) {
-  if (spec.invalidEvery < 1) {
-    throw ArgumentError.value(spec.invalidEvery, 'invalidEvery', 'must be at least 1');
-  }
-  final writer = _FixtureWriter(root, Random(spec.seed));
-  writer.write(p.join(root, 'skills_lint.yaml'), fixtureConfig);
-  var invalid = 0;
-  for (var i = 0; i < spec.skillCount; i++) {
-    final Set<InvalidKind> kinds = i % spec.invalidEvery == 0
-        ? invalidKindsFor(i ~/ spec.invalidEvery)
-        : const {};
-    if (kinds.isNotEmpty) {
-      invalid++;
-    }
-    writer.writeSkill(i, kinds);
-  }
-  return FixtureStats(
-    skillCount: spec.skillCount,
-    invalidSkillCount: invalid,
-    fileCount: writer.fileCount,
-    byteCount: writer.byteCount,
-  );
-}
+/// Every [invalidEvery]th skill, starting with the first, has violations.
+const int invalidEvery = 10;
 
-const List<String> _words = [
-  'agent', 'analyze', 'build', 'cache', 'check', 'config', 'data', 'debug', //
-  'deploy', 'docs', 'error', 'event', 'file', 'format', 'graph', 'guide',
-  'index', 'input', 'layout', 'lint', 'log', 'model', 'module', 'network',
-  'output', 'package', 'parse', 'path', 'plan', 'query', 'release', 'report',
-  'review', 'route', 'schema', 'script', 'search', 'server', 'setup', 'source',
-  'state', 'stream', 'style', 'task', 'test', 'token', 'trace', 'widget',
+/// Longest description that `description-too-long` allows.
+const int maxDescriptionLength = 1024;
+
+/// Longest `compatibility:` value that `valid-yaml-metadata` allows.
+const int maxCompatibilityLength = 500;
+
+/// A change to a valid skill that makes one rule report.
+typedef SkillEdit = void Function(FixtureSkill skill);
+
+/// One edit for each built-in rule, keyed by rule ID.
+///
+/// `fixture_test.dart` checks that the keys are the registered rules.
+final Map<String, SkillEdit> violations = {
+  'invalid-skill-name': (s) => s.name = '${s.name}-renamed',
+  'check-trailing-whitespace': (s) => s.bodySuffix = 'This line ends in a space. \n',
+  'description-too-long': (s) => s.description = 'x' * (maxDescriptionLength + 1),
+  'valid-yaml-metadata': (s) => s.fields['compatibility'] = 'x' * (maxCompatibilityLength + 1),
+  'disallowed-field': (s) => s.fields['owner'] = 'benchmarks',
+  'prevent-skills-sh-publishing': (s) => s.internal = false,
+  'published-skill-name': (s) => s
+    ..directoryName = 'tool-${s.directoryName}'
+    ..name = 'tool-${s.name}',
+  // A near miss of a real file, so that the rule also runs its search for
+  // a suggestion.
+  'check-relative-paths': (s) =>
+      s.relativeLinks.add(s.template.firstReference.replaceFirst('.md', 's.md')),
+  'check-absolute-paths': (s) => s.absoluteLinks.add(s.template.firstReference),
+  'path-does-not-exist': (s) => s.omitSkillMd = true,
+};
+
+/// The rule IDs whose [violations] each invalid skill gets. Invalid skills
+/// take the entries in turn.
+///
+/// Most entries have two rules, so that some skills report more than one
+/// error. `path-does-not-exist` stands alone, because without a `SKILL.md`
+/// no other rule runs.
+const List<List<String>> plantedViolations = [
+  ['invalid-skill-name', 'check-trailing-whitespace'],
+  ['check-relative-paths', 'description-too-long'],
+  ['check-absolute-paths', 'disallowed-field'],
+  ['prevent-skills-sh-publishing', 'published-skill-name'],
+  ['valid-yaml-metadata', 'check-relative-paths'],
+  ['path-does-not-exist'],
 ];
 
-final class _FixtureWriter {
-  _FixtureWriter(this.root, this.random);
+/// A checked-in skill that the fixture copies.
+final class SkillTemplate {
+  SkillTemplate({required this.name, required this.body, required this.files});
 
-  final String root;
-  final Random random;
-  int fileCount = 0;
-  int byteCount = 0;
-
-  void write(String path, String contents) {
-    final file = File(path);
-    file.parent.createSync(recursive: true);
-    file.writeAsStringSync(contents);
-    fileCount++;
-    byteCount += contents.length;
-  }
-
-  void writeSkill(int index, Set<InvalidKind> kinds) {
-    final String prefix = kinds.contains(InvalidKind.unpublishedName) ? 'tool' : fixturePackageName;
-    final dirName = '$prefix-${index.toString().padLeft(4, '0')}-${_word()}-${_word()}';
-    final String dir = p.join(root, skillsDirectoryName, dirName);
-    final List<String> references = [
-      for (var r = random.nextInt(4); r > 0; r--) 'references/${_word()}-$r.md',
-    ];
-    final List<String> scripts = [
-      for (var s = random.nextInt(3); s > 0; s--) 'scripts/${_word()}-$s.sh',
-    ];
-    // The absolute link needs a file to point at, and the broken link needs
-    // a near-miss sibling for the suggestion search to find. A skill without
-    // a SKILL.md still needs one file so that its directory exists.
-    if (references.isEmpty &&
-        (kinds.contains(InvalidKind.absoluteLink) ||
-            kinds.contains(InvalidKind.brokenRelativeLink) ||
-            kinds.contains(InvalidKind.missingSkillMd))) {
-      references.add('references/${_word()}-1.md');
-    }
-    for (final ref in references) {
-      write(p.join(dir, ref), _markdown(3 + random.nextInt(20)));
-    }
-    for (final script in scripts) {
-      write(p.join(dir, script), '#!/usr/bin/env bash\nset -euo pipefail\necho "${_sentence()}"\n');
-    }
-    if (!kinds.contains(InvalidKind.missingSkillMd)) {
-      write(p.join(dir, 'SKILL.md'), _skillMd(dir, dirName, references, scripts, kinds));
-    }
-  }
-
-  String _skillMd(
-    String dir,
-    String dirName,
-    List<String> references,
-    List<String> scripts,
-    Set<InvalidKind> kinds,
-  ) {
-    final name = kinds.contains(InvalidKind.nameMismatch) ? '$dirName-renamed' : dirName;
-    final String description = kinds.contains(InvalidKind.descriptionTooLong)
-        ? _words.join(' ') * 4
-        : _paragraph(1 + random.nextInt(6));
-    final buffer = StringBuffer()
-      ..writeln('---')
-      ..writeln('name: $name')
-      ..writeln('description: >-')
-      ..writeln('  $description');
-    _writeOptionalFields(buffer, kinds);
-    buffer
-      ..writeln('metadata:')
-      ..writeln('  internal: ${!kinds.contains(InvalidKind.notInternal)}')
-      ..writeln('---')
-      ..writeln()
-      ..writeln('# ${_sentence()}')
-      ..writeln()
-      ..write(_markdown(2 + random.nextInt(12)));
-    _writeLinks(buffer, dir, references, scripts, kinds);
-    if (kinds.contains(InvalidKind.trailingWhitespace)) {
-      buffer.writeln('${_sentence()} ');
-    }
-    return buffer.toString();
-  }
-
-  void _writeOptionalFields(StringBuffer buffer, Set<InvalidKind> kinds) {
-    if (random.nextBool()) {
-      buffer.writeln('license: Apache-2.0');
-    }
-    if (kinds.contains(InvalidKind.compatibilityTooLong)) {
-      buffer.writeln('compatibility: ${_words.join(' ') * 2}');
-    } else if (random.nextInt(4) == 0) {
-      buffer.writeln('compatibility: ${_sentence()}');
-    }
-    if (random.nextInt(3) == 0) {
-      buffer.writeln('allowed-tools: Bash Read Write');
-    }
-    if (kinds.contains(InvalidKind.disallowedField)) {
-      buffer.writeln('owner: ${_word()}');
-    }
-  }
-
-  void _writeLinks(
-    StringBuffer buffer,
-    String dir,
-    List<String> references,
-    List<String> scripts,
-    Set<InvalidKind> kinds,
-  ) {
-    buffer
-      ..writeln()
-      ..writeln('## Resources')
-      ..writeln();
-    for (final target in [...references, ...scripts]) {
-      buffer.writeln('- [${p.url.basename(target)}]($target): ${_sentence()}');
-    }
-    buffer.writeln('- [Specification](https://agentskills.io/specification)');
-    if (kinds.contains(InvalidKind.brokenRelativeLink)) {
-      final String existing = references.first;
-      buffer.writeln('- [Missing](${existing.replaceFirst('.md', 's.md')})');
-    }
-    if (kinds.contains(InvalidKind.absoluteLink)) {
-      buffer.writeln('- [Absolute](${p.join(dir, p.joinAll(p.url.split(references.first)))})');
-    }
-  }
-
-  /// Returns [sections] Markdown sections of prose, lists and code.
-  String _markdown(int sections) {
-    final buffer = StringBuffer();
-    for (var s = 0; s < sections; s++) {
-      buffer
-        ..writeln('## ${_sentence()}')
-        ..writeln()
-        ..writeln(_paragraph(2 + random.nextInt(4)))
-        ..writeln();
-      for (int item = random.nextInt(5); item > 0; item--) {
-        buffer.writeln('- ${_sentence()}');
+  /// Reads the template in [directory]: `body.md` is the `SKILL.md` body,
+  /// and every other file is copied as is.
+  factory SkillTemplate.read(Directory directory) {
+    final files = <String, String>{};
+    for (final File file in directory.listSync(recursive: true).whereType<File>()) {
+      final String path = p.split(p.relative(file.path, from: directory.path)).join('/');
+      if (path != 'body.md') {
+        files[path] = file.readAsStringSync();
       }
-      if (random.nextInt(3) == 0) {
-        buffer
-          ..writeln()
-          ..writeln('```bash')
-          ..writeln('dart run ${_word()} --${_word()}')
-          ..writeln('```');
-      }
-      buffer.writeln();
     }
-    return buffer.toString();
+    return SkillTemplate(
+      name: p.basename(directory.path),
+      body: File(p.join(directory.path, 'body.md')).readAsStringSync(),
+      files: Map.fromEntries(files.entries.toList()..sort((a, b) => a.key.compareTo(b.key))),
+    );
   }
 
-  String _paragraph(int sentences) => [for (var i = 0; i < sentences; i++) _sentence()].join(' ');
+  /// Directory name of the template, such as `small`.
+  final String name;
 
-  String _sentence() {
-    final String words = [for (var i = 4 + random.nextInt(10); i > 0; i--) _word()].join(' ');
-    return '${words[0].toUpperCase()}${words.substring(1)}.';
+  /// The Markdown below the frontmatter.
+  final String body;
+
+  /// Files next to `SKILL.md`, keyed by `/`-separated relative path.
+  final Map<String, String> files;
+
+  /// The first file under `references/`. Every template has one.
+  String get firstReference => files.keys.firstWhere((path) => path.startsWith('references/'));
+}
+
+/// Reads the templates in [directory], sorted by name.
+List<SkillTemplate> readTemplates([String? directory]) {
+  final List<Directory> dirs = Directory(
+    directory ?? templatesDirectory,
+  ).listSync().whereType<Directory>().toList()..sort((a, b) => a.path.compareTo(b.path));
+  return [for (final dir in dirs) SkillTemplate.read(dir)];
+}
+
+/// One generated skill, before it is written.
+final class FixtureSkill {
+  FixtureSkill(this.template, this.directoryName)
+    : name = directoryName,
+      description = 'Benchmark fixture skill copied from the ${template.name} template.';
+
+  /// The template whose body and files this skill copies.
+  final SkillTemplate template;
+
+  /// Name of the skill directory.
+  String directoryName;
+
+  /// Frontmatter `name:`.
+  String name;
+
+  /// Frontmatter `description:`.
+  String description;
+
+  /// Frontmatter `metadata: internal:`.
+  bool internal = true;
+
+  /// Other frontmatter fields, written in insertion order.
+  final Map<String, String> fields = {};
+
+  /// Extra links, relative to the skill directory, added to the body.
+  final List<String> relativeLinks = [];
+
+  /// Extra links, relative to the skill directory, that the body writes as
+  /// absolute paths.
+  final List<String> absoluteLinks = [];
+
+  /// Text appended to the body.
+  String bodySuffix = '';
+
+  /// Whether to leave out `SKILL.md`.
+  bool omitSkillMd = false;
+}
+
+/// Returns the skill at [index], with its violations applied.
+FixtureSkill fixtureSkill(int index, List<SkillTemplate> templates) {
+  final skill = FixtureSkill(
+    templates[index % templates.length],
+    '$fixturePackageName-${index.toString().padLeft(4, '0')}',
+  );
+  if (index % invalidEvery == 0) {
+    final List<String> rules =
+        plantedViolations[(index ~/ invalidEvery) % plantedViolations.length];
+    for (final rule in rules) {
+      violations[rule]!(skill);
+    }
   }
+  return skill;
+}
 
-  String _word() => _words[random.nextInt(_words.length)];
+/// Returns the `SKILL.md` of [skill], whose directory is [skillDirectory].
+String renderSkillMd(FixtureSkill skill, String skillDirectory) {
+  final buffer = StringBuffer()
+    ..writeln('---')
+    ..writeln('name: ${skill.name}')
+    ..writeln('description: ${skill.description}');
+  for (final MapEntry(:key, :value) in skill.fields.entries) {
+    buffer.writeln('$key: $value');
+  }
+  buffer
+    ..writeln('metadata:')
+    ..writeln('  internal: ${skill.internal}')
+    ..writeln('---')
+    ..writeln()
+    ..write(skill.template.body);
+  for (final String link in skill.relativeLinks) {
+    buffer.writeln('- [Link]($link)');
+  }
+  for (final String link in skill.absoluteLinks) {
+    // Links use `/`; the absolute path uses the host separator, so that it
+    // is a real path on Windows too.
+    buffer.writeln('- [Link](${p.join(skillDirectory, p.joinAll(p.url.split(link)))})');
+  }
+  buffer.write(skill.bodySuffix);
+  return buffer.toString();
+}
+
+/// Writes `skills_lint.yaml` and [skillCount] skills into [root], which must
+/// be empty or missing.
+void writeFixture(String root, int skillCount, {List<SkillTemplate>? templates}) {
+  final List<SkillTemplate> sources = templates ?? readTemplates();
+  _write(p.join(root, 'skills_lint.yaml'), fixtureConfig);
+  for (var i = 0; i < skillCount; i++) {
+    final FixtureSkill skill = fixtureSkill(i, sources);
+    final String dir = p.join(root, skillsDirectoryName, skill.directoryName);
+    for (final MapEntry(key: path, value: contents) in skill.template.files.entries) {
+      _write(p.join(dir, p.joinAll(p.url.split(path))), contents);
+    }
+    if (!skill.omitSkillMd) {
+      _write(p.join(dir, 'SKILL.md'), renderSkillMd(skill, dir));
+    }
+  }
+}
+
+void _write(String path, String contents) {
+  final file = File(path);
+  file.parent.createSync(recursive: true);
+  file.writeAsStringSync(contents);
 }

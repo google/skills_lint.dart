@@ -3,8 +3,10 @@ permissions:
   contents: read
 
 # Measures the CLI against a baseline build on the same runner and reports
-# the results. It never fails on a slowdown: a slowdown over the threshold
-# adds a warning annotation. See packages/skills_lint/benchmark/README.md.
+# the results. It informs and never gates: a slowdown over the threshold adds
+# a warning annotation, and a failed build or run adds a line to the job
+# summary instead of failing the job. See
+# packages/skills_lint/benchmark/README.md.
 on:
   pull_request:
     paths:
@@ -55,6 +57,8 @@ jobs:
       # parent is the tip of the base branch. On a push it is the pushed
       # commit, whose first parent is the previous tip of main.
       - name: Check out the baseline
+        id: baseline
+        continue-on-error: true
         env:
           BASELINE: ${{ inputs.baseline }}
         run: |
@@ -65,6 +69,8 @@ jobs:
           dart pub get
 
       - name: Run benchmarks
+        id: benchmarks
+        continue-on-error: true
         run: >-
           dart run benchmark/run_benchmarks.dart
           --baseline "$RUNNER_TEMP/baseline/packages/skills_lint"
@@ -86,6 +92,7 @@ jobs:
           "$RUNNER_TEMP/rule_timings_baseline" --repo-root "$GITHUB_WORKSPACE" --json "$RUNNER_TEMP/rule_timings_baseline.json" > /dev/null
 
       - name: Time each rule
+        id: timings
         continue-on-error: true
         run: |
           baseline_args=()
@@ -97,18 +104,41 @@ jobs:
             --json "$RUNNER_TEMP/rule_timings.json" --markdown "$RUNNER_TEMP/rule_timings.md"
 
       - name: Write the job summary
+        if: always()
+        env:
+          BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
+          BENCHMARKS_OUTCOME: ${{ steps.benchmarks.outcome }}
+          TIMINGS_OUTCOME: ${{ steps.timings.outcome }}
         run: |
           {
-            echo "Baseline: \`$BASELINE_SHA\`. Candidate: \`$(git rev-parse HEAD)\`."
+            echo "Baseline: \`${BASELINE_SHA:-none}\`. Candidate: \`$(git rev-parse HEAD)\`."
             echo
-            cat "$RUNNER_TEMP/benchmarks.md"
+            if [ "$BASELINE_OUTCOME" != success ]; then
+              echo "> [!WARNING]"
+              echo "> Checking out or fetching dependencies for the baseline failed. See the step log."
+              echo
+            fi
+            if [ "$BENCHMARKS_OUTCOME" != success ]; then
+              echo "> [!WARNING]"
+              echo "> The benchmark run failed: a build failed or the CLI exited with an unexpected code. See the \"Run benchmarks\" step log. This job informs and does not gate the change."
+              echo
+            fi
+            if [ "$TIMINGS_OUTCOME" != success ]; then
+              echo "> [!WARNING]"
+              echo "> The rule timings failed. See the \"Time each rule\" step log."
+              echo
+            fi
+            if [ -f "$RUNNER_TEMP/benchmarks.md" ]; then
+              cat "$RUNNER_TEMP/benchmarks.md"
+            fi
             if [ -f "$RUNNER_TEMP/rule_timings.md" ]; then
               echo
               cat "$RUNNER_TEMP/rule_timings.md"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: benchmarks
           path: |

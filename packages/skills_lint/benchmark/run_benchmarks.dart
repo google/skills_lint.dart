@@ -8,73 +8,50 @@
 /// report.
 library;
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
+import 'src/cli.dart';
 import 'src/fixture.dart';
 import 'src/report.dart';
 import 'src/suite.dart';
 
 const String _baselineOption = 'baseline';
-const String _jsonOption = 'json';
-const String _markdownOption = 'markdown';
-const String _helpFlag = 'help';
 
 const String _baselineLabel = 'baseline';
 const String _candidateLabel = 'candidate';
 
-const int _usageExitCode = 64;
 const int _failureExitCode = 1;
 
 Future<void> main(List<String> arguments) async {
-  final parser = ArgParser()
-    ..addOption(
+  final ArgParser parser = addOutputOptions(
+    ArgParser()..addOption(
       _baselineOption,
       valueHelp: 'dir',
       help:
           'The packages/skills_lint directory of another checkout to compare against. '
           'Pass this package directory to measure noise.',
-    )
-    ..addOption(_jsonOption, valueHelp: 'path', help: 'Also write a JSON report to this file.')
-    ..addOption(
-      _markdownOption,
-      valueHelp: 'path',
-      help: 'Also write the Markdown report to this file.',
-    )
-    ..addFlag(_helpFlag, abbr: 'h', negatable: false, help: 'Show usage information.');
-  final ArgResults args;
-  try {
-    args = parser.parse(arguments);
-  } on FormatException catch (e) {
-    stderr
-      ..writeln(e.message)
-      ..writeln(parser.usage);
-    exitCode = _usageExitCode;
-    return;
-  }
-  if (args.flag(_helpFlag)) {
-    stdout
-      ..writeln('Usage: dart run benchmark/run_benchmarks.dart [options]')
-      ..writeln(parser.usage);
+    ),
+  );
+  final ArgResults? args = parseArguments(
+    parser,
+    arguments,
+    script: 'benchmark/run_benchmarks.dart',
+  );
+  if (args == null) {
     return;
   }
   final String? baseline = args.option(_baselineOption);
   if (baseline != null && !File(p.join(baseline, 'bin', 'skills_lint.dart')).existsSync()) {
     stderr.writeln('--$_baselineOption must be a skills_lint package directory: $baseline');
-    exitCode = _usageExitCode;
+    exitCode = usageExitCode;
     return;
   }
   final Directory work = Directory.systemTemp.createTempSync('skills_lint_bench_');
   try {
-    await _run(
-      work.path,
-      baseline: baseline,
-      jsonPath: args.option(_jsonOption),
-      markdownPath: args.option(_markdownOption),
-    );
+    await _run(work.path, args, baseline: baseline);
   } on BenchmarkException catch (e) {
     stderr.writeln(e.message);
     exitCode = _failureExitCode;
@@ -83,7 +60,7 @@ Future<void> main(List<String> arguments) async {
   }
 }
 
-Future<void> _run(String work, {String? baseline, String? jsonPath, String? markdownPath}) async {
+Future<void> _run(String work, ArgResults args, {String? baseline}) async {
   final String candidateDir = p.dirname(p.dirname(p.fromUri(Platform.script)));
   final List<Target> targets = [
     if (baseline != null) await _build(_baselineLabel, baseline, work),
@@ -93,7 +70,7 @@ Future<void> _run(String work, {String? baseline, String? jsonPath, String? mark
   final List<BenchmarkResult> results = [];
   for (final BenchmarkDefinition definition in benchmarks) {
     final String fixtureDir = p.join(work, 'fixtures', definition.name);
-    writeFixture(fixtureDir, definition.fixture);
+    writeFixture(fixtureDir, definition.skillCount);
     stderr.writeln(
       'Running ${definition.name}: ${definition.warmup} warmup and '
       '${definition.iterations} timed runs per build.',
@@ -126,18 +103,11 @@ Future<void> _run(String work, {String? baseline, String? jsonPath, String? mark
     comparisons: comparisons,
     environment: environment,
   );
-  stdout.write(markdown);
-  if (markdownPath != null) {
-    File(markdownPath).writeAsStringSync(markdown);
-  }
-  if (jsonPath != null) {
-    final Map<String, Object?> json = jsonReport(
-      results,
-      comparisons: comparisons,
-      environment: environment,
-    );
-    File(jsonPath).writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(json)}\n');
-  }
+  writeOutputs(
+    args,
+    markdown: markdown,
+    json: jsonReport(results, comparisons: comparisons, environment: environment),
+  );
   if (Platform.environment['GITHUB_ACTIONS'] == 'true') {
     regressionAnnotations(comparisons).forEach(stdout.writeln);
   }

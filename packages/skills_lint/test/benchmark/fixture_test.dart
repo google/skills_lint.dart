@@ -10,129 +10,99 @@ import 'package:skills_lint/src/rule_registry.dart';
 import 'package:test/test.dart';
 
 import '../../benchmark/src/fixture.dart';
+import '../../benchmark/src/suite.dart';
+
+final Set<String> _registeredRules = {for (final check in RuleRegistry.allChecks) check.name};
 
 void main() {
-  late Directory tempDir;
+  final List<SkillTemplate> templates = readTemplates();
+  final SkillTemplate small = templates.firstWhere((t) => t.name == 'small');
 
-  setUp(() {
-    tempDir = Directory.systemTemp.createTempSync('fixture_test.');
+  test('has one violation for each registered rule, and plants every one', () {
+    expect(violations.keys.toSet(), _registeredRules);
+    expect({for (final rules in plantedViolations) ...rules}, _registeredRules);
+    expect(plantedViolations.where((rules) => rules.length > 1), isNotEmpty);
   });
 
-  tearDown(() {
-    tempDir.deleteSync(recursive: true);
-  });
-
-  /// Returns the files under [root], keyed by `/`-separated relative path,
-  /// with [root] replaced by `<root>` in their contents.
-  Map<String, String> snapshot(String root) => {
-    for (final File file in Directory(root).listSync(recursive: true).whereType<File>())
-      p.split(p.relative(file.path, from: root)).join('/'): file.readAsStringSync().replaceAll(
-        root,
-        '<root>',
-      ),
-  };
-
-  test('writes one directory with a SKILL.md per skill and a config file', () {
-    final FixtureStats stats = writeFixture(tempDir.path, const FixtureSpec(skillCount: 12));
-
-    final List<Directory> skills = Directory(
-      p.join(tempDir.path, skillsDirectoryName),
-    ).listSync().whereType<Directory>().toList();
-    expect(skills, hasLength(12));
-    for (final skill in skills) {
-      expect(File(p.join(skill.path, 'SKILL.md')).existsSync(), isTrue, reason: skill.path);
+  test('reads the small, medium and large templates', () {
+    expect([for (final t in templates) t.name], ['large', 'medium', 'small']);
+    for (final t in templates) {
+      expect(t.firstReference, startsWith('references/'), reason: t.name);
     }
-    expect(File(p.join(tempDir.path, 'skills_lint.yaml')).readAsStringSync(), fixtureConfig);
-    expect(stats.skillCount, 12);
   });
 
-  test('reports the number and total length of the files it wrote', () {
-    final FixtureStats stats = writeFixture(tempDir.path, const FixtureSpec(skillCount: 20));
+  group('fixtureSkill', () {
+    test('gives the first skill the first planted violations', () {
+      final FixtureSkill skill = fixtureSkill(0, templates);
 
-    final Map<String, String> files = snapshot(tempDir.path);
-    expect(stats.fileCount, files.length);
-    final int length = Directory(tempDir.path)
-        .listSync(recursive: true)
-        .whereType<File>()
-        .fold(0, (sum, file) => sum + file.readAsStringSync().length);
-    expect(stats.byteCount, length);
-  });
-
-  test('writes the same files for the same spec', () {
-    final String a = p.join(tempDir.path, 'a');
-    final String b = p.join(tempDir.path, 'b');
-    writeFixture(a, const FixtureSpec(skillCount: 30));
-    writeFixture(b, const FixtureSpec(skillCount: 30));
-
-    expect(snapshot(a), snapshot(b));
-  });
-
-  test('writes different content for a different seed', () {
-    final String a = p.join(tempDir.path, 'a');
-    final String b = p.join(tempDir.path, 'b');
-    writeFixture(a, const FixtureSpec(skillCount: 5));
-    writeFixture(b, const FixtureSpec(skillCount: 5, seed: FixtureSpec.defaultSeed + 1));
-
-    expect(snapshot(a), isNot(snapshot(b)));
-  });
-
-  group('invalidKindsFor', () {
-    test('pairs each kind with the next one in the cycle', () {
-      expect(invalidKindsFor(0), {InvalidKind.nameMismatch, InvalidKind.trailingWhitespace});
-      expect(invalidKindsFor(InvalidKind.values.length), invalidKindsFor(0));
+      expect(skill.name, '${skill.directoryName}-renamed');
+      expect(skill.bodySuffix, endsWith(' \n'));
     });
 
-    test('never combines missingSkillMd with another kind', () {
-      for (var i = 0; i < InvalidKind.values.length; i++) {
-        final Set<InvalidKind> kinds = invalidKindsFor(i);
-        if (kinds.contains(InvalidKind.missingSkillMd)) {
-          expect(kinds, {InvalidKind.missingSkillMd});
-        }
-      }
+    test('leaves skills between planted ones valid', () {
+      final FixtureSkill skill = fixtureSkill(1, templates);
+
+      expect(skill.name, skill.directoryName);
+      expect(skill.internal, isTrue);
+      expect(skill.fields, isEmpty);
+      expect(skill.bodySuffix, isEmpty);
+    });
+  });
+
+  group('renderSkillMd', () {
+    test('writes the frontmatter and then the template body', () {
+      final skill = FixtureSkill(small, 'skill-0001');
+
+      expect(
+        renderSkillMd(skill, '/root/skill-0001'),
+        '---\n'
+        'name: skill-0001\n'
+        'description: ${skill.description}\n'
+        'metadata:\n'
+        '  internal: true\n'
+        '---\n'
+        '\n'
+        '${small.body}',
+      );
+    });
+
+    test('writes the edits of a violation', () {
+      final skill = FixtureSkill(small, 'skill-0001');
+      violations['disallowed-field']!(skill);
+      violations['check-relative-paths']!(skill);
+      violations['check-absolute-paths']!(skill);
+      final String dir = p.join(p.separator, 'root', 'skill-0001');
+
+      final String rendered = renderSkillMd(skill, dir);
+
+      expect(rendered, contains('owner: benchmarks\n'));
+      expect(rendered, contains('- [Link](references/guides.md)\n'));
+      expect(rendered, contains('- [Link](${p.join(dir, 'references', 'guide.md')})\n'));
     });
   });
 
   test('every registered rule reports at least once on the fixture', () async {
-    final int count = InvalidKind.values.length * 3;
-    final FixtureStats stats = writeFixture(
-      tempDir.path,
-      FixtureSpec(skillCount: count, invalidEvery: 3),
-    );
-    expect(stats.invalidSkillCount, InvalidKind.values.length);
+    final Directory tempDir = Directory.systemTemp.createTempSync('fixture_test.');
+    addTearDown(() => tempDir.deleteSync(recursive: true));
+    writeFixture(tempDir.path, invalidEvery * plantedViolations.length, templates: templates);
 
     final ProcessResult result = await Process.run(Platform.resolvedExecutable, [
       p.absolute('bin', 'skills_lint.dart'),
       '--format',
       'json',
     ], workingDirectory: tempDir.path);
+
+    expect(result.exitCode, expectedExitCode, reason: result.stderr as String);
     final List<Map<String, Object?>> results = (jsonDecode(result.stdout as String) as List)
         .cast<Map<String, Object?>>();
-
-    final Set<String> reported = {
+    final List<List<Map<String, Object?>>> errors = [
       for (final skill in results)
-        for (final error in (skill['validationErrors']! as List).cast<Map<String, Object?>>())
-          error['ruleId']! as String,
-    };
-    expect(reported, {for (final check in RuleRegistry.allChecks) check.name});
-    final int skillsWithTwoErrors = results
-        .where((skill) => (skill['validationErrors']! as List).length >= 2)
-        .length;
-    expect(skillsWithTwoErrors, greaterThan(0));
-  });
-
-  test('always makes the first skill invalid', () {
-    final FixtureStats stats = writeFixture(
-      tempDir.path,
-      const FixtureSpec(skillCount: 1, invalidEvery: 1000),
-    );
-
-    expect(stats.invalidSkillCount, 1);
-  });
-
-  test('rejects invalidEvery below 1', () {
-    expect(
-      () => writeFixture(tempDir.path, const FixtureSpec(skillCount: 1, invalidEvery: 0)),
-      throwsArgumentError,
-    );
+        (skill['validationErrors']! as List).cast<Map<String, Object?>>(),
+    ];
+    expect({
+      for (final skillErrors in errors)
+        for (final error in skillErrors) error['ruleId']! as String,
+    }, _registeredRules);
+    expect(errors.where((skillErrors) => skillErrors.length > 1), isNotEmpty);
   });
 }

@@ -7,6 +7,7 @@ library;
 
 import 'package:meta/meta.dart';
 
+import 'format.dart';
 import 'stats.dart';
 import 'suite.dart';
 
@@ -82,9 +83,9 @@ List<String> regressionAnnotations(List<Comparison> comparisons) => [
 
 String _annotation(Comparison c) =>
     '::warning title=Possible benchmark regression::${c.benchmark} ${c.metric.label} median '
-    'rose ${_percent(c.change)} (${_value(c.baseline.median)} -> '
-    '${_value(c.candidate.median)} ${c.metric.unit}); the threshold is '
-    '${_percent(c.threshold)}. Rerun the benchmarks workflow to confirm before investigating.';
+    'rose ${formatPercent(c.change)} (${formatNumber(c.baseline.median)} -> '
+    '${formatNumber(c.candidate.median)} ${c.metric.unit}); the threshold is '
+    '${formatPercent(c.threshold)}. Rerun the benchmarks workflow to confirm before investigating.';
 
 /// Returns a Markdown report of [results] and [comparisons].
 ///
@@ -159,7 +160,6 @@ abstract final class JsonKeys {
   static const String name = 'name';
   static const String description = 'description';
   static const String skillCount = 'skill_count';
-  static const String seed = 'seed';
   static const String warmup = 'warmup';
   static const String iterations = 'iterations';
   static const String metrics = 'metrics';
@@ -189,8 +189,7 @@ Map<String, Object?> _benchmarkJson(BenchmarkResult result) {
   return {
     JsonKeys.name: definition.name,
     JsonKeys.description: definition.description,
-    JsonKeys.skillCount: definition.fixture.skillCount,
-    JsonKeys.seed: definition.fixture.seed,
+    JsonKeys.skillCount: definition.skillCount,
     JsonKeys.warmup: definition.warmup,
     JsonKeys.iterations: definition.iterations,
     JsonKeys.metrics: {
@@ -220,9 +219,9 @@ Map<String, Object?> _summaryJson(Summary s) => {
 };
 
 String _summaryRow(String benchmark, Metric metric, String label, Summary s) =>
-    '| $benchmark | ${metric.label} (${metric.unit}) | $label | ${s.count} | ${_value(s.min)} | '
-    '${_value(s.median)} | ${_value(s.p90)} | ${_value(s.max)} | '
-    '${_value(s.mad)} (${s.madPercent.toStringAsFixed(1)}%) |';
+    '| $benchmark | ${metric.label} (${metric.unit}) | $label | ${s.count} | ${formatNumber(s.min)} | '
+    '${formatNumber(s.median)} | ${formatNumber(s.p90)} | ${formatNumber(s.max)} | '
+    '${formatNumber(s.mad)} (${formatPercent(s.madPercent / 100)}) |';
 
 void _writeComparisons(StringBuffer buffer, List<Comparison> comparisons) {
   buffer
@@ -235,15 +234,9 @@ void _writeComparisons(StringBuffer buffer, List<Comparison> comparisons) {
     ..writeln('| --- | --- | ---: | ---: | ---: | ---: | --- |');
   for (final c in comparisons) {
     buffer.writeln(
-      '| ${c.benchmark} | ${c.metric.label} (${c.metric.unit}) | ${_value(c.baseline.median)} | '
-      '${_value(c.candidate.median)} | ${_signedPercent(c.change)} | ${_percent(c.threshold)} | '
+      '| ${c.benchmark} | ${c.metric.label} (${c.metric.unit}) | ${formatNumber(c.baseline.median)} | '
+      '${formatNumber(c.candidate.median)} | ${formatSignedPercent(c.change)} | ${formatPercent(c.threshold)} | '
       '${c.isRegression ? 'possible regression' : 'ok'} |',
     );
   }
 }
-
-String _value(double v) => v.toStringAsFixed(1);
-
-String _percent(double fraction) => '${(fraction * 100).toStringAsFixed(1)}%';
-
-String _signedPercent(double fraction) => '${fraction >= 0 ? '+' : ''}${_percent(fraction)}';
