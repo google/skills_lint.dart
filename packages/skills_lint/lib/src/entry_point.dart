@@ -50,7 +50,7 @@ const _formatText = 'text';
 const _formatJson = 'json';
 const _formatSarif = 'sarif';
 
-/// User-visible deprecation notice for the legacy `--fix-apply` alias.
+/// User-visible notice that the `--fix-apply` alias is deprecated.
 ///
 /// Exposed (not `_`-prefixed) so integration tests can assert it appears on
 /// stderr when the alias is used.
