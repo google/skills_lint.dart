@@ -116,8 +116,10 @@ dart test repo_test   # repo_test/, including repo_test/checkers/
 ```
 
 CI runs the two as separate steps, so a failure shows which kind broke.
-`repo_test/test_directories_test.dart` fails if a test file sits outside
-`test/` and `repo_test/`, because no CI step would run it.
+`repo_test/test_files_run_in_ci_test.dart` fails if a test file sits outside
+`test/` and `repo_test/`, because no CI step would run it. The directories
+that repo tests read are listed, with the reason for each subset, in
+`repo_test/src/package_directories.dart`.
 
 The repo tests share this package's `dev_dependencies`. When one needs a dev
 dependency that no package test uses, move `repo_test/` to its own unpublished

@@ -7,12 +7,12 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import 'src/package_directories.dart';
 import 'src/repo_paths.dart';
-import 'src/test_categories.dart';
 
 const int _maxCognitiveComplexityThreshold = 20;
 
-/// Returns the entries of [testCategories] that a `dart test` [command]
+/// Returns the entries of [testDirectories] that a `dart test` [command]
 /// selects. A command with no path argument selects `test`, package:test's
 /// default path.
 Set<String> _categoriesSelectedBy(String command) {
@@ -50,7 +50,7 @@ void main() {
       final List<String> unselected = [
         for (final String command in invocations)
           if (_categoriesSelectedBy(command).length != 1 ||
-              !testCategories.contains(_categoriesSelectedBy(command).single))
+              !testDirectories.contains(_categoriesSelectedBy(command).single))
             command,
       ];
       expect(
@@ -58,9 +58,9 @@ void main() {
         isEmpty,
         reason:
             'Each `dart test` step in the CI workflow must run exactly one of '
-            '${testCategories.join(', ')}, so a failure names its kind.',
+            '${testDirectories.join(', ')}, so a failure names its kind.',
       );
-      for (final String category in testCategories) {
+      for (final String category in testDirectories) {
         expect(
           invocations.where((command) => _categoriesSelectedBy(command).contains(category)),
           isNotEmpty,

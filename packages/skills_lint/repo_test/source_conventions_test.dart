@@ -6,6 +6,7 @@ import 'package:test/test.dart';
 
 import 'src/models/convention_violation.dart';
 import 'src/models/source.dart';
+import 'src/package_directories.dart';
 import 'src/skip_reasons.dart';
 import 'src/source_conventions.dart';
 
@@ -19,7 +20,7 @@ void main() {
     late List<Source> sources;
 
     setUpAll(() {
-      sources = parseDirectories(_scannedDirectories);
+      sources = parseDirectories(dartSourceDirectories);
     });
 
     Iterable<Source> under(List<String> directories) =>
@@ -43,39 +44,24 @@ void main() {
     });
 
     test('no constant in bin/ or lib/ is declared as an alias of another constant', () {
-      expectNoViolations(findConstAliases(under(const ['bin', 'lib'])), fix: _constAliasFix);
+      expectNoViolations(findConstAliases(under(shippedDirectories)), fix: _constAliasFix);
     });
 
-    test('every skip: in test/ gives its reason as a string', () {
+    test('every skip: in a test directory gives its reason as a string', () {
       final List<ConventionViolation> violations = [
-        for (final Source source in under(const ['repo_test', 'test']))
-          ...findSkipsWithoutReason(source),
+        for (final Source source in under(testDirectories)) ...findSkipsWithoutReason(source),
       ];
       expectNoViolations(violations, fix: _skipFix);
     });
 
-    test('every testOn: in test/ has a comment in the call that names the platform', () {
+    test('every testOn: in a test directory has a comment in the call that names the platform', () {
       final List<ConventionViolation> violations = [
-        for (final Source source in under(const ['repo_test', 'test']))
-          ...findTestOnWithoutComment(source),
+        for (final Source source in under(testDirectories)) ...findTestOnWithoutComment(source),
       ];
       expectNoViolations(violations, fix: _testOnFix);
     });
   });
 }
-
-/// Directories whose Dart files the checks read.
-///
-/// `evals/test_data/` is left out because its Dart files are fixtures that
-/// are written to fail review on purpose.
-const List<String> _scannedDirectories = [
-  'benchmark',
-  'bin',
-  'example',
-  'lib',
-  'repo_test',
-  'test',
-];
 
 /// Overrides that are allowed, keyed by package-relative path.
 ///
