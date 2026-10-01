@@ -588,7 +588,7 @@ class LintTargetConfig {
   /// Converts this target configuration into a formatted YAML string.
   String toYamlString() => ConfigSerializer.toYamlString(toYaml());
 
-  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
+  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
   @Deprecated('Use ruleConfigs instead')
   Map<String, AnalysisSeverity> get rules {
     final resolvedSeverities = <String, AnalysisSeverity>{};
@@ -652,7 +652,7 @@ class Configuration {
   /// Converts this configuration into a formatted YAML string.
   String toYamlString() => ConfigSerializer.toYamlString(toYaml());
 
-  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
+  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
   @Deprecated('Use ruleConfigs instead')
   Map<String, AnalysisSeverity> get configuredRules {
     final resolvedSeverities = <String, AnalysisSeverity>{};
