@@ -58,6 +58,15 @@ void main() {
       expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
 
+    test('ConfigSource anchors parsed paths through the public API', () {
+      final Configuration config = ConfigParser.parse(
+        'skills_lint:\n  directories:\n    - path: skills\n',
+        configSource: const ConfigSource.directory('example'),
+      );
+
+      expect(config.directoryConfigs.single.path, p.normalize(p.absolute('example/skills')));
+    });
+
     test('validateSkills throws MissingDefaultsException a caller can catch by name', () async {
       // The `on MissingDefaultsException` clause below only compiles while the
       // type is reachable from the public library. Dropping the export turns
