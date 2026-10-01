@@ -180,8 +180,7 @@ void main() {
       // "locked/skills", which the operating system refuses to stat.
       expect(() => suggest('lockd/skills'), returnsNormally);
       // Skipped on Windows: the test removes permissions with the POSIX `chmod`
-      // command, which Windows does not provide, and NTFS access is controlled
-      // by ACLs rather than mode bits.
+      // command, which Windows does not provide.
     }, testOn: '!windows');
 
     test('suggests a lexical path from a configuration directory linked elsewhere', () {
