@@ -94,32 +94,40 @@ dart test
 
 ### Where tests go
 
-The package has two kinds of tests:
+The package has three kinds of tests, each in its own directory under
+`packages/skills_lint/test/`:
 
-- **Product tests** go in `test/`. They check that skills_lint behaves
-  correctly: rules, the CLI, configuration, the fixer and the public API. A
-  change to `lib/` or `bin/` can make a product test fail.
-- **Repo checks** go in `test/repo/`. They check that this repository follows
-  its own conventions: file headers, the CI workflow, docs that must match the
-  code (`RULES.md`, the README recipes), skill and eval structure, and source
-  conventions. Each file declares `@Tags(['repo'])` above `library;`, and
-  `test/repo/test_layout_test.dart` fails if a file's tag and folder disagree.
-  Helpers that only repo checks use go in `test/repo/src/`.
+| Directory | What it checks | A change to … can break it |
+| :--- | :--- | :--- |
+| `test/linter/` | skills_lint, the shipped package, works: rules, the CLI, configuration, the fixer and the public API. | `lib/`, `bin/` |
+| `test/convention_checkers/` | The helpers that the repo convention checks use work, such as the source-convention detectors and the directive resolver. Each detector is tested on small inline snippets. | `test/src/` |
+| `test/repo_conventions/` | This repository follows its own conventions: file headers, the CI workflow, docs that must match the code (`RULES.md`, the README recipes), skill and eval structure, and source conventions. These scan the real repository. | anything in the repository |
 
-Plain `dart test` runs both. To run one kind:
+Shared helpers for the convention checks go in `test/src/` (models in
+`test/src/models/`). They are not tests, and neither directory owns them:
+`test/repo_conventions/` uses them and `test/convention_checkers/` tests them.
+Helpers that only linter tests use stay in `test/linter/`, such as
+`test/linter/test_utils.dart`.
+
+Plain `dart test` runs all three. To run one kind, name its directory or use
+its preset from `packages/skills_lint/dart_test.yaml`:
 
 ```bash
-dart test -x repo  # product tests only
-dart test -t repo  # repo checks only
+dart test test/linter                # or: dart test -P linter
+dart test test/convention_checkers   # or: dart test -P convention_checkers
+dart test test/repo_conventions      # or: dart test -P repo_conventions
 ```
 
-CI runs the two kinds as separate steps, so a failure shows which kind broke.
-Coverage comes from product tests only.
+CI runs each directory as its own step, so a failure shows which kind broke.
+`workflow_consistency_test.dart` fails if a test file sits outside these three
+directories, because no CI step would run it. Coverage comes from
+`test/linter/` only.
 
-Repo checks share this package's `dev_dependencies`. When a repo check needs a
-dev dependency that no product test uses, move `test/repo/` to its own
-unpublished workspace package (for example `packages/repo_checks/`) instead of
-adding the dependency here.
+The convention checks share this package's `dev_dependencies`. When one needs
+a dev dependency that no linter test uses, move `test/repo_conventions/`,
+`test/convention_checkers/` and `test/src/` to their own unpublished
+workspace package (for example `packages/repo_checks/`) instead of adding the
+dependency here.
 
 ### Coverage
 
@@ -127,7 +135,7 @@ CI enforces a minimum line-coverage threshold for `lib/` (currently 73%),
 excluding generated `*.g.dart` files. To reproduce the same number locally:
 
 ```bash
-dart test -x repo --coverage=coverage
+dart test test/linter --coverage=coverage
 dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --ignore-files='**/*.g.dart'
 ```
 

@@ -2,14 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-@Tags(['repo'])
-library;
-
 import 'package:test/test.dart';
 
-import 'src/models/convention_violation.dart';
-import 'src/models/source.dart';
-import 'src/source_conventions.dart';
+import '../src/models/convention_violation.dart';
+import '../src/models/source.dart';
+import '../src/source_conventions.dart';
 
 /// Runs each source-convention detector over small inline snippets, which
 /// pins what the detector reports independently of the package's contents.

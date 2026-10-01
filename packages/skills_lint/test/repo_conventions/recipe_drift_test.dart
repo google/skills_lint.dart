@@ -2,9 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-@Tags(['repo'])
-library;
-
 import 'dart:convert';
 import 'dart:io';
 
@@ -13,7 +10,7 @@ import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 import 'package:yaml/yaml.dart';
 
-import 'src/repo_paths.dart';
+import '../src/repo_paths.dart';
 
 /// Drift guard for the `## Recipes` section of README.md.
 ///

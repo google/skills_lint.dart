@@ -2,16 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-@Tags(['repo'])
-library;
-
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import 'src/dart_directives.dart';
-import 'src/source_conventions.dart';
+import '../src/dart_directives.dart';
+import '../src/source_conventions.dart';
 
 void main() {
   late Directory root;

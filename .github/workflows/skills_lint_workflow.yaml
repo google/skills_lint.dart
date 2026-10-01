@@ -48,16 +48,21 @@ jobs:
         run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/example packages/skills_lint/skills .agents/skills
         working-directory: .
 
-      - name: Run product tests
-        id: product_tests
-        run: dart test -x repo
+      # One step per test directory, so a failure names its kind. See "Where
+      # tests go" in CONTRIBUTING.md. The later steps also run when an earlier
+      # test step fails, so one run reports every kind of failure.
+      - name: Run linter tests
+        id: linter_tests
+        run: dart test test/linter
 
-      # Repo checks test this repository's conventions (headers, docs drift,
-      # CI config, skill structure), not linter behavior. They also run when the
-      # product tests fail, so one run reports both kinds of failure.
+      - name: Run convention checker tests
+        id: convention_checker_tests
+        if: success() || steps.linter_tests.conclusion == 'failure'
+        run: dart test test/convention_checkers
+
       - name: Run repo convention checks
-        if: success() || steps.product_tests.conclusion == 'failure'
-        run: dart test -t repo
+        if: success() || steps.linter_tests.conclusion == 'failure' || steps.convention_checker_tests.conclusion == 'failure'
+        run: dart test test/repo_conventions
 
       - name: Verify example
         run: dart run example/main.dart
@@ -78,7 +83,7 @@ jobs:
       - run: dart pub get
 
       - name: Collect coverage
-        run: dart test -x repo --coverage=coverage
+        run: dart test test/linter --coverage=coverage
 
       - name: Format coverage to LCOV
         run: dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib

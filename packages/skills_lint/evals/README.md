@@ -63,10 +63,10 @@ Run the unit tests that check all `triggers.json` and `evals.json` files for str
 
 ```bash
 # Validate triggers.json files
-dart test test/repo/skills_triggers_test.dart
+dart test test/repo_conventions/skills_triggers_test.dart
 
 # Validate evals.json files
-dart test test/repo/skills_evals_test.dart
+dart test test/repo_conventions/skills_evals_test.dart
 ```
 
 ## Executing Evals via Agent Orchestration (`/run-evals`)

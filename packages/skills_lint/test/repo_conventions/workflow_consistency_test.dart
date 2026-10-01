@@ -2,17 +2,30 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-@Tags(['repo'])
-library;
-
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import 'src/repo_paths.dart';
+import '../src/repo_paths.dart';
 
 const int _maxCognitiveComplexityThreshold = 20;
+
+/// The test directories that CI runs, one step each. See "Where tests go" in
+/// CONTRIBUTING.md.
+const List<String> _testCategories = [
+  'test/linter',
+  'test/convention_checkers',
+  'test/repo_conventions',
+];
+
+/// Returns the entries of [_testCategories] that [command] names as a path
+/// argument.
+Set<String> _categoriesNamedBy(String command) => {
+  for (final String arg in command.split(RegExp(r'\s+')))
+    for (final String category in _testCategories)
+      if (arg == category || arg == '$category/') category,
+};
 
 void main() {
   group('CI workflow consistency', () {
@@ -35,28 +48,50 @@ void main() {
       );
     });
 
-    test('CI runs product tests and repo checks as separate steps', () {
+    test('CI runs each test category as its own step', () {
       final List<String> invocations = _dartTestInvocations();
-      final List<String> untagged = [
+      final List<String> unselected = [
         for (final String command in invocations)
-          if (!command.contains('-x repo') && !command.contains('-t repo')) command,
+          if (_categoriesNamedBy(command).length != 1) command,
       ];
       expect(
-        untagged,
+        unselected,
         isEmpty,
         reason:
-            'Each `dart test` step in the CI workflow must select product tests '
-            '(`-x repo`) or repo checks (`-t repo`), so a failure names its kind.',
+            'Each `dart test` step in the CI workflow must name exactly one of '
+            '${_testCategories.join(', ')}, so a failure names its kind.',
       );
-      expect(
-        invocations.where((command) => command.contains('-t repo')),
-        isNotEmpty,
-        reason: 'The CI workflow must run the repo checks with `dart test -t repo`.',
-      );
+      for (final String category in _testCategories) {
+        expect(
+          invocations.where((command) => _categoriesNamedBy(command).contains(category)),
+          isNotEmpty,
+          reason: 'The CI workflow must run `dart test $category`.',
+        );
+      }
       expect(
         invocations.where((command) => command.contains('--coverage')),
-        everyElement(contains('-x repo')),
-        reason: 'Coverage must come from product tests only (`dart test -x repo --coverage=...`).',
+        everyElement(contains('test/linter')),
+        reason:
+            'Coverage must come from linter tests only (`dart test test/linter --coverage=...`).',
+      );
+    });
+
+    // CI selects tests by directory. A test file outside every category
+    // directory would run under a plain `dart test` but in no CI step.
+    test('every test file is in a category directory that CI runs', () {
+      final List<String> orphans = [
+        for (final File file in Directory(
+          p.join(packageRoot, 'test'),
+        ).listSync(recursive: true).whereType<File>())
+          if (file.path.endsWith('_test.dart'))
+            p.split(p.relative(file.path, from: packageRoot)).join('/'),
+      ].where((path) => !_testCategories.any((dir) => path.startsWith('$dir/'))).toList()..sort();
+      expect(
+        orphans,
+        isEmpty,
+        reason:
+            'Move each file into one of ${_testCategories.join(', ')}. See '
+            '"Where tests go" in CONTRIBUTING.md.',
       );
     });
 

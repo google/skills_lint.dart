@@ -36,7 +36,7 @@ String expandPath(String path) {
 /// [Directory.current], and `ValidationSession` anchors paths handed to its
 /// public methods. Code behind those points already holds absolute paths and
 /// must not canonicalize again, so a rule or feature added later inherits the
-/// guarantee. `test/path_boundary_test.dart` fails when a fourth call site
+/// guarantee. `test/linter/path_boundary_test.dart` fails when a fourth call site
 /// appears.
 String canonicalizePath(String rawPath, {required String baseDirectory}) {
   final String expanded = expandPath(rawPath);

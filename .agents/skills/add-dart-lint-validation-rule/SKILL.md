@@ -108,7 +108,7 @@ You must write automated tests verifying your rule triggers when it should and s
 Instead of writing files to disk, test the rule directly using a mock `SkillContext`. This is faster and avoids I/O dependencies.
 
 ```dart
-// test/my_new_rule_test.dart
+// test/linter/my_new_rule_test.dart
 
 import 'dart:io';
 import 'package:skills_lint/src/models/analysis_severity.dart';
@@ -177,7 +177,7 @@ If the rule interacts with the file system or wraps an external CLI tool (like `
 ```
 
 ### Integration Tests
-If the rule interacts with CLI flags or configuration files, add a test in `test/cli_integration_test.dart` using `TestProcess`.
+If the rule interacts with CLI flags or configuration files, add a test in `test/linter/cli_integration_test.dart` using `TestProcess`.
 > [!IMPORTANT]
 > When writing integration tests that use config files and `TestProcess`, ensure that paths in the config file and paths passed to the CLI match in style (both relative or both absolute) to avoid issues with path matching in `entry_point.dart`.
 
@@ -202,7 +202,7 @@ When a new rule is introduced, verify that you synchronize sibling markdown file
 
 - [ ] Rule class created in `lib/src/rules/`.
 - [ ] Rule registered in `lib/src/rule_registry.dart`.
-- [ ] Unit tests added in `test/` using in-memory `SkillContext`.
+- [ ] Unit tests added in `test/linter/` using in-memory `SkillContext`.
 - [ ] **CRITICAL**: Usage flag correctly documented in `README.md` under Flags (ensure flag string matches `ruleName` EXACTLY and format is correct).
 - [ ] Rule documented in `RULES.md`.
 - [ ] Schema documented in `documentation/knowledge/SPECIFICATION.md` (if applicable).

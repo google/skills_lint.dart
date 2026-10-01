@@ -1,13 +1,19 @@
-# Test tags for package:test. See
+# Configuration for package:test. See
 # https://github.com/dart-lang/test/blob/master/pkgs/test/doc/configuration.md
 #
-# Product tests live in test/ and check that skills_lint behaves correctly.
-# Repo checks live in test/repo/ and check that this repository follows its
-# own conventions. Every test file under test/repo/ declares @Tags(['repo']);
-# test/repo/test_layout_test.dart enforces that.
+# Tests are split by directory. See "Where tests go" in CONTRIBUTING.md.
 #
-#   dart test            runs both
-#   dart test -x repo    runs product tests only (CI collects coverage here)
-#   dart test -t repo    runs repo checks only
-tags:
-  repo:
+#   test/linter/               skills_lint, the shipped package, works.
+#   test/convention_checkers/  the helpers in test/src/ that the repo
+#                              convention checks use work.
+#   test/repo_conventions/     this repository follows its own conventions.
+#
+# `dart test` runs all three. Each preset runs one directory, for example
+# `dart test -P linter`. `dart test test/linter` does the same.
+presets:
+  linter:
+    paths: [test/linter]
+  convention_checkers:
+    paths: [test/convention_checkers]
+  repo_conventions:
+    paths: [test/repo_conventions]

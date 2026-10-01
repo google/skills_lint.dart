@@ -15,7 +15,7 @@ jobs:
   health:
     uses: dart-lang/ecosystem/.github/workflows/health.yaml@16dca7ae5d3ff896a4db47e1ed6cd50f7ebbf115 # main
     with:
-      # license is omitted because test/repo/copyright_header_test.dart checks
+      # license is omitted because test/repo_conventions/copyright_header_test.dart checks
       # headers. coverage is omitted because skills_lint_workflow.yaml gates
       # coverage with very_good_coverage.
       checks: "changelog,breaking,do-not-submit,unused-dependencies"
