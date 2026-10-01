@@ -6,13 +6,14 @@ import 'package:test/test.dart';
 
 import '../src/models/convention_violation.dart';
 import '../src/models/source.dart';
+import '../src/skip_reasons.dart';
 import '../src/source_conventions.dart';
 
 /// Source conventions that reviewers enforce, checked across the package.
 ///
-/// Each check runs a detector from `src/source_conventions.dart` over the
-/// package's Dart files. `source_convention_detectors_test.dart` pins what
-/// each detector reports on small snippets.
+/// Each check runs a detector from `src/` over the package's Dart files.
+/// `source_convention_detectors_test.dart` and `skip_reasons_test.dart` pin
+/// what each detector reports on small snippets.
 void main() {
   group('repository', () {
     late List<Source> sources;
@@ -43,6 +44,20 @@ void main() {
 
     test('no constant in bin/ or lib/ is declared as an alias of another constant', () {
       expectNoViolations(findConstAliases(under(const ['bin', 'lib'])), fix: _constAliasFix);
+    });
+
+    test('every skip: in test/ gives its reason as a string', () {
+      final List<ConventionViolation> violations = [
+        for (final Source source in under(const ['test'])) ...findSkipsWithoutReason(source),
+      ];
+      expectNoViolations(violations, fix: _skipFix);
+    });
+
+    test('every testOn: in test/ has a comment in the call that names the platform', () {
+      final List<ConventionViolation> violations = [
+        for (final Source source in under(const ['test'])) ...findTestOnWithoutComment(source),
+      ];
+      expectNoViolations(violations, fix: _testOnFix);
     });
   });
 }
@@ -77,3 +92,13 @@ final String _forbiddenOverrideFix = () {
 
 const String _constAliasFix =
     'Delete the second constant and reference the original constant directly.';
+
+const String _skipFix =
+    'Pass the reason as the `skip:` string, so the test runner prints it next to '
+    "the skipped test. For example: `skip: Platform.isWindows ? 'uses the POSIX "
+    "chmod command' : null`.";
+
+const String _testOnFix =
+    'Add a comment inside the test call that names the excluded platform and says '
+    'why the test cannot run there. For example: `// Skipped on Windows: the test '
+    'removes permissions with the POSIX chmod command, which Windows does not provide.`';
