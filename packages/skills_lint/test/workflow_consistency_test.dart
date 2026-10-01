@@ -26,9 +26,7 @@ void main() {
           'packages/skills_lint/example',
           'packages/skills_lint/skills',
           'packages/skills_lint/benchmark',
-          'packages/skills_lint/evals',
           '.agents/skills',
-          'third_party',
         ]),
       );
     });
@@ -41,7 +39,11 @@ void main() {
       final String repoRoot = _getWorkflowFile().parent.parent.parent.path;
       final List<String> unscanned = [
         for (final String file in _dartFiles(Directory(repoRoot), repoRoot))
-          if (!targets.any((String target) => file.startsWith('$target/'))) file,
+          if (![
+            ...targets,
+            ..._unscannedDirectories,
+          ].any((String target) => file.startsWith('$target/')))
+            file,
       ];
       expect(
         unscanned,
@@ -106,6 +108,16 @@ File _getWorkflowFile() {
   }
   return File(p.normalize(p.absolute('../../.github/workflows/skills_lint_workflow.yaml')));
 }
+
+/// Directories with Dart files that the cognitive complexity check skips.
+const Set<String> _unscannedDirectories = {
+  // Vendored skill repositories: code we don't maintain.
+  'third_party',
+  // Eval inputs, including deliberately bad code that the evals expect a
+  // reviewer to flag.
+  'packages/skills_lint/evals/test_data',
+  '.agents/skills/run-evals/resources/test_data',
+};
 
 /// Hidden directories under the repository root that hold source files.
 const Set<String> _hiddenSourceDirectories = {'.agents', '.github'};

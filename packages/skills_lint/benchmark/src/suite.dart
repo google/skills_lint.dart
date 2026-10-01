@@ -19,7 +19,8 @@ enum Metric {
   /// Time from process start to process exit, in milliseconds.
   wallTime('wall time', 'ms'),
 
-  /// Peak resident set size of the process, in MiB.
+  /// Peak resident set size (RSS) of the process, in MiB: the most physical
+  /// RAM that the process used at any one time.
   peakRss('peak RSS', 'MiB');
 
   const Metric(this.label, this.unit);

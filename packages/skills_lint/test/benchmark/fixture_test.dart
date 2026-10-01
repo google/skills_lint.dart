@@ -2,9 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:skills_lint/src/rule_registry.dart';
 import 'package:test/test.dart';
 
 import '../../benchmark/src/fixture.dart';
@@ -74,37 +76,48 @@ void main() {
     expect(snapshot(a), isNot(snapshot(b)));
   });
 
-  test('plants one error in every invalidEvery-th skill, cycling through each kind', () {
+  group('invalidKindsFor', () {
+    test('pairs each kind with the next one in the cycle', () {
+      expect(invalidKindsFor(0), {InvalidKind.nameMismatch, InvalidKind.trailingWhitespace});
+      expect(invalidKindsFor(InvalidKind.values.length), invalidKindsFor(0));
+    });
+
+    test('never combines missingSkillMd with another kind', () {
+      for (var i = 0; i < InvalidKind.values.length; i++) {
+        final Set<InvalidKind> kinds = invalidKindsFor(i);
+        if (kinds.contains(InvalidKind.missingSkillMd)) {
+          expect(kinds, {InvalidKind.missingSkillMd});
+        }
+      }
+    });
+  });
+
+  test('every registered rule reports at least once on the fixture', () async {
     final int count = InvalidKind.values.length * 3;
     final FixtureStats stats = writeFixture(
       tempDir.path,
       FixtureSpec(skillCount: count, invalidEvery: 3),
     );
-
     expect(stats.invalidSkillCount, InvalidKind.values.length);
-    final Map<String, String> files = snapshot(tempDir.path);
-    String skillMd(int index) => files.entries
-        .singleWhere(
-          (e) =>
-              e.key.startsWith('skills/skill-${index.toString().padLeft(4, '0')}-') &&
-              e.key.endsWith('/SKILL.md'),
-        )
-        .value;
 
-    int descriptionLength(int index) =>
-        RegExp(r'description: >-\n  (.*)\n').firstMatch(skillMd(index))!.group(1)!.length;
+    final ProcessResult result = await Process.run(Platform.resolvedExecutable, [
+      p.absolute('bin', 'skills_lint.dart'),
+      '--format',
+      'json',
+    ], workingDirectory: tempDir.path);
+    final List<Map<String, Object?>> results = (jsonDecode(result.stdout as String) as List)
+        .cast<Map<String, Object?>>();
 
-    expect(skillMd(0), contains('-renamed\n'), reason: 'nameMismatch');
-    expect(skillMd(3), matches(RegExp(r'[^ ] \n$')), reason: 'trailingWhitespace');
-    expect(
-      skillMd(6),
-      matches(RegExp(r'\[Missing\]\(references/[a-z]+-\d+s\.md\)')),
-      reason: 'brokenRelativeLink',
-    );
-    expect(descriptionLength(9), greaterThan(1024), reason: 'descriptionTooLong');
-    expect(skillMd(12), contains('[Absolute](<root>'), reason: 'absoluteLink');
-    expect(skillMd(1), isNot(contains('-renamed')));
-    expect(descriptionLength(1), lessThanOrEqualTo(1024));
+    final Set<String> reported = {
+      for (final skill in results)
+        for (final error in (skill['validationErrors']! as List).cast<Map<String, Object?>>())
+          error['ruleId']! as String,
+    };
+    expect(reported, {for (final check in RuleRegistry.allChecks) check.name});
+    final int skillsWithTwoErrors = results
+        .where((skill) => (skill['validationErrors']! as List).length >= 2)
+        .length;
+    expect(skillsWithTwoErrors, greaterThan(0));
   });
 
   test('always makes the first skill invalid', () {

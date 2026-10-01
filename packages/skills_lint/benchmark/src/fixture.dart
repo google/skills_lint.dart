@@ -27,12 +27,15 @@ final class FixtureSpec {
   /// fixture root.
   final int seed;
 
-  /// Every [invalidEvery]th skill, starting with the first, has one lint
-  /// error, cycling through [InvalidKind.values]. Must be at least 1.
+  /// Every [invalidEvery]th skill, starting with the first, has planted lint
+  /// errors chosen by [invalidKindsFor]. Must be at least 1.
   final int invalidEvery;
 }
 
 /// A lint error that the generator plants in an invalid skill.
+///
+/// Each kind violates a different built-in rule, and together they violate
+/// every built-in rule, so that every rule reports at least once.
 enum InvalidKind {
   /// Frontmatter `name:` differs from the directory name
   /// (`invalid-skill-name`, fixable).
@@ -51,6 +54,40 @@ enum InvalidKind {
   /// A link uses the absolute path of a file in the skill
   /// (`check-absolute-paths`, fixable).
   absoluteLink,
+
+  /// The frontmatter has a field outside the specification
+  /// (`disallowed-field`).
+  disallowedField,
+
+  /// `metadata: internal:` is `false` (`prevent-skills-sh-publishing`).
+  notInternal,
+
+  /// The skill name doesn't start with [fixturePackageName]
+  /// (`published-skill-name`).
+  unpublishedName,
+
+  /// The `compatibility:` field exceeds 500 characters
+  /// (`valid-yaml-metadata`).
+  compatibilityTooLong,
+
+  /// The skill directory has no `SKILL.md` (`path-does-not-exist`). The
+  /// other rules have nothing to read, so this kind is never combined.
+  missingSkillMd,
+}
+
+/// Returns the kinds planted in the [invalidIndex]th invalid skill.
+///
+/// Invalid skills cycle through [InvalidKind.values]. Each also gets the
+/// next kind in the cycle, so that most invalid skills have two errors,
+/// unless either kind is [InvalidKind.missingSkillMd].
+Set<InvalidKind> invalidKindsFor(int invalidIndex) {
+  const List<InvalidKind> kinds = InvalidKind.values;
+  final InvalidKind first = kinds[invalidIndex % kinds.length];
+  final InvalidKind second = kinds[(invalidIndex + 1) % kinds.length];
+  if (first == InvalidKind.missingSkillMd || second == InvalidKind.missingSkillMd) {
+    return {first};
+  }
+  return {first, second};
 }
 
 /// Counts of what [writeFixture] wrote.
@@ -81,11 +118,23 @@ final class FixtureStats {
 /// Name of the directory under the fixture root that holds the skills.
 const String skillsDirectoryName = 'skills';
 
+/// Package name that the fixture passes to `published-skill-name`.
+///
+/// Every generated skill name starts with `skill-`, apart from
+/// [InvalidKind.unpublishedName] skills.
+const String fixturePackageName = 'skill';
+
 /// Contents of the `skills_lint.yaml` written at the fixture root.
 ///
 /// It turns on every built-in rule, so each rule runs on every skill.
-/// `published-skill-name` gets the package name `skill`, which every
-/// generated skill name starts with, so that rule reports nothing.
+///
+/// `published-skill-name` checks that each skill name starts with a
+/// package name. Without `package_name`, the rule looks for a
+/// `pubspec.yaml` in the skill directory and each parent directory, so its
+/// result would depend on where the fixture is written: no `pubspec.yaml`
+/// makes the rule report every skill, and a parent Dart package makes it
+/// check against that package's name. Setting [fixturePackageName] keeps
+/// the workload the same wherever the fixture is written.
 const String fixtureConfig =
     '''
 skills_lint:
@@ -97,7 +146,7 @@ skills_lint:
     prevent-skills-sh-publishing: error
     published-skill-name:
       severity: error
-      package_name: skill
+      package_name: $fixturePackageName
   directories:
     - path: "$skillsDirectoryName"
 ''';
@@ -116,13 +165,13 @@ FixtureStats writeFixture(String root, FixtureSpec spec) {
   writer.write(p.join(root, 'skills_lint.yaml'), fixtureConfig);
   var invalid = 0;
   for (var i = 0; i < spec.skillCount; i++) {
-    final InvalidKind? kind = i % spec.invalidEvery == 0
-        ? InvalidKind.values[(i ~/ spec.invalidEvery) % InvalidKind.values.length]
-        : null;
-    if (kind != null) {
+    final Set<InvalidKind> kinds = i % spec.invalidEvery == 0
+        ? invalidKindsFor(i ~/ spec.invalidEvery)
+        : const {};
+    if (kinds.isNotEmpty) {
       invalid++;
     }
-    writer.writeSkill(i, kind);
+    writer.writeSkill(i, kinds);
   }
   return FixtureStats(
     skillCount: spec.skillCount,
@@ -157,8 +206,9 @@ final class _FixtureWriter {
     byteCount += contents.length;
   }
 
-  void writeSkill(int index, InvalidKind? kind) {
-    final dirName = 'skill-${index.toString().padLeft(4, '0')}-${_word()}-${_word()}';
+  void writeSkill(int index, Set<InvalidKind> kinds) {
+    final String prefix = kinds.contains(InvalidKind.unpublishedName) ? 'tool' : fixturePackageName;
+    final dirName = '$prefix-${index.toString().padLeft(4, '0')}-${_word()}-${_word()}';
     final String dir = p.join(root, skillsDirectoryName, dirName);
     final List<String> references = [
       for (var r = random.nextInt(4); r > 0; r--) 'references/${_word()}-$r.md',
@@ -167,9 +217,12 @@ final class _FixtureWriter {
       for (var s = random.nextInt(3); s > 0; s--) 'scripts/${_word()}-$s.sh',
     ];
     // The absolute link needs a file to point at, and the broken link needs
-    // a near-miss sibling for the suggestion search to find.
-    if ((kind == InvalidKind.absoluteLink || kind == InvalidKind.brokenRelativeLink) &&
-        references.isEmpty) {
+    // a near-miss sibling for the suggestion search to find. A skill without
+    // a SKILL.md still needs one file so that its directory exists.
+    if (references.isEmpty &&
+        (kinds.contains(InvalidKind.absoluteLink) ||
+            kinds.contains(InvalidKind.brokenRelativeLink) ||
+            kinds.contains(InvalidKind.missingSkillMd))) {
       references.add('references/${_word()}-1.md');
     }
     for (final ref in references) {
@@ -178,7 +231,9 @@ final class _FixtureWriter {
     for (final script in scripts) {
       write(p.join(dir, script), '#!/usr/bin/env bash\nset -euo pipefail\necho "${_sentence()}"\n');
     }
-    write(p.join(dir, 'SKILL.md'), _skillMd(dir, dirName, references, scripts, kind));
+    if (!kinds.contains(InvalidKind.missingSkillMd)) {
+      write(p.join(dir, 'SKILL.md'), _skillMd(dir, dirName, references, scripts, kinds));
+    }
   }
 
   String _skillMd(
@@ -186,10 +241,10 @@ final class _FixtureWriter {
     String dirName,
     List<String> references,
     List<String> scripts,
-    InvalidKind? kind,
+    Set<InvalidKind> kinds,
   ) {
-    final name = kind == InvalidKind.nameMismatch ? '$dirName-renamed' : dirName;
-    final String description = kind == InvalidKind.descriptionTooLong
+    final name = kinds.contains(InvalidKind.nameMismatch) ? '$dirName-renamed' : dirName;
+    final String description = kinds.contains(InvalidKind.descriptionTooLong)
         ? _words.join(' ') * 4
         : _paragraph(1 + random.nextInt(6));
     final buffer = StringBuffer()
@@ -197,31 +252,36 @@ final class _FixtureWriter {
       ..writeln('name: $name')
       ..writeln('description: >-')
       ..writeln('  $description');
-    _writeOptionalFields(buffer);
+    _writeOptionalFields(buffer, kinds);
     buffer
       ..writeln('metadata:')
-      ..writeln('  internal: true')
+      ..writeln('  internal: ${!kinds.contains(InvalidKind.notInternal)}')
       ..writeln('---')
       ..writeln()
       ..writeln('# ${_sentence()}')
       ..writeln()
       ..write(_markdown(2 + random.nextInt(12)));
-    _writeLinks(buffer, dir, references, scripts, kind);
-    if (kind == InvalidKind.trailingWhitespace) {
+    _writeLinks(buffer, dir, references, scripts, kinds);
+    if (kinds.contains(InvalidKind.trailingWhitespace)) {
       buffer.writeln('${_sentence()} ');
     }
     return buffer.toString();
   }
 
-  void _writeOptionalFields(StringBuffer buffer) {
+  void _writeOptionalFields(StringBuffer buffer, Set<InvalidKind> kinds) {
     if (random.nextBool()) {
       buffer.writeln('license: Apache-2.0');
     }
-    if (random.nextInt(4) == 0) {
+    if (kinds.contains(InvalidKind.compatibilityTooLong)) {
+      buffer.writeln('compatibility: ${_words.join(' ') * 2}');
+    } else if (random.nextInt(4) == 0) {
       buffer.writeln('compatibility: ${_sentence()}');
     }
     if (random.nextInt(3) == 0) {
       buffer.writeln('allowed-tools: Bash Read Write');
+    }
+    if (kinds.contains(InvalidKind.disallowedField)) {
+      buffer.writeln('owner: ${_word()}');
     }
   }
 
@@ -230,7 +290,7 @@ final class _FixtureWriter {
     String dir,
     List<String> references,
     List<String> scripts,
-    InvalidKind? kind,
+    Set<InvalidKind> kinds,
   ) {
     buffer
       ..writeln()
@@ -240,17 +300,12 @@ final class _FixtureWriter {
       buffer.writeln('- [${p.url.basename(target)}]($target): ${_sentence()}');
     }
     buffer.writeln('- [Specification](https://agentskills.io/specification)');
-    switch (kind) {
-      case InvalidKind.brokenRelativeLink:
-        final String existing = references.first;
-        buffer.writeln('- [Missing](${existing.replaceFirst('.md', 's.md')})');
-      case InvalidKind.absoluteLink:
-        buffer.writeln('- [Absolute](${p.join(dir, p.joinAll(p.url.split(references.first)))})');
-      case InvalidKind.nameMismatch ||
-          InvalidKind.trailingWhitespace ||
-          InvalidKind.descriptionTooLong ||
-          null:
-        break;
+    if (kinds.contains(InvalidKind.brokenRelativeLink)) {
+      final String existing = references.first;
+      buffer.writeln('- [Missing](${existing.replaceFirst('.md', 's.md')})');
+    }
+    if (kinds.contains(InvalidKind.absoluteLink)) {
+      buffer.writeln('- [Absolute](${p.join(dir, p.joinAll(p.url.split(references.first)))})');
     }
   }
 

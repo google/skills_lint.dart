@@ -10,8 +10,12 @@ import 'package:meta/meta.dart';
 import 'stats.dart';
 import 'suite.dart';
 
-/// Increase in a metric's median, as a fraction of the baseline median, that
-/// the report flags as a possible regression.
+/// Increase in a metric's median that the report flags as a possible
+/// regression.
+///
+/// Each value is a unitless fraction of the baseline median: `0.15` means a
+/// candidate median 15% above the baseline median, whether the metric is
+/// wall time in milliseconds or peak RSS in MiB.
 ///
 /// Each threshold is several times the run-to-run spread of the median
 /// measured with both targets built from the same commit, so noise alone

@@ -12,36 +12,19 @@ One benchmark, `validate_1000_skills_all_rules`, records two metrics:
 | Metric | What it covers |
 | --- | --- |
 | wall time | The installed executable (`dart install skills_lint` or a release binary) validating a repository of 1000 skills with every built-in rule on. |
-| peak RSS | Memory use of the same runs. Linux and macOS only. |
+| peak RSS | The most physical RAM that the process used, in the same runs. Linux and macOS only. |
 
 The runner builds the CLI with `dart compile exe` and generates the
 repository from a fixed seed, so every run validates the same files. Each
 skill has a `SKILL.md` with varied optional frontmatter fields and Markdown
-links to files under `references/` and `scripts/`. One skill in ten has one
-lint error, rotating through a name mismatch, trailing whitespace, a broken
-relative link, a description over 1024 characters and an absolute link. The
-repository has about 3400 files and 10 MB of text.
+links to files under `references/` and `scripts/`. A `skills_lint.yaml` at
+the fixture root turns on every built-in rule.
 
-### Why every rule is on
-
-A `skills_lint.yaml` at the fixture root turns on every built-in rule, not
-only the rules that are on by default. Much of the rule time is in rules
-that are off by default, so a benchmark with only the default rules would
-miss a slowdown in them. On the 1000-skill fixture (Apple M-series laptop,
-15 timed runs per configuration, medians, MAD 4-9%):
-
-| Rules on | Wall time | Added by rules |
-| --- | ---: | ---: |
-| None | 259 ms | |
-| Default rules | 325 ms | 67 ms |
-| Every rule | 423 ms | 165 ms |
-
-`check-relative-paths` (79 ms) is off by default and is the costliest
-rule. `check-absolute-paths` (55 ms) is the costliest default rule. The
-rules that are off by default add about 60% of the rule time. The default
-rules are a subset of every rule, so a slowdown in a default rule also
-shows in this benchmark. `test/benchmark/timings_test.dart` fails if a
-registered rule is missing from the fixture's `skills_lint.yaml`.
+One skill in ten has planted lint errors, and every built-in rule reports at
+least one of them. Most of these skills have two errors. The planted errors
+are listed in `InvalidKind` in [`src/fixture.dart`](src/fixture.dart), and
+`test/benchmark/fixture_test.dart` fails if a registered rule reports
+nothing on the fixture.
 
 ### What is left out
 
