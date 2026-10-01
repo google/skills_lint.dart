@@ -1,0 +1,14 @@
+{
+  "skill": "add-repo-convention-check",
+  "positive_triggers": [
+    "Add a test that fails if any file under lib/src calls exit() directly",
+    "Write a repo check that every TODO comment in the package links to an issue",
+    "Add a hygiene test that each rule file in lib/src/rules has a matching test file"
+  ],
+  "distractors": [
+    "Add a new lint rule that validates the license field in SKILL.md frontmatter",
+    "Write unit tests for the levenshtein distance function",
+    "Fix the failing assertion in validation_session_test.dart",
+    "Run skills_lint across .agents/skills and fix the errors"
+  ]
+}

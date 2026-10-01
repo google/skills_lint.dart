@@ -70,7 +70,7 @@ class ValidationSession {
   /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
   ValidationSession({
     required this.config,
-    // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
+    // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
     @Deprecated('Use resolvedRuleConfigs instead')
     Map<String, AnalysisSeverity> resolvedRules = const {},
     Map<String, RuleConfigPatch> resolvedRuleConfigs = const {},
@@ -489,7 +489,7 @@ class ValidationSession {
     _anyFailed = true;
   }
 
-  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
+  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
   @Deprecated('Use resolveRuleConfigsForPath instead')
   Map<String, AnalysisSeverity> resolveRulesForPath(String path) {
     return resolveRuleConfigsForPath(

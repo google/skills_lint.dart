@@ -18,7 +18,7 @@ import 'models/validation_result.dart';
 import 'rule_registry.dart';
 import 'rules/path_does_not_exist_rule.dart';
 
-// TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
+// TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
 export 'models/validation_result.dart';
 
 final _log = Logger('skills_lint');
@@ -30,7 +30,7 @@ class Validator {
   /// * [ruleConfigs] defines resolved severity and options for the validation rules.
   /// * [customRules] specifies custom rules to be included in the validation.
   Validator({
-    // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/179
+    // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
     @Deprecated('Use ruleConfigs instead') Map<String, AnalysisSeverity>? ruleOverrides,
     Map<String, RuleConfig>? ruleConfigs,
     List<SkillRule>? customRules,
