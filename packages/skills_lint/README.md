@@ -29,21 +29,11 @@ For a full definition of the skill standard, see the [Agent Skills Specification
 
 ## Installation
 
-`skills_lint` ships as both a standalone native binary (no Dart
-SDK required) and as a Dart package on pub.dev. Pick the path that
-matches your environment.
+`skills_lint` ships as a Dart package on pub.dev and requires the
+Dart SDK. Prebuilt binaries and Homebrew are tracked in
+[#80](https://github.com/google/skills_lint.dart/issues/80).
 
-> **Homebrew note.** A `brew install dart-skills-lint` path is on the
-> roadmap; it will land after `skills_lint` migrates to its own
-> dedicated repository. Until then, the install paths below cover all
-> supported platforms.
-
-### 1. Dart developers — pub.dev
-
-If you already have the Dart SDK installed, the standard pub.dev paths
-still work and are unchanged.
-
-#### As a project dev_dependency
+### As a project dev_dependency
 
 Add to your `pubspec.yaml`:
 ```yaml
@@ -56,60 +46,12 @@ Then:
 dart pub get
 ```
 
-#### Globally installed
+### Globally installed
 
 For multiple projects without per-project pubspec entries:
 ```bash
 dart install skills_lint
 ```
-
-### 2. `install.sh` — Linux + macOS, no Dart required
-
-The recommended path for CI runners and laptops without the Dart SDK
-on PATH. Downloads the matching prebuilt binary from the latest GitHub
-Release, verifies its SHA256, and installs to `/usr/local/bin` (with a
-`sudo` fallback). Supports macOS arm64 + x64 and Linux x64 + arm64.
-
-```bash
-curl -fsSL https://github.com/google/skills_lint.dart/releases/latest/download/install.sh | bash
-```
-
-Optional env vars (set before the `bash` part):
-- `INSTALL_DIR` — install destination (default `/usr/local/bin`).
-- `VERSION` — pin a specific release like `0.4.0` (default `latest`).
-- `REPO` — alternate source repo (default `google/skills_lint.dart`).
-
-#### macOS first-launch note
-
-macOS binaries are not yet code-signed. The first time you run the
-binary, macOS Gatekeeper will block it ("cannot be opened because the
-developer cannot be verified"). Remove the quarantine flag once:
-
-```bash
-xattr -d com.apple.quarantine "$(which skills_lint)"
-```
-
-This step goes away once notarized builds ship.
-
-### 3. Direct download — Linux + macOS, no install script
-
-For environments where piping a script to `bash` isn't acceptable.
-Grab the tarball for your platform from
-[the latest GitHub Release](https://github.com/google/skills_lint.dart/releases/latest)
-and verify its SHA256 against the release's `SHA256SUMS` asset.
-
-```bash
-TARGET="linux-x64"     # or: macos-arm64, macos-x64, linux-arm64
-VERSION="0.5.0"
-BASE="https://github.com/google/skills_lint.dart/releases/download/skills_lint-v${VERSION}"
-curl -fsSLO "${BASE}/skills_lint-${TARGET}.tar.gz"
-curl -fsSLO "${BASE}/SHA256SUMS"
-grep " skills_lint-${TARGET}.tar.gz$" SHA256SUMS | sha256sum -c -
-tar -xzf "skills_lint-${TARGET}.tar.gz"
-sudo install -m 0755 "skills_lint-${TARGET}" /usr/local/bin/skills_lint
-```
-
-On macOS, replace `sha256sum -c -` with `shasum -a 256 -c -`.
 
 ## Usage
 
