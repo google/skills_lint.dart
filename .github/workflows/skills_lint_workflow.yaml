@@ -67,7 +67,8 @@ jobs:
         run: dart run example/api_boundary_runner/bin/main.dart
 
   # Builds the CLI the way a release would and runs the CLI tests against
-  # the executable instead of `dart bin/skills_lint.dart`. startCli in
+  # the executable instead of `dart bin/skills_lint.dart`. The CLI tests are
+  # the libraries tagged `cli` (see dart_test.yaml). startCli in
   # test/test_utils.dart runs the executable named by SKILLS_LINT_EXECUTABLE,
   # in a temporary directory with no pubspec.yaml.
   compiled_binary:
@@ -100,7 +101,7 @@ jobs:
           echo "SKILLS_LINT_EXECUTABLE=$exe" >> "$GITHUB_ENV"
 
       - name: Run CLI tests against the compiled CLI
-        run: dart test test/cli_integration_test.dart
+        run: dart test --tags=cli
 
   coverage:
     runs-on: ubuntu-latest

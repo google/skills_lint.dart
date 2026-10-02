@@ -129,16 +129,23 @@ dependency here.
 ### Testing the compiled CLI
 
 CI also compiles the CLI with `dart compile exe` on Linux, macOS and Windows,
-and runs `test/cli_integration_test.dart` against the executable. The tests in
-that file start the CLI with `startCli` from `test/test_utils.dart`, which runs
-the executable named by the `SKILLS_LINT_EXECUTABLE` environment variable, or
-`dart bin/skills_lint.dart` when it is not set. Start the CLI with `startCli`
-in new CLI tests, so they cover both. To run them against an executable
-locally:
+and runs the CLI tests against the executable. A CLI test starts the CLI with
+`startCli` from `test/test_utils.dart`, and its library is tagged `cli`:
+
+```dart
+@Tags(['cli'])
+library;
+```
+
+`startCli` runs the executable named by the `SKILLS_LINT_EXECUTABLE`
+environment variable, or `dart bin/skills_lint.dart` when it is not set.
+`repo_test/cli_runs_convention_test.dart` fails if a file in `test/` names
+`bin/skills_lint.dart` itself, or calls `startCli` without the tag. To run the
+CLI tests against an executable locally:
 
 ```bash
 dart compile exe bin/skills_lint.dart -o /tmp/skills_lint
-SKILLS_LINT_EXECUTABLE=/tmp/skills_lint dart test test/cli_integration_test.dart
+SKILLS_LINT_EXECUTABLE=/tmp/skills_lint dart test --tags=cli
 ```
 
 ### Coverage

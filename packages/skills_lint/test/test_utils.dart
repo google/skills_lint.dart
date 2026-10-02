@@ -75,6 +75,9 @@ const cliExecutableEnvironmentVariable = 'SKILLS_LINT_EXECUTABLE';
 /// [workingDirectory], the CLI runs in the system temp directory, outside
 /// this package, so it reads no `pubspec.yaml` or configuration of this
 /// repository.
+///
+/// Tag a library that calls this with `@Tags(['cli'])`, so the CI job that
+/// sets [cliExecutableEnvironmentVariable] runs it.
 Future<TestProcess> startCli(
   List<String> arguments, {
   String? workingDirectory,
