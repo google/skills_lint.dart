@@ -11,6 +11,7 @@ void main() {
       expect(levenshtein('', ''), 0);
       expect(levenshtein('', 'dart'), 4);
       expect(levenshtein('dart', ''), 4);
+      expect(levenshtein('', '\u{1F600}'), 1);
     });
 
     test('returns zero for identical strings', () {
@@ -34,7 +35,15 @@ void main() {
     });
 
     test('counts Unicode code points instead of UTF-16 code units', () {
-      expect(levenshtein('a😀b', 'a😃b'), 1);
+      expect(levenshtein('a\u{1F600}b', 'ab'), 1);
+    });
+
+    test('handles multiple edits', () {
+      expect(levenshtein('kitten', 'sitting'), 3);
+    });
+
+    test('counts a transposition as two edits', () {
+      expect(levenshtein('ab', 'ba'), 2);
     });
   });
 }
