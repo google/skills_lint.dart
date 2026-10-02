@@ -36,8 +36,9 @@ on a laptop. Close other busy programs while it runs.
 In CI, [`benchmarks.yaml`](../../../.github/workflows/benchmarks.yaml)
 compares each change with its parent and puts both reports in the job
 summary. To compare with another commit, such as a release tag, start the
-workflow by hand and enter it as `baseline`. The workflow informs and never
-gates. A failed build or run shows as a warning in the job summary.
+workflow by hand and enter it as `baseline`. A slowdown adds a warning and
+does not fail the job. A failed build or run fails the job, and the job
+summary says which step failed.
 
 ## Reading the report
 

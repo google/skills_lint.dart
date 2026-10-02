@@ -3,9 +3,9 @@ permissions:
   contents: read
 
 # Measures the CLI against a baseline build on the same runner and reports
-# the results. It informs and never gates: a slowdown over the threshold adds
-# a warning annotation, and a failed build or run adds a line to the job
-# summary instead of failing the job. See
+# the results. A slowdown over the threshold adds a warning annotation and
+# does not fail the job. A failed build or run fails the job, because it
+# means the benchmarks are broken. See
 # packages/skills_lint/benchmark/README.md.
 on:
   pull_request:
@@ -14,6 +14,7 @@ on:
       - 'packages/skills_lint/lib/**'
       - 'packages/skills_lint/benchmark/**'
       - 'packages/skills_lint/pubspec.yaml'
+      - 'pubspec.yaml'
       - '.github/workflows/benchmarks.yaml'
   push:
     branches: [ main ]
@@ -22,6 +23,7 @@ on:
       - 'packages/skills_lint/lib/**'
       - 'packages/skills_lint/benchmark/**'
       - 'packages/skills_lint/pubspec.yaml'
+      - 'pubspec.yaml'
       - '.github/workflows/benchmarks.yaml'
   workflow_dispatch:
     inputs:
@@ -58,7 +60,6 @@ jobs:
       # commit, whose first parent is the previous tip of main.
       - name: Check out the baseline
         id: baseline
-        continue-on-error: true
         env:
           BASELINE: ${{ inputs.baseline }}
         run: |
@@ -70,7 +71,6 @@ jobs:
 
       - name: Run benchmarks
         id: benchmarks
-        continue-on-error: true
         run: >-
           dart run benchmark/run_benchmarks.dart
           --baseline "$RUNNER_TEMP/baseline/packages/skills_lint"
@@ -78,10 +78,12 @@ jobs:
           --markdown "$RUNNER_TEMP/benchmarks.md"
 
       # The rule timings run in process, so the baseline timings build this
-      # checkout's timing script against the baseline's code. The timings
-      # are information only: these steps never fail the job, and without
-      # baseline timings the report shows the candidate alone.
+      # checkout's timing script against the baseline's code. That build can
+      # fail because the library API changed since the baseline, not because
+      # of a defect, so this step does not fail the job. Without baseline
+      # timings the report shows the candidate alone.
       - name: Time each rule on the baseline
+        id: baseline_timings
         continue-on-error: true
         run: |
           baseline="$RUNNER_TEMP/baseline/packages/skills_lint"
@@ -93,7 +95,6 @@ jobs:
 
       - name: Time each rule
         id: timings
-        continue-on-error: true
         run: |
           baseline_args=()
           if [ -f "$RUNNER_TEMP/rule_timings_baseline.json" ]; then
@@ -103,28 +104,36 @@ jobs:
           "$RUNNER_TEMP/rule_timings" --repo-root "$GITHUB_WORKSPACE" "${baseline_args[@]}" \
             --json "$RUNNER_TEMP/rule_timings.json" --markdown "$RUNNER_TEMP/rule_timings.md"
 
+      # Runs after a failed step to explain it, but not after a cancel.
       - name: Write the job summary
+        if: ${{ !cancelled() }}
         env:
           BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
           BENCHMARKS_OUTCOME: ${{ steps.benchmarks.outcome }}
+          BASELINE_TIMINGS_OUTCOME: ${{ steps.baseline_timings.outcome }}
           TIMINGS_OUTCOME: ${{ steps.timings.outcome }}
         run: |
           {
             echo "Baseline: \`${BASELINE_SHA:-none}\`. Candidate: \`$(git rev-parse HEAD)\`."
             echo
-            if [ "$BASELINE_OUTCOME" != success ]; then
-              echo "> [!WARNING]"
-              echo "> Checking out or fetching dependencies for the baseline failed. See the step log."
+            if [ "$BASELINE_OUTCOME" = failure ]; then
+              echo "> [!CAUTION]"
+              echo "> Checking out or fetching dependencies for the baseline failed, so this job fails. See the \"Check out the baseline\" step log."
               echo
             fi
-            if [ "$BENCHMARKS_OUTCOME" != success ]; then
-              echo "> [!WARNING]"
-              echo "> The benchmark run failed: a build failed or the CLI exited with an unexpected code. See the \"Run benchmarks\" step log. This job informs and does not gate the change."
+            if [ "$BENCHMARKS_OUTCOME" = failure ]; then
+              echo "> [!CAUTION]"
+              echo "> The benchmark run failed: a build failed or the CLI exited with an unexpected code, so this job fails. See the \"Run benchmarks\" step log."
               echo
             fi
-            if [ "$TIMINGS_OUTCOME" != success ]; then
-              echo "> [!WARNING]"
-              echo "> The rule timings failed. See the \"Time each rule\" step log."
+            if [ "$BASELINE_TIMINGS_OUTCOME" = failure ]; then
+              echo "> [!NOTE]"
+              echo "> The rule timings on the baseline failed, so the rule timings show the candidate alone. This does not fail the job. See the \"Time each rule on the baseline\" step log."
+              echo
+            fi
+            if [ "$TIMINGS_OUTCOME" = failure ]; then
+              echo "> [!CAUTION]"
+              echo "> The rule timings failed, so this job fails. See the \"Time each rule\" step log."
               echo
             fi
             if [ -f "$RUNNER_TEMP/benchmarks.md" ]; then
@@ -136,7 +145,8 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: benchmarks
           path: |
