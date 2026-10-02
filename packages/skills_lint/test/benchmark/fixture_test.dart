@@ -34,6 +34,23 @@ void main() {
     }
   });
 
+  test('reads a sample skill checked out with CRLF line endings', () {
+    final Directory dir = Directory.systemTemp.createTempSync('fixture_test.');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    File(p.join(dir.path, 'SKILL.md')).writeAsStringSync(
+      '---\r\nname: crlf\r\ndescription: Uses CRLF.\r\nmetadata:\r\n  internal: true\r\n---\r\n\r\n# Body\r\n',
+    );
+    File(p.join(dir.path, 'references', 'a.md'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('A\r\n');
+
+    final sample = SampleSkill.read(dir);
+
+    expect(sample.name, 'crlf');
+    expect(sample.body, '# Body\n');
+    expect(sample.files, {'references/a.md': 'A\n'});
+  });
+
   group('fixtureSkill', () {
     test('gives the first skill the first planted violations', () {
       final FixtureSkill skill = fixtureSkill(0, samples);

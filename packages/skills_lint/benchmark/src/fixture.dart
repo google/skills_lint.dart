@@ -111,7 +111,7 @@ final class SampleSkill {
   /// Reads the sample skill in [directory]. Its `SKILL.md` gives the
   /// frontmatter and body, and every other file is copied as is.
   factory SampleSkill.read(Directory directory) {
-    final String skillMd = File(p.join(directory.path, 'SKILL.md')).readAsStringSync();
+    final String skillMd = _readText(File(p.join(directory.path, 'SKILL.md')));
     final RegExpMatch frontmatter = RegExp(
       r'^---\n(.*?)\n---\n\n',
       dotAll: true,
@@ -121,7 +121,7 @@ final class SampleSkill {
     for (final File file in directory.listSync(recursive: true).whereType<File>()) {
       final String path = p.split(p.relative(file.path, from: directory.path)).join('/');
       if (path != 'SKILL.md') {
-        files[path] = file.readAsStringSync();
+        files[path] = _readText(file);
       }
     }
     return SampleSkill(
@@ -267,3 +267,7 @@ void _write(String path, String contents) {
   file.parent.createSync(recursive: true);
   file.writeAsStringSync(contents);
 }
+
+/// Returns the contents of [file] with `\n` line endings. A Windows checkout
+/// can have `\r\n`, and the fixture must be the same on every platform.
+String _readText(File file) => file.readAsStringSync().replaceAll('\r\n', '\n');
