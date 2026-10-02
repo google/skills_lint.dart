@@ -22,16 +22,22 @@ const Set<String> _unscannedDirectories = {
   '.agents/skills/run-evals/resources/test_data',
 };
 
-/// Returns the entries of [testDirectories] that a `dart test` [command]
-/// selects. A command with no path argument selects `test`, package:test's
-/// default path.
-Set<String> _categoriesSelectedBy(String command) {
+/// Returns the paths that a `dart test` [command] selects, with `/`
+/// separators. A command with no path argument selects `test`,
+/// package:test's default path.
+Set<String> _pathsSelectedBy(String command) {
   final Set<String> paths = {
     for (final String arg in command.split(RegExp(r'\s+')).skip(2))
       if (!arg.startsWith('-')) p.url.normalize(arg),
   };
   return paths.isEmpty ? {'test'} : paths;
 }
+
+/// Returns the top-level directories of the paths that a `dart test`
+/// [command] selects, such as `test` for `test/cli_integration_test.dart`.
+Set<String> _categoriesSelectedBy(String command) => {
+  for (final String path in _pathsSelectedBy(command)) p.url.split(path).first,
+};
 
 void main() {
   group('CI workflow consistency', () {
@@ -91,14 +97,14 @@ void main() {
         unselected,
         isEmpty,
         reason:
-            'Each `dart test` step in the CI workflow must run exactly one of '
+            'Each `dart test` step in the CI workflow must run tests from exactly one of '
             '${testDirectories.join(', ')}, so a failure names its kind.',
       );
       for (final String category in testDirectories) {
         expect(
-          invocations.where((command) => _categoriesSelectedBy(command).contains(category)),
+          invocations.where((command) => _pathsSelectedBy(command).contains(category)),
           isNotEmpty,
-          reason: 'The CI workflow must run the tests in $category/.',
+          reason: 'The CI workflow must run every test in $category/ (`dart test $category`).',
         );
       }
       expect(

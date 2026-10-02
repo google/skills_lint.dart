@@ -24,6 +24,7 @@ import 'models/validation_target.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
 import 'validation_session.dart';
+import 'version.dart';
 
 export 'models/output_format.dart';
 export 'validation_session.dart';
@@ -44,6 +45,7 @@ const _dryRunFlag = 'dry-run';
 const _fixApplyFlag = 'fix-apply';
 const _allowMisconfiguredKeysFlag = 'allow-misconfigured-keys';
 const _configOption = 'config';
+const _versionFlag = 'version';
 
 const _formatOption = 'format';
 const _formatText = 'text';
@@ -140,6 +142,10 @@ Future<void> runApp(List<String> args) async {
       _printUsage(parser);
       return;
     }
+    if (results[_versionFlag] as bool) {
+      stdout.writeln(packageVersion);
+      return;
+    }
     resolvedRuleConfigs = resolveRuleConfigsFromCli(results);
   } on FormatException catch (e) {
     // ArgParserException (a FormatException) for unknown flags or disallowed
@@ -226,6 +232,7 @@ Future<void> runApp(List<String> args) async {
 ArgParser _createArgParser(String helpFlag) {
   final parser = ArgParser()
     ..addFlag(helpFlag, abbr: 'h', negatable: false, help: 'Show usage information.')
+    ..addFlag(_versionFlag, negatable: false, help: 'Print the skills_lint version.')
     ..addFlag(_printWarningsFlag, abbr: 'w', defaultsTo: true, help: 'Print validation warnings.');
 
   // Dynamically add flags for all registered rules.

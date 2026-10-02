@@ -66,6 +66,42 @@ jobs:
       - name: Verify API boundary runner
         run: dart run example/api_boundary_runner/bin/main.dart
 
+  # Builds the CLI the way a release would and runs the CLI tests against
+  # the executable instead of `dart bin/skills_lint.dart`. startCli in
+  # test/test_utils.dart runs the executable named by SKILLS_LINT_EXECUTABLE,
+  # in a temporary directory with no pubspec.yaml.
+  compiled_binary:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: stable
+
+      - run: dart pub get
+
+      - name: Compile the CLI
+        shell: bash
+        run: |
+          exe="$RUNNER_TEMP/skills_lint"
+          if [ "$RUNNER_OS" = Windows ]; then
+            exe="$exe.exe"
+          fi
+          dart compile exe --verbosity=error bin/skills_lint.dart -o "$exe"
+          size="$(wc -c < "$exe" | tr -d ' ')"
+          echo "skills_lint $("$exe" --version) on $RUNNER_OS $RUNNER_ARCH: $size bytes"
+          echo "Compiled skills_lint on $RUNNER_OS $RUNNER_ARCH: $size bytes." >> "$GITHUB_STEP_SUMMARY"
+          echo "SKILLS_LINT_EXECUTABLE=$exe" >> "$GITHUB_ENV"
+
+      - name: Run CLI tests against the compiled CLI
+        run: dart test test/cli_integration_test.dart
+
   coverage:
     runs-on: ubuntu-latest
     steps:
