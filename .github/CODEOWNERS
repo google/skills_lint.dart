@@ -1,0 +1,2 @@
+# Requests a review from reidbaker-agent on every PR. Approval is not required because the ruleset does not require code-owner review.
+* @reidbaker-agent
