@@ -30,8 +30,9 @@ info() { echo "install.sh: $*"; }
 # --- Detect platform ---------------------------------------------------------
 # Single source of truth: every "Supported: ..." message and the final
 # platform check derive from this list, so adding a build target only
-# requires touching one constant.
-SUPPORTED_TARGETS="macos-arm64 macos-x64 linux-x64 linux-arm64"
+# requires touching one constant. It must match the build matrix in
+# .github/workflows/release.yaml.
+SUPPORTED_TARGETS="macos-arm64 macos-x64 linux-x64"
 err_unsupported() { err "$1. Supported platforms: ${SUPPORTED_TARGETS// /, }."; }
 
 case "$(uname -s)" in

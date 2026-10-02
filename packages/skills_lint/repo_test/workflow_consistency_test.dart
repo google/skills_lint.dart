@@ -51,6 +51,7 @@ void main() {
           'packages/skills_lint/example',
           'packages/skills_lint/skills',
           'packages/skills_lint/benchmark',
+          'release',
           '.agents/skills',
         ]),
       );

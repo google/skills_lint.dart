@@ -1,0 +1,173 @@
+# Builds the skills_lint executables and publishes them as a GitHub Release.
+#
+# - A push of a release tag builds every target and publishes the release.
+#   The tag pattern matches publish.yaml, so pub.dev and the executables ship
+#   the same version.
+# - A manual run (workflow_dispatch) builds every target and creates a draft
+#   release that is never published. Use it to test this workflow; never push
+#   a test tag, because publish.yaml publishes any matching tag to pub.dev.
+# - A pull request that changes this workflow or the release scripts tests
+#   the scripts, builds every target and uploads the archives as workflow
+#   artifacts.
+#
+# The steps run the `release` command in release/. See RELEASING.md.
+
+name: Release
+
+on:
+  push:
+    # Must match the tag pattern in publish.yaml.
+    tags:
+      - 'skills_lint-v[0-9]+.[0-9]+.[0-9]+*'
+  pull_request:
+    paths:
+      - '.github/workflows/release.yaml'
+      - 'packages/skills_lint/pubspec.yaml'
+      - 'packages/skills_lint/scripts/install.sh'
+      - 'pubspec.yaml'
+      - 'release/**'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+    working-directory: release
+
+jobs:
+  test:
+    name: Test the release scripts (${{ matrix.os }})
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart analyze --fatal-infos
+      - run: dart test
+
+  build:
+    name: Build ${{ matrix.target }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      # Must match supportedTargets in release/lib/src/archive.dart and
+      # SUPPORTED_TARGETS in packages/skills_lint/scripts/install.sh.
+      matrix:
+        include:
+          - os: macos-latest
+            target: macos-arm64
+          # GitHub retires its Intel macOS runners around August 2027. Drop
+          # this target, and macos-x64 in scripts/install.sh, then.
+          - os: macos-15-intel
+            target: macos-x64
+          - os: ubuntu-latest
+            target: linux-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: stable
+      - run: dart pub get
+      # Compiles, runs and packages the executable with its license notices,
+      # checks the archive, and writes its .sha256 file.
+      - name: Build the archive
+        env:
+          TARGET: ${{ matrix.target }}
+        run: dart run bin/release.dart package --target "$TARGET" --output-dir "$RUNNER_TEMP/dist"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: skills_lint-${{ matrix.target }}
+          path: ${{ runner.temp }}/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Create the GitHub Release
+    needs: [test, build]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Create the release and upload its assets.
+      id-token: write # actions/attest: request a Sigstore signing certificate.
+      attestations: write # actions/attest: store the attestation.
+      artifact-metadata: write # actions/attest: create the artifact storage record.
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: stable
+      - run: dart pub get
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: ${{ runner.temp }}/dist
+          pattern: skills_lint-*
+          merge-multiple: true
+
+      - name: Check the checksums and write SHA256SUMS
+        run: dart run bin/release.dart checksums "$RUNNER_TEMP/dist"
+
+      # Checks the tag against the pubspec.yaml version, sets VERSION, TAG,
+      # PRERELEASE and DRY_RUN, and writes the notes from CHANGELOG.md.
+      - name: Prepare the release
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          RUN_ID: ${{ github.run_id }}
+        run: >-
+          dart run bin/release.dart prepare --event "$EVENT" --ref-name "$REF_NAME"
+          --run-id "$RUN_ID" --notes-output "$RUNNER_TEMP/notes.md" >> "$GITHUB_ENV"
+
+      - name: Attest build provenance
+        if: github.event_name == 'push'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/dist/*.tar.gz
+
+      # The release starts as a draft so that every asset is attached before
+      # it is published. Published releases can be immutable, which blocks
+      # later uploads. --target applies only when the tag doesn't exist, which
+      # is the dry-run tag.
+      - name: Create the draft release
+        env:
+          SHA: ${{ github.sha }}
+        run: >-
+          gh release create "$TAG" --draft --target "$SHA" --prerelease="$PRERELEASE"
+          --title "skills_lint $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+          "$RUNNER_TEMP"/dist/* ../packages/skills_lint/scripts/install.sh
+
+      - name: Publish the release
+        if: github.event_name == 'push'
+        run: gh release edit "$TAG" --draft=false
+
+      - name: Write the job summary
+        run: >-
+          echo "Created [$TAG]($(gh release view "$TAG" --json url --jq .url)).
+          Dry run: $DRY_RUN. Delete a dry-run draft when you are done." >> "$GITHUB_STEP_SUMMARY"
