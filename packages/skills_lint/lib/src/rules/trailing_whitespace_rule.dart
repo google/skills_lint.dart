@@ -19,7 +19,8 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
 
   static const String ruleName = 'check-trailing-whitespace';
   static const AnalysisSeverity defaultSeverity = AnalysisSeverity.disabled;
-  static final RegExp _whitespaceRegExp = RegExp(r'([ \t]+)$');
+  static const int _space = 0x20;
+  static const int _tab = 0x09;
   static const String _skillFileName = 'SKILL.md';
 
   @override
@@ -57,12 +58,12 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
       // Remove carriage return if present (Windows line endings)
       final String trimmedLine = line.endsWith('\r') ? line.substring(0, line.length - 1) : line;
 
-      final RegExpMatch? match = _whitespaceRegExp.firstMatch(trimmedLine);
-      if (match == null) {
+      final int whitespaceStart = trailingWhitespaceStart(trimmedLine);
+      if (whitespaceStart == trimmedLine.length) {
         continue;
       }
 
-      final String whitespace = match.group(1)!;
+      final String whitespace = trimmedLine.substring(whitespaceStart);
       final SourceRegion region = calculateTrailingWhitespaceRegion(
         lineNumber: lineNumber,
         trimmedLine: trimmedLine,
@@ -133,17 +134,32 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
     final bool hasCR = line.endsWith('\r');
     final String lineWithoutCR = hasCR ? line.substring(0, line.length - 1) : line;
 
-    final RegExpMatch? match = _whitespaceRegExp.firstMatch(lineWithoutCR);
-    if (match == null) {
+    final int whitespaceStart = trailingWhitespaceStart(lineWithoutCR);
+    if (whitespaceStart == lineWithoutCR.length) {
       return line;
     }
 
-    final String whitespace = match.group(1)!;
+    final String whitespace = lineWithoutCR.substring(whitespaceStart);
     if (whitespace == '  ') {
       return line; // Keep the 2 space hard line break.
     }
 
-    final String fixedLine = lineWithoutCR.replaceAll(_whitespaceRegExp, '');
+    final String fixedLine = lineWithoutCR.substring(0, whitespaceStart);
     return hasCR ? '$fixedLine\r' : fixedLine;
+  }
+
+  /// Returns the index where the run of spaces and tabs at the end of [line]
+  /// starts, or `line.length` if [line] doesn't end in a space or tab.
+  @visibleForTesting
+  static int trailingWhitespaceStart(String line) {
+    int start = line.length;
+    while (start > 0) {
+      final int char = line.codeUnitAt(start - 1);
+      if (char != _space && char != _tab) {
+        break;
+      }
+      start--;
+    }
+    return start;
   }
 }

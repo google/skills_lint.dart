@@ -12,6 +12,16 @@ import 'src/repo_paths.dart';
 
 const int _maxCognitiveComplexityThreshold = 20;
 
+/// Directories with Dart files that the cognitive complexity check skips.
+const Set<String> _unscannedDirectories = {
+  // Vendored skill repositories: code we don't maintain.
+  'third_party',
+  // Eval inputs, including deliberately bad code that the evals expect a
+  // reviewer to flag.
+  'packages/skills_lint/evals/test_data',
+  '.agents/skills/run-evals/resources/test_data',
+};
+
 /// Returns the entries of [testDirectories] that a `dart test` [command]
 /// selects. A command with no path argument selects `test`, package:test's
 /// default path.
@@ -40,8 +50,32 @@ void main() {
           'packages/skills_lint/repo_test',
           'packages/skills_lint/example',
           'packages/skills_lint/skills',
+          'packages/skills_lint/benchmark',
           '.agents/skills',
         ]),
+      );
+    });
+
+    test('CI cognitive complexity check scans every Dart file in the repository', () {
+      final List<String> targets = _parseCognitiveComplexityInvocation()
+          .group(2)!
+          .trim()
+          .split(RegExp(r'\s+'));
+      final List<String> unscanned = [
+        for (final String file in _dartFiles(Directory(repoRoot), repoRoot))
+          if (![
+            ...targets,
+            ..._unscannedDirectories,
+          ].any((String target) => file.startsWith('$target/')))
+            file,
+      ];
+      expect(
+        unscanned,
+        isEmpty,
+        reason:
+            'These Dart files are outside every path that the cognitive_complexity step in '
+            '.github/workflows/skills_lint_workflow.yaml scans. Add their directory to that '
+            'command and to .agents/skills/definition-of-done/SKILL.md:\n  ${unscanned.join('\n  ')}',
       );
     });
 
@@ -123,6 +157,28 @@ List<String> _dartTestInvocations() {
     ).allMatches(content))
       match.group(1)!.trim(),
   ];
+}
+
+/// Hidden directories under the repository root that hold source files.
+const Set<String> _hiddenSourceDirectories = {'.agents', '.github'};
+
+/// Returns the paths, relative to [root] and with `/` separators, of the Dart
+/// files under [dir].
+///
+/// Skips `build` directories and hidden directories, such as `.dart_tool`
+/// and `.git`, apart from [_hiddenSourceDirectories].
+Iterable<String> _dartFiles(Directory dir, String root) sync* {
+  for (final FileSystemEntity entity in dir.listSync(followLinks: false)) {
+    final String name = p.basename(entity.path);
+    if (entity is Directory) {
+      final bool hidden = name.startsWith('.') && !_hiddenSourceDirectories.contains(name);
+      if (!hidden && name != 'build') {
+        yield* _dartFiles(entity, root);
+      }
+    } else if (entity is File && name.endsWith('.dart')) {
+      yield p.split(p.relative(entity.path, from: root)).join('/');
+    }
+  }
 }
 
 File _getWorkflowFile() =>
