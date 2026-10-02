@@ -1,0 +1,9 @@
+# Configuration for package:test. See
+# https://github.com/dart-lang/test/blob/master/pkgs/test/doc/configuration.md
+
+tags:
+  # Test libraries that start the CLI with startCli from test/test_utils.dart.
+  # The compiled_binary CI job runs `dart test --tags=cli` against the
+  # executable from `dart compile exe`. repo_test/cli_runs_convention_test.dart
+  # fails if a library calls startCli without this tag.
+  cli: {}

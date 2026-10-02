@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:test/test.dart';
+import 'package:test_process/test_process.dart';
 import 'package:yaml/yaml.dart';
 
 /// Asserts that [instance] serializes via [toJson] to [expectedJson] (or matching map),
@@ -61,6 +62,34 @@ Future<void> withTempDir(FutureOr<void> Function(Directory tempDir) action) asyn
       await tempDir.delete(recursive: true);
     }
   }
+}
+
+/// The environment variable that names a compiled skills_lint executable for
+/// [startCli] to run, such as one built by `dart compile exe`.
+const cliExecutableEnvironmentVariable = 'SKILLS_LINT_EXECUTABLE';
+
+/// Starts the skills_lint CLI with [arguments] in [workingDirectory].
+///
+/// Runs the executable named by [cliExecutableEnvironmentVariable] when it is
+/// set, and `dart bin/skills_lint.dart` otherwise. Without a
+/// [workingDirectory], the CLI runs in the system temp directory, outside
+/// this package, so it reads no `pubspec.yaml` or configuration of this
+/// repository.
+///
+/// Tag a library that calls this with `@Tags(['cli'])`, so the CI job that
+/// sets [cliExecutableEnvironmentVariable] runs it.
+Future<TestProcess> startCli(
+  List<String> arguments, {
+  String? workingDirectory,
+  Map<String, String>? environment,
+}) {
+  final String? executable = Platform.environment[cliExecutableEnvironmentVariable];
+  return TestProcess.start(
+    executable ?? 'dart',
+    [if (executable == null) p.normalize(p.absolute('bin', 'skills_lint.dart')), ...arguments],
+    workingDirectory: workingDirectory ?? Directory.systemTemp.path,
+    environment: environment,
+  );
 }
 
 /// Creates a physical skill directory on the filesystem containing a `SKILL.md` file.

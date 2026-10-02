@@ -2,6 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+@Tags(['cli'])
+library;
+
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -312,7 +315,6 @@ $ruleYaml
   group('CLI $_flag', () {
     late Directory tempDir;
     late String skillPath;
-    final String binPath = p.normalize(p.absolute('bin/skills_lint.dart'));
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('description_limit_test.');
@@ -339,16 +341,11 @@ $rule
     }
 
     Future<TestProcess> run(List<String> args) {
-      return TestProcess.start('dart', [
-        binPath,
-        '-s',
-        skillPath,
-        ...args,
-      ], workingDirectory: tempDir.path);
+      return startCli(['-s', skillPath, ...args], workingDirectory: tempDir.path);
     }
 
     test('--help lists the flag', () async {
-      final TestProcess process = await TestProcess.start('dart', [binPath, '--help']);
+      final TestProcess process = await startCli(['--help']);
 
       await process.shouldExit(0);
       final String stdout = (await process.stdout.rest.toList()).join('\n');

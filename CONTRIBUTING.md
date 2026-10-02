@@ -126,6 +126,28 @@ dependency that no package test uses, move `repo_test/` to its own unpublished
 workspace package (for example `packages/repo_checks/`) instead of adding the
 dependency here.
 
+### Testing the compiled CLI
+
+CI also compiles the CLI with `dart compile exe` on Linux, macOS and Windows,
+and runs the CLI tests against the executable. A CLI test starts the CLI with
+`startCli` from `test/test_utils.dart`, and its library is tagged `cli`:
+
+```dart
+@Tags(['cli'])
+library;
+```
+
+`startCli` runs the executable named by the `SKILLS_LINT_EXECUTABLE`
+environment variable, or `dart bin/skills_lint.dart` when it is not set.
+`repo_test/cli_runs_convention_test.dart` fails if a file in `test/` names
+`bin/skills_lint.dart` itself, or calls `startCli` without the tag. To run the
+CLI tests against an executable locally:
+
+```bash
+dart compile exe bin/skills_lint.dart -o /tmp/skills_lint
+SKILLS_LINT_EXECUTABLE=/tmp/skills_lint dart test --tags=cli
+```
+
 ### Coverage
 
 CI enforces a minimum line-coverage threshold for `lib/` (currently 73%),

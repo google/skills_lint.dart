@@ -2,6 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+@Tags(['cli'])
+library;
+
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -99,8 +102,7 @@ description: A test skill
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
       ], workingDirectory: tempDir.path);
@@ -127,8 +129,7 @@ description: A test skill
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
       ], workingDirectory: tempDir.path);
@@ -161,9 +162,8 @@ Line with 1 space
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start(
-        'dart',
-        [p.normalize(p.absolute('bin/skills_lint.dart')), '-s', '~/test-skill'],
+      final TestProcess process = await startCli(
+        ['-s', '~/test-skill'],
         environment: {'HOME': tempDir.path},
         workingDirectory: tempDir.path,
       );
@@ -196,8 +196,7 @@ Line with 1 space
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
         '--no-check-trailing-whitespace',
@@ -240,8 +239,7 @@ Line with 1 space
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
         '-s',
@@ -279,9 +277,7 @@ Body''');
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
-      ], workingDirectory: tempDir.path);
+      final TestProcess process = await startCli([], workingDirectory: tempDir.path);
 
       await process.shouldExit(0);
     });
@@ -303,8 +299,7 @@ description: A test skill
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
         '--check-relative-paths',
@@ -331,8 +326,7 @@ Body''');
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
       ], workingDirectory: tempDir.path);
@@ -366,16 +360,14 @@ Body''');
       );
 
       // 1. Run without --ignore-config. Should pass because config disables the check.
-      final TestProcess passProcess = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess passProcess = await startCli([
         '-s',
         'TEST-SKILL',
       ], workingDirectory: tempDir.path);
       await passProcess.shouldExit(0);
 
       // 2. Run with --ignore-config. Should fail because config is ignored and default is used.
-      final TestProcess failProcess = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess failProcess = await startCli([
         '-s',
         'TEST-SKILL',
         '--ignore-config',
@@ -402,8 +394,7 @@ Body''');
       );
 
       // 1. Generate baseline with --ignore-config. It should ignore config (so the rule is enabled) and find violations to generate baseline for!
-      final TestProcess genProcess = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess genProcess = await startCli([
         '-s',
         'TEST-SKILL',
         '--generate-baseline',
@@ -432,8 +423,7 @@ skills_lint:
   invalid-key: value
 ''');
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
       ], workingDirectory: tempDir.path);
@@ -465,9 +455,7 @@ skills_lint:
     - path: "good-skill"
 ''');
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
-      ], workingDirectory: tempDir.path);
+      final TestProcess process = await startCli([], workingDirectory: tempDir.path);
 
       final List<String> stderr = await process.stderr.rest.toList();
       final String stderrStr = stderr.join('\n');
@@ -493,8 +481,7 @@ skills_lint:
       invalid-dir-key: value
 ''');
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
       ], workingDirectory: tempDir.path);
@@ -524,8 +511,7 @@ skills_lint:
       invalid-parameter-key: value
 ''');
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
       ], workingDirectory: tempDir.path);
@@ -557,8 +543,7 @@ skills_lint:
       exclude: 123
 ''');
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
       ], workingDirectory: tempDir.path);
@@ -589,8 +574,7 @@ skills_lint:
   invalid-key: value
 ''');
 
-        final TestProcess process = await TestProcess.start('dart', [
-          p.normalize(p.absolute('bin/skills_lint.dart')),
+        final TestProcess process = await startCli([
           '-s',
           'test-skill',
           '--allow-misconfigured-keys',
@@ -621,8 +605,7 @@ description: A test skill
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
         '--config',
@@ -643,8 +626,7 @@ description: A test skill
 ---
 Body''');
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
         '--config',
@@ -675,8 +657,7 @@ Body''');
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'TEST-SKILL',
         '--config',
@@ -703,8 +684,7 @@ skills_lint:
       invalid-ind-key: value
 ''');
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
       ], workingDirectory: tempDir.path);
@@ -748,9 +728,7 @@ Body''');
         );
 
         // Run with NO arguments (no -s or -d)
-        final TestProcess process = await TestProcess.start('dart', [
-          p.normalize(p.absolute('bin/skills_lint.dart')),
-        ], workingDirectory: tempDir.path);
+        final TestProcess process = await startCli([], workingDirectory: tempDir.path);
 
         final List<String> stdout = await process.stdout.rest.toList();
         final String output = stdout.join('\n');
@@ -785,8 +763,7 @@ Body''');
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'cli-skill',
       ], workingDirectory: tempDir.path);
@@ -833,11 +810,7 @@ Body''');
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
-        '-d',
-        'dir1',
-      ], workingDirectory: tempDir.path);
+      final TestProcess process = await startCli(['-d', 'dir1'], workingDirectory: tempDir.path);
 
       final List<String> stdout = await process.stdout.rest.toList();
       final String output = stdout.join('\n');
@@ -874,8 +847,7 @@ Body''');
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-d',
         'skills-root',
       ], workingDirectory: tempDir.path);
@@ -912,8 +884,7 @@ Body''');
         ).toYamlString(),
       );
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-d',
         'skills-root',
       ], workingDirectory: tempDir.path);
@@ -947,8 +918,7 @@ skills_lint:
           exclude: ~
 ''');
 
-        final TestProcess process = await TestProcess.start('dart', [
-          p.normalize(p.absolute('bin/skills_lint.dart')),
+        final TestProcess process = await startCli([
           '-d',
           'skills-root',
         ], workingDirectory: tempDir.path);
@@ -977,8 +947,7 @@ skills_lint:
         - ".*-workspace"
 ''');
 
-      final TestProcess process = await TestProcess.start('dart', [
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '-s',
         'test-skill',
       ], workingDirectory: tempDir.path);
@@ -1012,8 +981,7 @@ skills_lint:
       exclude: "[a-z"
 ''');
 
-        final TestProcess process = await TestProcess.start('dart', [
-          p.normalize(p.absolute('bin/skills_lint.dart')),
+        final TestProcess process = await startCli([
           '-s',
           'test-skill',
         ], workingDirectory: tempDir.path);
@@ -1040,8 +1008,7 @@ skills_lint:
         },
       );
 
-      final TestProcess process = await TestProcess.start('dart', <String>[
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '--config',
         p.join(p.basename(subpackage.path), 'skills_lint.yaml'),
         '-d',
@@ -1060,8 +1027,7 @@ skills_lint:
         skillBody: 'Valid content\n',
       );
 
-      final TestProcess process = await TestProcess.start('dart', <String>[
-        p.normalize(p.absolute('bin/skills_lint.dart')),
+      final TestProcess process = await startCli([
         '--config',
         p.join(p.basename(subpackage.path), 'skills_lint.yaml'),
       ], workingDirectory: tempDir.path);
