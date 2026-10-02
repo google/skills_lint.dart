@@ -15,8 +15,8 @@ import '../../benchmark/src/suite.dart';
 final Set<String> _registeredRules = {for (final check in RuleRegistry.allChecks) check.name};
 
 void main() {
-  final List<SkillTemplate> templates = readTemplates();
-  final SkillTemplate small = templates.firstWhere((t) => t.name == 'small');
+  final List<SampleSkill> samples = readSampleSkills();
+  final SampleSkill small = samples.firstWhere((t) => t.name == 'format-dart-code');
 
   test('has one violation for each registered rule, and plants every one', () {
     expect(violations.keys.toSet(), _registeredRules);
@@ -24,33 +24,36 @@ void main() {
     expect(plantedViolations.where((rules) => rules.length > 1), isNotEmpty);
   });
 
-  test('reads the small, medium and large templates', () {
-    expect([for (final t in templates) t.name], ['large', 'medium', 'small']);
-    for (final t in templates) {
+  test('reads the sample skills', () {
+    expect(
+      [for (final t in samples) t.name],
+      ['format-dart-code', 'release-dart-package', 'triage-github-issues'],
+    );
+    for (final t in samples) {
       expect(t.firstReference, startsWith('references/'), reason: t.name);
     }
   });
 
   group('fixtureSkill', () {
     test('gives the first skill the first planted violations', () {
-      final FixtureSkill skill = fixtureSkill(0, templates);
+      final FixtureSkill skill = fixtureSkill(0, samples);
 
       expect(skill.name, '${skill.directoryName}-renamed');
       expect(skill.bodySuffix, endsWith(' \n'));
     });
 
     test('leaves skills between planted ones valid', () {
-      final FixtureSkill skill = fixtureSkill(1, templates);
+      final FixtureSkill skill = fixtureSkill(1, samples);
 
       expect(skill.name, skill.directoryName);
       expect(skill.internal, isTrue);
-      expect(skill.fields, isEmpty);
+      expect(skill.fields, skill.sample.fields);
       expect(skill.bodySuffix, isEmpty);
     });
   });
 
   group('renderSkillMd', () {
-    test('writes the frontmatter and then the template body', () {
+    test('writes the frontmatter and then the sample skill body', () {
       final skill = FixtureSkill(small, 'skill-0001');
 
       expect(
@@ -76,15 +79,15 @@ void main() {
       final String rendered = renderSkillMd(skill, dir);
 
       expect(rendered, contains('owner: benchmarks\n'));
-      expect(rendered, contains('- [Link](references/guides.md)\n'));
-      expect(rendered, contains('- [Link](${p.join(dir, 'references', 'guide.md')})\n'));
+      expect(rendered, contains('- [Link](references/style-notess.md)\n'));
+      expect(rendered, contains('- [Link](${p.join(dir, 'references', 'style-notes.md')})\n'));
     });
   });
 
   test('every registered rule reports at least once on the fixture', () async {
     final Directory tempDir = Directory.systemTemp.createTempSync('fixture_test.');
     addTearDown(() => tempDir.deleteSync(recursive: true));
-    writeFixture(tempDir.path, invalidEvery * plantedViolations.length, templates: templates);
+    writeFixture(tempDir.path, invalidEvery * plantedViolations.length, samples: samples);
 
     final ProcessResult result = await Process.run(Platform.resolvedExecutable, [
       p.absolute('bin', 'skills_lint.dart'),
@@ -104,5 +107,10 @@ void main() {
         for (final error in skillErrors) error['ruleId']! as String,
     }, _registeredRules);
     expect(errors.where((skillErrors) => skillErrors.length > 1), isNotEmpty);
+    expect(
+      errors.where((skillErrors) => skillErrors.isNotEmpty),
+      hasLength(plantedViolations.length),
+      reason: 'Only the skills with planted violations report, so the sample skills are valid.',
+    );
   });
 }

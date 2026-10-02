@@ -12,6 +12,16 @@ import 'src/repo_paths.dart';
 
 const int _maxCognitiveComplexityThreshold = 20;
 
+/// Directories with Dart files that the cognitive complexity check skips.
+const Set<String> _unscannedDirectories = {
+  // Vendored skill repositories: code we don't maintain.
+  'third_party',
+  // Eval inputs, including deliberately bad code that the evals expect a
+  // reviewer to flag.
+  'packages/skills_lint/evals/test_data',
+  '.agents/skills/run-evals/resources/test_data',
+};
+
 /// Returns the entries of [testDirectories] that a `dart test` [command]
 /// selects. A command with no path argument selects `test`, package:test's
 /// default path.
@@ -148,16 +158,6 @@ List<String> _dartTestInvocations() {
       match.group(1)!.trim(),
   ];
 }
-
-/// Directories with Dart files that the cognitive complexity check skips.
-const Set<String> _unscannedDirectories = {
-  // Vendored skill repositories: code we don't maintain.
-  'third_party',
-  // Eval inputs, including deliberately bad code that the evals expect a
-  // reviewer to flag.
-  'packages/skills_lint/evals/test_data',
-  '.agents/skills/run-evals/resources/test_data',
-};
 
 /// Hidden directories under the repository root that hold source files.
 const Set<String> _hiddenSourceDirectories = {'.agents', '.github'};

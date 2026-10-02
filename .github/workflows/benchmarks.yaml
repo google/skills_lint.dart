@@ -104,7 +104,6 @@ jobs:
             --json "$RUNNER_TEMP/rule_timings.json" --markdown "$RUNNER_TEMP/rule_timings.md"
 
       - name: Write the job summary
-        if: always()
         env:
           BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
           BENCHMARKS_OUTCOME: ${{ steps.benchmarks.outcome }}
@@ -137,8 +136,7 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: benchmarks
           path: |

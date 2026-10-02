@@ -6,24 +6,26 @@
 ///
 /// The repository is generated rather than checked in, because the CLI's
 /// walk over 1000 skill directories is part of what the benchmarks measure.
-/// Each skill is a copy of a template in `benchmark/fixture_templates/`.
+/// Each skill is a copy of one of the sample skills in
+/// `benchmark/sample_skills/`: a small, a medium and a large one.
 ///
 /// The first skill always has planted violations, so the CLI exits with 1
 /// on the fixture. `expectedExitCode` in `suite.dart` relies on this.
 ///
-/// Changing the templates, [violations] or [plantedViolations] changes the
+/// Changing the sample skills, [violations] or [plantedViolations] changes the
 /// workload, so rename the benchmark in `suite.dart` when you change them.
 library;
 
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:yaml/yaml.dart';
 
 /// Name of the directory under the fixture root that holds the skills.
 const String skillsDirectoryName = 'skills';
 
-/// Directory of the templates, relative to `packages/skills_lint`.
-final String templatesDirectory = p.join('benchmark', 'fixture_templates');
+/// Directory of the sample skills, relative to `packages/skills_lint`.
+final String sampleSkillsDirectory = p.join('benchmark', 'sample_skills');
 
 /// Package name that the fixture passes to `published-skill-name`.
 const String fixturePackageName = 'skill';
@@ -76,8 +78,8 @@ final Map<String, SkillEdit> violations = {
   // A near miss of a real file, so that the rule also runs its search for
   // a suggestion.
   'check-relative-paths': (s) =>
-      s.relativeLinks.add(s.template.firstReference.replaceFirst('.md', 's.md')),
-  'check-absolute-paths': (s) => s.absoluteLinks.add(s.template.firstReference),
+      s.relativeLinks.add(s.sample.firstReference.replaceFirst('.md', 's.md')),
+  'check-absolute-paths': (s) => s.absoluteLinks.add(s.sample.firstReference),
   'path-does-not-exist': (s) => s.omitSkillMd = true,
 };
 
@@ -96,29 +98,52 @@ const List<List<String>> plantedViolations = [
   ['path-does-not-exist'],
 ];
 
-/// A checked-in skill that the fixture copies.
-final class SkillTemplate {
-  SkillTemplate({required this.name, required this.body, required this.files});
+/// A checked-in sample skill that the fixture copies.
+final class SampleSkill {
+  SampleSkill({
+    required this.name,
+    required this.description,
+    required this.fields,
+    required this.body,
+    required this.files,
+  });
 
-  /// Reads the template in [directory]: `body.md` is the `SKILL.md` body,
-  /// and every other file is copied as is.
-  factory SkillTemplate.read(Directory directory) {
+  /// Reads the sample skill in [directory]. Its `SKILL.md` gives the
+  /// frontmatter and body, and every other file is copied as is.
+  factory SampleSkill.read(Directory directory) {
+    final String skillMd = File(p.join(directory.path, 'SKILL.md')).readAsStringSync();
+    final RegExpMatch frontmatter = RegExp(
+      r'^---\n(.*?)\n---\n\n',
+      dotAll: true,
+    ).firstMatch(skillMd)!;
+    final yaml = loadYaml(frontmatter.group(1)!) as YamlMap;
     final files = <String, String>{};
     for (final File file in directory.listSync(recursive: true).whereType<File>()) {
       final String path = p.split(p.relative(file.path, from: directory.path)).join('/');
-      if (path != 'body.md') {
+      if (path != 'SKILL.md') {
         files[path] = file.readAsStringSync();
       }
     }
-    return SkillTemplate(
-      name: p.basename(directory.path),
-      body: File(p.join(directory.path, 'body.md')).readAsStringSync(),
+    return SampleSkill(
+      name: yaml['name'] as String,
+      description: yaml['description'] as String,
+      fields: {
+        for (final MapEntry(:key, :value) in yaml.entries)
+          if (!const {'name', 'description', 'metadata'}.contains(key)) '$key': '$value',
+      },
+      body: skillMd.substring(frontmatter.end),
       files: Map.fromEntries(files.entries.toList()..sort((a, b) => a.key.compareTo(b.key))),
     );
   }
 
-  /// Directory name of the template, such as `small`.
+  /// Frontmatter `name:`, which is also the directory name.
   final String name;
+
+  /// Frontmatter `description:`.
+  final String description;
+
+  /// The other frontmatter fields apart from `metadata:`, in file order.
+  final Map<String, String> fields;
 
   /// The Markdown below the frontmatter.
   final String body;
@@ -126,26 +151,27 @@ final class SkillTemplate {
   /// Files next to `SKILL.md`, keyed by `/`-separated relative path.
   final Map<String, String> files;
 
-  /// The first file under `references/`. Every template has one.
+  /// The first file under `references/`. Every sample skill has one.
   String get firstReference => files.keys.firstWhere((path) => path.startsWith('references/'));
 }
 
-/// Reads the templates in [directory], sorted by name.
-List<SkillTemplate> readTemplates([String? directory]) {
+/// Reads the sample skills in [directory], sorted by name.
+List<SampleSkill> readSampleSkills([String? directory]) {
   final List<Directory> dirs = Directory(
-    directory ?? templatesDirectory,
+    directory ?? sampleSkillsDirectory,
   ).listSync().whereType<Directory>().toList()..sort((a, b) => a.path.compareTo(b.path));
-  return [for (final dir in dirs) SkillTemplate.read(dir)];
+  return [for (final dir in dirs) SampleSkill.read(dir)];
 }
 
 /// One generated skill, before it is written.
 final class FixtureSkill {
-  FixtureSkill(this.template, this.directoryName)
+  FixtureSkill(this.sample, this.directoryName)
     : name = directoryName,
-      description = 'Benchmark fixture skill copied from the ${template.name} template.';
+      description = sample.description,
+      fields = {...sample.fields};
 
-  /// The template whose body and files this skill copies.
-  final SkillTemplate template;
+  /// The sample skill whose body, fields and files this skill copies.
+  final SampleSkill sample;
 
   /// Name of the skill directory.
   String directoryName;
@@ -160,7 +186,7 @@ final class FixtureSkill {
   bool internal = true;
 
   /// Other frontmatter fields, written in insertion order.
-  final Map<String, String> fields = {};
+  final Map<String, String> fields;
 
   /// Extra links, relative to the skill directory, added to the body.
   final List<String> relativeLinks = [];
@@ -177,9 +203,9 @@ final class FixtureSkill {
 }
 
 /// Returns the skill at [index], with its violations applied.
-FixtureSkill fixtureSkill(int index, List<SkillTemplate> templates) {
+FixtureSkill fixtureSkill(int index, List<SampleSkill> samples) {
   final skill = FixtureSkill(
-    templates[index % templates.length],
+    samples[index % samples.length],
     '$fixturePackageName-${index.toString().padLeft(4, '0')}',
   );
   if (index % invalidEvery == 0) {
@@ -206,7 +232,7 @@ String renderSkillMd(FixtureSkill skill, String skillDirectory) {
     ..writeln('  internal: ${skill.internal}')
     ..writeln('---')
     ..writeln()
-    ..write(skill.template.body);
+    ..write(skill.sample.body);
   for (final String link in skill.relativeLinks) {
     buffer.writeln('- [Link]($link)');
   }
@@ -221,13 +247,13 @@ String renderSkillMd(FixtureSkill skill, String skillDirectory) {
 
 /// Writes `skills_lint.yaml` and [skillCount] skills into [root], which must
 /// be empty or missing.
-void writeFixture(String root, int skillCount, {List<SkillTemplate>? templates}) {
-  final List<SkillTemplate> sources = templates ?? readTemplates();
+void writeFixture(String root, int skillCount, {List<SampleSkill>? samples}) {
+  final List<SampleSkill> sources = samples ?? readSampleSkills();
   _write(p.join(root, 'skills_lint.yaml'), fixtureConfig);
   for (var i = 0; i < skillCount; i++) {
     final FixtureSkill skill = fixtureSkill(i, sources);
     final String dir = p.join(root, skillsDirectoryName, skill.directoryName);
-    for (final MapEntry(key: path, value: contents) in skill.template.files.entries) {
+    for (final MapEntry(key: path, value: contents) in skill.sample.files.entries) {
       _write(p.join(dir, p.joinAll(p.url.split(path))), contents);
     }
     if (!skill.omitSkillMd) {
