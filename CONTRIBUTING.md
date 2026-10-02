@@ -98,7 +98,7 @@ The package has two test roots, side by side in `packages/skills_lint/`:
 
 | Directory | What goes there | A change to … can break it |
 | :--- | :--- | :--- |
-| `test/` | Tests of the shipped skills_lint package: rules, the CLI, configuration, the fixer, the install script and the public API. | `lib/`, `bin/` |
+| `test/` | Tests of the shipped skills_lint package: rules, the CLI, configuration, the fixer, the install script and the public API. Also tests of the release tooling in `tool/`. | `lib/`, `bin/`, `tool/` |
 | `repo_test/` | Scans that fail when the repo drifts: file headers, the CI workflow, docs that must match the code (`RULES.md`, the README recipes), skill and eval structure, and source conventions. | anything in the repository |
 | `repo_test/checkers/` | Unit tests of the checker code in `repo_test/src/`, run on inline snippets or temporary directories instead of the real repository. | `repo_test/src/` |
 | `repo_test/src/` | Checker code shared by `repo_test/` and `repo_test/checkers/`. Not tests. | n/a |
@@ -157,6 +157,61 @@ slowdown shows as a warning annotation and in the job summary. The job
 summary also times each rule on its own. If you add a rule, check its
 time there. To run the benchmarks locally or to read the report, see
 [`packages/skills_lint/benchmark/README.md`](packages/skills_lint/benchmark/README.md).
+
+## Releasing
+
+> [!CAUTION]
+> Never push a tag to test a release. `.github/workflows/publish.yaml`
+> publishes every tag that matches `skills_lint-v*`, including `-rc` tags, to
+> pub.dev, and
+> [a version published to pub.dev can't be removed](https://dart.dev/tools/pub/publishing#remember-publishing-is-forever).
+> Test the release workflow with a dry run instead.
+
+A release starts when a maintainer pushes the tag `skills_lint-v<version>`.
+The version must match `version` in `packages/skills_lint/pubspec.yaml`, and
+`CHANGELOG.md` must have a `## <version>` section. The tag starts two
+workflows:
+
+- `publish.yaml` publishes the package to pub.dev.
+- `release.yaml` builds the `skills_lint` executable on macOS (arm64 and x64),
+  Linux (x64 and arm64) and Windows (x64), and publishes a GitHub Release with:
+  - `skills_lint-<target>.tar.gz` for each macOS and Linux target, and
+    `skills_lint-windows-x64.zip`. Each archive holds the executable and a
+    `LICENSE` file with the notices for everything compiled into it.
+  - `SHA256SUMS`, the checksums that `install.sh` checks.
+  - `install.sh`.
+  - Build provenance attestations for the archives. Users check them with
+    `gh attestation verify <archive> -R google/skills_lint.dart`.
+
+The release notes are the version's `CHANGELOG.md` section. The workflow
+creates the release as a draft, attaches the files, then publishes it, which
+is the order that
+[immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases)
+need. If the workflow fails after it creates the draft, delete the draft
+before you run it again.
+
+### Dry run
+
+To test the release workflow without releasing, run it by hand from the
+Actions tab, or with:
+
+```bash
+gh workflow run release.yaml -R google/skills_lint.dart --ref <branch>
+```
+
+A dry run builds every archive and creates a draft release named for the
+`pubspec.yaml` version, with the tag `dry-run-<version>-<run ID>`. A draft
+doesn't create its tag, and the workflow never publishes a dry run. Check the
+draft's files, then delete it from the releases page or with
+`gh release delete <tag> -R google/skills_lint.dart`. Don't publish it.
+
+Pull requests that change `release.yaml`, `packages/skills_lint/tool/` or
+`install.sh` run the build jobs and upload the archives as workflow artifacts.
+They don't create a release.
+
+When the workflow moves to a new Dart SDK, check the Dart runtime licenses
+described in
+[`packages/skills_lint/tool/dart_runtime_licenses/README.md`](packages/skills_lint/tool/dart_runtime_licenses/README.md).
 
 ## Community Guidelines
 

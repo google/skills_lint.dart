@@ -1,0 +1,272 @@
+# Builds the skills_lint executables and publishes them as a GitHub Release.
+#
+# - A push of a release tag builds every target and publishes the release.
+#   The tag pattern matches publish.yaml, so pub.dev and the executables ship
+#   the same version.
+# - A manual run (workflow_dispatch) builds every target and creates a draft
+#   release that is never published. Use it to test this workflow; never push
+#   a test tag, because publish.yaml publishes any matching tag to pub.dev.
+# - A pull request that changes this workflow or its scripts builds every
+#   target and uploads the archives as workflow artifacts.
+#
+# See "Releasing" in CONTRIBUTING.md.
+
+name: Release
+
+on:
+  push:
+    # Must match the tag pattern in publish.yaml.
+    tags:
+      - 'skills_lint-v[0-9]+.[0-9]+.[0-9]+*'
+  pull_request:
+    paths:
+      - '.github/workflows/release.yaml'
+      - 'packages/skills_lint/scripts/install.sh'
+      - 'packages/skills_lint/tool/**'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: macos-arm64
+          # GitHub retires its Intel macOS runners around August 2027. Drop
+          # this target, and macos-x64 in scripts/install.sh, then.
+          - os: macos-15-intel
+            target: macos-x64
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: ubuntu-24.04-arm
+            target: linux-arm64
+          - os: windows-latest
+            target: windows-x64
+            exe: .exe
+            archive: zip
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: packages/skills_lint
+    env:
+      TARGET: ${{ matrix.target }}
+      # The archive name and layout are what scripts/install.sh downloads and
+      # unpacks: skills_lint-<target>.tar.gz holding skills_lint-<target>.
+      BIN: skills_lint-${{ matrix.target }}${{ matrix.exe }}
+      ARCHIVE: skills_lint-${{ matrix.target }}.${{ matrix.archive || 'tar.gz' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: stable
+
+      - run: dart pub get
+
+      - name: Compile the executable
+        run: |
+          mkdir -p "$RUNNER_TEMP/stage" "$RUNNER_TEMP/dist"
+          dart compile exe bin/skills_lint.dart -o "$RUNNER_TEMP/stage/$BIN"
+
+      - name: Smoke-test the executable
+        run: '"$RUNNER_TEMP/stage/$BIN" --help'
+
+      - name: Collect license notices
+        run: dart run tool/collect_licenses.dart --output "$RUNNER_TEMP/stage/LICENSE"
+
+      - name: Package (tar.gz)
+        if: runner.os != 'Windows'
+        env:
+          # Keeps macOS tar from adding ._ files for extended attributes.
+          COPYFILE_DISABLE: '1'
+        run: tar -czf "$RUNNER_TEMP/dist/$ARCHIVE" -C "$RUNNER_TEMP/stage" "$BIN" LICENSE
+
+      - name: Package (zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          Compress-Archive
+          -Path "$env:RUNNER_TEMP/stage/$env:BIN", "$env:RUNNER_TEMP/stage/LICENSE"
+          -DestinationPath "$env:RUNNER_TEMP/dist/$env:ARCHIVE"
+
+      # Unpacks the archive and runs the executable from it, so a broken
+      # archive fails here rather than on a user's machine.
+      - name: Check the archive
+        run: |
+          mkdir -p "$RUNNER_TEMP/check"
+          cd "$RUNNER_TEMP/check"
+          if [ "$RUNNER_OS" = Windows ]; then
+            7z x -bd -y "$RUNNER_TEMP/dist/$ARCHIVE" > /dev/null
+          else
+            tar -xzf "$RUNNER_TEMP/dist/$ARCHIVE"
+          fi
+          contents="$(find . -type f | sed 's|^\./||' | sort | tr '\n' ' ')"
+          expected="$(printf '%s\n' "$BIN" LICENSE | sort | tr '\n' ' ')"
+          if [ "$contents" != "$expected" ]; then
+            echo "::error::$ARCHIVE holds '$contents', expected '$expected'."
+            exit 1
+          fi
+          "./$BIN" --help > /dev/null
+          ls -l "$RUNNER_TEMP/dist/$ARCHIVE"
+
+      # Writes "<hash>  <archive>", the format that sha256sum --check and
+      # scripts/install.sh read.
+      - name: Hash the archive
+        run: |
+          cd "$RUNNER_TEMP/dist"
+          if command -v sha256sum > /dev/null; then
+            hash="$(sha256sum "$ARCHIVE" | cut -d ' ' -f 1)"
+          else
+            hash="$(shasum -a 256 "$ARCHIVE" | cut -d ' ' -f 1)"
+          fi
+          echo "$hash  $ARCHIVE" | tee "$ARCHIVE.sha256"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: skills_lint-${{ matrix.target }}
+          path: ${{ runner.temp }}/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Create the GitHub Release
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Create the release and upload its assets.
+      id-token: write # actions/attest: request a Sigstore signing certificate.
+      attestations: write # actions/attest: store the attestation.
+      artifact-metadata: write # actions/attest: create the artifact storage record.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+          pattern: skills_lint-*
+          merge-multiple: true
+
+      - name: Write SHA256SUMS
+        working-directory: dist
+        run: |
+          cat ./*.sha256 | sort -k 2 > SHA256SUMS
+          rm ./*.sha256
+          sha256sum --check SHA256SUMS
+          cat SHA256SUMS
+
+      # On a tag push, the tag must be skills_lint-v<version> for the version
+      # in pubspec.yaml. A manual run releases the pubspec version under a
+      # dry-run tag that matches neither this workflow nor publish.yaml.
+      - name: Read the release version
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          version="$(awk '/^version:/ { print $2; exit }' packages/skills_lint/pubspec.yaml)"
+          if [ "$EVENT" = push ]; then
+            if [ "$REF_NAME" != "skills_lint-v$version" ]; then
+              echo "::error::Tag $REF_NAME does not match version $version in pubspec.yaml."
+              exit 1
+            fi
+            tag="$REF_NAME"
+          else
+            tag="dry-run-$version-$RUN_ID"
+          fi
+          {
+            echo "VERSION=$version"
+            echo "TAG=$tag"
+          } >> "$GITHUB_ENV"
+
+      - name: Write the release notes
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          awk -v heading="## $VERSION" '
+            $0 == heading { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' packages/skills_lint/CHANGELOG.md > "$RUNNER_TEMP/changes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/changes.md"; then
+            echo "::error::CHANGELOG.md has no entries under '## $VERSION'."
+            exit 1
+          fi
+          {
+            if [ "$EVENT" != push ]; then
+              echo "> [!WARNING]"
+              echo "> Dry run from a manual workflow run. Delete this draft; don't publish it."
+              echo
+            fi
+            cat "$RUNNER_TEMP/changes.md"
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
+      - name: Attest build provenance
+        if: github.event_name == 'push'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+
+      # The release starts as a draft so that every asset is attached before
+      # it is published. Published releases can be immutable, which blocks
+      # later uploads.
+      - name: Create the draft release
+        env:
+          EVENT: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          args=(--draft --title "skills_lint $VERSION" --notes-file "$RUNNER_TEMP/notes.md")
+          if [ "$EVENT" = push ]; then
+            args+=(--verify-tag)
+          else
+            args+=(--target "$SHA")
+          fi
+          if [[ "$VERSION" == *-* ]]; then
+            args+=(--prerelease)
+          fi
+          gh release create "$TAG" "${args[@]}" \
+            dist/*.tar.gz dist/*.zip dist/SHA256SUMS packages/skills_lint/scripts/install.sh
+
+      - name: Publish the release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit "$TAG" --draft=false
+
+      - name: Write the job summary
+        env:
+          EVENT: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          url="$(gh release view "$TAG" --json url --jq .url)"
+          if [ "$EVENT" = push ]; then
+            echo "Published [skills_lint $VERSION]($url)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Created the draft release [$TAG]($url). Delete it when you are done." >> "$GITHUB_STEP_SUMMARY"
+          fi
