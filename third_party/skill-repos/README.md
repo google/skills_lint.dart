@@ -20,7 +20,7 @@ Skills vendored here are symlinked into `.agents/skills/` so agents working on t
 
 ## Managing Vendored Skills
 
-All skill operations use the official Dart `skills` package (`dart install skills@^1.0.0`).
+All skill operations use the official Dart `skills` package (`dart install skills@^1.0.3`). Version 1.0.3 is the first version that runs `skills add` outside a Dart package, and these directories are not Dart packages.
 
 ### Adding a New Skill from an Existing Vendored Repository
 
