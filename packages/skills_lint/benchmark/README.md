@@ -60,7 +60,7 @@ noise. Any change between the two medians is noise.
 
 | Machine | Runs | Wall time median | MAD within a run | Wall time change | Peak RSS change |
 | --- | ---: | --- | --- | --- | --- |
-| Apple M-series laptop, macOS, 16 logical CPUs | 3 | 395-431 ms | 0.6-5.7% | -0.1%, +0.4%, -5.4% | 0.0% |
+| Apple M-series laptop, macOS, 16 logical CPUs | 3 | 365-376 ms | 0.9-2.2% | +1.9%, +0.2%, +0.8% | at most 0.1% |
 
 The medians of separate CI runs differ by up to 35%, because each run can get
 a different runner machine. That is why both builds run in the same job and
