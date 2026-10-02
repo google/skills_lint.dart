@@ -1,0 +1,2 @@
+# The release scripts follow the same lints as the skills_lint package.
+include: ../packages/skills_lint/analysis_options.yaml

@@ -5,9 +5,10 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:skills_lint_release/src/licenses.dart';
+import 'package:skills_lint_release/src/paths.dart';
+import 'package:skills_lint_release/src/release_exception.dart';
 import 'package:test/test.dart';
-
-import '../../tool/collect_licenses.dart';
 
 /// A `dart pub deps --json` package entry.
 Map<String, Object?> _package(String name, List<String> deps, {List<String> dev = const []}) => {
@@ -57,11 +58,7 @@ void main() {
           'packages': [_package('other', [])],
         }),
         throwsA(
-          isA<LicenseCollectionException>().having(
-            (e) => e.message,
-            'message',
-            contains('skills_lint'),
-          ),
+          isA<ReleaseException>().having((e) => e.message, 'message', contains('skills_lint')),
         ),
       );
     });
@@ -73,9 +70,7 @@ void main() {
             _package('skills_lint', ['yaml']),
           ],
         }),
-        throwsA(
-          isA<LicenseCollectionException>().having((e) => e.message, 'message', contains('yaml')),
-        ),
+        throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains('yaml'))),
       );
     });
   });
@@ -156,7 +151,7 @@ void main() {
       test('throws without a LICENSE file', () {
         final String sdkDir = p.join(tempDir.path, 'dart-sdk');
         Directory(sdkDir).createSync();
-        expect(() => readSdkLicense(sdkDir), throwsA(isA<LicenseCollectionException>()));
+        expect(() => readSdkLicense(sdkDir), throwsA(isA<ReleaseException>()));
       });
     });
 
@@ -186,14 +181,10 @@ void main() {
     });
   });
 
-  group('this package', () {
-    final String sdkDir = p.dirname(p.dirname(Platform.resolvedExecutable));
-
+  group('skills_lint', () {
     test('every file in the Dart runtime licenses directory is listed', () {
       final Set<String> files = {
-        for (final File file in Directory(
-          p.joinAll(p.url.split(dartRuntimeLicensesDir)),
-        ).listSync().whereType<File>())
+        for (final File file in Directory(dartRuntimeLicensesDir).listSync().whereType<File>())
           p.basename(file.path),
       }..remove('README.md');
       expect(files, unorderedEquals(dartRuntimeLicenseFiles.values));
@@ -201,8 +192,9 @@ void main() {
 
     test('notices cover skills_lint, the Dart SDK and runtime dependencies only', () async {
       final String notices = await collectLicenses(
-        packageDir: Directory.current.path,
-        sdkDir: sdkDir,
+        packageDir: skillsLintPackageDir,
+        sdkDir: dartSdkDir,
+        runtimeLicensesDir: dartRuntimeLicensesDir,
       );
       final Set<String> components = {
         for (final RegExpMatch match in _heading.allMatches(notices))
@@ -221,26 +213,19 @@ void main() {
         ]),
       );
       expect(
-        components.intersection({'analyzer', 'test', 'test_process', 'coverage', 'build_runner'}),
+        components.intersection({
+          'analyzer',
+          'test',
+          'test_process',
+          'coverage',
+          'build_runner',
+          'crypto',
+        }),
         isEmpty,
-        reason: 'Dev dependencies are not compiled into the executable. Components: $components',
+        reason:
+            'Dev dependencies and other workspace packages are not compiled into the '
+            'executable. Components: $components',
       );
-    });
-
-    test('the script writes the notices to --output', () async {
-      final String output = p.join(
-        Directory.systemTemp.createTempSync('collect_licenses_test.').path,
-        'LICENSE',
-      );
-      addTearDown(() => Directory(p.dirname(output)).deleteSync(recursive: true));
-      final ProcessResult result = await Process.run(Platform.resolvedExecutable, [
-        'run',
-        p.join('tool', 'collect_licenses.dart'),
-        '--output',
-        output,
-      ]);
-      expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
-      expect(File(output).readAsStringSync(), startsWith('skills_lint license:\n'));
     });
   });
 }

@@ -2,7 +2,7 @@
 
 `dart compile exe` links the Dart runtime into every executable, and the
 runtime contains third-party code. The Dart SDK's own `LICENSE` file doesn't
-cover that code, so `tool/collect_licenses.dart` adds these license texts to
+cover that code, so `release/lib/src/licenses.dart` adds these license texts to
 the `LICENSE` file in each release archive.
 
 | File | Component | Source |
@@ -32,4 +32,4 @@ Check these files when the release workflow moves to a new Dart SDK:
    file base64-encoded when you add `?format=TEXT` to the URL.
 4. If `runtime/BUILD.gn` or `runtime/bin/BUILD.gn` link another third-party
    library, add its license here and to `dartRuntimeLicenseFiles` in
-   `tool/collect_licenses.dart`.
+   `release/lib/src/licenses.dart`.

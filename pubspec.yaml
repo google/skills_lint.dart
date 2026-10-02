@@ -5,3 +5,4 @@ environment:
 workspace:
   - packages/skills_lint
   - packages/skills_lint/example/api_boundary_runner
+  - release

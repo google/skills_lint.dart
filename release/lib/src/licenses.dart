@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Writes the license notices that ship with the compiled `skills_lint`
+/// Collects the license notices that ship with the compiled `skills_lint`
 /// executable.
 ///
 /// The notices cover skills_lint, the Dart SDK, the third-party code in the
@@ -10,23 +10,14 @@
 /// `dev_dependencies`, because `dart compile exe` compiles all of them into
 /// the executable. Components that share a license text are listed under one
 /// copy of it.
-///
-/// Run it from `packages/skills_lint` after `dart pub get`:
-///
-/// ```sh
-/// dart run tool/collect_licenses.dart --output LICENSE
-/// ```
-///
-/// It exits with code 1, and writes nothing, if a package has no license file.
 library;
 
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
-const String _outputOption = 'output';
+import 'release_exception.dart';
 
 /// The package whose executable the notices are for.
 const String rootPackage = 'skills_lint';
@@ -34,13 +25,8 @@ const String rootPackage = 'skills_lint';
 /// The heading for the Dart SDK's license in the notices.
 const String sdkNoticeName = 'Dart SDK';
 
-/// The directory, relative to the package root, that holds the licenses of
-/// the third-party code in the Dart runtime. Its `README.md` gives the source
-/// of each file.
-const String dartRuntimeLicensesDir = 'tool/dart_runtime_licenses';
-
-/// The third-party components of the Dart runtime, each with the file in
-/// [dartRuntimeLicensesDir] that holds its license.
+/// The third-party components of the Dart runtime, each with the name of the
+/// file in `release/dart_runtime_licenses` that holds its license.
 const Map<String, String> dartRuntimeLicenseFiles = {
   'BoringSSL': 'boringssl.txt',
   'double-conversion': 'double-conversion.txt',
@@ -58,49 +44,24 @@ final RegExp _licenseFileName = RegExp(
 /// One license text and the component it applies to.
 typedef LicenseNotice = ({String component, String text});
 
-Future<void> main(List<String> arguments) async {
-  final parser = ArgParser()
-    ..addOption(_outputOption, mandatory: true, help: 'The file to write the notices to.');
-  final String output;
-  try {
-    output = parser.parse(arguments).option(_outputOption)!;
-  } on FormatException catch (e) {
-    stderr.writeln('${e.message}\n\n${parser.usage}');
-    exitCode = 64;
-    return;
-  }
-  try {
-    final String notices = await collectLicenses(
-      packageDir: Directory.current.path,
-      sdkDir: p.dirname(p.dirname(Platform.resolvedExecutable)),
-    );
-    File(output).writeAsStringSync(notices);
-  } on LicenseCollectionException catch (e) {
-    stderr.writeln('collect_licenses: error: ${e.message}');
-    exitCode = 1;
-  }
-}
-
-/// Thrown when a license notice can't be collected.
-class LicenseCollectionException implements Exception {
-  LicenseCollectionException(this.message);
-
-  final String message;
-}
-
 /// Returns the license notices for [rootPackage], whose package directory is
-/// [packageDir], built with the Dart SDK in [sdkDir].
+/// [packageDir], built with the Dart SDK in [sdkDir]. [runtimeLicensesDir]
+/// holds the [dartRuntimeLicenseFiles].
 ///
 /// Runs `dart pub deps --json` in [packageDir], so `dart pub get` must have
 /// run there.
-Future<String> collectLicenses({required String packageDir, required String sdkDir}) async {
+Future<String> collectLicenses({
+  required String packageDir,
+  required String sdkDir,
+  required String runtimeLicensesDir,
+}) async {
   final ProcessResult deps = await Process.run(Platform.resolvedExecutable, [
     'pub',
     'deps',
     '--json',
   ], workingDirectory: packageDir);
   if (deps.exitCode != 0) {
-    throw LicenseCollectionException(
+    throw ReleaseException(
       '`dart pub deps --json` failed with exit code ${deps.exitCode}:\n${deps.stderr}',
     );
   }
@@ -120,9 +81,7 @@ Future<String> collectLicenses({required String packageDir, required String sdkD
     for (final MapEntry(key: component, value: file) in dartRuntimeLicenseFiles.entries)
       (
         component: '$component (in the Dart runtime)',
-        text: File(
-          p.joinAll([packageDir, ...p.url.split(dartRuntimeLicensesDir), file]),
-        ).readAsStringSync(),
+        text: File(p.join(runtimeLicensesDir, file)).readAsStringSync(),
       ),
     for (final String name in dependencies)
       (component: name, text: _readLicense(name, _rootOf(name, roots))),
@@ -143,7 +102,7 @@ List<String> runtimeDependencies(Map<String, Object?> depsJson) {
         name: deps.cast<String>(),
   };
   if (!graph.containsKey(rootPackage)) {
-    throw LicenseCollectionException('`dart pub deps --json` does not list $rootPackage.');
+    throw ReleaseException('`dart pub deps --json` does not list $rootPackage.');
   }
   final Set<String> seen = {rootPackage};
   final List<String> pending = [rootPackage];
@@ -151,7 +110,7 @@ List<String> runtimeDependencies(Map<String, Object?> depsJson) {
     final String name = pending.removeLast();
     final List<String>? deps = graph[name];
     if (deps == null) {
-      throw LicenseCollectionException('`dart pub deps --json` does not list $name.');
+      throw ReleaseException('`dart pub deps --json` does not list $name.');
     }
     pending.addAll(deps.where(seen.add));
   }
@@ -170,7 +129,7 @@ File findPackageConfig(String packageDir) {
     }
     final String parent = p.dirname(dir);
     if (parent == dir) {
-      throw LicenseCollectionException(
+      throw ReleaseException(
         'No .dart_tool/package_config.json in $packageDir or above it. Run `dart pub get`.',
       );
     }
@@ -200,7 +159,7 @@ String readSdkLicense(String sdkDir) {
       return file.readAsStringSync();
     }
   }
-  throw LicenseCollectionException('No LICENSE file in the Dart SDK at $sdkDir or above it.');
+  throw ReleaseException('No LICENSE file in the Dart SDK at $sdkDir or above it.');
 }
 
 /// Returns the license file in [dir], or `null` if it has none.
@@ -250,14 +209,12 @@ String _heading(List<String> components) {
 
 String _rootOf(String name, Map<String, String> roots) =>
     roots[name] ??
-    (throw LicenseCollectionException(
-      '$name is not in .dart_tool/package_config.json. Run `dart pub get`.',
-    ));
+    (throw ReleaseException('$name is not in .dart_tool/package_config.json. Run `dart pub get`.'));
 
 String _readLicense(String name, String dir) {
   final File? file = findLicenseFile(dir);
   if (file == null) {
-    throw LicenseCollectionException(
+    throw ReleaseException(
       '$name has no license file in $dir, so it may not be legal to redistribute.',
     );
   }

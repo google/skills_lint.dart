@@ -28,5 +28,4 @@ const List<String> dartSourceDirectories = [
   ...shippedDirectories,
   'example',
   ...testDirectories,
-  'tool',
 ];
