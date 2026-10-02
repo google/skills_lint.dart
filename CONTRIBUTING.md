@@ -92,6 +92,42 @@ Run the test suite from the package root (`packages/skills_lint`):
 dart test
 ```
 
+### Where tests go
+
+The package has two test roots, side by side in `packages/skills_lint/`:
+
+| Directory | What goes there | A change to … can break it |
+| :--- | :--- | :--- |
+| `test/` | Tests of the shipped skills_lint package: rules, the CLI, configuration, the fixer, the install script and the public API. | `lib/`, `bin/` |
+| `repo_test/` | Scans that fail when the repo drifts: file headers, the CI workflow, docs that must match the code (`RULES.md`, the README recipes), skill and eval structure, and source conventions. | anything in the repository |
+| `repo_test/checkers/` | Unit tests of the checker code in `repo_test/src/`, run on inline snippets or temporary directories instead of the real repository. | `repo_test/src/` |
+| `repo_test/src/` | Checker code shared by `repo_test/` and `repo_test/checkers/`. Not tests. | n/a |
+
+Helpers that only package tests use stay in `test/`, such as
+`test/test_utils.dart`.
+
+This follows the `integration_test/` pattern in the
+[package layout conventions](https://dart.dev/tools/pub/package-layout): a
+second test directory next to `test/`, which plain `dart test` does not run.
+
+```bash
+dart test             # test/ only. CI measures coverage here.
+dart test repo_test   # repo_test/, including repo_test/checkers/
+```
+
+CI runs the two as separate steps, so a failure shows which kind broke.
+`repo_test/test_files_run_in_ci_test.dart` fails if a test file sits outside
+`test/` and `repo_test/`, because no CI step would run it. The directories
+that repo tests read are listed, with the reason for each subset, in
+`repo_test/src/package_directories.dart`.
+
+The repo tests share this package's `dev_dependencies`. When one needs a dev
+dependency that no package test uses, move `repo_test/` to its own unpublished
+workspace package (for example `packages/repo_checks/`) instead of adding the
+dependency here.
+
+### Coverage
+
 CI enforces a minimum line-coverage threshold for `lib/` (currently 73%),
 excluding generated `*.g.dart` files. To reproduce the same number locally:
 

@@ -12,7 +12,7 @@ import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/rule_registry.dart';
 import 'package:test/test.dart';
 
-/// Pins [RULES.md](../RULES.md) to [RuleRegistry] so a rule cannot be
+/// Pins [RULES.md](../../RULES.md) to [RuleRegistry] so a rule cannot be
 /// added, removed, renamed, or have its default severity / fixability
 /// changed without the docs catching up in the same commit.
 ///

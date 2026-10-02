@@ -4,9 +4,9 @@
 
 import 'package:test/test.dart';
 
-import 'src/models/convention_violation.dart';
-import 'src/models/source.dart';
-import 'src/source_conventions.dart';
+import '../src/models/convention_violation.dart';
+import '../src/models/source.dart';
+import '../src/source_conventions.dart';
 
 /// Runs each source-convention detector over small inline snippets, which
 /// pins what the detector reports independently of the package's contents.

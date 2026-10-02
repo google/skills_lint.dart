@@ -45,10 +45,20 @@ jobs:
       - run: dart analyze --fatal-infos
 
       - name: Run cognitive complexity check
-        run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/example packages/skills_lint/skills .agents/skills
+        run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/repo_test packages/skills_lint/example packages/skills_lint/skills .agents/skills
         working-directory: .
 
-      - run: dart test
+      # One step per test directory, so a failure names its kind. See "Where
+      # tests go" in CONTRIBUTING.md. Plain `dart test` runs test/ only. The
+      # repo test step also runs when the product tests fail, so one run
+      # reports both kinds of failure.
+      - name: Run tests
+        id: product_tests
+        run: dart test
+
+      - name: Run repo tests
+        if: success() || steps.product_tests.conclusion == 'failure'
+        run: dart test repo_test
 
       - name: Verify example
         run: dart run example/main.dart

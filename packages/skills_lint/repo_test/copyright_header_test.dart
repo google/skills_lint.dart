@@ -7,6 +7,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import 'src/package_directories.dart';
+
 /// Pins the BSD copyright header to every Dart source file in the package.
 ///
 /// Every `.dart` file in `lib/`, `bin/`, and `test/` must begin with the
@@ -20,17 +22,12 @@ const String _copyrightHeader =
     '// for details. All rights reserved. Use of this source code is governed by a\n'
     '// BSD-style license that can be found in the LICENSE file.';
 
-/// Directories to scan for Dart source files, relative to the package root
-/// (i.e. the directory that contains `pubspec.yaml`, which is also the working
-/// directory when `dart test` is invoked from the package).
-const Set<String> _sourceDirs = {'bin', 'lib', 'test'};
-
 void main() {
   test('every Dart file has a BSD copyright header', () {
     final String packageRoot = p.normalize(p.absolute('.'));
     final List<String> missing = [];
 
-    for (final String dir in _sourceDirs) {
+    for (final String dir in dartSourceDirectories) {
       final source = Directory(p.join(packageRoot, dir));
       if (!source.existsSync()) {
         continue;
