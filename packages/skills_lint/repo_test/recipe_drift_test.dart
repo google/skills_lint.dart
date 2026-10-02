@@ -10,6 +10,8 @@ import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 import 'package:yaml/yaml.dart';
 
+import 'src/repo_paths.dart';
+
 /// Drift guard for the `## Recipes` section of README.md.
 ///
 /// The README ships copy-pasteable integration recipes. When a flag or
@@ -31,7 +33,7 @@ void main() {
     final String invalidFixture = p.normalize(p.absolute('example/skills/invalid'));
 
     setUpAll(() {
-      reader = _RecipeReader.fromFile(p.normalize(p.absolute('../../README.md')));
+      reader = _RecipeReader.fromFile(p.join(repoRoot, 'README.md'));
     });
 
     test('README has all expected recipes with non-empty bodies', () {
@@ -46,7 +48,7 @@ void main() {
       // The "have an agent set it up for you" recipe is plain prose
       // inside a blockquote, not a fenced code block, so check the raw
       // README text for the skill paths it should point at.
-      final String readme = File(p.normalize(p.absolute('../../README.md'))).readAsStringSync();
+      final String readme = File(p.join(repoRoot, 'README.md')).readAsStringSync();
       final int recipesIdx = readme.indexOf('## Recipes');
       expect(recipesIdx, isNonNegative, reason: 'README has no Recipes section');
       final String recipesSection = readme.substring(recipesIdx);

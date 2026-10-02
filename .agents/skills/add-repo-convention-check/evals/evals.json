@@ -11,7 +11,7 @@
         "The drafted pull request description includes the failure output from a deliberately broken case, such as a snippet or temporary file that calls exit()."
       ],
       "expected_repo_state": [
-        "The detector is a function in a file under packages/skills_lint/test/src/ that takes a `Source` and returns `ConventionViolation` values. The change adds no other finding type.",
+        "The detector is a function in a file under packages/skills_lint/repo_test/src/ that takes a `Source` and returns `ConventionViolation` values. The change adds no other finding type.",
         "The scan gets its Dart files from `parseDirectories`. The change adds no other code that lists directories or reads Dart files.",
         "A test file runs the detector on `Source.snippet` inputs and covers at least one reported call and one ignored case.",
         "The repo-wide scan is in a different test file from the detector's unit tests.",

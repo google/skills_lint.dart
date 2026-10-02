@@ -72,7 +72,7 @@ const Set<String> untestedAllowlist = {
   'suggestions/levenshtein.dart',
 };
 
-const String _self = 'test/test_coverage_convention_test.dart';
+const String _self = 'repo_test/test_coverage_convention_test.dart';
 
 void main() {
   final Set<String> sources = _libSrcFiles();
@@ -145,7 +145,7 @@ Set<String> _libSrcFiles() => {
 };
 
 /// Returns the `lib/src` files named by an `import` or `export` directive in
-/// a test.
+/// a test under `test/`, the same tests CI measures coverage with.
 Set<String> _importedByTests() => _package.filesImportedBy(parseDirectories(['test']));
 
 /// Returns the `lib/src` files reachable from `lib/skills_lint.dart` through

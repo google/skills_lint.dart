@@ -4,9 +4,9 @@
 
 import 'package:test/test.dart';
 
-import 'src/models/convention_violation.dart';
-import 'src/models/source.dart';
-import 'src/skip_reasons.dart';
+import '../src/models/convention_violation.dart';
+import '../src/models/source.dart';
+import '../src/skip_reasons.dart';
 
 /// Runs the skip-reason detectors over small inline snippets, which pins
 /// what each one reports independently of the package's tests.
