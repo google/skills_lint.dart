@@ -1,9 +1,11 @@
 ## 0.5.3-wip
 
+- Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
 - When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
 - **Behavior change:** in `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
 - **Behavior change:** `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link.
+- Made `check-trailing-whitespace` about 20 times faster. Its diagnostics and `--fix` output are unchanged.
 
 ## 0.5.2
 

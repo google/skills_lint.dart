@@ -1,7 +1,10 @@
 {
   "skill": "update-agent-guidance",
   "positive_triggers": [
-    "Add a step to the definition-of-done skill about checking Windows paths in tests",
+    {
+      "prompt": "Add a step to the definition-of-done skill about checking Windows paths in tests",
+      "permitted_co_triggers": ["definition-of-done"]
+    },
     "Update AGENTS.md so agents read the style guide before they edit code",
     "Turn this review comment into a rule in one of our internal skills",
     "Add an expectation to the definition-of-done evals.json for the new changelog step"

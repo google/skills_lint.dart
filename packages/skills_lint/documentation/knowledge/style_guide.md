@@ -17,9 +17,9 @@ All Dart code across this repository must adhere strictly to the official [Effec
    - Capitalize acronyms longer than two letters like words (`Uri`, `Json`, not `URI`, `JSON`).
 
 2. **[Effective Dart: Documentation](https://dart.dev/effective-dart/documentation)**:
-   - Use `///` doc comments for all public declarations.
+   - Use `///` for doc comments, not block comments.
    - **Avoid Tautological Comments:** Do not write comments that merely restate member names (e.g. avoid `/// The start line.` on `final int startLine;`).
-   - **Document Contracts & Nullability:** Clearly document coordinate systems (1-based vs 0-based), units, expected value ranges, and the precise meaning of `null` values.
+   - **Document Contracts & Nullability (repo rule):** Document a public declaration when its contract isn't obvious from its name and type: coordinate systems (1-based vs 0-based), units, expected value ranges, side effects, and the precise meaning of `null` values. Don't add a doc comment only to have one; `public_member_api_docs` is off in this repo for that reason.
    - **Use Semantic Dartdoc Links:** Use square-bracketed symbol links (e.g. `[OutputFormat.text]`) rather than plain backticked strings (`\`text\``) for code entities.
 
 3. **[Effective Dart: Usage](https://dart.dev/effective-dart/usage)** & **[Design](https://dart.dev/effective-dart/design)**:
@@ -30,12 +30,16 @@ All Dart code across this repository must adhere strictly to the official [Effec
 
 ## Temporal Words
 
-Don't use relative temporal terms in code, comments or docs. Examples: "now", "currently", "new", "old", "legacy", "existing behavior", "used to", "previously", "no longer", "originally".
+Describe the code as it is. Don't compare it with an earlier version of the code, or with the change that produced it. This applies to code, comments and docs.
 
-Their meaning changes over time. What is "new" or "legacy" today won't be tomorrow. They are a documentation smell:
+The reader has only the code in front of them. A comparison with a version they never saw doesn't help them, and it stops being true once that version is forgotten. For example:
 
-- Humans usually use them for lack of a better name. Pick a name that says what the thing is.
-- Agents usually use them to refer to earlier versions of the code. The reader of the code today doesn't care about those versions.
+- Instead of "the legacy `--fix-apply` alias", write "the deprecated `--fix-apply` alias".
+- Instead of "the rule now explains the reason in its message", write "the rule explains the reason in its message".
+
+Words such as "now", "still", "currently", "new", "old", "legacy", "existing behavior", "used to", "previously", "no longer" and "originally" often signal a comparison. Rewrite the sentence rather than swap the word. The same words are fine when they describe what the program does at runtime, as in "the directory no longer exists after the rename".
+
+If you want to call something "new" or "legacy", pick a name that says what it is. If the history matters, put it in the commit message or PR description.
 
 ---
 
@@ -86,6 +90,7 @@ Tests give confidence that the code keeps working through refactors and added fe
 - A failing test's output must be enough to debug from CI logs alone. Name the input, the expected value and the actual value.
 - Every `skip:` or `testOn:` gives the reason at that spot.
 - "Hard to test" is not a reason to skip unit tests for pure logic. Pure logic is the cheapest code to test.
+- Tests of the shipped skills_lint package go in `test/`. Scans that fail when the repo drifts go in `repo_test/`, and unit tests of their checker code go in `repo_test/checkers/`. See [Where tests go](../../../../CONTRIBUTING.md#where-tests-go).
 
 ---
 
