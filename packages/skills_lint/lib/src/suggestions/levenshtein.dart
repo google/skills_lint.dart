@@ -18,10 +18,10 @@ int levenshtein(String a, String b) {
     return 0;
   }
   if (a.isEmpty) {
-    return b.length;
+    return b.runes.length;
   }
   if (b.isEmpty) {
-    return a.length;
+    return a.runes.length;
   }
 
   final List<int> aCodes = a.runes.toList();
