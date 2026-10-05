@@ -18,6 +18,12 @@ const List<String> testDirectories = ['test', 'repo_test'];
 /// Checks about published code, such as constant aliases, read only these.
 const List<String> shippedDirectories = ['bin', 'lib'];
 
+/// The other Dart packages in the repository, outside this package.
+///
+/// `release` is the `skills_lint_release` workspace package, which holds the
+/// release scripts.
+const List<String> otherPackageDirectories = ['../../release'];
+
 /// Every directory whose Dart files are checked by default, for example for
 /// the copyright header and the source conventions.
 ///
@@ -28,4 +34,5 @@ const List<String> dartSourceDirectories = [
   ...shippedDirectories,
   'example',
   ...testDirectories,
+  ...otherPackageDirectories,
 ];

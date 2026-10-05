@@ -9,6 +9,7 @@ on:
       - 'skills_lint.yaml'
       - 'skills/**'
       - 'packages/skills_lint/**'
+      - 'release/**'
       - '.github/workflows/skills_lint_workflow.yaml'
   push:
     branches: [ main ]
@@ -17,6 +18,7 @@ on:
       - 'skills_lint.yaml'
       - 'skills/**'
       - 'packages/skills_lint/**'
+      - 'release/**'
       - '.github/workflows/skills_lint_workflow.yaml'
   schedule:
     - cron: '0 0 * * 0' # weekly

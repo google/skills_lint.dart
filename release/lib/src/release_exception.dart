@@ -8,7 +8,4 @@ class ReleaseException implements Exception {
   ReleaseException(this.message);
 
   final String message;
-
-  @override
-  String toString() => 'ReleaseException: $message';
 }
