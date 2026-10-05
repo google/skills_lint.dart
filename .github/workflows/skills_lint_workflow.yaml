@@ -75,18 +75,6 @@ jobs:
       - name: Verify API boundary runner
         run: dart run example/api_boundary_runner/bin/main.dart
 
-      # release.yaml tests the release package on stable. These steps test it
-      # on the lowest SDK that its pubspec allows.
-      - name: Analyze the release package
-        if: matrix.lower_bound
-        working-directory: release
-        run: dart analyze --fatal-infos
-
-      - name: Test the release package
-        if: matrix.lower_bound
-        working-directory: release
-        run: dart test
-
       # `lower_bound` is set only by the lower-bound `include` entry above.
       # After the downgrade, analysis checks that the declared dependency
       # floors cover the APIs we use. Tests would mostly exercise old dev
@@ -97,11 +85,6 @@ jobs:
 
       - name: Analyze with the lowest allowed dependency versions
         if: matrix.lower_bound
-        run: dart analyze --fatal-infos
-
-      - name: Analyze the release package with the lowest allowed dependency versions
-        if: matrix.lower_bound
-        working-directory: release
         run: dart analyze --fatal-infos
 
   coverage:

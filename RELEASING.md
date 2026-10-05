@@ -8,8 +8,7 @@ doesn't start a release.
 
 1. In a pull request, set `version` in `packages/skills_lint/pubspec.yaml` to
    the version to release, without `-wip`, and give `CHANGELOG.md` a
-   `## <version>` section. [Refresh the lockfile](#lockfile) in the same pull
-   request.
+   `## <version>` section.
 2. After it merges, open **Actions > Release > Run workflow**, pick `main`,
    check **release**, and run it. Or run:
 
@@ -17,9 +16,21 @@ doesn't start a release.
    gh workflow run release.yaml -R google/skills_lint.dart --ref main -f release=true
    ```
 
-The run on `main` checks the version and `CHANGELOG.md`, tests the release
-scripts, builds each [target](#targets) and runs `dart pub publish --dry-run`.
-It refuses a `-wip` version, and runs only on `main`. Then it:
+The run on `main` first checks that `pubspec.yaml` and `CHANGELOG.md` are
+ready to publish. Beyond what pub.dev and Homebrew require, it enforces this
+repository's release standards
+([`release_info.dart`](release/lib/src/release_info.dart),
+[`release_notes.dart`](release/lib/src/release_notes.dart)):
+
+- The version is a release version, not `-wip`.
+- The version holds only letters, digits, `.`, `+` and `-`.
+- `CHANGELOG.md` has a `## <version>` section with entries. They become the
+  release notes.
+- The run is on `main`.
+
+It then resolves the dependencies once, tests the release scripts, builds each
+[target](#targets) with those dependencies and runs
+`dart pub publish --dry-run`. Then it:
 
 1. Creates the tag `skills_lint-v<version>` at the commit it built.
 2. Creates a draft GitHub Release for the tag with:
@@ -28,34 +39,27 @@ It refuses a `-wip` version, and runs only on `main`. Then it:
      into it.
    - `SHA256SUMS`, the checksums that `install.sh` checks.
    - `install.sh`, which installs this version unless `VERSION` is set.
+   - `pubspec.lock`, the [dependency versions](#dependencies) of the build.
    - Build provenance attestations for all of these files. Users check them
      with `gh attestation verify <file> -R google/skills_lint.dart`.
 3. Starts `release.yaml` again on the tag.
 
 The run on the tag:
 
-1. Checks that the draft holds `install.sh` and every archive that
-   `SHA256SUMS` lists, unchanged.
+1. Checks that the draft holds `install.sh` and every file that `SHA256SUMS`
+   lists, unchanged.
 2. Waits for a [reviewer to approve](#approve-the-pubdev-deployment) the
    `pub` job's deployment to the `pub.dev` environment, then publishes the
    package to pub.dev, unless pub.dev has the version.
 3. Publishes the draft release.
 
 pub.dev accepts a publish only from a workflow run on a tag that matches
-`skills_lint-v{{version}}`, so publishing needs the second run. The settings
-that this depends on:
+`skills_lint-v{{version}}`, so publishing needs the second run. The comment on
+the `pub` job in `release.yaml` lists the pub.dev and repository settings
+that the run depends on.
 
-- The [pub.dev admin page](https://pub.dev/packages/skills_lint/admin)
-  enables publishing from `workflow_dispatch` events and disables it from
-  `push` events, so a pushed tag can't publish. **Require GitHub Actions
-  environment** is checked, with **Environment** set to `pub.dev`.
-- The repository has a GitHub Actions environment named `pub.dev` with a
-  deployment rule that allows only tags matching `skills_lint-v*`, and a
-  required reviewer. Administrators can bypass the reviewer. The `pub` job,
-  which runs `dart pub publish`, is the only job in that environment.
-
-The release notes are the version's `CHANGELOG.md` section. A version with a
-suffix, such as `1.0.0-dev.1`, is released as a prerelease. The README's
+A version with a suffix, such as `1.0.0-dev.1`, is released as a prerelease.
+The README's
 install command downloads from `releases/latest`, and
 [the latest release](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
 is the most recent release that is not a prerelease or a draft.
@@ -113,18 +117,15 @@ need.
 
 ## Targets
 
-| Target | Runner | Runs on |
-| :--- | :--- | :--- |
-| `macos-arm64` | `macos-latest` | macOS 14 or later, Apple silicon |
-| `macos-x64` | `macos-15-intel` | macOS 14 or later, Intel |
-| `linux-x64` | `ubuntu-latest` | Linux x64 |
-
-The build matrix in `release.yaml`, `supportedTargets` in
-`release/lib/src/archive.dart` and `SUPPORTED_TARGETS` in
-`packages/skills_lint/scripts/install.sh` list the same targets.
-
-`dart compile exe` builds for the machine it runs on, so each target builds on
-its own runner.
+`supportedTargets` in
+[`release/lib/src/archive.dart`](release/lib/src/archive.dart) lists the
+targets, and `release package --target` accepts only those. `dart compile exe`
+builds for the machine it runs on, so the `build` job's matrix in
+[`release.yaml`](.github/workflows/release.yaml) has one entry per target, on a
+runner of that platform. `SUPPORTED_TARGETS` in
+[`install.sh`](packages/skills_lint/scripts/install.sh) lists the same targets,
+which [`install_script_test.dart`](release/test/install_script_test.dart)
+checks.
 
 The minimum macOS version comes from the Dart SDK used for the build: Dart
 3.11 and later target macOS 14
@@ -161,26 +162,20 @@ described in
 [`release/dart_runtime_licenses/README.md`](release/dart_runtime_licenses/README.md),
 and the macOS minimum above.
 
-## Lockfile
+## Dependencies
 
-Release jobs get their dependencies from `release/workspace_pubspec.lock`, a
-lockfile for the whole workspace. They copy it to `pubspec.lock` at the
-repository root and run `dart pub get --enforce-lockfile`, which fails if the
-lockfile doesn't satisfy every `pubspec.yaml` or a package's content hash
-differs from the lockfile. The root `pubspec.lock` is not checked in, so other
-CI jobs resolve the newest versions.
+The repository has no checked-in `pubspec.lock`. In a dry run and in the run
+on `main`, the `prepare` job resolves the workspace's dependencies once with
+`dart pub get` and passes the resulting `pubspec.lock` to the other jobs. The
+run on the tag passes on the `pubspec.lock` from the draft release instead.
+Each job runs `dart pub get --enforce-lockfile`, which fails if a package's
+content hash differs from the lockfile, so every job and every executable in a
+release uses the same dependency versions.
 
-Refresh the lockfile before each release, and when a `pubspec.yaml` change
-makes the release jobs fail. From the repository root:
-
-```bash
-dart pub upgrade
-cp pubspec.lock release/workspace_pubspec.lock
-```
-
-Pull requests that change a `pubspec.yaml` or `release/` run the release jobs
-with `--enforce-lockfile`, so a lockfile that no longer satisfies a
-`pubspec.yaml` fails the pull request that causes it.
+The release ships that `pubspec.lock` as an attested asset. To rebuild a
+release with its dependency versions, check out its tag, download its
+`pubspec.lock` to the repository root and run
+`dart pub get --enforce-lockfile`.
 
 ## Dry run
 
@@ -189,9 +184,9 @@ A dry run tests the release scripts, builds every archive, writes
 the files as the `release-assets` workflow artifact. It creates no tag, no
 release and no pub.dev version.
 
-Pull requests that change `release.yaml`, `release/`, `install.sh` or a
-`pubspec.yaml` run a dry run. To run one by hand, run the workflow on any
-branch with **release** unchecked:
+Pull requests that change `release.yaml`, `release/`, `install.sh` or
+`packages/skills_lint/pubspec.yaml` run a dry run. To run one by hand, run the
+workflow on any branch with **release** unchecked:
 
 ```bash
 gh workflow run release.yaml -R google/skills_lint.dart --ref <branch>

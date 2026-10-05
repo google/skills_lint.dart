@@ -53,7 +53,7 @@ echo "$MOCK_SW_VERS"
 /// The `uname -s` and `uname -m` output of a machine that runs [target].
 (String, String) _unameFor(String target) {
   final [String os, String arch] = target.split('-');
-  return (os == 'macos' ? 'Darwin' : 'Linux', arch == 'x64' ? 'x86_64' : 'arm64');
+  return (os == 'macos' ? 'Darwin' : 'Linux', arch == 'x64' ? 'x86_64' : arch);
 }
 
 void main() {
@@ -126,6 +126,16 @@ void main() {
       expect(installed.stdout, '$target\n');
     });
   }
+
+  test('names exactly the release targets as its supported platforms', () async {
+    final ProcessResult result = await install('linux-riscv64');
+    expect(result.exitCode, 1, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+    final RegExpMatch? supported = RegExp(
+      r'Supported platforms: (.+)\.$',
+      multiLine: true,
+    ).firstMatch(result.stderr as String);
+    expect(supported?.group(1)?.split(', '), unorderedEquals(supportedTargets));
+  });
 
   test('refuses a Mac older than the minimum macOS version of the executables', () async {
     final int major = int.parse(macosMinimumVersion.split('.').first);
