@@ -39,7 +39,7 @@ jobs:
           # only. repo_test/sdk_lower_bound_test.dart checks `sdk`.
           - os: ubuntu-latest
             sdk: 3.12.0
-            downgrade: true
+            lower_bound: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,23 +50,6 @@ jobs:
           sdk: ${{ matrix.sdk }}
 
       - run: dart pub get
-
-      # release.yaml tests the release package on stable. These steps test it
-      # on the lowest SDK that its pubspec allows.
-      - name: Analyze the release package
-        if: matrix.downgrade
-        working-directory: release
-        run: dart analyze --fatal-infos
-
-      - name: Test the release package
-        if: matrix.downgrade
-        working-directory: release
-        run: dart test
-
-      # `downgrade` is set only by the lower-bound `include` entry above.
-      - name: Resolve the lowest allowed dependency versions
-        if: matrix.downgrade
-        run: dart pub downgrade
 
       - run: dart analyze --fatal-infos
 
@@ -92,8 +75,32 @@ jobs:
       - name: Verify API boundary runner
         run: dart run example/api_boundary_runner/bin/main.dart
 
+      # release.yaml tests the release package on stable. These steps test it
+      # on the lowest SDK that its pubspec allows.
+      - name: Analyze the release package
+        if: matrix.lower_bound
+        working-directory: release
+        run: dart analyze --fatal-infos
+
+      - name: Test the release package
+        if: matrix.lower_bound
+        working-directory: release
+        run: dart test
+
+      # `lower_bound` is set only by the lower-bound `include` entry above.
+      # After the downgrade, analysis checks that the declared dependency
+      # floors cover the APIs we use. Tests would mostly exercise old dev
+      # tooling, so they don't run.
+      - name: Resolve the lowest allowed dependency versions
+        if: matrix.lower_bound
+        run: dart pub downgrade
+
+      - name: Analyze with the lowest allowed dependency versions
+        if: matrix.lower_bound
+        run: dart analyze --fatal-infos
+
       - name: Analyze the release package with the lowest allowed dependency versions
-        if: matrix.downgrade
+        if: matrix.lower_bound
         working-directory: release
         run: dart analyze --fatal-infos
 
