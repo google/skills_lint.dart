@@ -59,6 +59,7 @@ jobs:
       tag: ${{ steps.prepare.outputs.tag }}
       prerelease: ${{ steps.prepare.outputs.prerelease }}
       mode: ${{ steps.prepare.outputs.mode }}
+      matrix: ${{ steps.prepare.outputs.matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,8 +71,8 @@ jobs:
       # from this pubspec.lock, and the release ships it.
       - name: Resolve the dependencies
         run: dart pub get
-      # Prints version, tag, prerelease and mode, and writes the release notes
-      # from CHANGELOG.md.
+      # Prints version, tag, prerelease, mode and the build matrix, and writes
+      # the release notes from CHANGELOG.md.
       - name: Work out the release
         id: prepare
         env:
@@ -136,17 +137,9 @@ jobs:
       contents: read
     strategy:
       fail-fast: false
-      # One entry per target in supportedTargets in
-      # release/lib/src/archive.dart, on a runner of that platform.
-      matrix:
-        include:
-          - os: macos-latest
-            target: macos-arm64
-          # macos-15-intel is GitHub's last Intel macOS image.
-          - os: macos-15-intel
-            target: macos-x64
-          - os: ubuntu-latest
-            target: linux-x64
+      # One entry per target in releaseTargets in release/lib/src/archive.dart,
+      # with the runner that builds it.
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:

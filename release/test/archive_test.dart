@@ -7,6 +7,7 @@
 @TestOn('!windows')
 library;
 
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -48,6 +49,14 @@ void main() {
 
   test('hostTarget maps an ABI to each supported target and to no other target', () {
     expect(Abi.values.map(hostTarget).nonNulls.toSet(), unorderedEquals(supportedTargets));
+  });
+
+  test('buildMatrix has an entry with the os and target keys of the build job for each target', () {
+    final matrix = jsonDecode(buildMatrix()) as Map<String, Object?>;
+    final List<Map<String, Object?>> include = (matrix['include']! as List<Object?>)
+        .cast<Map<String, Object?>>();
+    expect(include.map((entry) => entry['target']), unorderedEquals(supportedTargets));
+    expect(include.map((entry) => entry.keys.toSet()), everyElement({'os', 'target'}));
   });
 
   group('packageExecutable', () {

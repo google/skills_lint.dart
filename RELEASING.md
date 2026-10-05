@@ -117,15 +117,16 @@ need.
 
 ## Targets
 
-`supportedTargets` in
-[`release/lib/src/archive.dart`](release/lib/src/archive.dart) lists the
-targets, and `release package --target` accepts only those. `dart compile exe`
-builds for the machine it runs on, so the `build` job's matrix in
-[`release.yaml`](.github/workflows/release.yaml) has one entry per target, on a
-runner of that platform. `SUPPORTED_TARGETS` in
-[`install.sh`](packages/skills_lint/scripts/install.sh) lists the same targets,
-which [`install_script_test.dart`](release/test/install_script_test.dart)
-checks.
+`releaseTargets` in
+[`release/lib/src/archive.dart`](release/lib/src/archive.dart) is the one
+list of targets, with the runner that builds each. `dart compile exe` builds
+for the machine it runs on, so each target builds on a runner of its own
+platform. The rest follows from that list:
+
+- `prepare` prints the `build` job's matrix from it.
+- `release package --target` accepts only its targets.
+- `install.sh` finds the archive for the machine in the release's
+  `SHA256SUMS`, and names the release's platforms when there is none.
 
 The minimum macOS version comes from the Dart SDK used for the build: Dart
 3.11 and later target macOS 14

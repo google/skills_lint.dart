@@ -49,6 +49,7 @@ void main() {
     ]);
     expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
     expect(result.stdout, contains('mode=${ReleaseMode.dryRun.name}\n'));
+    expect(result.stdout, contains('matrix=${buildMatrix()}\n'));
     final String version = readPubspecVersion(
       File(p.join(skillsLintPackageDir, 'pubspec.yaml')).readAsStringSync(),
     );

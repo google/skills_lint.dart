@@ -180,8 +180,8 @@ class _PrepareCommand extends _ReleaseCommand {
 
   @override
   String get description =>
-      'Works out what the workflow run does, prints it as name=value lines for '
-      r'$GITHUB_OUTPUT and writes the release notes from CHANGELOG.md.';
+      'Works out what the workflow run does, prints it and the build matrix as name=value lines '
+      r'for $GITHUB_OUTPUT and writes the release notes from CHANGELOG.md.';
 
   @override
   Future<void> run() async {
@@ -199,7 +199,9 @@ class _PrepareCommand extends _ReleaseCommand {
       version,
     );
     File(option('notes-output')).writeAsStringSync('$section\n');
-    stdout.write(outputLines(info));
+    stdout
+      ..write(outputLines(info))
+      ..writeln('matrix=${buildMatrix()}');
   }
 }
 

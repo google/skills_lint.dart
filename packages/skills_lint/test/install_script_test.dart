@@ -417,12 +417,31 @@ void main() {
     });
 
     test('fails on linux-arm64, which has no published binary', () async {
+      await _createMockRelease(
+        tempDir: tempDir,
+        mockReleaseDir: mockReleaseDir,
+        os: 'linux',
+        arch: 'x64',
+        binaryContent: 'dummy',
+      );
       final List<String> stderr = await _runInstallScriptExpectingFailure(
         mockBinDir: mockBinDir,
         installDir: installDir,
-        environment: {'MOCK_UNAME_S': 'Linux', 'MOCK_UNAME_M': 'aarch64'},
+        environment: {
+          'MOCK_UNAME_S': 'Linux',
+          'MOCK_UNAME_M': 'aarch64',
+          'MOCK_RELEASE_DIR': mockReleaseDir.path,
+        },
       );
-      expect(stderr, contains(contains("no published binary for platform 'linux-arm64'")));
+      expect(
+        stderr,
+        contains(
+          allOf(
+            contains("no published binary for platform 'linux-arm64'"),
+            contains('Published platforms: linux-x64.'),
+          ),
+        ),
+      );
     });
     // TODO(reidbaker): Support running install.sh tests on Windows hosts. https://github.com/google/skills_lint.dart/issues/91
   }, skip: Platform.isWindows ? 'install.sh is not supported on Windows' : null);

@@ -6,6 +6,7 @@
 /// the archive that `scripts/install.sh` downloads.
 library;
 
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -17,9 +18,29 @@ import 'macho.dart';
 import 'paths.dart';
 import 'release_exception.dart';
 
-/// The targets that each release has an archive for, named as
-/// `scripts/install.sh` names them.
-const List<String> supportedTargets = ['macos-arm64', 'macos-x64', 'linux-x64'];
+/// A platform that each release has an archive for.
+///
+/// `name` is the platform in the archive's name, `abi` is the ABI that runs
+/// the executable, and `runner` is the GitHub-hosted runner image that builds
+/// it. `dart compile exe` builds for the host only, so each target builds on
+/// a runner of its own platform.
+typedef ReleaseTarget = ({String name, Abi abi, String runner});
+
+/// The targets that each release has an archive for.
+///
+/// The build matrix of the release workflow comes from [buildMatrix], and
+/// `scripts/install.sh` reads the targets from a release's `SHA256SUMS`.
+const List<ReleaseTarget> releaseTargets = [
+  (name: 'macos-arm64', abi: Abi.macosArm64, runner: 'macos-latest'),
+  // macos-15-intel is GitHub's last Intel macOS image.
+  (name: 'macos-x64', abi: Abi.macosX64, runner: 'macos-15-intel'),
+  (name: 'linux-x64', abi: Abi.linuxX64, runner: 'ubuntu-latest'),
+];
+
+/// The names of [releaseTargets].
+final List<String> supportedTargets = [
+  for (final ReleaseTarget target in releaseTargets) target.name,
+];
 
 const String _licenseName = 'LICENSE';
 
@@ -34,12 +55,19 @@ String archiveName(String target) => 'skills_lint-$target.tar.gz';
 ///
 /// `dart compile exe` builds for the host only, so this is the only target
 /// that a machine can build.
-String? hostTarget(Abi abi) => switch (abi) {
-  Abi.macosArm64 => 'macos-arm64',
-  Abi.macosX64 => 'macos-x64',
-  Abi.linuxX64 => 'linux-x64',
-  _ => null,
-};
+String? hostTarget(Abi abi) => releaseTargets
+    .where((ReleaseTarget target) => target.abi == abi)
+    .map((ReleaseTarget target) => target.name)
+    .firstOrNull;
+
+/// Returns the `strategy.matrix` of the release workflow's `build` job as
+/// JSON: an `include` entry for each of [releaseTargets], with the `target`
+/// and the runner (`os`) that builds it.
+String buildMatrix() => jsonEncode({
+  'include': [
+    for (final ReleaseTarget target in releaseTargets) {'os': target.runner, 'target': target.name},
+  ],
+});
 
 /// Writes the archive for [target] to [outputDir] and returns it. The archive
 /// holds the executable and `LICENSE` from [stage], at its top level.

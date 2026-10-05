@@ -82,6 +82,8 @@ void main() {
       File(p.join(stage.path, 'LICENSE')).writeAsStringSync('license');
       writeChecksum(await writeArchive(stage: stage, target: target, outputDir: release));
     }
+    // SHA256SUMS of a release also lists pubspec.lock, which is no archive.
+    writeChecksum(File(p.join(release.path, 'pubspec.lock'))..writeAsStringSync('packages: {}\n'));
     mergeChecksums(release);
   });
 
@@ -127,15 +129,20 @@ void main() {
     });
   }
 
-  test('names exactly the release targets as its supported platforms', () async {
-    final ProcessResult result = await install('linux-riscv64');
+  // A platform that install.sh recognizes and the release has no archive for.
+  final String? other = [
+    for (final os in ['linux', 'macos'])
+      for (final arch in ['arm64', 'x64']) '$os-$arch',
+  ].where((String target) => !supportedTargets.contains(target)).firstOrNull;
+  test('names the platforms that the release has archives for on any other machine', () async {
+    final ProcessResult result = await install(other!);
     expect(result.exitCode, 1, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
-    final RegExpMatch? supported = RegExp(
-      r'Supported platforms: (.+)\.$',
+    final RegExpMatch? published = RegExp(
+      "no published binary for platform '$other'.*Published platforms: (.+)\\.\$",
       multiLine: true,
     ).firstMatch(result.stderr as String);
-    expect(supported?.group(1)?.split(', '), unorderedEquals(supportedTargets));
-  });
+    expect(published?.group(1)?.split(', '), unorderedEquals(supportedTargets));
+  }, skip: other == null ? 'Every platform that install.sh recognizes has an archive.' : null);
 
   test('refuses a Mac older than the minimum macOS version of the executables', () async {
     final int major = int.parse(macosMinimumVersion.split('.').first);
