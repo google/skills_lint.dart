@@ -248,7 +248,7 @@ void main() {
         shouldCorruptHash: true,
       );
 
-      // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/164
+      // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/91
       final newPath = '${mockBinDir.path}:${Platform.environment['PATH']}';
       final String packageRoot = _getPackageRoot();
       final String scriptPath = p.join(packageRoot, 'scripts', 'install.sh');
@@ -395,7 +395,7 @@ void main() {
     });
 
     test('fails on unsupported architecture', () async {
-      // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/164
+      // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/91
       final newPath = '${mockBinDir.path}:${Platform.environment['PATH']}';
       final String packageRoot = _getPackageRoot();
       final String scriptPath = p.join(packageRoot, 'scripts', 'install.sh');
@@ -424,7 +424,7 @@ void main() {
       );
       expect(stderr, contains(contains("no published binary for platform 'linux-arm64'")));
     });
-    // TODO(reidbaker): Support running install.sh tests on Windows hosts. https://github.com/google/skills_lint.dart/issues/164
+    // TODO(reidbaker): Support running install.sh tests on Windows hosts. https://github.com/google/skills_lint.dart/issues/91
   }, skip: Platform.isWindows ? 'install.sh is not supported on Windows' : null);
 }
 
@@ -486,7 +486,7 @@ Future<void> _createMockRelease({
 
   // Get SHA256 sum
   var hash = '';
-  // TODO(reidbaker): Re-add CertUtil checksum verification for Windows hosts. https://github.com/google/skills_lint.dart/issues/164
+  // TODO(reidbaker): Re-add CertUtil checksum verification for Windows hosts. https://github.com/google/skills_lint.dart/issues/91
   final ProcessResult shaProcess = await Process.run('shasum', [
     '-a',
     '256',
@@ -540,7 +540,7 @@ Future<void> _runInstallScriptTest({
     binaryContent: binaryContent,
   );
 
-  // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/164
+  // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/91
   final newPath = '${mockBinDir.path}:${Platform.environment['PATH']}';
   final String packageRoot = _getPackageRoot();
   final String scriptPath = p.join(packageRoot, 'scripts', 'install.sh');
