@@ -138,12 +138,12 @@ Future<void> runApp(List<String> args) async {
     formatStr = results[_formatOption] as String? ?? _formatText;
     format = OutputFormat.fromString(formatStr);
 
-    if (results[helpFlag] as bool) {
-      _printUsage(parser);
-      return;
-    }
     if (results[_versionFlag] as bool) {
       stdout.writeln(packageVersion);
+      return;
+    }
+    if (results[helpFlag] as bool) {
+      _printUsage(parser);
       return;
     }
     resolvedRuleConfigs = resolveRuleConfigsFromCli(results);

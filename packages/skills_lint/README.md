@@ -144,7 +144,7 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `-q`, `--quiet`: Hide non-error validation output.
 - `-w`, `--print-warnings`: Enable printing of warning messages.
 - `--fast-fail`: Halt execution immediately on the error.
-- `--version`: Print the skills_lint version and exit. Other flags, such as `--format`, are ignored.
+- `--version`: Print the skills_lint version and exit. All other flags are ignored, but arguments that fail to parse, such as an unknown flag or `--format xml`, still exit with a usage error.
 - `-c`, `--config`: Path to a configuration file. Defaults to `skills_lint.yaml` in the current directory. Paths declared inside a configuration file resolve relative to that file's directory.
 - `--ignore-config`: Ignore the YAML configuration file entirely.
 - `--ignore-file`: Path to a JSON file listing lints to ignore for the run.

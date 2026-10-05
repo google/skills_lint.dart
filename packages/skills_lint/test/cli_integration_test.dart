@@ -1314,5 +1314,29 @@ skills_lint:
       );
       expect(stderrString, isEmpty);
     });
+
+    test('--help --version writes the bare version and exits 0', () async {
+      final TestProcess process = await startCli(['--help', '--version']);
+
+      final String stdoutString = await process.stdoutStream().join('\n');
+      final String stderrString = await process.stderrStream().join('\n');
+      await process.shouldExit(0);
+
+      expect(
+        stdoutString,
+        equals(packageVersion),
+        reason: '--version ignores every other flag, including --help.',
+      );
+      expect(stderrString, isEmpty);
+    });
+
+    test('--version with an invalid --format value is a usage error', () async {
+      final TestProcess process = await startCli(['--version', '--format', 'xml']);
+
+      final String stdoutString = await process.stdoutStream().join('\n');
+      await process.shouldExit(64);
+
+      expect(stdoutString, isEmpty);
+    });
   });
 }
