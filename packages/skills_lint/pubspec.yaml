@@ -29,10 +29,8 @@ dependencies:
   yaml: ^3.1.3
 
 dev_dependencies:
-  # Not imported. Sets the floor for package:test's transitive dependency:
-  # test_core allows frontend_server_client 3.x, which can't start tests on
-  # Dart 3.12 because it looks for a frontend_server snapshot that the SDK no
-  # longer ships. The CI job that runs `dart pub downgrade` would pick 3.x.
+  # Not imported. test_core allows 3.x, which can't run tests on Dart 3.12.
+  # Remove once https://github.com/dart-lang/test/issues/2776 is fixed.
   frontend_server_client: ^4.0.0
   pub_semver: ^2.1.4
   analyzer: ^14.4.0
