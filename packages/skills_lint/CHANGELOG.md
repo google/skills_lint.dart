@@ -1,6 +1,6 @@
 ## 0.5.3-wip
 
-- Requires Dart 3.11 or later.
+- Requires Dart 3.12 or later.
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
 - When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
