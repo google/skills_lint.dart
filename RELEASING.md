@@ -36,7 +36,9 @@ The run on the tag:
 
 1. Checks that the draft holds `install.sh` and every archive that
    `SHA256SUMS` lists, unchanged.
-2. Publishes the package to pub.dev, unless pub.dev has the version.
+2. Waits for a [reviewer to approve](#approve-the-pubdev-deployment) the
+   `pub` job's deployment to the `pub.dev` environment, then publishes the
+   package to pub.dev, unless pub.dev has the version.
 3. Publishes the draft release.
 
 pub.dev accepts a publish only from a workflow run on a tag that matches
@@ -48,14 +50,40 @@ that this depends on:
   `push` events, so a pushed tag can't publish. **Require GitHub Actions
   environment** is checked, with **Environment** set to `pub.dev`.
 - The repository has a GitHub Actions environment named `pub.dev` with a
-  deployment rule that allows only tags matching `skills_lint-v*`. The `pub`
-  job, which runs `dart pub publish`, is the only job in that environment.
+  deployment rule that allows only tags matching `skills_lint-v*`, and a
+  required reviewer. Administrators can bypass the reviewer. The `pub` job,
+  which runs `dart pub publish`, is the only job in that environment.
 
 The release notes are the version's `CHANGELOG.md` section. A version with a
 suffix, such as `1.0.0-dev.1`, is released as a prerelease. The README's
 install command downloads from `releases/latest`, and
 [the latest release](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
 is the most recent release that is not a prerelease or a draft.
+
+### Approve the pub.dev deployment
+
+The run on the tag pauses at the `pub` job until a required reviewer of the
+`pub.dev` environment approves it under **Review deployments** on the run's
+page in the Actions tab. Approve it only if the tag points at a commit on
+`main` that a merged pull request reviewed:
+
+```bash
+git fetch origin main --tags
+git merge-base --is-ancestor 'skills_lint-v<version>^{commit}' origin/main && echo "on main"
+gh pr list -R google/skills_lint.dart --state merged --search "$(git rev-parse 'skills_lint-v<version>^{commit}')"
+```
+
+The `merge-base` line must print `on main`, and `gh pr list` must list the
+pull request that merged the commit. Otherwise reject the deployment and
+[abandon the release](#order-and-recovery).
+
+No ruleset requires CI to pass before a pull request merges or before a
+commit is released, and the release workflow's own jobs test only `release/`
+and build the executables. Until
+[#94](https://github.com/google/skills_lint.dart/issues/94) is fixed, also
+check that the pull request's checks passed before approving:
+`gh pr checks <number> -R google/skills_lint.dart`, with the number that
+`gh pr list` printed.
 
 ### Order and recovery
 
