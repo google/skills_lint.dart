@@ -58,6 +58,11 @@ pub.dev accepts a publish only from a workflow run on a tag that matches
 the `pub` job in `release.yaml` lists the pub.dev and repository settings
 that the run depends on.
 
+If the `pub.dev` environment is ever re-created, re-add its required reviewer
+and its `skills_lint-v*` tag rule. GitHub re-creates a deleted environment
+without them, and pub.dev checks only the name. The run on `main` fails
+until the environment has them.
+
 A version with a suffix, such as `1.0.0-dev.1`, is released as a prerelease.
 The README's
 install command downloads from `releases/latest`, and

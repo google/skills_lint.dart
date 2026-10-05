@@ -240,6 +240,21 @@ jobs:
       TAG: ${{ needs.prepare.outputs.tag }}
       SHA: ${{ github.sha }}
     steps:
+      # GitHub re-creates a deleted environment with no protection when a job
+      # uses it, and pub.dev checks only the environment's name. So the run
+      # stops unless pub.dev has a required reviewer and only the
+      # skills_lint-v* tag rule.
+      - name: Check the pub.dev environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rules="$(gh api "repos/$GH_REPO/environments/pub.dev" --jq '[.protection_rules[].type] | join(" ")')"
+          policies="$(gh api "repos/$GH_REPO/environments/pub.dev/deployment-branch-policies" \
+            --jq '[.branch_policies[] | "\(.type):\(.name)"] | join(" ")')"
+          if [[ " $rules " != *" required_reviewers "* || "$policies" != 'tag:skills_lint-v*' ]]; then
+            echo "::error::The pub.dev environment needs a required reviewer and only the skills_lint-v* tag rule (rules: $rules; policies: $policies). See RELEASING.md."
+            exit 1
+          fi
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-assets
@@ -348,7 +363,8 @@ jobs:
     #   workflow_dispatch runs on tags matching skills_lint-v{{version}}, not
     #   from push runs, and requires the GitHub Actions environment pub.dev.
     # - The repository's pub.dev environment allows only skills_lint-v* tags
-    #   and has a required reviewer, so this job waits for approval.
+    #   and has a required reviewer, so this job waits for approval. The
+    #   stage job checks this.
     environment: pub.dev
     runs-on: ubuntu-latest
     timeout-minutes: 10
