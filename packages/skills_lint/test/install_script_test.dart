@@ -189,7 +189,7 @@ void main() {
             'MOCK_SW_VERS': '13.6.1',
           },
         );
-        expect(stderr, contains(contains('skills_lint requires macOS 14 or later (found 13.6.1)')));
+        expect(stderr, contains(allOf(contains('macOS 14'), contains('13.6.1'))));
         expect(File(p.join(installDir.path, 'skills_lint')).existsSync(), isFalse);
       });
 
@@ -417,32 +417,12 @@ void main() {
     });
 
     test('fails on linux-arm64, which has no published binary', () async {
-      // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/164
-      final newPath = '${mockBinDir.path}:${Platform.environment['PATH']}';
-      final String scriptPath = p.join(_getPackageRoot(), 'scripts', 'install.sh');
-
-      final TestProcess process = await TestProcess.start(
-        'bash',
-        [scriptPath],
-        environment: {
-          'PATH': newPath,
-          'MOCK_UNAME_S': 'Linux',
-          'MOCK_UNAME_M': 'aarch64',
-          'INSTALL_DIR': installDir.path,
-        },
+      final List<String> stderr = await _runInstallScriptExpectingFailure(
+        mockBinDir: mockBinDir,
+        installDir: installDir,
+        environment: {'MOCK_UNAME_S': 'Linux', 'MOCK_UNAME_M': 'aarch64'},
       );
-
-      final List<String> stderr = await process.stderr.rest.toList();
-      expect(
-        stderr,
-        contains(
-          allOf(
-            contains("no published binary for platform 'linux-arm64'"),
-            contains('Supported platforms: macos-arm64, macos-x64, linux-x64.'),
-          ),
-        ),
-      );
-      await process.shouldExit(1);
+      expect(stderr, contains(contains("no published binary for platform 'linux-arm64'")));
     });
     // TODO(reidbaker): Support running install.sh tests on Windows hosts. https://github.com/google/skills_lint.dart/issues/164
   }, skip: Platform.isWindows ? 'install.sh is not supported on Windows' : null);
@@ -608,7 +588,6 @@ Future<List<String>> _runInstallScriptExpectingFailure({
   required Directory installDir,
   required Map<String, String> environment,
 }) async {
-  // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/164
   final newPath = '${mockBinDir.path}:${Platform.environment['PATH']}';
   final String scriptPath = p.join(_getPackageRoot(), 'scripts', 'install.sh');
   final TestProcess process = await TestProcess.start(

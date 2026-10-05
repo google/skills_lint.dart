@@ -46,26 +46,37 @@ void main() {
     return (result.stdout as String).trim().split('\n')..sort();
   }
 
-  test('archiveName is the name scripts/install.sh downloads', () {
-    expect(archiveName('macos-arm64'), 'skills_lint-macos-arm64.tar.gz');
-    expect(binaryName('macos-arm64'), 'skills_lint-macos-arm64');
+  test('hostTarget maps an ABI to each supported target and to no other target', () {
+    expect(Abi.values.map(hostTarget).nonNulls.toSet(), unorderedEquals(supportedTargets));
   });
 
-  test('hostTarget names the supported targets', () {
-    expect(hostTarget(Abi.macosArm64), 'macos-arm64');
-    expect(hostTarget(Abi.macosX64), 'macos-x64');
-    expect(hostTarget(Abi.linuxX64), 'linux-x64');
-    expect(hostTarget(Abi.linuxArm64), isNull);
-    expect(hostTarget(Abi.windowsX64), isNull);
-    expect(supportedTargets, ['macos-arm64', 'macos-x64', 'linux-x64']);
+  group('packageExecutable', () {
+    test('writes the archive with the license notices, and its checksum', () async {
+      stageFiles();
+      final File archive = await packageExecutable(stage: stage, target: _target, outputDir: dist);
+      expect(await listArchive(archive), unorderedEquals(['LICENSE', binaryName(_target)]));
+      expect(File(p.join(stage.path, 'LICENSE')).readAsStringSync(), contains('Dart SDK'));
+      expect(File('${archive.path}.sha256').existsSync(), isTrue);
+    });
+
+    test('checks the minimum macOS version of a macOS executable', () async {
+      // A shell script runs, so only the Mach-O check rejects it.
+      final executable = File(p.join(stage.path, binaryName('macos-arm64')))
+        ..writeAsStringSync('#!/bin/sh\nexit 0\n');
+      Process.runSync('chmod', ['+x', executable.path]);
+      await expectLater(
+        packageExecutable(stage: stage, target: 'macos-arm64', outputDir: dist),
+        throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains('Mach-O'))),
+      );
+      expect(dist.listSync(), isEmpty);
+    });
   });
 
   group('writeArchive', () {
     test('holds the executable and LICENSE at the top level', () async {
       stageFiles();
       final File archive = await writeArchive(stage: stage, target: _target, outputDir: dist);
-      expect(p.basename(archive.path), 'skills_lint-linux-x64.tar.gz');
-      expect(await listArchive(archive), ['LICENSE', 'skills_lint-linux-x64']);
+      expect(await listArchive(archive), unorderedEquals(['LICENSE', binaryName(_target)]));
     });
 
     test('throws when LICENSE is missing', () async {

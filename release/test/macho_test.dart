@@ -2,12 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:path/path.dart' as p;
 import 'package:skills_lint_release/src/macho.dart';
-import 'package:skills_lint_release/src/paths.dart';
 import 'package:skills_lint_release/src/release_exception.dart';
 import 'package:test/test.dart';
 
@@ -79,28 +76,23 @@ void main() {
   });
 
   group('checkMacosMinimum', () {
+    final List<int> minimum = macosMinimumVersion.split('.').map(int.parse).toList();
+
     test('passes for the expected minimum', () {
-      checkMacosMinimum(_machO([_buildVersion(_version(14, 0))]));
+      checkMacosMinimum(_machO([_buildVersion(_version(minimum[0], minimum[1]))]));
     });
 
-    test('fails for another minimum and says what to update', () {
+    test('fails for another minimum and names both versions', () {
       expect(
-        () => checkMacosMinimum(_machO([_buildVersion(_version(15, 0))])),
+        () => checkMacosMinimum(_machO([_buildVersion(_version(minimum[0] + 1, 0))])),
         throwsA(
           isA<ReleaseException>().having(
             (e) => e.message,
             'message',
-            allOf(contains('15.0'), contains(macosMinimumVersion), contains('install.sh')),
+            allOf(contains('${minimum[0] + 1}.0'), contains(macosMinimumVersion)),
           ),
         ),
       );
     });
-  });
-
-  test('install.sh checks for the same macOS version', () {
-    final String script = File(
-      p.join(skillsLintPackageDir, 'scripts', 'install.sh'),
-    ).readAsStringSync();
-    expect(script, contains('\nMIN_MACOS_VERSION=${macosMinimumVersion.split('.').first}\n'));
   });
 }

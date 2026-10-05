@@ -20,6 +20,26 @@ of Dart 3.13.5 pins. The runtime's dependencies on these components are in
 and
 [`runtime/BUILD.gn`](https://github.com/dart-lang/sdk/blob/04bcd1036cdc799ac6564988f159ee454d42c822/runtime/BUILD.gn).
 
+## Why the archives include them
+
+The Dart SDK's `LICENSE` covers only the Dart project's own code. The Dart team
+[removed the third-party licenses from it](https://github.com/dart-lang/sdk/commit/c6511027931ad2384441e4b0db6c3fdd22371e4b)
+because each `third_party` folder of the SDK source holds its own license. The
+SDK download has no `third_party` folder. Each license states what a binary
+distribution must carry:
+
+- BoringSSL and Perfetto: Apache License 2.0, section 4(a), "You must give any
+  other recipients of the Work or Derivative Works a copy of this License".
+- double-conversion: the BSD 3-clause license, "Redistributions in binary form
+  must reproduce the above copyright notice, this list of conditions and the
+  following disclaimer in the documentation and/or other materials provided
+  with the distribution."
+- ICU: the Unicode license, which requires that "this copyright and permission
+  notice appear with all copies of the Data Files or Software" or in
+  associated documentation.
+- zlib: the zlib license requires its notice in source distributions only.
+  The archives include it to credit the code.
+
 ## Updating
 
 Check these files when the release workflow moves to a new Dart SDK:

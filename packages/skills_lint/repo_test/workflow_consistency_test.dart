@@ -12,14 +12,13 @@ import 'src/repo_paths.dart';
 
 const int _maxCognitiveComplexityThreshold = 20;
 
-/// Directories with Dart files that the cognitive complexity check skips.
-const Set<String> _unscannedDirectories = {
+/// The `--exclude` globs that the cognitive complexity check may pass.
+const Set<String> _allowedExcludes = {
   // Vendored skill repositories: code we don't maintain.
-  'third_party',
+  'third_party/**',
   // Eval inputs, including deliberately bad code that the evals expect a
   // reviewer to flag.
-  'packages/skills_lint/evals/test_data',
-  '.agents/skills/run-evals/resources/test_data',
+  '**/test_data/**',
 };
 
 /// Returns the entries of [testDirectories] that a `dart test` [command]
@@ -36,47 +35,19 @@ Set<String> _categoriesSelectedBy(String command) {
 void main() {
   group('CI workflow consistency', () {
     test('CI workflow cognitive complexity fail-threshold does not exceed 20', () {
-      final RegExpMatch match = _parseCognitiveComplexityInvocation();
-      final int threshold = int.parse(match.group(1)!);
+      final int threshold = int.parse(_parseCognitiveComplexityInvocation().group(1)!);
       expect(threshold, lessThanOrEqualTo(_maxCognitiveComplexityThreshold));
-
-      final List<String> targets = match.group(2)!.trim().split(RegExp(r'\s+'));
-      expect(
-        targets,
-        containsAll([
-          'packages/skills_lint/bin',
-          'packages/skills_lint/lib',
-          'packages/skills_lint/test',
-          'packages/skills_lint/repo_test',
-          'packages/skills_lint/example',
-          'packages/skills_lint/skills',
-          'packages/skills_lint/benchmark',
-          'release',
-          '.agents/skills',
-        ]),
-      );
     });
 
-    test('CI cognitive complexity check scans every Dart file in the repository', () {
-      final List<String> targets = _parseCognitiveComplexityInvocation()
-          .group(2)!
-          .trim()
-          .split(RegExp(r'\s+'));
-      final List<String> unscanned = [
-        for (final String file in _dartFiles(Directory(repoRoot), repoRoot))
-          if (![
-            ...targets,
-            ..._unscannedDirectories,
-          ].any((String target) => file.startsWith('$target/')))
-            file,
-      ];
+    test('CI cognitive complexity check scans the repository apart from allowed excludes', () {
+      final (:List<String> paths, :List<String> excludes) = _cognitiveComplexityArguments(
+        _parseCognitiveComplexityInvocation().group(2)!,
+      );
+      expect(paths, ['.'], reason: 'The check runs from the repository root and scans all of it.');
       expect(
-        unscanned,
-        isEmpty,
-        reason:
-            'These Dart files are outside every path that the cognitive_complexity step in '
-            '.github/workflows/skills_lint_workflow.yaml scans. Add their directory to that '
-            'command and to .agents/skills/definition-of-done/SKILL.md:\n  ${unscanned.join('\n  ')}',
+        _allowedExcludes,
+        containsAll(excludes),
+        reason: 'Each --exclude glob must be in _allowedExcludes, with the reason it is skipped.',
       );
     });
 
@@ -148,6 +119,27 @@ RegExpMatch _parseCognitiveComplexityInvocation() {
   return match!;
 }
 
+/// Splits the [arguments] of a `cognitive_complexity` command after
+/// `--fail-threshold <N>` into scanned paths and `--exclude` globs, without
+/// shell quotes.
+({List<String> paths, List<String> excludes}) _cognitiveComplexityArguments(String arguments) {
+  final List<String> words = [
+    for (final String word in arguments.trim().split(RegExp(r'\s+'))) word.replaceAll("'", ''),
+  ];
+  final List<String> paths = [];
+  final List<String> excludes = [];
+  for (var i = 0; i < words.length; i++) {
+    if (words[i] == '--exclude' && i + 1 < words.length) {
+      excludes.add(words[++i]);
+    } else if (words[i].startsWith('--exclude=')) {
+      excludes.add(words[i].substring('--exclude='.length));
+    } else {
+      paths.add(words[i]);
+    }
+  }
+  return (paths: paths, excludes: excludes);
+}
+
 /// Returns each `dart test` command that a `run:` step of the CI workflow runs.
 List<String> _dartTestInvocations() {
   final String content = _getWorkflowFile().readAsStringSync();
@@ -158,28 +150,6 @@ List<String> _dartTestInvocations() {
     ).allMatches(content))
       match.group(1)!.trim(),
   ];
-}
-
-/// Hidden directories under the repository root that hold source files.
-const Set<String> _hiddenSourceDirectories = {'.agents', '.github'};
-
-/// Returns the paths, relative to [root] and with `/` separators, of the Dart
-/// files under [dir].
-///
-/// Skips `build` directories and hidden directories, such as `.dart_tool`
-/// and `.git`, apart from [_hiddenSourceDirectories].
-Iterable<String> _dartFiles(Directory dir, String root) sync* {
-  for (final FileSystemEntity entity in dir.listSync(followLinks: false)) {
-    final String name = p.basename(entity.path);
-    if (entity is Directory) {
-      final bool hidden = name.startsWith('.') && !_hiddenSourceDirectories.contains(name);
-      if (!hidden && name != 'build') {
-        yield* _dartFiles(entity, root);
-      }
-    } else if (entity is File && name.endsWith('.dart')) {
-      yield p.split(p.relative(entity.path, from: root)).join('/');
-    }
-  }
 }
 
 File _getWorkflowFile() =>

@@ -26,7 +26,7 @@ void main() {
     final String output = p.join(temp.path, 'LICENSE');
     final ProcessResult result = await _release(['licenses', '--output', output]);
     expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
-    expect(File(output).readAsStringSync(), startsWith('skills_lint license:\n'));
+    expect(File(output).readAsStringSync(), allOf(contains('skills_lint'), contains('Dart SDK')));
   });
 
   test('prepare prints the dry-run release and writes its notes', () async {

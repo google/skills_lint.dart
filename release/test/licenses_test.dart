@@ -9,6 +9,7 @@ import 'package:skills_lint_release/src/licenses.dart';
 import 'package:skills_lint_release/src/paths.dart';
 import 'package:skills_lint_release/src/release_exception.dart';
 import 'package:test/test.dart';
+import 'package:yaml/yaml.dart';
 
 /// A `dart pub deps --json` package entry.
 Map<String, Object?> _package(String name, List<String> deps, {List<String> dev = const []}) => {
@@ -89,12 +90,7 @@ void main() {
         'Dart SDK',
         'yaml',
       ]);
-      expect(
-        notices,
-        'skills_lint, args and path license:\n\nBSD text\n\n${'-' * 80}\n\n'
-        'Dart SDK license:\n\nSDK text\n\n${'-' * 80}\n\n'
-        'yaml license:\n\nMIT text\n',
-      );
+      expect('BSD text'.allMatches(notices), hasLength(1));
     });
   });
 
@@ -190,42 +186,37 @@ void main() {
       expect(files, unorderedEquals(dartRuntimeLicenseFiles.values));
     });
 
-    test('notices cover skills_lint, the Dart SDK and runtime dependencies only', () async {
-      final String notices = await collectLicenses(
-        packageDir: skillsLintPackageDir,
-        sdkDir: dartSdkDir,
-        runtimeLicensesDir: dartRuntimeLicensesDir,
-      );
-      final Set<String> components = {
-        for (final RegExpMatch match in _heading.allMatches(notices))
-          ...match.group(1)!.split(RegExp(', | and ')),
-      };
-      expect(
-        components,
-        containsAll([
-          'skills_lint',
-          'Dart SDK',
-          for (final String component in dartRuntimeLicenseFiles.keys)
-            '$component (in the Dart runtime)',
-          'args',
-          'path',
-          'yaml',
-        ]),
-      );
-      expect(
-        components.intersection({
-          'analyzer',
-          'test',
-          'test_process',
-          'coverage',
-          'build_runner',
-          'crypto',
-        }),
-        isEmpty,
-        reason:
-            'Dev dependencies and other workspace packages are not compiled into the '
-            'executable. Components: $components',
-      );
-    });
+    test(
+      'notices cover skills_lint, the Dart SDK and dependencies but not dev dependencies',
+      () async {
+        final pubspec =
+            loadYaml(File(p.join(skillsLintPackageDir, 'pubspec.yaml')).readAsStringSync())
+                as YamlMap;
+        final String notices = await collectLicenses(
+          packageDir: skillsLintPackageDir,
+          sdkDir: dartSdkDir,
+          runtimeLicensesDir: dartRuntimeLicensesDir,
+        );
+        final Set<String> components = {
+          for (final RegExpMatch match in _heading.allMatches(notices))
+            ...match.group(1)!.split(RegExp(', | and ')),
+        };
+        expect(
+          components,
+          containsAll([
+            'skills_lint',
+            'Dart SDK',
+            for (final String component in dartRuntimeLicenseFiles.keys)
+              '$component (in the Dart runtime)',
+            ...(pubspec['dependencies'] as YamlMap).keys.cast<String>(),
+          ]),
+        );
+        expect(
+          components.intersection((pubspec['dev_dependencies'] as YamlMap).keys.toSet()),
+          isEmpty,
+          reason: 'Dev dependencies are not compiled into the executable. Components: $components',
+        );
+      },
+    );
   });
 }

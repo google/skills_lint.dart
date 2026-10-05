@@ -99,11 +99,9 @@ Future<void> smokeTest(String executable) => _run(executable, ['--help']);
 /// Builds the archive for [target] in [outputDir], with its `.sha256` file
 /// next to it, and returns the archive.
 ///
-/// Compiles the executable, runs it, checks the minimum macOS version of a
-/// macOS executable, writes the license notices next to it, packages both,
-/// then checks the archive. Throws a [ReleaseException] if
-/// [target] is not the host's target, since `dart compile exe` can't
-/// cross-compile to it, or if a step fails.
+/// Compiles the executable, then calls [packageExecutable]. Throws a
+/// [ReleaseException] if [target] is not the host's target, since
+/// `dart compile exe` can't cross-compile to it, or if a step fails.
 Future<File> buildArchive({required String target, required Directory outputDir}) async {
   final String? host = hostTarget(Abi.current());
   if (target != host) {
@@ -114,33 +112,49 @@ Future<File> buildArchive({required String target, required Directory outputDir}
   }
   final Directory stage = Directory.systemTemp.createTempSync('skills_lint_stage.');
   try {
-    final String executable = p.join(stage.path, binaryName(target));
     await _run(Platform.resolvedExecutable, [
       'compile',
       'exe',
       p.join('bin', 'skills_lint.dart'),
       '-o',
-      executable,
+      p.join(stage.path, binaryName(target)),
     ], workingDirectory: skillsLintPackageDir);
-    await smokeTest(executable);
-    if (target.startsWith('macos-')) {
-      checkMacosMinimum(File(executable).readAsBytesSync());
-    }
-    File(p.join(stage.path, _licenseName)).writeAsStringSync(
-      await collectLicenses(
-        packageDir: skillsLintPackageDir,
-        sdkDir: dartSdkDir,
-        runtimeLicensesDir: dartRuntimeLicensesDir,
-      ),
-    );
-    outputDir.createSync(recursive: true);
-    final File archive = await writeArchive(stage: stage, target: target, outputDir: outputDir);
-    await verifyArchive(archive, target);
-    writeChecksum(archive);
-    return archive;
+    return await packageExecutable(stage: stage, target: target, outputDir: outputDir);
   } finally {
     stage.deleteSync(recursive: true);
   }
+}
+
+/// Packages the executable for [target] in [stage] as the archive for
+/// [target] in [outputDir], with its `.sha256` file next to it, and returns
+/// the archive.
+///
+/// Checks the minimum macOS version of a macOS executable, runs the
+/// executable, writes the license notices to `LICENSE` in [stage], packages
+/// both, then checks the archive. Throws a [ReleaseException] if a step
+/// fails.
+Future<File> packageExecutable({
+  required Directory stage,
+  required String target,
+  required Directory outputDir,
+}) async {
+  final String executable = p.join(stage.path, binaryName(target));
+  if (target.startsWith('macos-')) {
+    checkMacosMinimum(File(executable).readAsBytesSync());
+  }
+  await smokeTest(executable);
+  File(p.join(stage.path, _licenseName)).writeAsStringSync(
+    await collectLicenses(
+      packageDir: skillsLintPackageDir,
+      sdkDir: dartSdkDir,
+      runtimeLicensesDir: dartRuntimeLicensesDir,
+    ),
+  );
+  outputDir.createSync(recursive: true);
+  final File archive = await writeArchive(stage: stage, target: target, outputDir: outputDir);
+  await verifyArchive(archive, target);
+  writeChecksum(archive);
+  return archive;
 }
 
 /// Runs [executable], passing its output through, and throws a

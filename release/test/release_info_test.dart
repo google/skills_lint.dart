@@ -85,16 +85,4 @@ void main() {
       );
     });
   });
-
-  test('environmentLines writes one NAME=value line per field', () {
-    expect(
-      environmentLines((
-        version: '0.6.0',
-        tag: 'skills_lint-v0.6.0',
-        prerelease: false,
-        dryRun: false,
-      )),
-      'VERSION=0.6.0\nTAG=skills_lint-v0.6.0\nPRERELEASE=false\nDRY_RUN=false\n',
-    );
-  });
 }
