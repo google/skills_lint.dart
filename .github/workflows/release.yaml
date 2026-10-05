@@ -314,6 +314,9 @@ jobs:
   pub:
     name: Publish to pub.dev
     needs: [prepare, verify]
+    # pub.dev accepts tokens only from jobs in this environment. Its
+    # deployment rule allows only skills_lint-v* tags. See RELEASING.md.
+    environment: pub.dev
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

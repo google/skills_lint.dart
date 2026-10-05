@@ -40,10 +40,16 @@ The run on the tag:
 3. Publishes the draft release.
 
 pub.dev accepts a publish only from a workflow run on a tag that matches
-`skills_lint-v{{version}}`, so publishing needs the second run. The
-[admin page](https://pub.dev/packages/skills_lint/admin) must enable
-publishing from `workflow_dispatch` events. Disable publishing from `push`
-events there, so that a pushed tag can't publish.
+`skills_lint-v{{version}}`, so publishing needs the second run. The settings
+that this depends on:
+
+- The [pub.dev admin page](https://pub.dev/packages/skills_lint/admin)
+  enables publishing from `workflow_dispatch` events and disables it from
+  `push` events, so a pushed tag can't publish. **Require GitHub Actions
+  environment** is checked, with **Environment** set to `pub.dev`.
+- The repository has a GitHub Actions environment named `pub.dev` with a
+  deployment rule that allows only tags matching `skills_lint-v*`. The `pub`
+  job, which runs `dart pub publish`, is the only job in that environment.
 
 The release notes are the version's `CHANGELOG.md` section. A version with a
 suffix, such as `1.0.0-dev.1`, is released as a prerelease. The README's
