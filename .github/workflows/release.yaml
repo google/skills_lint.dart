@@ -127,8 +127,7 @@ jobs:
         include:
           - os: macos-latest
             target: macos-arm64
-          # GitHub retires its Intel macOS runners around August 2027. Drop
-          # this target, and macos-x64 in scripts/install.sh, then.
+          # macos-15-intel is GitHub's last Intel macOS image.
           - os: macos-15-intel
             target: macos-x64
           - os: ubuntu-latest

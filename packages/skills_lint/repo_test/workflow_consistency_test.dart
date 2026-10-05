@@ -18,7 +18,7 @@ const Set<String> _allowedExcludes = {
   'third_party/**',
   // Eval inputs, including deliberately bad code that the evals expect a
   // reviewer to flag.
-  '**/test_data/**',
+  'packages/skills_lint/evals/test_data/**',
 };
 
 /// Returns the entries of [testDirectories] that a `dart test` [command]

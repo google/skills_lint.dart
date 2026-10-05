@@ -51,6 +51,18 @@ jobs:
 
       - run: dart pub get
 
+      # release.yaml tests the release package on stable. These steps test it
+      # on the lowest SDK that its pubspec allows.
+      - name: Analyze the release package
+        if: matrix.downgrade
+        working-directory: release
+        run: dart analyze --fatal-infos
+
+      - name: Test the release package
+        if: matrix.downgrade
+        working-directory: release
+        run: dart test
+
       # `downgrade` is set only by the lower-bound `include` entry above.
       - name: Resolve the lowest allowed dependency versions
         if: matrix.downgrade
@@ -59,7 +71,7 @@ jobs:
       - run: dart analyze --fatal-infos
 
       - name: Run cognitive complexity check
-        run: dart run cognitive_complexity --fail-threshold 20 --exclude 'third_party/**' --exclude '**/test_data/**' .
+        run: dart run cognitive_complexity --fail-threshold 20 --exclude 'third_party/**' --exclude 'packages/skills_lint/evals/test_data/**' .
         working-directory: .
 
       # One step per test directory, so a failure names its kind. See "Where
@@ -80,17 +92,10 @@ jobs:
       - name: Verify API boundary runner
         run: dart run example/api_boundary_runner/bin/main.dart
 
-      # release.yaml tests the release package on stable with locked
-      # dependencies. These steps test it at its lower bounds.
-      - name: Analyze the release package
+      - name: Analyze the release package with the lowest allowed dependency versions
         if: matrix.downgrade
         working-directory: release
         run: dart analyze --fatal-infos
-
-      - name: Test the release package
-        if: matrix.downgrade
-        working-directory: release
-        run: dart test
 
   coverage:
     runs-on: ubuntu-latest

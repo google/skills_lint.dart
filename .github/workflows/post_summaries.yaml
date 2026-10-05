@@ -14,8 +14,6 @@ on:
     workflows:
       # Must match the `name:` of health.yaml.
       - Health
-      # Publish is not listed: publish.yaml uses the default
-      # `write-comments: true`, so it comments itself and uploads no artifact.
     types:
       - completed
 
