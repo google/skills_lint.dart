@@ -1,0 +1,23 @@
+# Dependabot version updates for the actions and reusable workflows that
+# .github/workflows/ uses. One group matches every action, so each update is
+# one pull request that changes every workflow at once.
+# packages/skills_lint/repo_test/action_pins_test.dart fails if two uses of an
+# action have different pins.
+#
+# Options: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    # For GitHub Actions, "/" means .github/workflows/.
+    directory: /
+    schedule:
+      interval: monthly
+    # Pin updates are internal-only changes. See "Changelog" in
+    # .agents/skills/definition-of-done/SKILL.md.
+    labels:
+      - skip-changelog-check
+    groups:
+      github-actions:
+        patterns:
+          - "*"
