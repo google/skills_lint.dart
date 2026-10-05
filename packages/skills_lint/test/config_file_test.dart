@@ -2,9 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-@Tags(['cli'])
-library;
-
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -71,7 +68,9 @@ Object? serializedRules(Configuration configuration) {
   return yaml['rules'];
 }
 
-void main() {
+/// The tests that run the CLI, which `compiled_test/` also runs against the
+/// compiled binary.
+void cliTests() {
   group('Configuration File Integration', () {
     late Directory tempDir;
 
@@ -1037,6 +1036,10 @@ skills_lint:
       await process.shouldExit(0);
     });
   });
+}
+
+void main() {
+  cliTests();
 
   group('Configuration YAML Round-trip Serialization', () {
     test('round-trips empty configuration', () {

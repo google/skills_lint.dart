@@ -22,53 +22,15 @@ const Set<String> _unscannedDirectories = {
   '.agents/skills/run-evals/resources/test_data',
 };
 
-/// `dart test` options that run only some of the tests in the selected
-/// paths.
-const Set<String> _filterOptions = {
-  '--tags',
-  '-t',
-  '--exclude-tags',
-  '-x',
-  '--name',
-  '-n',
-  '--plain-name',
-  '-N',
-};
-
-/// Parses a `dart test` [command] into the paths it selects, with `/`
-/// separators, and whether it filters the tests in them by tag or name.
-///
-/// A command with no path argument selects `test`, package:test's default
-/// path. A filter given as two words, such as `--tags cli`, takes the next
-/// word as its value, not as a path.
-({Set<String> paths, bool filtered}) _parseDartTest(String command) {
-  final paths = <String>{};
-  var filtered = false;
-  var expectsValue = false;
-  for (final String arg in command.split(RegExp(r'\s+')).skip(2)) {
-    if (expectsValue) {
-      expectsValue = false;
-    } else if (arg.startsWith('-')) {
-      final String option = arg.split('=').first;
-      filtered = filtered || _filterOptions.contains(option);
-      expectsValue = _filterOptions.contains(arg);
-    } else {
-      paths.add(p.url.normalize(arg));
-    }
-  }
-  return (paths: paths.isEmpty ? {'test'} : paths, filtered: filtered);
-}
-
-/// Returns the top-level directories of the paths that a `dart test`
-/// [command] selects, such as `test` for `test/cli_integration_test.dart`.
-Set<String> _categoriesSelectedBy(String command) => {
-  for (final String path in _parseDartTest(command).paths) p.url.split(path).first,
-};
-
-/// Whether a `dart test` [command] runs every test in [directory].
-bool _runsAllOf(String command, String directory) {
-  final ({Set<String> paths, bool filtered}) selection = _parseDartTest(command);
-  return !selection.filtered && selection.paths.contains(directory);
+/// Returns the entries of [testDirectories] that a `dart test` [command]
+/// selects. A command with no path argument selects `test`, package:test's
+/// default path.
+Set<String> _categoriesSelectedBy(String command) {
+  final Set<String> paths = {
+    for (final String arg in command.split(RegExp(r'\s+')).skip(2))
+      if (!arg.startsWith('-')) p.url.normalize(arg),
+  };
+  return paths.isEmpty ? {'test'} : paths;
 }
 
 void main() {
@@ -86,6 +48,7 @@ void main() {
           'packages/skills_lint/lib',
           'packages/skills_lint/test',
           'packages/skills_lint/repo_test',
+          'packages/skills_lint/compiled_test',
           'packages/skills_lint/example',
           'packages/skills_lint/skills',
           'packages/skills_lint/benchmark',
@@ -129,14 +92,14 @@ void main() {
         unselected,
         isEmpty,
         reason:
-            'Each `dart test` step in the CI workflow must run tests from exactly one of '
+            'Each `dart test` step in the CI workflow must run exactly one of '
             '${testDirectories.join(', ')}, so a failure names its kind.',
       );
       for (final String category in testDirectories) {
         expect(
-          invocations.where((command) => _runsAllOf(command, category)),
+          invocations.where((command) => _categoriesSelectedBy(command).contains(category)),
           isNotEmpty,
-          reason: 'The CI workflow must run every test in $category/ (`dart test $category`).',
+          reason: 'The CI workflow must run the tests in $category/.',
         );
       }
       expect(

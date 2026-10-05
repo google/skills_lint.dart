@@ -94,11 +94,12 @@ dart test
 
 ### Where tests go
 
-The package has two test roots, side by side in `packages/skills_lint/`:
+The package has three test roots, side by side in `packages/skills_lint/`:
 
 | Directory | What goes there | A change to … can break it |
 | :--- | :--- | :--- |
 | `test/` | Tests of the shipped skills_lint package: rules, the CLI, configuration, the fixer, the install script and the public API. | `lib/`, `bin/` |
+| `compiled_test/` | Runs the CLI tests from `test/` a second time, against a binary built by `dart compile exe`. Holds no tests of its own. | `lib/`, `bin/` |
 | `repo_test/` | Scans that fail when the repo drifts: file headers, the CI workflow, docs that must match the code (`RULES.md`, the README recipes), skill and eval structure, and source conventions. | anything in the repository |
 | `repo_test/checkers/` | Unit tests of the checker code in `repo_test/src/`, run on inline snippets or temporary directories instead of the real repository. | `repo_test/src/` |
 | `repo_test/src/` | Checker code shared by `repo_test/` and `repo_test/checkers/`. Not tests. | n/a |
@@ -111,15 +112,16 @@ This follows the `integration_test/` pattern in the
 second test directory next to `test/`, which plain `dart test` does not run.
 
 ```bash
-dart test             # test/ only. CI measures coverage here.
-dart test repo_test   # repo_test/, including repo_test/checkers/
+dart test                 # test/ only. CI measures coverage here.
+dart test repo_test       # repo_test/, including repo_test/checkers/
+dart test compiled_test   # the CLI tests, against the compiled CLI
 ```
 
-CI runs the two as separate steps, so a failure shows which kind broke.
+CI runs the three as separate steps, so a failure shows which kind broke.
 `repo_test/test_files_run_in_ci_test.dart` fails if a test file sits outside
-`test/` and `repo_test/`, because no CI step would run it. The directories
-that repo tests read are listed, with the reason for each subset, in
-`repo_test/src/package_directories.dart`.
+`test/`, `repo_test/` and `compiled_test/`, because no CI step would run it.
+The directories that repo tests read are listed, with the reason for each
+subset, in `repo_test/src/package_directories.dart`.
 
 The repo tests share this package's `dev_dependencies`. When one needs a dev
 dependency that no package test uses, move `repo_test/` to its own unpublished
@@ -128,25 +130,20 @@ dependency here.
 
 ### Testing the compiled CLI
 
-CI also compiles the CLI with `dart compile exe` on Linux, macOS and Windows,
-and runs the CLI tests against the executable. A CLI test starts the CLI with
-`startCli` from `test/test_utils.dart`, and its library is tagged `cli`:
+Releases ship the CLI built by `dart compile exe`, so the CLI tests run twice:
+once from source with `dart test`, and once against the compiled binary with
+`dart test compiled_test`. CI runs both on Linux, macOS and Windows.
 
-```dart
-@Tags(['cli'])
-library;
-```
+A CLI test starts the CLI with `startCli` from `test/test_utils.dart`. It runs
+`dart bin/skills_lint.dart`, except in `compiled_test/cli_test.dart`, which
+compiles the binary in its setup, fails if compiling fails, and then calls the
+shared tests. A test file whose tests all start the CLI is called through its
+`main()`. A file that mixes CLI tests with other tests puts the CLI tests in a
+`cliTests()` function, which both its `main()` and `compiled_test/` call.
 
-`startCli` runs the executable named by the `SKILLS_LINT_EXECUTABLE`
-environment variable, or `dart bin/skills_lint.dart` when it is not set.
-`repo_test/cli_runs_convention_test.dart` fails if a file in `test/` names
-`bin/skills_lint.dart` itself, or calls `startCli` without the tag. To run the
-CLI tests against an executable locally:
-
-```bash
-dart compile exe bin/skills_lint.dart -o /tmp/skills_lint
-SKILLS_LINT_EXECUTABLE=/tmp/skills_lint dart test --tags=cli
-```
+`repo_test/dart_test_process_convention_test.dart` fails if a test starts the
+Dart VM with `TestProcess.start` instead of calling `startCli`, because such a
+test would skip the compiled binary.
 
 ### Coverage
 

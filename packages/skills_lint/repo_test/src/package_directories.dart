@@ -9,9 +9,10 @@
 /// doc says why.
 library;
 
-/// The test roots. CI runs `dart test` for `test` and `dart test repo_test`
-/// for `repo_test`, so every test file must be under one of them.
-const List<String> testDirectories = ['test', 'repo_test'];
+/// The test roots. CI runs `dart test` for `test`, `dart test repo_test` for
+/// `repo_test` and `dart test compiled_test` for `compiled_test`, so every
+/// test file must be under one of them.
+const List<String> testDirectories = ['test', 'repo_test', 'compiled_test'];
 
 /// The directories whose code ships in the published package.
 ///

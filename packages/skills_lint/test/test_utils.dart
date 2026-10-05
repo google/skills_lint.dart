@@ -64,26 +64,34 @@ Future<void> withTempDir(FutureOr<void> Function(Directory tempDir) action) asyn
   }
 }
 
-/// The environment variable that names a compiled skills_lint executable for
-/// [startCli] to run, such as one built by `dart compile exe`.
-const cliExecutableEnvironmentVariable = 'SKILLS_LINT_EXECUTABLE';
+/// The compiled skills_lint executable that [startCli] runs, or `null` to run
+/// `dart bin/skills_lint.dart`.
+String? _compiledCli;
+
+/// Makes [startCli] run [executable], a skills_lint binary built by
+/// `dart compile exe`, for the rest of this test isolate.
+///
+/// Only the tests in `compiled_test/` call this, after they compile the
+/// binary. Every other test runs the CLI from source.
+void useCompiledCli(String executable) {
+  _compiledCli = executable;
+}
 
 /// Starts the skills_lint CLI with [arguments] in [workingDirectory].
 ///
-/// Runs the executable named by [cliExecutableEnvironmentVariable] when it is
-/// set, and `dart bin/skills_lint.dart` otherwise. Without a
-/// [workingDirectory], the CLI runs in the system temp directory, outside
-/// this package, so it reads no `pubspec.yaml` or configuration of this
-/// repository.
+/// Runs `dart bin/skills_lint.dart`, or the binary given to [useCompiledCli].
+/// Without a [workingDirectory], the CLI runs in the system temp directory,
+/// outside this package, so it reads no `pubspec.yaml` or configuration of
+/// this repository.
 ///
-/// Tag a library that calls this with `@Tags(['cli'])`, so the CI job that
-/// sets [cliExecutableEnvironmentVariable] runs it.
+/// A test file that calls this should also run from `compiled_test/`, so the
+/// same test covers the compiled binary.
 Future<TestProcess> startCli(
   List<String> arguments, {
   String? workingDirectory,
   Map<String, String>? environment,
 }) {
-  final String? executable = Platform.environment[cliExecutableEnvironmentVariable];
+  final String? executable = _compiledCli;
   return TestProcess.start(
     executable ?? 'dart',
     [if (executable == null) p.normalize(p.absolute('bin', 'skills_lint.dart')), ...arguments],

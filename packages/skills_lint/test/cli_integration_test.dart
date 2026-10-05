@@ -2,9 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-@Tags(['cli'])
-library;
-
 import 'dart:convert';
 import 'dart:io';
 
@@ -1300,6 +1297,21 @@ skills_lint:
       await process.shouldExit(0);
 
       expect(stdoutString, equals(packageVersion));
+      expect(stderrString, isEmpty);
+    });
+
+    test('--version --format sarif writes the bare version and exits 0', () async {
+      final TestProcess process = await startCli(['--version', '--format', 'sarif']);
+
+      final String stdoutString = await process.stdoutStream().join('\n');
+      final String stderrString = await process.stderrStream().join('\n');
+      await process.shouldExit(0);
+
+      expect(
+        stdoutString,
+        equals(packageVersion),
+        reason: '--version ignores --format, the way --help does.',
+      );
       expect(stderrString, isEmpty);
     });
   });
