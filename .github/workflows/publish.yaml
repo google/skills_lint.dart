@@ -18,8 +18,7 @@ jobs:
     if: ${{ github.repository_owner == 'google' }}
     uses: dart-lang/ecosystem/.github/workflows/publish.yaml@60fca9f1270a0819b3ee9caf74b08fb0a212e4cb # main
     permissions:
-      # The publish job of the called workflow requests id-token: write. It
-      # runs only for push events, but GitHub rejects a call that grants less
-      # than a called job requests.
-      id-token: write
+      # The publish job of the called workflow runs only for push events, but
+      # GitHub rejects a call that grants less than a called job requests.
+      id-token: write # Requested by the called publish job
       pull-requests: write # Required for writing the pull request note
