@@ -172,40 +172,34 @@ Lint rules are part of `skills_lint`'s public API. Adopters wire
 the linter into pre-commit hooks and CI gates, so a rule that silently
 flips from "warning" to "error" can break a downstream build with no
 code change of their own. We version rule changes the same way we
-version code changes.
-
-Before 1.0, versions use `0.major.minor+patch`, as the
+version code changes. The
 [`dart-package-maintenance`](.agents/skills/dart-package-maintenance/SKILL.md)
-skill specifies. The second number is the major version, the third
-number is the minor version, and a `+N` suffix is the patch. From
-1.0 on, versions use `major.minor.patch`.
+skill defines the version numbers for each kind of release. This
+section says which kind of release each rule change needs.
 
-- **Patch release (`0.5.3` → `0.5.3+1`, `1.0.0` → `1.0.1`)** —
-  bug fixes to existing rules, including diagnostic message
-  rewording, internal refactors, and fixes that *narrow* what a rule
-  matches (fewer false positives). The set of error states a passing
-  skill needs to clear does not grow.
+- **Patch** — bug fixes to existing rules, including diagnostic
+  message rewording, internal refactors, and fixes that *narrow* what
+  a rule matches (fewer false positives). The set of error states a
+  passing skill needs to clear does not grow.
 
-- **Minor release (`0.5.2` → `0.5.3`, `1.0.0` → `1.1.0`)** — new
-  rules, **shipping with `defaultSeverity: AnalysisSeverity.disabled`**
-  so existing skills keep passing. Adopters opt in by enabling the
-  rule via flag or YAML config. Performance improvements that don't
-  change diagnostics also land here. A rule's diagnostic message may
-  expand to include additional context.
+- **Minor** — new rules, **shipping with
+  `defaultSeverity: AnalysisSeverity.disabled`** so existing skills
+  keep passing. Adopters opt in by enabling the rule via flag or YAML
+  config. Performance improvements that don't change diagnostics also
+  land here. A rule's diagnostic message may expand to include
+  additional context.
 
-- **Major release (`0.5.3` → `0.6.0`, `1.1.0` → `2.0.0`)** — any change
-  that can fail a previously-passing skill: removing a rule (so configs
-  referencing it stop working), upgrading a rule's default severity
-  (`disabled → warning`, `warning → error`), broadening what a rule
-  matches (more true positives = more failures), or renaming a rule.
-  Releases bump the major version and the CHANGELOG calls out the
-  exact rules affected.
+- **Major** — any change that can fail a previously-passing skill:
+  removing a rule (so configs referencing it stop working), upgrading
+  a rule's default severity (`disabled → warning`, `warning → error`),
+  broadening what a rule matches (more true positives = more
+  failures), or renaming a rule. The CHANGELOG calls out the exact
+  rules affected.
 
-Rationale: adopters should be able to set `skills_lint: ^0.5.2`
-(or `^1.0.0` after 1.0) in `pubspec.yaml` and trust that a
-`dart pub upgrade` never turns green CI red without their consent.
-The caret constraint `^0.5.2` allows `0.5.3` and `0.5.3+1` but not
-`0.6.0`. Surprises belong in major releases, and only there.
+Rationale: adopters should be able to set a caret constraint on
+`skills_lint` in `pubspec.yaml` and trust that a `dart pub upgrade`
+never turns green CI red without their consent. Surprises belong in
+major releases, and only there.
 
 If you're proposing a change that doesn't fit cleanly into one of the
 buckets above, say so on the PR and the maintainers will decide where
