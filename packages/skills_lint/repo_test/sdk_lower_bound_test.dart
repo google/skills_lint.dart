@@ -20,6 +20,8 @@ library;
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:pub_semver/pub_semver.dart';
+import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
 
@@ -60,24 +62,23 @@ void main() {
 
 /// Returns the workspace members listed in the root pubspec, as paths
 /// relative to the repository root.
-List<String> _workspaceMembers() {
-  final YamlMap pubspec = _loadYamlMap('pubspec.yaml');
-  return [for (final Object? member in pubspec['workspace'] as YamlList) member! as String];
-}
+List<String> _workspaceMembers() => _pubspec('pubspec.yaml').workspace ?? const [];
 
 /// Returns the lower bound of the `environment.sdk` constraint in the pubspec
 /// at [relativePath], for example `3.12.0` for `^3.12.0` or `>=3.12.0 <4.0.0`.
 String _lowerBound(String relativePath) {
-  final YamlMap pubspec = _loadYamlMap(relativePath);
-  final constraint = (pubspec['environment'] as YamlMap)['sdk'].toString();
-  final RegExpMatch? match = RegExp(r'^(?:\^|>=)\s*(\S+)').firstMatch(constraint);
+  final VersionConstraint? constraint = _pubspec(relativePath).environment['sdk'];
+  final Version? min = constraint is VersionRange ? constraint.min : null;
   expect(
-    match,
+    min,
     isNotNull,
     reason: '$relativePath: environment.sdk `$constraint` has no lower bound.',
   );
-  return match!.group(1)!;
+  return min.toString();
 }
+
+Pubspec _pubspec(String relativePath) =>
+    Pubspec.parse(File(p.join(repoRoot, relativePath)).readAsStringSync());
 
 /// Returns the `sdk:` input of the setup-dart step in the [_jobName] job.
 String _workflowLowerBoundSdk() {
