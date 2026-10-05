@@ -240,10 +240,12 @@ void main() {
           fixed: 'a\r\n',
         ),
         (
-          name: 'space before two carriage returns is not trailing',
+          name: 'space before a lone carriage return is trailing',
           content: 'a \r\r\n',
-          errors: [],
-          fixed: 'a \r\r\n',
+          errors: [
+            '1:2-3 Line 1 has 1 trailing space(s). Only exactly 2 spaces are allowed for line breaks.',
+          ],
+          fixed: 'a\r\r\n',
         ),
         (
           name: 'final line without a newline',
@@ -318,6 +320,24 @@ void main() {
           expect(_escape(await fix(content)), _escape(_referenceFix(content)), reason: input);
         }
       });
+
+      for (final (String name, String eol) in [('LF', '\n'), ('CRLF', '\r\n'), ('lone CR', '\r')]) {
+        test('fixing twice gives the same output as fixing once ($name)', () async {
+          for (final line in ['a\t', 'a\t ', 'a \t', 'a  ', 'a   ', 'a\t\t\t']) {
+            final content = 'x$eol$line$eol\t$line$eol\t';
+            final String once = await fix(content);
+            expect(_escape(await fix(once)), _escape(once), reason: _escape(content));
+          }
+        });
+      }
+
+      test('treats a lone CR as a line break', () async {
+        expect(_escape(await fix('a\t\r\t')), _escape('a\r'));
+        expect(await diagnose('a\t\rb\t'), [
+          '1:2-3 Line 1 has trailing whitespace containing tabs.',
+          '2:2-3 Line 2 has trailing whitespace containing tabs.',
+        ]);
+      });
     });
   });
 }
@@ -336,15 +356,16 @@ String _escape(String s) =>
 /// scan must give the same results as this reference.
 final RegExp _referenceRegExp = RegExp(r'([ \t]+)$');
 
+/// The line breaks of the reference: `\r\n`, a lone `\r`, and `\n`.
+final RegExp _referenceLineBreak = RegExp(r'\r\n|\r|\n');
+
 /// The diagnostics of the regular-expression implementation, in the format
 /// of [_describe].
 List<String> _referenceDiagnostics(String content) {
   final result = <String>[];
-  final List<String> lines = content.split('\n');
+  final List<String> lines = content.split(_referenceLineBreak);
   for (var i = 0; i < lines.length; i++) {
-    final String line = lines[i].endsWith('\r')
-        ? lines[i].substring(0, lines[i].length - 1)
-        : lines[i];
+    final String line = lines[i];
     final String? whitespace = _referenceRegExp.firstMatch(line)?.group(1);
     if (whitespace == null) {
       continue;
@@ -363,16 +384,7 @@ List<String> _referenceDiagnostics(String content) {
 }
 
 /// The `--fix` output of the regular-expression implementation.
-String _referenceFix(String content) => content
-    .split('\n')
-    .map((String line) {
-      final bool hasCR = line.endsWith('\r');
-      final String body = hasCR ? line.substring(0, line.length - 1) : line;
-      final String? whitespace = _referenceRegExp.firstMatch(body)?.group(1);
-      if (whitespace == null || whitespace == '  ') {
-        return line;
-      }
-      final String fixed = body.replaceAll(_referenceRegExp, '');
-      return hasCR ? '$fixed\r' : fixed;
-    })
-    .join('\n');
+String _referenceFix(String content) => content.replaceAllMapped(
+  RegExp(r'[ \t]+(?=\r\n|\r|\n|$)'),
+  (Match m) => m.group(0) == '  ' ? '  ' : '',
+);

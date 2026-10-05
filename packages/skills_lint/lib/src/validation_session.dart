@@ -26,6 +26,7 @@ import 'models/validation_error.dart';
 import 'path_utils.dart';
 import 'reporters/reporters.dart';
 import 'rule_registry.dart';
+import 'rules/name_format_rule.dart';
 import 'skills_ignores_storage.dart';
 import 'validator.dart';
 
@@ -874,7 +875,9 @@ class ValidationSession {
     required String oldSkillName,
     required String? targetSkillName,
   }) async {
-    if (targetSkillName == null || targetSkillName.isEmpty || targetSkillName == oldSkillName) {
+    if (targetSkillName == null ||
+        targetSkillName == oldSkillName ||
+        !NameFormatRule.isValidSkillName(targetSkillName)) {
       return skillDir;
     }
 

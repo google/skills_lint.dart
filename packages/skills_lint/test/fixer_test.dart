@@ -96,6 +96,16 @@ class RuleThrowsError extends RuleThrows {
       Future.error(StateError('Fixer bug'));
 }
 
+class RuleRenamesSkill extends RuleA {
+  @override
+  String get name => 'rule-renames-skill';
+
+  @override
+  Future<String> fix(String filePath, String currentContent, Directory directory) async {
+    return currentContent.replaceFirst('name: old-skill', 'name: Bad Name');
+  }
+}
+
 void main() {
   group('Fixer Sequential Execution', () {
     late Directory tempDir;
@@ -194,6 +204,23 @@ void main() {
 
       final String content = await skillFile.readAsString();
       expect(content, 'Original A B');
+    });
+
+    test('does not rename the directory to a name that is not a valid skill name', () async {
+      final skillDir = Directory(p.join(tempDir.path, 'old-skill'));
+      await skillDir.create();
+      final skillFile = File(p.join(skillDir.path, 'SKILL.md'));
+      await skillFile.writeAsString('---\nname: old-skill\ndescription: d\n---\nbody\n');
+
+      await validateSkillsInternal(
+        individualSkillPaths: [skillDir.path],
+        fixApply: true,
+        quiet: true,
+        customRules: [RuleRenamesSkill()],
+      );
+
+      expect(skillDir.existsSync(), isTrue);
+      expect(Directory(p.join(tempDir.path, 'Bad Name')).existsSync(), isFalse);
     });
   });
 }

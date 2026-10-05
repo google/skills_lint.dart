@@ -23,6 +23,9 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
   static const int _tab = 0x09;
   static const String _skillFileName = 'SKILL.md';
 
+  /// The line breaks that end a line: `\r\n`, a lone `\r`, and `\n`.
+  static final RegExp _lineBreak = RegExp(r'\r\n|\r|\n');
+
   @override
   String get name => ruleName;
 
@@ -49,14 +52,11 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
     final errors = <ValidationError>[];
-    final List<String> lines = context.rawContent.split('\n');
+    final List<String> lines = context.rawContent.split(_lineBreak);
 
     for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
       final int lineNumber = lineIndex + 1;
-      final String line = lines[lineIndex];
-
-      // Remove carriage return if present (Windows line endings)
-      final String trimmedLine = line.endsWith('\r') ? line.substring(0, line.length - 1) : line;
+      final String trimmedLine = lines[lineIndex];
 
       final int whitespaceStart = trailingWhitespaceStart(trimmedLine);
       if (whitespaceStart == trimmedLine.length) {
@@ -126,7 +126,16 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
       return currentContent;
     }
 
-    return currentContent.split('\n').map(fixLine).join('\n');
+    final buffer = StringBuffer();
+    var lineStart = 0;
+    for (final Match lineBreak in _lineBreak.allMatches(currentContent)) {
+      buffer
+        ..write(fixLine(currentContent.substring(lineStart, lineBreak.start)))
+        ..write(lineBreak[0]);
+      lineStart = lineBreak.end;
+    }
+    buffer.write(fixLine(currentContent.substring(lineStart)));
+    return buffer.toString();
   }
 
   @visibleForTesting

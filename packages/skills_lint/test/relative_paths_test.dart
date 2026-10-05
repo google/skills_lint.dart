@@ -274,5 +274,41 @@ void main() {
       expect(errors.first.ruleId, equals('check-relative-paths'));
       expect(errors.first.region?.startLine, equals(7));
     });
+
+    group('percent-encoded links', () {
+      Future<ValidationResult> validateLink(String link, {String? existingFile}) async {
+        final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+        await File(
+          '${skillDir.path}/SKILL.md',
+        ).writeAsString('${buildFrontmatter(name: 'test-skill')}[doc]($link)\n');
+        if (existingFile != null) {
+          await File(p.join(skillDir.path, existingFile)).writeAsString('doc');
+        }
+        final validator = Validator(
+          ruleConfigs: {
+            RelativePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error),
+          },
+        );
+        return validator.validate(skillDir);
+      }
+
+      test('finds a file whose name has an encoded space', () async {
+        final ValidationResult result = await validateLink(
+          'my%20file.md',
+          existingFile: 'my file.md',
+        );
+        expect(result.errors, isEmpty);
+      });
+
+      test('finds a file whose name has encoded unicode', () async {
+        final ValidationResult result = await validateLink('caf%C3%A9.md', existingFile: 'café.md');
+        expect(result.errors, isEmpty);
+      });
+
+      test('reports a link with a malformed escape as broken', () async {
+        final ValidationResult result = await validateLink('bad%zz.md');
+        expect(result.errors, [contains('Linked file does not exist: bad%zz.md')]);
+      });
+    });
   });
 }

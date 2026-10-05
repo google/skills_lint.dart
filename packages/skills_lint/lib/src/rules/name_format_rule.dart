@@ -256,6 +256,11 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
 
     final String dirName = basename(directory.path);
+    // The directory name replaces the `name` value without quoting, so it
+    // must read back from YAML as the same string.
+    if (!isValidSkillName(dirName) || !_readsAsYamlString(dirName)) {
+      return currentContent;
+    }
     final targetName = dirName;
 
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(currentContent);
@@ -309,7 +314,18 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return null;
   }
 
-  @visibleForTesting
+  /// Whether [value], written as a plain YAML scalar, loads as the string
+  /// [value]. Values such as `123`, `true` and `null` load as other types.
+  static bool _readsAsYamlString(String value) {
+    try {
+      return loadYaml(value) == value;
+    } on YamlException {
+      return false;
+    }
+  }
+
+  /// Whether [name] is a valid skill name: lowercase ASCII letters, digits
+  /// and hyphens, from 1 to [maxNameLength] characters.
   static bool isValidSkillName(String name) {
     if (name.isEmpty || name.length > maxNameLength) {
       return false;

@@ -79,7 +79,7 @@ governs how changes to these rules ship.
   tabs.` instead.
 - **Auto-fix behavior:** trims violating trailing whitespace from
   each offending line. Lines with exactly two trailing spaces are
-  left alone.
+  left alone. `\n`, `\r\n` and a lone `\r` all end a line.
 - **Disable:** `--no-check-trailing-whitespace` (also the default
   state).
 
@@ -158,7 +158,9 @@ governs how changes to these rules ship.
   field or rename the directory).
 - **Auto-fix behavior:** when the only violation is a directory
   mismatch, the fixer rewrites the frontmatter `name:` value to
-  match the parent directory name. Other violations (invalid
+  match the parent directory name. If the directory name is not
+  itself a valid skill name, the fixer leaves the file unchanged.
+  Other violations (invalid
   characters, length, etc.) are not auto-fixed because the
   normalization is a suggestion and the author may want a different
   name entirely.

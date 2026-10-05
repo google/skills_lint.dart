@@ -50,15 +50,9 @@ class RelativePathsRule extends SkillRule {
         continue;
       }
 
-      var effectivePath = path;
-      try {
-        final Uri uri = Uri.parse(path);
-        if (uri.hasScheme || path.startsWith('#')) {
-          continue; // Ignore web URLs, email links, anchors, etc.
-        }
-        effectivePath = uri.path;
-      } on FormatException {
-        // If Uri parsing fails, treat it as a potential filepath.
+      final String? effectivePath = _filePathOf(path);
+      if (effectivePath == null) {
+        continue; // Ignore web URLs, email links, anchors, etc.
       }
 
       final String resolvedPath = absolute(normalize(join(context.directory.path, effectivePath)));
@@ -94,6 +88,24 @@ class RelativePathsRule extends SkillRule {
     }
 
     return errors;
+  }
+
+  /// Returns the file path that the link target [path] points to, with
+  /// percent escapes decoded, or `null` if [path] is a URL with a scheme or
+  /// an anchor. A [path] that is not a valid URI, or has a malformed percent
+  /// escape, is returned as written.
+  static String? _filePathOf(String path) {
+    try {
+      final Uri uri = Uri.parse(path);
+      if (uri.hasScheme || path.startsWith('#')) {
+        return null;
+      }
+      return Uri.decodeComponent(uri.path);
+    } on ArgumentError {
+      return path;
+    } on FormatException {
+      return path;
+    }
   }
 }
 
