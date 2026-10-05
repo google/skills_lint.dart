@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -187,7 +188,7 @@ void main() {
     });
 
     test(
-      'notices cover skills_lint, the Dart SDK and dependencies but not dev dependencies',
+      'notices cover skills_lint, the Dart SDK and dependencies but not dev-only dependencies',
       () async {
         final pubspec =
             loadYaml(File(p.join(skillsLintPackageDir, 'pubspec.yaml')).readAsStringSync())
@@ -211,10 +212,28 @@ void main() {
             ...(pubspec['dependencies'] as YamlMap).keys.cast<String>(),
           ]),
         );
+
+        final ProcessResult deps = await Process.run(Platform.resolvedExecutable, [
+          'pub',
+          'deps',
+          '--json',
+        ], workingDirectory: skillsLintPackageDir);
+        expect(deps.exitCode, 0, reason: '${deps.stderr}');
+        final List<String> runtime = runtimeDependencies(
+          jsonDecode(deps.stdout as String) as Map<String, Object?>,
+        );
+        // A dev dependency that a runtime dependency also needs is compiled in.
+        final Set<String> devOnly = (pubspec['dev_dependencies'] as YamlMap).keys
+            .cast<String>()
+            .toSet()
+            .difference(runtime.toSet());
+        expect(devOnly, isNotEmpty);
         expect(
-          components.intersection((pubspec['dev_dependencies'] as YamlMap).keys.toSet()),
+          components.intersection(devOnly),
           isEmpty,
-          reason: 'Dev dependencies are not compiled into the executable. Components: $components',
+          reason:
+              'Dev-only dependencies are not compiled into the executable. '
+              'Components: $components',
         );
       },
     );

@@ -80,6 +80,18 @@ jobs:
       - name: Verify API boundary runner
         run: dart run example/api_boundary_runner/bin/main.dart
 
+      # release.yaml tests the release package on stable with locked
+      # dependencies. These steps test it at its lower bounds.
+      - name: Analyze the release package
+        if: matrix.downgrade
+        working-directory: release
+        run: dart analyze --fatal-infos
+
+      - name: Test the release package
+        if: matrix.downgrade
+        working-directory: release
+        run: dart test
+
   coverage:
     runs-on: ubuntu-latest
     steps:
