@@ -2,22 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Checks that CI tests the lowest Dart SDK that the pubspecs allow.
-///
-/// The `analyze_and_test` job in `.github/workflows/skills_lint_workflow.yaml`
-/// has one matrix entry with `downgrade: true`. It runs the checks on a pinned
-/// SDK version with the lowest dependency versions that the pubspecs allow.
-/// GitHub Actions can't read that version from a pubspec, so it is written in
-/// the workflow by hand. If it drifts from the `environment.sdk` lower bound,
-/// the entry tests a version that users can't be on, or misses the one they
-/// can. A lower bound that no dependency can resolve at, such as a dev
-/// dependency that needs a newer SDK, then goes unnoticed.
-///
-/// Every first-party pubspec (the root workspace pubspec and each workspace
-/// member) must declare the same lower bound, so the one matrix entry covers
-/// them all. Pub requires each workspace member to declare its own SDK
-/// constraint. Change this rule if a workspace member needs its own SDK lower
-/// bound; that member then needs its own matrix entry.
+/// Checks that CI tests the lowest Dart SDK that any first-party pubspec
+/// allows. GitHub Actions can't read that version from a pubspec.
 library;
 
 import 'dart:io';
@@ -30,78 +16,57 @@ import 'package:yaml/yaml.dart';
 
 import 'src/repo_paths.dart';
 
-const String _jobName = 'analyze_and_test';
-
 void main() {
-  test('first-party pubspecs share one SDK lower bound', () {
-    final String rootBound = _lowerBound('pubspec.yaml');
-    final List<String> mismatches = [
-      for (final String member in _workspaceMembers())
-        if (_lowerBound('$member/pubspec.yaml') != rootBound)
-          '$member/pubspec.yaml: SDK lower bound is ${_lowerBound('$member/pubspec.yaml')}',
+  // A pubspec whose lower bound is above the tested SDK already fails
+  // `dart pub get` in that CI entry, so only the lowest bound needs checking.
+  test('CI tests the lowest SDK that a first-party pubspec allows', () {
+    final List<String> pubspecs = [
+      'pubspec.yaml',
+      for (final String member in _pubspec('pubspec.yaml').workspace ?? const <String>[])
+        '$member/pubspec.yaml',
     ];
+    final Map<String, Version> bounds = {
+      for (final String path in pubspecs) path: _lowerBound(path),
+    };
+    final Version lowest = bounds.values.reduce((Version a, Version b) => a < b ? a : b);
     expect(
-      mismatches,
-      isEmpty,
+      _testedSdk(),
+      lowest.toString(),
       reason:
-          'Every first-party pubspec must declare the same environment.sdk '
-          'lower bound as pubspec.yaml ($rootBound):\n  ${mismatches.join('\n  ')}',
-    );
-  });
-
-  test('CI $_jobName downgrade entry runs on the pubspec SDK lower bound', () {
-    final String rootBound = _lowerBound('pubspec.yaml');
-    expect(
-      _workflowLowerBoundSdk(),
-      rootBound,
-      reason:
-          'The `sdk` value of the `downgrade: true` matrix entry of the $_jobName job in '
-          '.github/workflows/skills_lint_workflow.yaml must equal the '
-          'environment.sdk lower bound in pubspec.yaml ($rootBound). When you '
-          'change the lower bound, update both, and every first-party pubspec.',
+          'The `downgrade: true` entry of the analyze_and_test matrix in '
+          '.github/workflows/skills_lint_workflow.yaml must set `sdk` to the '
+          'lowest environment.sdk lower bound of the first-party pubspecs:\n'
+          '  ${bounds.entries.map((e) => '${e.key}: ${e.value}').join('\n  ')}',
     );
   });
 }
 
-/// Returns the workspace members listed in the root pubspec, as paths
-/// relative to the repository root.
-List<String> _workspaceMembers() => _pubspec('pubspec.yaml').workspace ?? const [];
-
-/// Returns the lower bound of the `environment.sdk` constraint in the pubspec
-/// at [relativePath], for example `3.12.0` for `^3.12.0` or `>=3.12.0 <4.0.0`.
-String _lowerBound(String relativePath) {
+Version _lowerBound(String relativePath) {
   final VersionConstraint? constraint = _pubspec(relativePath).environment['sdk'];
   final Version? min = constraint is VersionRange ? constraint.min : null;
-  expect(
-    min,
-    isNotNull,
-    reason: '$relativePath: environment.sdk `$constraint` has no lower bound.',
-  );
-  return min.toString();
+  expect(min, isNotNull, reason: '$relativePath: environment.sdk has no lower bound.');
+  return min!;
 }
 
 Pubspec _pubspec(String relativePath) =>
     Pubspec.parse(File(p.join(repoRoot, relativePath)).readAsStringSync());
 
-/// Returns the `sdk` value of the `downgrade: true` matrix entry of the
-/// [_jobName] job.
-String _workflowLowerBoundSdk() {
-  final YamlMap workflow = _loadYamlMap(
-    p.join('.github', 'workflows', 'skills_lint_workflow.yaml'),
-  );
-  final job = (workflow['jobs'] as YamlMap)[_jobName] as YamlMap;
+/// Returns the `sdk` of the `downgrade: true` entry in the analyze_and_test
+/// matrix.
+String _testedSdk() {
+  final workflow =
+      loadYaml(
+            File(
+              p.join(repoRoot, '.github', 'workflows', 'skills_lint_workflow.yaml'),
+            ).readAsStringSync(),
+          )
+          as YamlMap;
+  final job = (workflow['jobs'] as YamlMap)['analyze_and_test'] as YamlMap;
   final matrix = (job['strategy'] as YamlMap)['matrix'] as YamlMap;
   final List<String> sdks = [
     for (final Object? entry in matrix['include'] as YamlList? ?? YamlList())
       if (entry is YamlMap && entry['downgrade'] == true) entry['sdk'].toString(),
   ];
-  expect(
-    sdks,
-    hasLength(1),
-    reason: 'The $_jobName matrix must include exactly one entry with `downgrade: true`.',
-  );
+  expect(sdks, hasLength(1), reason: 'Expected exactly one `downgrade: true` matrix entry.');
   return sdks.single;
 }
-
-YamlMap _loadYamlMap(String relativePath) =>
-    loadYaml(File(p.join(repoRoot, relativePath)).readAsStringSync()) as YamlMap;

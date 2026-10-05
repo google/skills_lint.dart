@@ -33,11 +33,8 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         sdk: [stable]
         include:
-          # The lowest Dart SDK and the lowest dependency versions that the
-          # pubspecs allow. `sdk` must equal the `environment.sdk` lower bound
-          # in pubspec.yaml; repo_test/sdk_lower_bound_test.dart fails if the
-          # two differ. One OS is enough: this entry checks version
-          # compatibility, and the stable entries cover platform differences.
+          # Lowest SDK and dependency versions the pubspecs allow. Ubuntu
+          # only. repo_test/sdk_lower_bound_test.dart checks `sdk`.
           - os: ubuntu-latest
             sdk: 3.12.0
             downgrade: true
@@ -52,6 +49,7 @@ jobs:
 
       - run: dart pub get
 
+      # `downgrade` is set only by the lower-bound `include` entry above.
       - name: Resolve the lowest allowed dependency versions
         if: matrix.downgrade
         run: dart pub downgrade
