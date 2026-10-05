@@ -1,0 +1,85 @@
+# Checks the Homebrew formula in Formula/. See the Homebrew section of
+# packages/skills_lint/README.md for the install commands it supports.
+#
+# - The `style` job runs `brew style` and `brew audit --strict` on every pull
+#   request that changes the formula. Neither downloads the release archives.
+# - The `install` job installs the formula from source and runs its test
+#   block on each platform that has an archive. It runs only when the formula
+#   has no PLACEHOLDER marker, because placeholder checksums cannot match any
+#   download. It starts running on the first pull request that replaces the
+#   placeholders with a real release.
+
+name: Homebrew
+
+on:
+  pull_request:
+    paths:
+      - 'Formula/**'
+      - '.github/workflows/homebrew.yaml'
+
+permissions: {}
+
+concurrency:
+  group: homebrew-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TAP: google/skills-lint
+  FORMULA: google/skills-lint/skills-lint
+
+jobs:
+  style:
+    name: brew style and audit
+    runs-on: macos-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      released: ${{ steps.placeholders.outputs.released }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Homebrew/actions/setup-homebrew@dc7099b3e807f1e2ecc61f3ecabc840eedd5586a # main
+      # Homebrew loads no formula from an untrusted non-official tap.
+      - name: Tap and trust this checkout
+        run: |
+          brew tap "$TAP" "$GITHUB_WORKSPACE"
+          brew trust "$TAP"
+      - run: brew style "$FORMULA"
+      - run: brew audit --strict --formula "$FORMULA"
+      - name: Check for placeholder values
+        id: placeholders
+        run: |
+          if grep -q PLACEHOLDER Formula/skills-lint.rb; then
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  install:
+    name: brew install and test (${{ matrix.os }})
+    needs: style
+    if: needs.style.outputs.released == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        # One runner per archive: macos-arm64, macos-x64 and linux-x64.
+        os: [macos-latest, macos-15-intel, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Homebrew/actions/setup-homebrew@dc7099b3e807f1e2ecc61f3ecabc840eedd5586a # main
+      # Homebrew loads no formula from an untrusted non-official tap.
+      - name: Tap and trust this checkout
+        run: |
+          brew tap "$TAP" "$GITHUB_WORKSPACE"
+          brew trust "$TAP"
+      - run: brew install "$FORMULA"
+      - run: brew test "$FORMULA"
+      - run: brew audit --strict --online --formula "$FORMULA"

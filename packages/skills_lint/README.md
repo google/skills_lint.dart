@@ -33,10 +33,26 @@ For a full definition of the skill standard, see the [Agent Skills Specification
 SDK required) and as a Dart package on pub.dev. Pick the path that
 matches your environment.
 
-> **Homebrew note.** A `brew install dart-skills-lint` path is on the
-> roadmap; it will land after `skills_lint` migrates to its own
-> dedicated repository. Until then, the install paths below cover all
-> supported platforms.
+### Homebrew — macOS 14+ and Linux x64, no Dart required
+
+The formula lives in this repository, in [`Formula/`](https://github.com/google/skills_lint.dart/tree/main/Formula).
+It needs macOS 14 (Sonoma) or later on macOS.
+
+```bash
+brew tap google/skills-lint https://github.com/google/skills_lint.dart
+brew install google/skills-lint/skills-lint
+```
+
+The `brew tap` command grants no trust. The fully qualified install command
+trusts only this formula, not the whole tap. See
+[Tap Trust](https://docs.brew.sh/Tap-Trust).
+
+Each release archive has a build provenance attestation. To check a
+downloaded archive yourself, run:
+
+```bash
+gh attestation verify <archive> --repo google/skills_lint.dart
+```
 
 ### 1. Dart developers — pub.dev
 
