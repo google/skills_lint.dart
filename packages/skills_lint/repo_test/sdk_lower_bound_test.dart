@@ -33,7 +33,7 @@ void main() {
       _testedSdk(),
       lowest.toString(),
       reason:
-          'The `downgrade: true` entry of the analyze_and_test matrix in '
+          'The `lower_bound: true` entry of the analyze_and_test matrix in '
           '.github/workflows/skills_lint_workflow.yaml must set `sdk` to the '
           'lowest environment.sdk lower bound of the first-party pubspecs:\n'
           '  ${bounds.entries.map((e) => '${e.key}: ${e.value}').join('\n  ')}',
@@ -51,7 +51,7 @@ Version _lowerBound(String relativePath) {
 Pubspec _pubspec(String relativePath) =>
     Pubspec.parse(File(p.join(repoRoot, relativePath)).readAsStringSync());
 
-/// Returns the `sdk` of the `downgrade: true` entry in the analyze_and_test
+/// Returns the `sdk` of the `lower_bound: true` entry in the analyze_and_test
 /// matrix.
 String _testedSdk() {
   final workflow =
@@ -65,8 +65,8 @@ String _testedSdk() {
   final matrix = (job['strategy'] as YamlMap)['matrix'] as YamlMap;
   final List<String> sdks = [
     for (final Object? entry in matrix['include'] as YamlList? ?? YamlList())
-      if (entry is YamlMap && entry['downgrade'] == true) entry['sdk'].toString(),
+      if (entry is YamlMap && entry['lower_bound'] == true) entry['sdk'].toString(),
   ];
-  expect(sdks, hasLength(1), reason: 'Expected exactly one `downgrade: true` matrix entry.');
+  expect(sdks, hasLength(1), reason: 'Expected exactly one `lower_bound: true` matrix entry.');
   return sdks.single;
 }
