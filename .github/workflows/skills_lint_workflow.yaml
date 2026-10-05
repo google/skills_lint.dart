@@ -31,6 +31,16 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        sdk: [stable]
+        include:
+          # The lowest Dart SDK and the lowest dependency versions that the
+          # pubspecs allow. `sdk` must equal the `environment.sdk` lower bound
+          # in pubspec.yaml; repo_test/sdk_lower_bound_test.dart fails if the
+          # two differ. One OS is enough: this entry checks version
+          # compatibility, and the stable entries cover platform differences.
+          - os: ubuntu-latest
+            sdk: 3.12.0
+            downgrade: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,9 +48,13 @@ jobs:
           persist-credentials: false
       - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
         with:
-          sdk: stable
+          sdk: ${{ matrix.sdk }}
 
       - run: dart pub get
+
+      - name: Resolve the lowest allowed dependency versions
+        if: matrix.downgrade
+        run: dart pub downgrade
 
       - run: dart analyze --fatal-infos
 
@@ -65,33 +79,6 @@ jobs:
 
       - name: Verify API boundary runner
         run: dart run example/api_boundary_runner/bin/main.dart
-
-  # Runs on the lowest Dart SDK that the pubspecs allow. The `sdk:` value
-  # must equal the `environment.sdk` lower bound in pubspec.yaml;
-  # repo_test/sdk_lower_bound_test.dart fails if the two differ. One OS is
-  # enough: this job checks SDK compatibility, and the analyze_and_test
-  # matrix covers platform differences.
-  sdk_lower_bound:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
-        with:
-          sdk: 3.12.0
-
-      - run: dart pub get
-
-      - run: dart analyze --fatal-infos
-
-      - name: Run tests
-        id: product_tests
-        run: dart test
-
-      - name: Run repo tests
-        if: success() || steps.product_tests.conclusion == 'failure'
-        run: dart test repo_test
 
   coverage:
     runs-on: ubuntu-latest

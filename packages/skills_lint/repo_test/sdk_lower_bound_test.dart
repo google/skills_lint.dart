@@ -4,17 +4,20 @@
 
 /// Checks that CI tests the lowest Dart SDK that the pubspecs allow.
 ///
-/// The `sdk_lower_bound` job in `.github/workflows/skills_lint_workflow.yaml`
-/// runs analyze and the tests on one pinned SDK version. That version is
-/// written in the workflow by hand. If it drifts from the `environment.sdk`
-/// lower bound, the job tests a version that users can't be on, or misses the
-/// one they can. A lower bound that no dependency can resolve at, such as a
-/// dev dependency that needs a newer SDK, then goes unnoticed.
+/// The `analyze_and_test` job in `.github/workflows/skills_lint_workflow.yaml`
+/// has one matrix entry with `downgrade: true`. It runs the checks on a pinned
+/// SDK version with the lowest dependency versions that the pubspecs allow.
+/// GitHub Actions can't read that version from a pubspec, so it is written in
+/// the workflow by hand. If it drifts from the `environment.sdk` lower bound,
+/// the entry tests a version that users can't be on, or misses the one they
+/// can. A lower bound that no dependency can resolve at, such as a dev
+/// dependency that needs a newer SDK, then goes unnoticed.
 ///
 /// Every first-party pubspec (the root workspace pubspec and each workspace
-/// member) must declare the same lower bound, so the one job covers them all.
-/// Change this rule if a workspace member needs its own SDK lower bound; that
-/// member then needs its own CI job.
+/// member) must declare the same lower bound, so the one matrix entry covers
+/// them all. Pub requires each workspace member to declare its own SDK
+/// constraint. Change this rule if a workspace member needs its own SDK lower
+/// bound; that member then needs its own matrix entry.
 library;
 
 import 'dart:io';
@@ -27,7 +30,7 @@ import 'package:yaml/yaml.dart';
 
 import 'src/repo_paths.dart';
 
-const String _jobName = 'sdk_lower_bound';
+const String _jobName = 'analyze_and_test';
 
 void main() {
   test('first-party pubspecs share one SDK lower bound', () {
@@ -46,13 +49,13 @@ void main() {
     );
   });
 
-  test('CI $_jobName job runs on the pubspec SDK lower bound', () {
+  test('CI $_jobName downgrade entry runs on the pubspec SDK lower bound', () {
     final String rootBound = _lowerBound('pubspec.yaml');
     expect(
       _workflowLowerBoundSdk(),
       rootBound,
       reason:
-          'The setup-dart `sdk:` value of the $_jobName job in '
+          'The `sdk` value of the `downgrade: true` matrix entry of the $_jobName job in '
           '.github/workflows/skills_lint_workflow.yaml must equal the '
           'environment.sdk lower bound in pubspec.yaml ($rootBound). When you '
           'change the lower bound, update both, and every first-party pubspec.',
@@ -80,19 +83,23 @@ String _lowerBound(String relativePath) {
 Pubspec _pubspec(String relativePath) =>
     Pubspec.parse(File(p.join(repoRoot, relativePath)).readAsStringSync());
 
-/// Returns the `sdk:` input of the setup-dart step in the [_jobName] job.
+/// Returns the `sdk` value of the `downgrade: true` matrix entry of the
+/// [_jobName] job.
 String _workflowLowerBoundSdk() {
   final YamlMap workflow = _loadYamlMap(
     p.join('.github', 'workflows', 'skills_lint_workflow.yaml'),
   );
-  final job = (workflow['jobs'] as YamlMap)[_jobName] as YamlMap?;
-  expect(job, isNotNull, reason: 'The CI workflow has no $_jobName job.');
+  final job = (workflow['jobs'] as YamlMap)[_jobName] as YamlMap;
+  final matrix = (job['strategy'] as YamlMap)['matrix'] as YamlMap;
   final List<String> sdks = [
-    for (final Object? step in job!['steps'] as YamlList)
-      if (step is YamlMap && (step['uses'] as String? ?? '').startsWith('dart-lang/setup-dart@'))
-        (step['with'] as YamlMap)['sdk'].toString(),
+    for (final Object? entry in matrix['include'] as YamlList? ?? YamlList())
+      if (entry is YamlMap && entry['downgrade'] == true) entry['sdk'].toString(),
   ];
-  expect(sdks, hasLength(1), reason: 'The $_jobName job must set up Dart exactly once.');
+  expect(
+    sdks,
+    hasLength(1),
+    reason: 'The $_jobName matrix must include exactly one entry with `downgrade: true`.',
+  );
   return sdks.single;
 }
 
