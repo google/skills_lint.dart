@@ -1,7 +1,7 @@
 name: skills_lint_workspace
 publish_to: none
 environment:
-  sdk: ^3.11.0
+  sdk: ^3.12.0
 workspace:
   - packages/skills_lint
   - packages/skills_lint/example/api_boundary_runner

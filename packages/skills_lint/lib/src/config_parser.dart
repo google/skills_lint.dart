@@ -552,18 +552,15 @@ class LintTargetConfig {
 
   /// Builds a target that remembers the path text it was declared with.
   ///
-  /// Named parameters cannot start with an underscore, so [ConfigParser] reaches
-  /// the private fields through this constructor.
+  /// [ConfigParser] reaches the private fields through this constructor.
   const LintTargetConfig._parsed({
     required this.path,
     required this.ruleConfigs,
     required this.ignoreFile,
-    required String? authoredPath,
-    required String? authoredIgnoreFile,
-    required TargetDeclaration declaration,
-  }) : _authoredPath = authoredPath,
-       _authoredIgnoreFile = authoredIgnoreFile,
-       _declaration = declaration;
+    required this._authoredPath,
+    required this._authoredIgnoreFile,
+    required TargetDeclaration this._declaration,
+  });
 
   /// The path to the directory containing skills, or to an individual skill.
   ///
