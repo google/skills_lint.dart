@@ -13,6 +13,7 @@ import 'package:path/path.dart' as p;
 
 import 'checksums.dart';
 import 'licenses.dart';
+import 'macho.dart';
 import 'paths.dart';
 import 'release_exception.dart';
 
@@ -98,8 +99,9 @@ Future<void> smokeTest(String executable) => _run(executable, ['--help']);
 /// Builds the archive for [target] in [outputDir], with its `.sha256` file
 /// next to it, and returns the archive.
 ///
-/// Compiles the executable, runs it, writes the license notices next to it,
-/// packages both, then checks the archive. Throws a [ReleaseException] if
+/// Compiles the executable, runs it, checks the minimum macOS version of a
+/// macOS executable, writes the license notices next to it, packages both,
+/// then checks the archive. Throws a [ReleaseException] if
 /// [target] is not the host's target, since `dart compile exe` can't
 /// cross-compile to it, or if a step fails.
 Future<File> buildArchive({required String target, required Directory outputDir}) async {
@@ -121,6 +123,9 @@ Future<File> buildArchive({required String target, required Directory outputDir}
       executable,
     ], workingDirectory: skillsLintPackageDir);
     await smokeTest(executable);
+    if (target.startsWith('macos-')) {
+      checkMacosMinimum(File(executable).readAsBytesSync());
+    }
     File(p.join(stage.path, _licenseName)).writeAsStringSync(
       await collectLicenses(
         packageDir: skillsLintPackageDir,

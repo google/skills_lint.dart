@@ -69,6 +69,7 @@ The recommended path for CI runners and laptops without the Dart SDK
 on PATH. Downloads the matching prebuilt binary from the latest GitHub
 Release, verifies its SHA256, and installs to `/usr/local/bin` (with a
 `sudo` fallback). Supports macOS 14 or later on arm64 + x64, and Linux x64.
+On older macOS versions it stops with an error.
 
 ```bash
 curl -fsSL https://github.com/google/skills_lint.dart/releases/latest/download/install.sh | bash
@@ -109,7 +110,8 @@ tar -xzf "skills_lint-${TARGET}.tar.gz"
 sudo install -m 0755 "skills_lint-${TARGET}" /usr/local/bin/skills_lint
 ```
 
-On macOS, replace `sha256sum -c -` with `shasum -a 256 -c -`.
+The macOS binaries need macOS 14 or later. On macOS, replace
+`sha256sum -c -` with `shasum -a 256 -c -`.
 
 ## Usage
 

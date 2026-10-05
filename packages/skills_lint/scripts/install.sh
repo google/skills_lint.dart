@@ -67,6 +67,21 @@ else
   err "required tools 'sha256sum' or 'shasum' not found on PATH. Install one to verify the binary."
 fi
 
+# --- Check the macOS version ------------------------------------------------
+# The macOS binaries run on the macOS versions that the Dart SDK used for the
+# release build supports. See "Targets" in RELEASING.md.
+MIN_MACOS_VERSION=14
+if [ "$os" = "macos" ]; then
+  macos_version="$(sw_vers -productVersion 2>/dev/null || true)"
+  macos_major="${macos_version%%.*}"
+  case "$macos_major" in
+    ''|*[!0-9]*) err "could not read the macOS version from 'sw_vers -productVersion' (got '${macos_version}')." ;;
+  esac
+  if [ "$macos_major" -lt "$MIN_MACOS_VERSION" ]; then
+    err "${BIN_NAME} requires macOS ${MIN_MACOS_VERSION} or later (found ${macos_version})."
+  fi
+fi
+
 # --- Resolve URLs ----------------------------------------------------------
 if [ "$VERSION" = "latest" ]; then
   base_url="https://github.com/${REPO}/releases/latest/download"

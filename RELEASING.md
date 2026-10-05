@@ -43,13 +43,16 @@ The build matrix in `release.yaml`, `supportedTargets` in
 `packages/skills_lint/scripts/install.sh` list the same targets.
 
 `dart compile exe` builds for the machine it runs on, so each target builds on
-its own runner. The macOS executables need macOS 14 or later, because the Dart
-SDK compiles its runtime with
-[`mac_sdk_min = "14.0"`](https://github.com/dart-lang/sdk/blob/04bcd1036cdc799ac6564988f159ee454d42c822/build/config/mac/mac_sdk.gni).
-Dart supports
-[the latest three versions of macOS](https://dart.dev/get-dart#system-requirements),
-so that minimum rises with new Dart SDKs. On older macOS, use
-`dart install skills_lint` instead.
+its own runner.
+
+The minimum macOS version comes from the Dart SDK used for the build: Dart
+3.11 and later target macOS 14
+([sdk change 468883](https://dart-review.googlesource.com/c/sdk/+/468883)),
+so a Dart upgrade can raise it. It is the `minos` of the `LC_BUILD_VERSION`
+load command in the built executable, which `vtool -show-build <executable>`
+prints. `release package` fails if that value differs from
+`macosMinimumVersion` in `release/lib/src/macho.dart`. When it changes, update
+that constant, `MIN_MACOS_VERSION` in `install.sh`, the README and this file.
 
 There is no Windows executable yet; see
 [issue #86](https://github.com/google/skills_lint.dart/issues/86).
