@@ -1,32 +1,40 @@
-# Builds the skills_lint executables and publishes them as a GitHub Release.
+# Releases skills_lint: the package on pub.dev and the executables in a
+# GitHub Release. See RELEASING.md.
 #
-# - A push of a release tag builds every target and publishes the release.
-#   The tag pattern matches publish.yaml, so pub.dev and the executables ship
-#   the same version.
-# - A manual run (workflow_dispatch) builds every target and creates a draft
-#   release that is never published. Use it to test this workflow; never push
-#   a test tag, because publish.yaml publishes any matching tag to pub.dev.
-# - A pull request that changes this workflow or the release scripts tests
-#   the scripts, builds every target and uploads the archives as workflow
-#   artifacts.
+# - A pull request that changes the release files runs a dry run.
+# - A manual run (workflow_dispatch) on a branch without the `release` input
+#   runs a dry run. A dry run tests the release scripts, builds every target,
+#   checks the package with `dart pub publish --dry-run` and uploads the
+#   release assets as workflow artifacts. It creates no tag, release or
+#   pub.dev version.
+# - A manual run on main with `release` does the same, then creates the tag
+#   skills_lint-v<version> and a draft GitHub Release, and starts this
+#   workflow on the tag with `release`.
+# - The run on the tag checks the draft, publishes the package to pub.dev,
+#   then publishes the draft. pub.dev accepts a publish only from a run on the
+#   tag.
 #
-# The steps run the `release` command in release/. See RELEASING.md.
+# The `prepare` job works out which of these a run does; see
+# release/lib/src/release_info.dart. The steps run the `release` command in
+# release/. Jobs that run Dart code from pub have no write permissions, apart
+# from `pub`, which needs `id-token: write` to publish.
 
 name: Release
 
 on:
-  push:
-    # Must match the tag pattern in publish.yaml.
-    tags:
-      - 'skills_lint-v[0-9]+.[0-9]+.[0-9]+*'
   pull_request:
     paths:
       - '.github/workflows/release.yaml'
-      - 'packages/skills_lint/pubspec.yaml'
+      - '**/pubspec.yaml'
       - 'packages/skills_lint/scripts/install.sh'
-      - 'pubspec.yaml'
       - 'release/**'
   workflow_dispatch:
+    inputs:
+      release:
+        description: >-
+          Release the pubspec.yaml version. Leave unchecked for a dry run.
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -40,8 +48,50 @@ defaults:
     working-directory: release
 
 jobs:
+  prepare:
+    name: Prepare
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+      tag: ${{ steps.prepare.outputs.tag }}
+      prerelease: ${{ steps.prepare.outputs.prerelease }}
+      mode: ${{ steps.prepare.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: stable
+      - name: Get the locked dependencies
+        run: cp workspace_pubspec.lock ../pubspec.lock && dart pub get --enforce-lockfile
+      # Prints version, tag, prerelease and mode, and writes the release notes
+      # from CHANGELOG.md.
+      - name: Work out the release
+        id: prepare
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          RELEASE: ${{ inputs.release || false }}
+        run: >-
+          dart run bin/release.dart prepare --event "$EVENT" --ref-type "$REF_TYPE"
+          --ref-name "$REF_NAME" --release "$RELEASE" --notes-output "$RUNNER_TEMP/notes.md"
+          >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/notes.md
+          if-no-files-found: error
+          retention-days: 7
+
   test:
     name: Test the release scripts (${{ matrix.os }})
+    needs: prepare
+    if: needs.prepare.outputs.mode != 'publish'
     permissions:
       contents: read
     strategy:
@@ -57,13 +107,16 @@ jobs:
       - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
         with:
           sdk: stable
-      - run: dart pub get
+      - name: Get the locked dependencies
+        run: cp workspace_pubspec.lock ../pubspec.lock && dart pub get --enforce-lockfile
       - run: dart format --output=none --set-exit-if-changed .
       - run: dart analyze --fatal-infos
       - run: dart test
 
   build:
     name: Build ${{ matrix.target }}
+    needs: prepare
+    if: needs.prepare.outputs.mode != 'publish'
     permissions:
       contents: read
     strategy:
@@ -89,7 +142,8 @@ jobs:
       - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
         with:
           sdk: stable
-      - run: dart pub get
+      - name: Get the locked dependencies
+        run: cp workspace_pubspec.lock ../pubspec.lock && dart pub get --enforce-lockfile
       # Compiles, runs and packages the executable with its license notices,
       # checks the archive, and writes its .sha256 file.
       - name: Build the archive
@@ -103,20 +157,13 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  release:
-    name: Create the GitHub Release
-    needs: [test, build]
-    if: github.event_name != 'pull_request'
+  assemble:
+    name: Assemble the release assets
+    needs: [prepare, test, build]
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: write # Create the release and upload its assets.
-      id-token: write # actions/attest: request a Sigstore signing certificate.
-      attestations: write # actions/attest: store the attestation.
-      artifact-metadata: write # actions/attest: create the artifact storage record.
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -124,50 +171,195 @@ jobs:
       - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
         with:
           sdk: stable
-      - run: dart pub get
+      - name: Get the locked dependencies
+        run: cp workspace_pubspec.lock ../pubspec.lock && dart pub get --enforce-lockfile
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: ${{ runner.temp }}/dist
           pattern: skills_lint-*
           merge-multiple: true
-
       - name: Check the checksums and write SHA256SUMS
         run: dart run bin/release.dart checksums "$RUNNER_TEMP/dist"
-
-      # Checks the tag against the pubspec.yaml version, sets VERSION, TAG,
-      # PRERELEASE and DRY_RUN, and writes the notes from CHANGELOG.md.
-      - name: Prepare the release
+      - name: Write install.sh for the version
+        run: dart run bin/release.dart install-script --output "$RUNNER_TEMP/dist/install.sh"
+      - name: Check the package for pub.dev
+        working-directory: packages/skills_lint
+        run: dart pub publish --dry-run
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-assets
+          path: ${{ runner.temp }}/dist/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Write the job summary
         env:
-          EVENT: ${{ github.event_name }}
-          REF_NAME: ${{ github.ref_name }}
-          RUN_ID: ${{ github.run_id }}
+          MODE: ${{ needs.prepare.outputs.mode }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: >-
-          dart run bin/release.dart prepare --event "$EVENT" --ref-name "$REF_NAME"
-          --run-id "$RUN_ID" --notes-output "$RUNNER_TEMP/notes.md" >> "$GITHUB_ENV"
+          echo "Built the assets for $TAG (mode: $MODE). They are in the release-assets
+          artifact of this run." >> "$GITHUB_STEP_SUMMARY"
 
+  stage:
+    name: Create the tag and the draft release
+    needs: [prepare, assemble]
+    if: needs.prepare.outputs.mode == 'stage'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Create the tag and the release.
+      actions: write # Start this workflow on the tag.
+      id-token: write # actions/attest: request a Sigstore signing certificate.
+      attestations: write # actions/attest: store the attestation.
+      artifact-metadata: write # actions/attest: create the artifact storage record.
+    defaults:
+      run:
+        working-directory: .
+    env:
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-assets
+          path: ${{ runner.temp }}/dist
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}
       - name: Attest build provenance
-        if: github.event_name == 'push'
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: ${{ runner.temp }}/dist/*.tar.gz
-
+          subject-path: |
+            ${{ runner.temp }}/dist/*.tar.gz
+            ${{ runner.temp }}/dist/SHA256SUMS
+            ${{ runner.temp }}/dist/install.sh
+      # A failed run can leave a draft. A published release can't change, so
+      # the run stops.
+      - name: Delete a draft release left by an earlier run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if draft="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            if [ "$draft" != true ]; then
+              echo "::error::The release $TAG is already published."
+              exit 1
+            fi
+            gh release delete "$TAG" --yes
+          fi
+      # A failed run can leave the tag. The run reuses it only if it points at
+      # this commit.
+      - name: Create the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if existing="$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null)"; then
+            if [ "$existing" != "$SHA" ]; then
+              echo "::error::The tag $TAG points at $existing, not $SHA."
+              exit 1
+            fi
+          else
+            gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$SHA" > /dev/null
+          fi
       # The release starts as a draft so that every asset is attached before
       # it is published. Published releases can be immutable, which blocks
-      # later uploads. --target applies only when the tag doesn't exist, which
-      # is the dry-run tag.
+      # later uploads.
       - name: Create the draft release
         env:
-          SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
         run: >-
-          gh release create "$TAG" --draft --target "$SHA" --prerelease="$PRERELEASE"
+          gh release create "$TAG" --draft --verify-tag --prerelease="$PRERELEASE"
           --title "skills_lint $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
-          "$RUNNER_TEMP"/dist/* ../packages/skills_lint/scripts/install.sh
-
-      - name: Publish the release
-        if: github.event_name == 'push'
-        run: gh release edit "$TAG" --draft=false
-
+          "$RUNNER_TEMP"/dist/*
+      - name: Start the publish run on the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yaml --ref "$TAG" -f release=true
       - name: Write the job summary
         run: >-
-          echo "Created [$TAG]($(gh release view "$TAG" --json url --jq .url)).
-          Dry run: $DRY_RUN. Delete a dry-run draft when you are done." >> "$GITHUB_STEP_SUMMARY"
+          echo "Created the tag $TAG and its draft release, and started this workflow on
+          $TAG to publish them." >> "$GITHUB_STEP_SUMMARY"
+
+  verify:
+    name: Check the draft release
+    needs: prepare
+    if: needs.prepare.outputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Read draft releases, which needs push access.
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      # Checks that the draft holds every archive that SHA256SUMS lists,
+      # unchanged, and install.sh.
+      - name: Check the draft and its assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != true ]; then
+            echo "::error::$TAG has no draft release. Start the release from main."
+            exit 1
+          fi
+          gh release download "$TAG" --dir "$RUNNER_TEMP/assets"
+          cd "$RUNNER_TEMP/assets"
+          sha256sum --check --strict SHA256SUMS
+          test -f install.sh
+
+  pub:
+    name: Publish to pub.dev
+    needs: [prepare, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # pub.dev: authenticate with a GitHub OIDC token.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Also gets the OIDC token that `dart pub publish` sends to pub.dev.
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: stable
+      - name: Get the locked dependencies
+        run: cp workspace_pubspec.lock ../pubspec.lock && dart pub get --enforce-lockfile
+      # Skips the upload when pub.dev has the version, so that a run started
+      # again after a failed `publish` job only publishes the GitHub release.
+      - name: Publish the package
+        working-directory: packages/skills_lint
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          status="$(curl -sS -o /dev/null -w '%{http_code}' \
+            "https://pub.dev/api/packages/skills_lint/versions/$VERSION")"
+          case "$status" in
+            200) echo "pub.dev has skills_lint $VERSION already." ;;
+            404) dart pub publish --force ;;
+            *) echo "::error::pub.dev returned HTTP $status."; exit 1 ;;
+          esac
+
+  publish:
+    name: Publish the GitHub release
+    needs: [prepare, pub]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Publish the draft release.
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          gh release edit "$TAG" --draft=false
+          echo "Published $TAG to pub.dev and [GitHub]($(gh release view "$TAG" --json url --jq .url))." >> "$GITHUB_STEP_SUMMARY"

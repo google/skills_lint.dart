@@ -2,87 +2,113 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Works out which GitHub release a workflow run creates.
+/// Works out what a run of the release workflow does.
 library;
 
 import 'package:yaml/yaml.dart';
 
 import 'release_exception.dart';
 
-/// The prefix of the tags that release skills_lint. Pushing such a tag also
-/// publishes the package to pub.dev.
+/// The prefix of the tags that release skills_lint. pub.dev accepts
+/// publishing only from a workflow run on a tag that matches
+/// `skills_lint-v{{version}}`.
 const String tagPrefix = 'skills_lint-v';
 
-/// The GitHub release that a workflow run creates.
-///
-/// A `dryRun` release stays a draft under a tag that no workflow publishes.
-typedef ReleaseInfo = ({String version, String tag, bool prerelease, bool dryRun});
+/// The branch that releases start from.
+const String releaseBranch = 'main';
 
-final RegExp _whitespace = RegExp(r'\s');
-final RegExp _runId = RegExp(r'^\d+$');
+/// What a run of the release workflow does.
+enum ReleaseMode {
+  /// Tests the release scripts, builds and checks every asset, and creates
+  /// nothing.
+  dryRun,
+
+  /// Does what [dryRun] does, then creates the tag and a draft GitHub release
+  /// and starts the run that publishes them.
+  stage,
+
+  /// Publishes the package to pub.dev, then the draft GitHub release.
+  publish,
+}
+
+/// The release that a workflow run works on.
+typedef ReleaseInfo = ({String version, String tag, bool prerelease, ReleaseMode mode});
+
+/// The characters a version may hold. A version is written to
+/// `$GITHUB_OUTPUT` and into `install.sh`, so it may not hold whitespace,
+/// quotes or shell syntax.
+final RegExp _versionCharacters = RegExp(r'^[0-9A-Za-z.+-]+$');
 
 /// Returns the `version` from the [pubspec] YAML text.
 ///
-/// Throws a [ReleaseException] if there is no version, or if it holds
-/// whitespace, which would let it add lines to `$GITHUB_ENV`.
+/// Throws a [ReleaseException] if there is no version, or if it holds a
+/// character other than a letter, digit, `.`, `+` or `-`.
 String readPubspecVersion(String pubspec) {
   final Object? yaml = loadYaml(pubspec);
   final Object? version = yaml is YamlMap ? yaml['version'] : null;
   if (version is! String || version.isEmpty) {
     throw ReleaseException('pubspec.yaml has no version string.');
   }
-  if (version.contains(_whitespace)) {
-    throw ReleaseException('The pubspec.yaml version "$version" holds whitespace.');
+  if (!_versionCharacters.hasMatch(version)) {
+    throw ReleaseException(
+      'The pubspec.yaml version "$version" holds a character other than a letter, digit, '
+      '".", "+" or "-".',
+    );
   }
   return version;
 }
 
-/// Returns the release for a workflow run triggered by [event] on
-/// [refName], for the package [version].
+/// Returns the release for a workflow run of [event] on the ref [refName] of
+/// type [refType] (`branch` or `tag`), for the package [version]. [release]
+/// is the `release` input of a `workflow_dispatch` run.
 ///
-/// - A `push` of the tag `skills_lint-v<version>` releases that tag. Throws a
-///   [ReleaseException] if [refName] is any other tag.
-/// - A `workflow_dispatch` is a dry run, tagged `dry-run-<version>-<runId>`.
-///   Throws a [ReleaseException] if [runId] is not a number.
-/// - Throws a [ReleaseException] for any other event.
+/// - A `pull_request` run, or a `workflow_dispatch` run on a branch without
+///   [release], is a [ReleaseMode.dryRun].
+/// - A `workflow_dispatch` run on [releaseBranch] with [release] is a
+///   [ReleaseMode.stage].
+/// - A `workflow_dispatch` run on the tag `skills_lint-v<version>` with
+///   [release] is a [ReleaseMode.publish].
 ///
-/// A version with a `-` suffix, such as `1.0.0-wip`, is a prerelease.
+/// Throws a [ReleaseException] for any other run, and for a stage or publish
+/// run of a `-wip` version. A version with any other `-` suffix, such as
+/// `1.0.0-dev.1`, is a prerelease.
 ReleaseInfo resolveRelease({
   required String version,
   required String event,
+  required String refType,
   required String refName,
-  required String runId,
+  required bool release,
 }) {
-  final String tag;
-  final bool dryRun;
-  switch (event) {
-    case 'push':
-      tag = '$tagPrefix$version';
-      if (refName != tag) {
-        throw ReleaseException(
-          'The tag $refName does not match the pubspec.yaml version $version. '
-          'Push the tag $tag, or change the version.',
-        );
-      }
-      dryRun = false;
-    case 'workflow_dispatch':
-      if (!_runId.hasMatch(runId)) {
-        throw ReleaseException('The run ID "$runId" is not a number.');
-      }
-      tag = 'dry-run-$version-$runId';
-      dryRun = true;
-    default:
-      throw ReleaseException(
-        'A $event event does not create a release. Push a $tagPrefix tag, or run the '
-        'workflow manually for a dry run.',
-      );
+  final tag = '$tagPrefix$version';
+  final ReleaseMode mode = switch ((event, refType, release)) {
+    ('pull_request', _, _) || ('workflow_dispatch', 'branch', false) => ReleaseMode.dryRun,
+    ('workflow_dispatch', 'branch', true) => ReleaseMode.stage,
+    ('workflow_dispatch', 'tag', true) => ReleaseMode.publish,
+    ('workflow_dispatch', 'tag', false) => throw ReleaseException(
+      'A run on the tag $refName publishes it, so it needs the release input.',
+    ),
+    _ => throw ReleaseException('The release workflow does not run for "$event" events.'),
+  };
+  if (mode == ReleaseMode.stage && refName != releaseBranch) {
+    throw ReleaseException('Releases start from $releaseBranch, not $refName.');
   }
-  return (version: version, tag: tag, prerelease: version.contains('-'), dryRun: dryRun);
+  if (mode == ReleaseMode.publish && refName != tag) {
+    throw ReleaseException(
+      'The tag $refName does not match the pubspec.yaml version $version; expected $tag.',
+    );
+  }
+  if (mode != ReleaseMode.dryRun && version.contains('-wip')) {
+    throw ReleaseException(
+      '$version is a -wip version. Set the version to release in pubspec.yaml and '
+      'CHANGELOG.md first.',
+    );
+  }
+  return (version: version, tag: tag, prerelease: version.contains('-'), mode: mode);
 }
 
-/// Returns [info] as `NAME=value` lines for `$GITHUB_ENV`.
-String environmentLines(ReleaseInfo info) =>
-    'VERSION=${info.version}\n'
-    'TAG=${info.tag}\n'
-    'PRERELEASE=${info.prerelease}\n'
-    'DRY_RUN=${info.dryRun}\n';
+/// Returns [info] as `name=value` lines for `$GITHUB_OUTPUT`.
+String outputLines(ReleaseInfo info) =>
+    'version=${info.version}\n'
+    'tag=${info.tag}\n'
+    'prerelease=${info.prerelease}\n'
+    'mode=${info.mode.name}\n';

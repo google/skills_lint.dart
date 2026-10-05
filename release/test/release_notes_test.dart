@@ -55,16 +55,4 @@ void main() {
       );
     });
   });
-
-  group('releaseNotes', () {
-    test('is the changelog section for a release', () {
-      expect(releaseNotes('- Added a flag.', dryRun: false), '- Added a flag.\n');
-    });
-
-    test('starts with a warning for a dry run', () {
-      final String notes = releaseNotes('- Added a flag.', dryRun: true);
-      expect(notes, startsWith('> [!WARNING]\n'));
-      expect(notes, endsWith('\n\n- Added a flag.\n'));
-    });
-  });
 }

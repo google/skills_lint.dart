@@ -1,34 +1,81 @@
 # Releasing skills_lint
 
-> [!CAUTION]
-> Never push a tag to test a release. `.github/workflows/publish.yaml`
-> publishes every tag that matches `skills_lint-v*`, including `-rc` tags, to
-> pub.dev, and
-> [a version published to pub.dev can't be removed](https://dart.dev/tools/pub/publishing#remember-publishing-is-forever).
-> Test the release workflow with a [dry run](#dry-run) instead.
+One workflow, `.github/workflows/release.yaml`, publishes the package to
+pub.dev and the `skills_lint` executables as a GitHub Release. Pushing a tag
+doesn't start a release.
 
-A release starts when a maintainer pushes the tag `skills_lint-v<version>`.
-The version must match `version` in `packages/skills_lint/pubspec.yaml`, and
-`CHANGELOG.md` must have a `## <version>` section. The tag starts two
-workflows:
+## Release a version
 
-- `publish.yaml` publishes the package to pub.dev.
-- `release.yaml` builds the `skills_lint` executable for each
-  [target](#targets) and publishes a GitHub Release with:
-  - `skills_lint-<target>.tar.gz` for each target. Each archive holds the
-    executable and a `LICENSE` file with the notices for everything compiled
-    into it.
-  - `SHA256SUMS`, the checksums that `install.sh` checks.
-  - `install.sh`.
-  - Build provenance attestations for the archives. Users check them with
-    `gh attestation verify <archive> -R google/skills_lint.dart`.
+1. In a pull request, set `version` in `packages/skills_lint/pubspec.yaml` to
+   the version to release, without `-wip`, and give `CHANGELOG.md` a
+   `## <version>` section. [Refresh the lockfile](#lockfile) in the same pull
+   request.
+2. After it merges, open **Actions > Release > Run workflow**, pick `main`,
+   check **release**, and run it. Or run:
 
-The release notes are the version's `CHANGELOG.md` section. The workflow
-creates the release as a draft, attaches the files, then publishes it, which
-is the order that
+   ```bash
+   gh workflow run release.yaml -R google/skills_lint.dart --ref main -f release=true
+   ```
+
+The run on `main` checks the version and `CHANGELOG.md`, tests the release
+scripts, builds each [target](#targets) and runs `dart pub publish --dry-run`.
+It refuses a `-wip` version, and runs only on `main`. Then it:
+
+1. Creates the tag `skills_lint-v<version>` at the commit it built.
+2. Creates a draft GitHub Release for the tag with:
+   - `skills_lint-<target>.tar.gz` for each target. Each archive holds the
+     executable and a `LICENSE` file with the notices for everything compiled
+     into it.
+   - `SHA256SUMS`, the checksums that `install.sh` checks.
+   - `install.sh`, which installs this version unless `VERSION` is set.
+   - Build provenance attestations for all of these files. Users check them
+     with `gh attestation verify <file> -R google/skills_lint.dart`.
+3. Starts `release.yaml` again on the tag.
+
+The run on the tag:
+
+1. Checks that the draft holds `install.sh` and every archive that
+   `SHA256SUMS` lists, unchanged.
+2. Publishes the package to pub.dev, unless pub.dev has the version.
+3. Publishes the draft release.
+
+pub.dev accepts a publish only from a workflow run on a tag that matches
+`skills_lint-v{{version}}`, so publishing needs the second run. The
+[admin page](https://pub.dev/packages/skills_lint/admin) must enable
+publishing from `workflow_dispatch` events. Disable publishing from `push`
+events there, so that a pushed tag can't publish.
+
+The release notes are the version's `CHANGELOG.md` section. A version with a
+suffix, such as `1.0.0-dev.1`, is released as a prerelease. The README's
+install command downloads from `releases/latest`, and
+[the latest release](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
+is the most recent release that is not a prerelease or a draft.
+
+### Order and recovery
+
+pub.dev comes before the GitHub release, because
+[a version published to pub.dev can't be removed](https://dart.dev/tools/pub/publishing#remember-publishing-is-forever)
+and its OIDC setup is the step most likely to fail. The tag is public from
+the run on `main` on, but the release stays a draft, which only maintainers
+see, until the last job.
+
+- **The run on `main` fails.** Fix the cause and run it again. It deletes a
+  draft left by the failed run and reuses the tag if the tag points at the
+  same commit. If `main` moved on, delete the tag first with
+  `git push --delete origin skills_lint-v<version>`.
+- **The run on the tag fails.** Fix the cause, then run the workflow on the
+  tag with **release** checked:
+  `gh workflow run release.yaml -R google/skills_lint.dart --ref skills_lint-v<version> -f release=true`.
+  If pub.dev has the version already, the run skips it and publishes the
+  draft.
+- **To abandon a release** before pub.dev has it, delete the draft and the
+  tag with
+  `gh release delete skills_lint-v<version> --cleanup-tag -R google/skills_lint.dart`.
+
+The workflow creates the release as a draft, attaches the files, then
+publishes it, which is the order that
 [immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases)
-need. If the workflow fails after it creates the draft, delete the draft
-before you run it again.
+need.
 
 ## Targets
 
@@ -69,32 +116,49 @@ dart run bin/release.dart --help
 
 | Command | What it does |
 | :--- | :--- |
+| `prepare` | Works out whether the run is a dry run, creates the release, or publishes it; checks the version; prints the result as `name=value` lines for `$GITHUB_OUTPUT`; and writes the release notes. |
 | `package` | Compiles the executable for this machine, runs it, packages it with its license notices, checks the archive and writes its `.sha256` file. |
-| `licenses` | Writes the license notices for the executable. |
 | `checksums` | Checks each `.sha256` file in a directory and merges them into `SHA256SUMS`. |
-| `prepare` | Checks the tag against the `pubspec.yaml` version, prints the release as `NAME=value` lines for `$GITHUB_ENV`, and writes the release notes. |
-
-Pull requests that change `release.yaml`, `release/`, `install.sh` or a
-`pubspec.yaml` run the release script tests and the build jobs, and upload the
-archives as workflow artifacts. They don't create a release.
+| `install-script` | Writes `install.sh` with the `pubspec.yaml` version as the version it installs by default. |
+| `licenses` | Writes the license notices for the executable. |
 
 When the workflow moves to a new Dart SDK, check the Dart runtime licenses
 described in
 [`release/dart_runtime_licenses/README.md`](release/dart_runtime_licenses/README.md),
 and the macOS minimum above.
 
+## Lockfile
+
+Release jobs get their dependencies from `release/workspace_pubspec.lock`, a
+lockfile for the whole workspace. They copy it to `pubspec.lock` at the
+repository root and run `dart pub get --enforce-lockfile`, which fails if the
+lockfile doesn't satisfy every `pubspec.yaml` or a package's content hash
+differs from the lockfile. The root `pubspec.lock` is not checked in, so other
+CI jobs resolve the newest versions.
+
+Refresh the lockfile before each release, and when a `pubspec.yaml` change
+makes the release jobs fail. From the repository root:
+
+```bash
+dart pub upgrade
+cp pubspec.lock release/workspace_pubspec.lock
+```
+
+Pull requests that change a `pubspec.yaml` or `release/` run the release jobs
+with `--enforce-lockfile`, so a lockfile that no longer satisfies a
+`pubspec.yaml` fails the pull request that causes it.
+
 ## Dry run
 
-To test the release workflow without releasing, run it by hand from the
-Actions tab, or with:
+A dry run tests the release scripts, builds every archive, writes
+`SHA256SUMS` and `install.sh`, runs `dart pub publish --dry-run`, and uploads
+the files as the `release-assets` workflow artifact. It creates no tag, no
+release and no pub.dev version.
+
+Pull requests that change `release.yaml`, `release/`, `install.sh` or a
+`pubspec.yaml` run a dry run. To run one by hand, run the workflow on any
+branch with **release** unchecked:
 
 ```bash
 gh workflow run release.yaml -R google/skills_lint.dart --ref <branch>
 ```
-
-A dry run builds every archive and creates a draft release named for the
-`pubspec.yaml` version, with the tag `dry-run-<version>-<run ID>`. A draft
-doesn't create its tag, so a dry run never pushes a tag, and the workflow
-never publishes a dry run. Check the draft's files, then delete it from the
-releases page or with `gh release delete <tag> -R google/skills_lint.dart`.
-Don't publish it.

@@ -1,4 +1,9 @@
-# A CI configuration to auto-publish pub packages.
+# Checks pull requests with the dart-lang/ecosystem publish workflow, which
+# validates the package and comments on the pull request.
+#
+# It never publishes: that workflow publishes only for `push` events, and this
+# file has no `push` trigger. release.yaml publishes releases. See
+# RELEASING.md.
 
 name: Publish
 
@@ -7,16 +12,14 @@ permissions:
 
 on:
   pull_request:
-  push:
-    # Must match the tag pattern configured at
-    # https://pub.dev/packages/skills_lint/admin (`skills_lint-v{{version}}`).
-    tags:
-      - 'skills_lint-v[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
   publish:
     if: ${{ github.repository_owner == 'google' }}
     uses: dart-lang/ecosystem/.github/workflows/publish.yaml@60fca9f1270a0819b3ee9caf74b08fb0a212e4cb # main
     permissions:
-      id-token: write # Required for authentication using OIDC
+      # The publish job of the called workflow requests id-token: write. It
+      # runs only for push events, but GitHub rejects a call that grants less
+      # than a called job requests.
+      id-token: write
       pull-requests: write # Required for writing the pull request note

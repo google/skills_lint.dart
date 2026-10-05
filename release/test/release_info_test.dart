@@ -9,6 +9,22 @@ import 'package:test/test.dart';
 Matcher _throwsReleaseException(String messagePart) =>
     throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains(messagePart)));
 
+/// Calls [resolveRelease] for a `workflow_dispatch` run unless [event] says
+/// otherwise.
+ReleaseInfo _resolve({
+  String version = '0.6.0',
+  String event = 'workflow_dispatch',
+  String refType = 'branch',
+  String refName = 'main',
+  bool release = false,
+}) => resolveRelease(
+  version: version,
+  event: event,
+  refType: refType,
+  refName: refName,
+  release: release,
+);
+
 void main() {
   group('readPubspecVersion', () {
     test('returns the version', () {
@@ -19,70 +35,83 @@ void main() {
       expect(() => readPubspecVersion('name: skills_lint\n'), _throwsReleaseException('version'));
     });
 
-    test('throws on a version with whitespace, which would break GITHUB_ENV', () {
-      expect(
-        () => readPubspecVersion('version: "1.0.0\\nX=y"\n'),
-        _throwsReleaseException('1.0.0'),
-      );
+    test('throws on a version that could add lines to GITHUB_OUTPUT or run in a shell', () {
+      for (final yamlVersion in [r'"1.0.0\nX=y"', r"'1.0.0$(id)'", "'1.0.0\"'"]) {
+        expect(
+          () => readPubspecVersion('version: $yamlVersion\n'),
+          _throwsReleaseException('1.0.0'),
+          reason: yamlVersion,
+        );
+      }
     });
   });
 
   group('resolveRelease', () {
-    test('a tag push releases the tag when it matches the version', () {
-      final ReleaseInfo info = resolveRelease(
-        version: '0.6.0',
-        event: 'push',
-        refName: 'skills_lint-v0.6.0',
-        runId: '123',
-      );
-      expect(info.version, '0.6.0');
-      expect(info.tag, 'skills_lint-v0.6.0');
+    test('a pull request is a dry run', () {
+      expect(_resolve(event: 'pull_request', refName: '85/merge').mode, ReleaseMode.dryRun);
+    });
+
+    test('a run on a branch without release is a dry run, even for a -wip version', () {
+      expect(_resolve(version: '0.6.0-wip').mode, ReleaseMode.dryRun);
+      expect(_resolve(refName: 'feature').mode, ReleaseMode.dryRun);
+    });
+
+    test('a release run on main stages the tag for the version', () {
+      final ReleaseInfo info = _resolve(release: true);
+      expect(info.mode, ReleaseMode.stage);
+      expect(info.tag, '${tagPrefix}0.6.0');
       expect(info.prerelease, isFalse);
-      expect(info.dryRun, isFalse);
     });
 
-    test('a tag push fails when the tag does not match the version', () {
+    test('a release run on another branch fails', () {
+      expect(() => _resolve(release: true, refName: 'feature'), _throwsReleaseException('feature'));
+    });
+
+    test('a release run on the tag of the version publishes it', () {
+      final ReleaseInfo info = _resolve(
+        release: true,
+        refType: 'tag',
+        refName: '${tagPrefix}0.6.0',
+      );
+      expect(info.mode, ReleaseMode.publish);
+      expect(info.tag, '${tagPrefix}0.6.0');
+    });
+
+    test('a release run on another tag fails', () {
       expect(
-        () => resolveRelease(
-          version: '0.6.0',
-          event: 'push',
-          refName: 'skills_lint-v0.6.1',
-          runId: '123',
-        ),
-        _throwsReleaseException('skills_lint-v0.6.1'),
+        () => _resolve(release: true, refType: 'tag', refName: '${tagPrefix}0.6.1'),
+        _throwsReleaseException('${tagPrefix}0.6.1'),
       );
     });
 
-    test('a manual run is a dry run under a tag that no workflow publishes', () {
-      final ReleaseInfo info = resolveRelease(
-        version: '0.6.0-wip',
-        event: 'workflow_dispatch',
-        refName: 'main',
-        runId: '456',
+    test('a run on a tag without release fails, so it cannot publish by accident', () {
+      expect(
+        () => _resolve(refType: 'tag', refName: '${tagPrefix}0.6.0'),
+        throwsA(isA<ReleaseException>()),
       );
-      expect(info.tag, 'dry-run-0.6.0-wip-456');
-      expect(info.tag, isNot(startsWith(tagPrefix)));
+    });
+
+    test('a -wip version is never staged or published', () {
+      expect(() => _resolve(version: '0.6.0-wip', release: true), _throwsReleaseException('-wip'));
+      expect(
+        () => _resolve(
+          version: '0.6.0-wip',
+          release: true,
+          refType: 'tag',
+          refName: '${tagPrefix}0.6.0-wip',
+        ),
+        _throwsReleaseException('-wip'),
+      );
+    });
+
+    test('a version with a suffix other than -wip is a prerelease', () {
+      final ReleaseInfo info = _resolve(version: '0.6.0-dev.1', release: true);
+      expect(info.mode, ReleaseMode.stage);
       expect(info.prerelease, isTrue);
-      expect(info.dryRun, isTrue);
-    });
-
-    test('a manual run fails with a run ID that is not a number', () {
-      expect(
-        () => resolveRelease(
-          version: '0.6.0',
-          event: 'workflow_dispatch',
-          refName: 'main',
-          runId: '1\nX=y',
-        ),
-        _throwsReleaseException('run ID'),
-      );
     });
 
     test('other events fail', () {
-      expect(
-        () => resolveRelease(version: '0.6.0', event: 'pull_request', refName: 'main', runId: '1'),
-        _throwsReleaseException('pull_request'),
-      );
+      expect(() => _resolve(event: 'push'), _throwsReleaseException('push'));
     });
   });
 }

@@ -11,12 +11,15 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint_release/src/archive.dart';
 import 'package:skills_lint_release/src/checksums.dart';
+import 'package:skills_lint_release/src/install_script.dart';
 import 'package:skills_lint_release/src/macho.dart';
 import 'package:skills_lint_release/src/paths.dart';
+import 'package:skills_lint_release/src/release_exception.dart';
+import 'package:skills_lint_release/src/release_info.dart';
 import 'package:test/test.dart';
 
 /// Fake `curl` that copies the release asset named by the URL from
-/// `MOCK_RELEASE_DIR`.
+/// `MOCK_RELEASE_DIR`, and appends the URL to `MOCK_CURL_LOG`.
 const String _curl = r'''
 #!/bin/bash
 set -eu
@@ -30,6 +33,7 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+echo "$url" >> "$MOCK_CURL_LOG"
 cp "${MOCK_RELEASE_DIR}/$(basename "$url")" "$outfile"
 ''';
 
@@ -85,21 +89,28 @@ void main() {
     temp.deleteSync(recursive: true);
   });
 
-  /// Runs install.sh on a fake machine that runs [target] and has
-  /// [macosVersion] if it is a Mac.
-  Future<ProcessResult> install(String target, {String macosVersion = macosMinimumVersion}) {
+  /// Runs the install [script], `scripts/install.sh` by default, on a fake
+  /// machine that runs [target] and has [macosVersion] if it is a Mac. Sets
+  /// `VERSION` to [version]; install.sh treats an empty `VERSION` as unset.
+  Future<ProcessResult> install(
+    String target, {
+    String macosVersion = macosMinimumVersion,
+    String? script,
+    String version = '0.0.0',
+  }) {
     final (String unameS, String unameM) = _unameFor(target);
     return Process.run(
       'bash',
-      [p.join(skillsLintPackageDir, 'scripts', 'install.sh')],
+      [script ?? p.join(skillsLintPackageDir, 'scripts', 'install.sh')],
       environment: {
         'PATH': '${bin.path}:${Platform.environment['PATH']}',
         'MOCK_RELEASE_DIR': release.path,
+        'MOCK_CURL_LOG': p.join(temp.path, 'curl.log'),
         'MOCK_UNAME_S': unameS,
         'MOCK_UNAME_M': unameM,
         'MOCK_SW_VERS': macosVersion,
         'INSTALL_DIR': p.join(temp.path, 'install-$target'),
-        'VERSION': '0.0.0',
+        'VERSION': version,
       },
     );
   }
@@ -121,5 +132,28 @@ void main() {
     final ProcessResult result = await install('macos-arm64', macosVersion: '${major - 1}.9');
     expect(result.exitCode, 1, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
     expect(File(p.join(temp.path, 'install-macos-arm64', 'skills_lint')).existsSync(), isFalse);
+  });
+
+  group('installScriptForVersion', () {
+    test('writes an install.sh that installs the given version by default', () async {
+      final String original = File(
+        p.join(skillsLintPackageDir, 'scripts', 'install.sh'),
+      ).readAsStringSync();
+      final String script = p.join(temp.path, 'install.sh');
+      File(script).writeAsStringSync(installScriptForVersion(original, '1.2.3'));
+      final ProcessResult result = await install('linux-x64', script: script, version: '');
+      expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+      expect(
+        File(p.join(temp.path, 'curl.log')).readAsLinesSync(),
+        everyElement(contains('/releases/download/${tagPrefix}1.2.3/')),
+      );
+    });
+
+    test('throws when the script has no default version to replace', () {
+      expect(
+        () => installScriptForVersion('#!/bin/bash\n', '1.2.3'),
+        throwsA(isA<ReleaseException>()),
+      );
+    });
   });
 }

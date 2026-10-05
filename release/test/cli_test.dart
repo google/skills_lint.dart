@@ -10,6 +10,7 @@ import 'package:skills_lint_release/src/archive.dart';
 import 'package:skills_lint_release/src/checksums.dart';
 import 'package:skills_lint_release/src/paths.dart';
 import 'package:skills_lint_release/src/release_info.dart';
+import 'package:skills_lint_release/src/release_notes.dart';
 import 'package:test/test.dart';
 
 /// Runs `bin/release.dart` with [arguments].
@@ -29,7 +30,7 @@ void main() {
     expect(File(output).readAsStringSync(), allOf(contains('skills_lint'), contains('Dart SDK')));
   });
 
-  test('prepare prints the dry-run release and writes its notes', () async {
+  test("prepare prints a dry run and writes the version's CHANGELOG.md section", () async {
     final Directory temp = Directory.systemTemp.createTempSync('cli_test.');
     addTearDown(() => temp.deleteSync(recursive: true));
     final String notes = p.join(temp.path, 'notes.md');
@@ -37,30 +38,36 @@ void main() {
       'prepare',
       '--event',
       'workflow_dispatch',
+      '--ref-type',
+      'branch',
       '--ref-name',
       'main',
-      '--run-id',
-      '7',
+      '--release',
+      'false',
       '--notes-output',
       notes,
     ]);
     expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+    expect(result.stdout, contains('mode=${ReleaseMode.dryRun.name}\n'));
     final String version = readPubspecVersion(
       File(p.join(skillsLintPackageDir, 'pubspec.yaml')).readAsStringSync(),
     );
-    expect(result.stdout, contains('TAG=dry-run-$version-7\n'));
-    expect(File(notes).readAsStringSync(), startsWith('> [!WARNING]'));
+    final String changelog = File(p.join(skillsLintPackageDir, 'CHANGELOG.md')).readAsStringSync();
+    expect(changelog, contains(File(notes).readAsStringSync().trim()));
+    expect(changelogSection(changelog, version), File(notes).readAsStringSync().trim());
   });
 
   test('a release error exits with code 1 and names the problem', () async {
     final ProcessResult result = await _release([
       'prepare',
       '--event',
-      'push',
+      'workflow_dispatch',
+      '--ref-type',
+      'tag',
       '--ref-name',
       'skills_lint-v0.0.0-not-the-version',
-      '--run-id',
-      '7',
+      '--release',
+      'true',
       '--notes-output',
       p.join(Directory.systemTemp.path, 'unused-notes.md'),
     ]);

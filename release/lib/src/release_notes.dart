@@ -27,13 +27,3 @@ String changelogSection(String changelog, String version) {
   }
   return trimmed;
 }
-
-/// Returns the release notes for the changelog [section].
-///
-/// The notes of a [dryRun] release start with a warning not to publish it.
-String releaseNotes(String section, {required bool dryRun}) {
-  final warning = dryRun
-      ? "> [!WARNING]\n> Dry run from a manual workflow run. Delete this draft; don't publish it.\n\n"
-      : '';
-  return '$warning$section\n';
-}

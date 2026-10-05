@@ -13,6 +13,7 @@ import 'package:path/path.dart' as p;
 
 import 'archive.dart';
 import 'checksums.dart';
+import 'install_script.dart';
 import 'licenses.dart';
 import 'paths.dart';
 import 'release_exception.dart';
@@ -31,6 +32,7 @@ Future<int> runRelease(List<String> arguments) async {
     ..addCommand(_PackageCommand())
     ..addCommand(_LicensesCommand())
     ..addCommand(_ChecksumsCommand())
+    ..addCommand(_InstallScriptCommand())
     ..addCommand(_PrepareCommand());
   try {
     await runner.run(arguments);
@@ -135,12 +137,41 @@ class _ChecksumsCommand extends _ReleaseCommand {
   }
 }
 
+class _InstallScriptCommand extends _ReleaseCommand {
+  _InstallScriptCommand() {
+    argParser.addOption('output', mandatory: true, help: 'The file to write the script to.');
+  }
+
+  @override
+  String get name => 'install-script';
+
+  @override
+  String get description =>
+      'Writes scripts/install.sh with the pubspec.yaml version as the version it installs '
+      'by default.';
+
+  @override
+  Future<void> run() async {
+    noRest();
+    final String script = File(
+      p.join(skillsLintPackageDir, 'scripts', 'install.sh'),
+    ).readAsStringSync();
+    File(option('output')).writeAsStringSync(installScriptForVersion(script, _pubspecVersion()));
+  }
+}
+
 class _PrepareCommand extends _ReleaseCommand {
   _PrepareCommand() {
     argParser
-      ..addOption('event', mandatory: true, help: 'The event that triggered the workflow.')
-      ..addOption('ref-name', mandatory: true, help: 'The tag or branch of the workflow run.')
-      ..addOption('run-id', mandatory: true, help: 'The ID of the workflow run.')
+      ..addOption('event', mandatory: true, help: 'The event that started the workflow run.')
+      ..addOption('ref-type', mandatory: true, help: 'The type of the ref of the run.')
+      ..addOption('ref-name', mandatory: true, help: 'The branch or tag of the run.')
+      ..addOption(
+        'release',
+        mandatory: true,
+        allowed: ['true', 'false'],
+        help: 'The release input of the run.',
+      )
       ..addOption('notes-output', mandatory: true, help: 'The file to write release notes to.');
   }
 
@@ -149,26 +180,29 @@ class _PrepareCommand extends _ReleaseCommand {
 
   @override
   String get description =>
-      'Checks the release tag against the pubspec.yaml version, prints the release as '
-      r'NAME=value lines for $GITHUB_ENV and writes its notes from CHANGELOG.md.';
+      'Works out what the workflow run does, prints it as name=value lines for '
+      r'$GITHUB_OUTPUT and writes the release notes from CHANGELOG.md.';
 
   @override
   Future<void> run() async {
     noRest();
-    final String version = readPubspecVersion(
-      File(p.join(skillsLintPackageDir, 'pubspec.yaml')).readAsStringSync(),
-    );
+    final String version = _pubspecVersion();
     final ReleaseInfo info = resolveRelease(
       version: version,
       event: option('event'),
+      refType: option('ref-type'),
       refName: option('ref-name'),
-      runId: option('run-id'),
+      release: option('release') == 'true',
     );
     final String section = changelogSection(
       File(p.join(skillsLintPackageDir, 'CHANGELOG.md')).readAsStringSync(),
       version,
     );
-    File(option('notes-output')).writeAsStringSync(releaseNotes(section, dryRun: info.dryRun));
-    stdout.write(environmentLines(info));
+    File(option('notes-output')).writeAsStringSync('$section\n');
+    stdout.write(outputLines(info));
   }
 }
+
+/// Returns the version in the skills_lint `pubspec.yaml`.
+String _pubspecVersion() =>
+    readPubspecVersion(File(p.join(skillsLintPackageDir, 'pubspec.yaml')).readAsStringSync());
