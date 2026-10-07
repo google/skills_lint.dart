@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:test/test.dart';
+import 'package:test_process/test_process.dart';
 import 'package:yaml/yaml.dart';
 
 /// Asserts that [instance] serializes via [toJson] to [expectedJson] (or matching map),
@@ -61,6 +62,42 @@ Future<void> withTempDir(FutureOr<void> Function(Directory tempDir) action) asyn
       await tempDir.delete(recursive: true);
     }
   }
+}
+
+/// The compiled skills_lint executable that [startCli] runs, or `null` to run
+/// `dart bin/skills_lint.dart`.
+String? _compiledCli;
+
+/// Makes [startCli] run [executable], a skills_lint binary built by
+/// `dart compile exe`, for the rest of this test isolate.
+///
+/// Only the tests in `compiled_test/` call this, after they compile the
+/// binary. Every other test runs the CLI from source.
+void useCompiledCli(String executable) {
+  _compiledCli = executable;
+}
+
+/// Starts the skills_lint CLI with [arguments] in [workingDirectory].
+///
+/// Runs `dart bin/skills_lint.dart`, or the binary given to [useCompiledCli].
+/// Without a [workingDirectory], the CLI runs in the system temp directory,
+/// outside this package, so it reads no `pubspec.yaml` or configuration of
+/// this repository.
+///
+/// A test file that calls this should also run from `compiled_test/`, so the
+/// same test covers the compiled binary.
+Future<TestProcess> startCli(
+  List<String> arguments, {
+  String? workingDirectory,
+  Map<String, String>? environment,
+}) {
+  final String? executable = _compiledCli;
+  return TestProcess.start(
+    executable ?? 'dart',
+    [if (executable == null) p.normalize(p.absolute('bin', 'skills_lint.dart')), ...arguments],
+    workingDirectory: workingDirectory ?? Directory.systemTemp.path,
+    environment: environment,
+  );
 }
 
 /// Creates a physical skill directory on the filesystem containing a `SKILL.md` file.

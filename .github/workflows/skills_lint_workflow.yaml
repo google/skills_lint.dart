@@ -9,7 +9,8 @@ on:
       - 'skills_lint.yaml'
       - 'skills/**'
       - 'packages/skills_lint/**'
-      - '.github/workflows/skills_lint_workflow.yaml'
+      # All workflows, because repo_test/action_pins_test.dart checks the pins in each.
+      - '.github/workflows/**'
   push:
     branches: [ main ]
     paths:
@@ -17,7 +18,8 @@ on:
       - 'skills_lint.yaml'
       - 'skills/**'
       - 'packages/skills_lint/**'
-      - '.github/workflows/skills_lint_workflow.yaml'
+      # All workflows, because repo_test/action_pins_test.dart checks the pins in each.
+      - '.github/workflows/**'
   schedule:
     - cron: '0 0 * * 0' # weekly
 
@@ -31,6 +33,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        sdk: [stable]
+        include:
+          # Lowest SDK and dependency versions the pubspecs allow. Ubuntu
+          # only. repo_test/sdk_lower_bound_test.dart checks `sdk`.
+          - os: ubuntu-latest
+            sdk: 3.12.0
+            lower_bound: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,33 +47,52 @@ jobs:
           persist-credentials: false
       - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
         with:
-          sdk: stable
+          sdk: ${{ matrix.sdk }}
 
       - run: dart pub get
 
       - run: dart analyze --fatal-infos
 
       - name: Run cognitive complexity check
-        run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/repo_test packages/skills_lint/example packages/skills_lint/skills packages/skills_lint/benchmark .agents/skills
+        run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/repo_test packages/skills_lint/compiled_test packages/skills_lint/example packages/skills_lint/skills packages/skills_lint/benchmark .agents/skills
         working-directory: .
 
       # One step per test directory, so a failure names its kind. See "Where
-      # tests go" in CONTRIBUTING.md. Plain `dart test` runs test/ only. The
-      # repo test step also runs when the product tests fail, so one run
-      # reports both kinds of failure.
+      # tests go" in CONTRIBUTING.md. Plain `dart test` runs test/ only. Each
+      # later test step also runs when an earlier test step fails, so one run
+      # reports every kind of failure.
       - name: Run tests
         id: product_tests
         run: dart test
 
       - name: Run repo tests
+        id: repo_tests
         if: success() || steps.product_tests.conclusion == 'failure'
         run: dart test repo_test
+
+      # Compiles the CLI the way a release does and runs the CLI tests from
+      # test/ against the binary.
+      - name: Run compiled CLI tests
+        if: success() || steps.product_tests.conclusion == 'failure' || steps.repo_tests.conclusion == 'failure'
+        run: dart test compiled_test
 
       - name: Verify example
         run: dart run example/main.dart
 
       - name: Verify API boundary runner
         run: dart run example/api_boundary_runner/bin/main.dart
+
+      # `lower_bound` is set only by the lower-bound `include` entry above.
+      # After the downgrade, analysis checks that the declared dependency
+      # floors cover the APIs we use. Tests would mostly exercise old dev
+      # tooling, so they don't run.
+      - name: Resolve the lowest allowed dependency versions
+        if: matrix.lower_bound
+        run: dart pub downgrade
+
+      - name: Analyze with the lowest allowed dependency versions
+        if: matrix.lower_bound
+        run: dart analyze --fatal-infos
 
   coverage:
     runs-on: ubuntu-latest

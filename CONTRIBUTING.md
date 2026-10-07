@@ -94,11 +94,12 @@ dart test
 
 ### Where tests go
 
-The package has two test roots, side by side in `packages/skills_lint/`:
+The package has three test roots, side by side in `packages/skills_lint/`:
 
 | Directory | What goes there | A change to … can break it |
 | :--- | :--- | :--- |
 | `test/` | Tests of the shipped skills_lint package: rules, the CLI, configuration, the fixer, the install script and the public API. | `lib/`, `bin/` |
+| `compiled_test/` | Runs the CLI tests from `test/` a second time, against a binary built by `dart compile exe`. Holds no tests of its own. | `lib/`, `bin/` |
 | `repo_test/` | Scans that fail when the repo drifts: file headers, the CI workflow, docs that must match the code (`RULES.md`, the README recipes), skill and eval structure, and source conventions. | anything in the repository |
 | `repo_test/checkers/` | Unit tests of the checker code in `repo_test/src/`, run on inline snippets or temporary directories instead of the real repository. | `repo_test/src/` |
 | `repo_test/src/` | Checker code shared by `repo_test/` and `repo_test/checkers/`. Not tests. | n/a |
@@ -111,20 +112,38 @@ This follows the `integration_test/` pattern in the
 second test directory next to `test/`, which plain `dart test` does not run.
 
 ```bash
-dart test             # test/ only. CI measures coverage here.
-dart test repo_test   # repo_test/, including repo_test/checkers/
+dart test                 # test/ only. CI measures coverage here.
+dart test repo_test       # repo_test/, including repo_test/checkers/
+dart test compiled_test   # the CLI tests, against the compiled CLI
 ```
 
-CI runs the two as separate steps, so a failure shows which kind broke.
+CI runs the three as separate steps, so a failure shows which kind broke.
 `repo_test/test_files_run_in_ci_test.dart` fails if a test file sits outside
-`test/` and `repo_test/`, because no CI step would run it. The directories
-that repo tests read are listed, with the reason for each subset, in
-`repo_test/src/package_directories.dart`.
+`test/`, `repo_test/` and `compiled_test/`, because no CI step would run it.
+The directories that repo tests read are listed, with the reason for each
+subset, in `repo_test/src/package_directories.dart`.
 
 The repo tests share this package's `dev_dependencies`. When one needs a dev
 dependency that no package test uses, move `repo_test/` to its own unpublished
 workspace package (for example `packages/repo_checks/`) instead of adding the
 dependency here.
+
+### Testing the compiled CLI
+
+Releases ship the CLI built by `dart compile exe`, so the CLI tests run twice:
+once from source with `dart test`, and once against the compiled binary with
+`dart test compiled_test`. CI runs both on Linux, macOS and Windows.
+
+A CLI test starts the CLI with `startCli` from `test/test_utils.dart`. It runs
+`dart bin/skills_lint.dart`, except in `compiled_test/cli_test.dart`, which
+compiles the binary in its setup, fails if compiling fails, and then calls the
+shared tests. A test file whose tests all start the CLI is called through its
+`main()`. A file that mixes CLI tests with other tests puts the CLI tests in a
+`defineCliTests()` function, which both its `main()` and `compiled_test/` call.
+
+`repo_test/dart_test_process_convention_test.dart` fails if a test starts the
+Dart VM with `TestProcess.start` instead of calling `startCli`, because such a
+test would skip the compiled binary.
 
 ### Coverage
 
@@ -172,33 +191,34 @@ Lint rules are part of `skills_lint`'s public API. Adopters wire
 the linter into pre-commit hooks and CI gates, so a rule that silently
 flips from "warning" to "error" can break a downstream build with no
 code change of their own. We version rule changes the same way we
-version code changes:
+version code changes. The
+[`dart-package-maintenance`](.agents/skills/dart-package-maintenance/SKILL.md)
+skill defines the version numbers for each kind of release. This
+section says which kind of release each rule change needs.
 
-- **Patch release (`0.3.X` → `0.3.X+1`, `1.0.X` → `1.0.X+1`)** —
-  bug fixes to existing rules, including diagnostic message
-  rewording, internal refactors, and fixes that *narrow* what a rule
-  matches (fewer false positives). The set of error states a passing
-  skill needs to clear does not grow.
+- **Patch** — bug fixes to existing rules, including diagnostic
+  message rewording, internal refactors, and fixes that *narrow* what
+  a rule matches (fewer false positives). The set of error states a
+  passing skill needs to clear does not grow.
 
-- **Minor release (`0.3.X` → `0.4.0`, `1.0.X` → `1.1.0`)** — new
-  rules, **shipping with `defaultSeverity: AnalysisSeverity.disabled`**
-  so existing skills keep passing. Adopters opt in by enabling the
-  rule via flag or YAML config. Performance improvements that don't
-  change diagnostics also land here. A rule's diagnostic message may
-  expand to include additional context.
+- **Minor** — new rules, **shipping with
+  `defaultSeverity: AnalysisSeverity.disabled`** so existing skills
+  keep passing. Adopters opt in by enabling the rule via flag or YAML
+  config. Performance improvements that don't change diagnostics also
+  land here. A rule's diagnostic message may expand to include
+  additional context.
 
-- **Major release (`0.X` → `1.0`, `1.X` → `2.0`)** — any change that
-  can fail a previously-passing skill: removing a rule (so configs
-  referencing it stop working), upgrading a rule's default severity
-  (`disabled → warning`, `warning → error`), broadening what a rule
-  matches (more true positives = more failures), or renaming a rule.
-  Releases bump the major version and the CHANGELOG calls out the
-  exact rules affected.
+- **Major** — any change that can fail a previously-passing skill:
+  removing a rule (so configs referencing it stop working), upgrading
+  a rule's default severity (`disabled → warning`, `warning → error`),
+  broadening what a rule matches (more true positives = more
+  failures), or renaming a rule. The CHANGELOG calls out the exact
+  rules affected.
 
-Rationale: adopters should be able to set `skills_lint: ^1.0.0`
-in `pubspec.yaml` and trust that a `dart pub upgrade` never turns
-green CI red without their consent. Surprises belong in major
-releases, and only there.
+Rationale: adopters should be able to set a caret constraint on
+`skills_lint` in `pubspec.yaml` and trust that a `dart pub upgrade`
+never turns green CI red without their consent. Surprises belong in
+major releases, and only there.
 
 If you're proposing a change that doesn't fit cleanly into one of the
 buckets above, say so on the PR and the maintainers will decide where
