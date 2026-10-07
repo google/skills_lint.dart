@@ -18,6 +18,8 @@ import 'package:test/test.dart';
 
 const String _target = 'linux-x64';
 
+const String _version = '1.2.3';
+
 void main() {
   late Directory temp;
   late Directory stage;
@@ -33,10 +35,11 @@ void main() {
     temp.deleteSync(recursive: true);
   });
 
-  /// Writes a fake executable that exits with [exitCode], and a LICENSE.
-  void stageFiles({int exitCode = 0}) {
+  /// Writes a fake executable that prints [printed] and exits with
+  /// [exitCode], and a LICENSE.
+  void stageFiles({int exitCode = 0, String printed = _version}) {
     final executable = File(p.join(stage.path, binaryName(_target)))
-      ..writeAsStringSync('#!/bin/sh\nexit $exitCode\n');
+      ..writeAsStringSync('#!/bin/sh\necho $printed\nexit $exitCode\n');
     Process.runSync('chmod', ['+x', executable.path]);
     File(p.join(stage.path, 'LICENSE')).writeAsStringSync('license');
   }
@@ -62,10 +65,30 @@ void main() {
   group('packageExecutable', () {
     test('writes the archive with the license notices, and its checksum', () async {
       stageFiles();
-      final File archive = await packageExecutable(stage: stage, target: _target, outputDir: dist);
+      final File archive = await packageExecutable(
+        stage: stage,
+        target: _target,
+        version: _version,
+        outputDir: dist,
+      );
       expect(await listArchive(archive), unorderedEquals(['LICENSE', binaryName(_target)]));
       expect(File(p.join(stage.path, 'LICENSE')).readAsStringSync(), contains('Dart SDK'));
       expect(File('${archive.path}.sha256').existsSync(), isTrue);
+    });
+
+    test('throws when --version prints another version', () async {
+      stageFiles(printed: '1.2.3-wip');
+      await expectLater(
+        packageExecutable(stage: stage, target: _target, version: _version, outputDir: dist),
+        throwsA(
+          isA<ReleaseException>().having(
+            (e) => e.message,
+            'message',
+            contains('printed "1.2.3-wip" and exited with code 0; expected 1.2.3'),
+          ),
+        ),
+      );
+      expect(dist.listSync(), isEmpty);
     });
 
     test('checks the minimum macOS version of a macOS executable', () async {
@@ -74,7 +97,7 @@ void main() {
         ..writeAsStringSync('#!/bin/sh\nexit 0\n');
       Process.runSync('chmod', ['+x', executable.path]);
       await expectLater(
-        packageExecutable(stage: stage, target: 'macos-arm64', outputDir: dist),
+        packageExecutable(stage: stage, target: 'macos-arm64', version: _version, outputDir: dist),
         throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains('Mach-O'))),
       );
       expect(dist.listSync(), isEmpty);

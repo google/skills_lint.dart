@@ -155,8 +155,9 @@ jobs:
           path: .
       - name: Get the release's dependencies
         run: dart pub get --enforce-lockfile
-      # Compiles, runs and packages the executable with its license notices,
-      # checks the archive, and writes its .sha256 file.
+      # Compiles and runs the executable, checks that --version prints the
+      # pubspec.yaml version, packages it with its license notices, checks the
+      # archive, and writes its .sha256 file.
       - name: Build the archive
         env:
           TARGET: ${{ matrix.target }}

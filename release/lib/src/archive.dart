@@ -125,13 +125,32 @@ Future<void> verifyArchive(File archive, String target) async {
 /// Throws a [ReleaseException] if it exits with a nonzero code.
 Future<void> smokeTest(String executable) => _run(executable, ['--help']);
 
+/// Runs the [executable] with `--version`.
+///
+/// Throws a [ReleaseException] if it exits with a nonzero code or prints
+/// anything but [version].
+Future<void> checkVersion(String executable, String version) async {
+  final ProcessResult result = await Process.run(executable, ['--version']);
+  final String printed = (result.stdout as String).trim();
+  if (result.exitCode != 0 || printed != version) {
+    throw ReleaseException(
+      '`${p.basename(executable)} --version` printed "$printed" and exited with code '
+      '${result.exitCode}; expected $version, the pubspec.yaml version.',
+    );
+  }
+}
+
 /// Builds the archive for [target] in [outputDir], with its `.sha256` file
 /// next to it, and returns the archive.
 ///
-/// Compiles the executable, then calls [packageExecutable]. Throws a
-/// [ReleaseException] if [target] is not the host's target, since
+/// Compiles the executable, then calls [packageExecutable] with [version].
+/// Throws a [ReleaseException] if [target] is not the host's target, since
 /// `dart compile exe` can't cross-compile to it, or if a step fails.
-Future<File> buildArchive({required String target, required Directory outputDir}) async {
+Future<File> buildArchive({
+  required String target,
+  required String version,
+  required Directory outputDir,
+}) async {
   final String? host = hostTarget(Abi.current());
   if (target != host) {
     throw ReleaseException(
@@ -148,7 +167,12 @@ Future<File> buildArchive({required String target, required Directory outputDir}
       '-o',
       p.join(stage.path, binaryName(target)),
     ], workingDirectory: skillsLintPackageDir);
-    return await packageExecutable(stage: stage, target: target, outputDir: outputDir);
+    return await packageExecutable(
+      stage: stage,
+      target: target,
+      version: version,
+      outputDir: outputDir,
+    );
   } finally {
     stage.deleteSync(recursive: true);
   }
@@ -159,12 +183,13 @@ Future<File> buildArchive({required String target, required Directory outputDir}
 /// the archive.
 ///
 /// Checks the minimum macOS version of a macOS executable, runs the
-/// executable, writes the license notices to `LICENSE` in [stage], packages
-/// both, then checks the archive. Throws a [ReleaseException] if a step
-/// fails.
+/// executable, checks that it prints [version] for `--version`, writes the
+/// license notices to `LICENSE` in [stage], packages both, then checks the
+/// archive. Throws a [ReleaseException] if a step fails.
 Future<File> packageExecutable({
   required Directory stage,
   required String target,
+  required String version,
   required Directory outputDir,
 }) async {
   final String executable = p.join(stage.path, binaryName(target));
@@ -172,6 +197,7 @@ Future<File> packageExecutable({
     checkMacosMinimum(File(executable).readAsBytesSync());
   }
   await smokeTest(executable);
+  await checkVersion(executable, version);
   File(p.join(stage.path, _licenseName)).writeAsStringSync(
     await collectLicenses(
       packageDir: skillsLintPackageDir,

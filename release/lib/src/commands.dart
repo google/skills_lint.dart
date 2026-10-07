@@ -79,14 +79,16 @@ class _PackageCommand extends _ReleaseCommand {
 
   @override
   String get description =>
-      'Compiles the executable for this machine, packages it with its license notices, '
-      'checks the archive and writes its .sha256 file.';
+      'Compiles the executable for this machine, checks that --version prints the pubspec.yaml '
+      'version, packages it with its license notices, checks the archive and writes its .sha256 '
+      'file.';
 
   @override
   Future<void> run() async {
     noRest();
     final File archive = await buildArchive(
       target: option('target'),
+      version: _pubspecVersion(),
       outputDir: Directory(option('output-dir')),
     );
     stdout.writeln('Wrote ${archive.path} (${archive.lengthSync()} bytes).');

@@ -195,7 +195,7 @@ dart run bin/release.dart --help
 | Command | What it does |
 | :--- | :--- |
 | `prepare` | Works out whether the run is a dry run, creates the release, or publishes it; checks the version; prints the result as `name=value` lines for `$GITHUB_OUTPUT`; and writes the release notes. |
-| `package` | Compiles the executable for this machine, runs it, packages it with its license notices, checks the archive and writes its `.sha256` file. |
+| `package` | Compiles the executable for this machine, runs it, checks that `--version` prints the `pubspec.yaml` version, packages it with its license notices, checks the archive and writes its `.sha256` file. |
 | `checksums` | Checks each `.sha256` file in a directory and merges them into `SHA256SUMS`. |
 | `install-script` | Writes `install.sh` with the `pubspec.yaml` version as the version it installs by default. |
 | `licenses` | Writes the license notices for the executable. |
