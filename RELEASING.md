@@ -62,7 +62,7 @@ The run on the tag:
    draft release.
 4. Unless the release is a prerelease, checks the published archives again
    and opens a pull request that updates the Homebrew formula to the release.
-   [`Formula/README.md`](Formula/README.md#release-automation) describes it.
+   [Release automation](#release-automation) describes it.
    Review and merge that pull request; nothing pushes to `main`.
 
 pub.dev accepts a publish only from a workflow run on a tag that matches
@@ -173,10 +173,9 @@ platform. The rest follows from that list:
 - `release package --target` accepts only its targets.
 - `install.sh` finds the archive for the machine in the release's
   `SHA256SUMS`, and names the release's platforms when there is none.
-- `repo_test/homebrew_formula_test.dart` fails until
-  [`Formula/skills_lint.rb`](Formula/skills_lint.rb) and
-  `.github/workflows/homebrew.yaml` have each macOS and Linux target on arm64
-  and x64. Homebrew cannot install other targets.
+- `release homebrew-matrix` prints the targets that the
+  [Homebrew formula](#homebrew-formula) installs: those on macOS or Linux, on
+  arm64 or x64, the only platforms that a formula can select an archive for.
 
 The minimum macOS version comes from the Dart SDK used for the build: Dart
 3.11 and later target macOS 14
@@ -186,10 +185,75 @@ load command in the built executable, which `vtool -show-build <executable>`
 prints. `release package` fails if that value differs from
 `macosMinimumVersion` in `release/lib/src/macho.dart`. When it changes, update
 that constant, `MIN_MACOS_VERSION` in `install.sh`, `depends_on macos:` in
-`Formula/skills_lint.rb`, the README and this file.
+`Formula/skills_lint.rb`, the README and this file. Homebrew names macOS
+versions by major release only, so the constant must be `<major>.0`.
 
 There is no Windows executable yet; see
 [issue #86](https://github.com/google/skills_lint.dart/issues/86).
+
+## Homebrew formula
+
+[`Formula/skills_lint.rb`](Formula/skills_lint.rb) installs the release
+executables with Homebrew, and the package README has the commands. This
+repository is the tap `google/skills-lint`. Homebrew maps a tap name
+`user/repo` to `github.com/user/homebrew-repo`, so users pass this
+repository's URL to `brew tap`. The README of each version on pub.dev never
+changes, so keep the tap name and the formula name.
+
+The formula's `version` and checksums are placeholders until the first
+release with executables, and `brew install` fails until then.
+
+Two checks cover the formula:
+
+- [`repo_test/homebrew_formula_test.dart`](packages/skills_lint/repo_test/homebrew_formula_test.dart)
+  checks the `url` and `sha256` of each target, the `version`, and
+  `depends_on macos:` against the release.
+- [`homebrew.yaml`](.github/workflows/homebrew.yaml) runs `brew style` and
+  `brew audit --strict`. Once the formula has no placeholders, it also
+  installs the formula and runs its `test` block on each target. Its
+  `Homebrew` job is the check to [require](#repository-settings).
+
+### Release automation
+
+After a release that is not a prerelease, two jobs in `release.yaml` update
+the formula. Homebrew installs the formula for every user, so prereleases
+are skipped.
+
+- `homebrew-formula` downloads the published archives and `SHA256SUMS`,
+  checks them with `sha256sum --check --strict` and `gh attestation verify`,
+  and runs `release homebrew-formula` on the formula from `main`. It has
+  read-only permissions.
+- `homebrew-pull-request` pushes the result to the branch
+  `homebrew/skills_lint-v<version>` and opens a pull request. It never pushes
+  to `main`. GitHub does not start `pull_request` runs for a pull request
+  that `GITHUB_TOKEN` opens until a maintainer selects **Approve workflows to
+  run**, so the job also starts `homebrew.yaml` on the branch, which reports
+  the `Homebrew` check. If the repository does not
+  [allow GitHub Actions to open pull requests](#repository-settings), the job
+  writes a link to open it by hand in the job summary.
+
+Review and merge that pull request like any other. A GitHub App or personal
+access token would start the other checks without the approval click, at the
+cost of a secret to store and rotate.
+
+### Update the formula by hand
+
+If the automation fails:
+
+1. Download the release's files, check them against `SHA256SUMS`, and check
+   each archive's attestation with the `gh attestation verify` command in
+   [Release a version](#release-a-version):
+
+   ```bash
+   gh release download skills_lint-v<version> -R google/skills_lint.dart --dir assets
+   cd assets && sha256sum --check --strict SHA256SUMS
+   ```
+
+2. In `Formula/skills_lint.rb`, set `version` to `<version>` and each
+   `sha256` to its archive's line in `SHA256SUMS`. On the first release, also
+   remove every `PLACEHOLDER` comment.
+3. Run `dart test repo_test/homebrew_formula_test.dart` in
+   `packages/skills_lint`, and open a pull request.
 
 ## Release scripts
 
@@ -208,6 +272,7 @@ dart run bin/release.dart --help
 | `checksums` | Checks each `.sha256` file in a directory and merges them into `SHA256SUMS`. |
 | `install-script` | Writes `install.sh` with the `pubspec.yaml` version as the version it installs by default. |
 | `licenses` | Writes the license notices for the executable. |
+| `homebrew-matrix` | Prints the targets that the Homebrew formula installs, with their runners, as the install matrix of `homebrew.yaml`. |
 | `homebrew-formula` | Sets the `version` of `Formula/skills_lint.rb` and the `sha256` of each archive from a release's `SHA256SUMS`, and removes its `PLACEHOLDER` comments. |
 
 When the workflow moves to a new Dart SDK, check the Dart runtime licenses
@@ -244,3 +309,49 @@ workflow on any branch with **release** unchecked:
 ```bash
 gh workflow run release.yaml -R google/skills_lint.dart --ref <branch>
 ```
+
+## Repository settings
+
+These need a repository admin.
+
+- **Require the `Homebrew` check on `main`.** Add a `required_status_checks`
+  rule to the `main` ruleset. 15368 is the GitHub Actions app.
+
+  ```bash
+  gh api repos/google/skills_lint.dart/rulesets/21051370 \
+    | jq '{name, target, enforcement, conditions, bypass_actors,
+           rules: (.rules + [{type: "required_status_checks", parameters: {
+             strict_required_status_checks_policy: false,
+             do_not_enforce_on_create: false,
+             required_status_checks: [{context: "Homebrew", integration_id: 15368}]}}])}' \
+    | gh api -X PUT repos/google/skills_lint.dart/rulesets/21051370 --input -
+  ```
+
+- **Require `@reidbaker`'s approval for `Formula/`.** CODEOWNERS only requests
+  the review. To require it, add a `required_reviewers` entry to the
+  `pull_request` rule of the same ruleset. The reviewer must be a team with
+  write access that has `@reidbaker`; `<team-id>` is its ID from
+  `gh api orgs/google/teams/<team-slug> --jq .id`.
+
+  ```bash
+  gh api repos/google/skills_lint.dart/rulesets/21051370 \
+    | jq '{name, target, enforcement, conditions, bypass_actors,
+           rules: [.rules[] | if .type == "pull_request" then
+             .parameters.required_reviewers = [{minimum_approvals: 1,
+               file_patterns: ["Formula/**"],
+               reviewer: {id: <team-id>, type: "Team"}}] else . end]}' \
+    | gh api -X PUT repos/google/skills_lint.dart/rulesets/21051370 --input -
+  ```
+
+  Turning on `require_code_owner_review` instead would also require
+  `@reidbaker-agent`, the owner of every other file, to approve every other
+  pull request, including its own, which GitHub does not allow.
+
+- **Allow the release automation to open pull requests:**
+
+  ```bash
+  gh api -X PUT repos/google/skills_lint.dart/actions/permissions/workflow \
+    -F can_approve_pull_request_reviews=true
+  ```
+
+  It fails with HTTP 409 if the organization does not allow the setting.

@@ -14,6 +14,7 @@ import 'package:path/path.dart' as p;
 import 'archive.dart';
 import 'checksums.dart';
 import 'homebrew_formula.dart';
+import 'homebrew_targets.dart';
 import 'install_script.dart';
 import 'licenses.dart';
 import 'paths.dart';
@@ -35,7 +36,8 @@ Future<int> runRelease(List<String> arguments) async {
     ..addCommand(_ChecksumsCommand())
     ..addCommand(_HomebrewFormulaCommand())
     ..addCommand(_InstallScriptCommand())
-    ..addCommand(_PrepareCommand());
+    ..addCommand(_PrepareCommand())
+    ..addCommand(_HomebrewMatrixCommand());
   try {
     await runner.run(arguments);
     return 0;
@@ -239,6 +241,22 @@ class _PrepareCommand extends _ReleaseCommand {
     stdout
       ..write(outputLines(info))
       ..writeln('matrix=${buildMatrix()}');
+  }
+}
+
+class _HomebrewMatrixCommand extends _ReleaseCommand {
+  @override
+  String get name => 'homebrew-matrix';
+
+  @override
+  String get description =>
+      'Prints the targets that the Homebrew formula installs, with the runner of each, as a '
+      r'matrix=<json> line for $GITHUB_OUTPUT.';
+
+  @override
+  void run() {
+    noRest();
+    stdout.writeln('matrix=${buildMatrix(homebrewTargets())}');
   }
 }
 

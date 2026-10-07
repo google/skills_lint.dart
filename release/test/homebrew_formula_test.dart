@@ -2,7 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+import 'package:skills_lint_release/src/archive.dart';
 import 'package:skills_lint_release/src/homebrew_formula.dart';
+import 'package:skills_lint_release/src/homebrew_targets.dart';
+import 'package:skills_lint_release/src/paths.dart';
 import 'package:skills_lint_release/src/release_exception.dart';
 import 'package:test/test.dart';
 
@@ -19,7 +25,7 @@ final String _placeholderFormula =
 # typed: strict
 
 # Homebrew formula for the prebuilt skills_lint executables.
-# Formula/README.md says how this file is checked and how to update it.
+# RELEASING.md says how this file is checked and how to update it.
 #
 # PLACEHOLDER: no release has the executables yet. `version` and every
 # `sha256` below are placeholders.
@@ -48,7 +54,7 @@ final String _releasedFormula =
 # typed: strict
 
 # Homebrew formula for the prebuilt skills_lint executables.
-# Formula/README.md says how this file is checked and how to update it.
+# RELEASING.md says how this file is checked and how to update it.
 class SkillsLint < Formula
   version "0.6.0"
 
@@ -190,4 +196,22 @@ void main() {
       );
     });
   });
+
+  test(
+    'updates Formula/skills_lint.rb with the checksum of each target that Homebrew installs',
+    () {
+      final String formula = File(p.join(repoRoot, 'Formula', 'skills_lint.rb')).readAsStringSync();
+      final Map<String, String> checksums = {};
+      final List<ReleaseTarget> targets = homebrewTargets();
+      for (final (int index, ReleaseTarget target) in targets.indexed) {
+        checksums[archiveName(target.name)] = (index + 1).toRadixString(16).padLeft(64, 'f');
+      }
+      final String updated = updateFormula(formula, version: '9.8.7', checksums: checksums);
+      expect(updated, contains('version "9.8.7"\n'));
+      expect(updated, isNot(contains('PLACEHOLDER')));
+      for (final MapEntry<String, String> checksum in checksums.entries) {
+        expect(updated, contains('/${checksum.key}"\n      sha256 "${checksum.value}"\n'));
+      }
+    },
+  );
 }

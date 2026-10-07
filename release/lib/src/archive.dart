@@ -64,12 +64,13 @@ String? hostTarget(Abi abi) => releaseTargets
     .map((ReleaseTarget target) => target.name)
     .firstOrNull;
 
-/// Returns the `strategy.matrix` of the release workflow's `build` job as
-/// JSON: an `include` entry for each of [releaseTargets], with the `target`
-/// and the runner (`os`) that builds it.
-String buildMatrix() => jsonEncode({
+/// Returns a GitHub Actions `strategy.matrix` as JSON: an `include` entry for
+/// each of [targets], with the `target` and the runner (`os`) that builds it.
+///
+/// The release workflow's `build` job uses it for all of [releaseTargets].
+String buildMatrix([List<ReleaseTarget> targets = releaseTargets]) => jsonEncode({
   'include': [
-    for (final ReleaseTarget target in releaseTargets) {'os': target.runner, 'target': target.name},
+    for (final ReleaseTarget target in targets) {'os': target.runner, 'target': target.name},
   ],
 });
 

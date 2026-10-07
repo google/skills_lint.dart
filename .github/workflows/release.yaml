@@ -13,7 +13,7 @@
 # - The run on the tag checks the draft, publishes the package to pub.dev,
 #   then publishes the draft. pub.dev accepts a publish only from a run on the
 #   tag. For a release that is not a prerelease, it then opens a pull request
-#   that updates the Homebrew formula; see Formula/README.md.
+#   that updates the Homebrew formula; see RELEASING.md.
 #
 # The `prepare` job works out which of these a run does; see
 # release/lib/src/release_info.dart. The steps run the `release` command in
@@ -428,7 +428,7 @@ jobs:
           gh release edit "$TAG" --draft=false
           echo "Published $TAG to pub.dev and [GitHub]($(gh release view "$TAG" --json url --jq .url))." >> "$GITHUB_STEP_SUMMARY"
 
-  # Formula/README.md specifies these two jobs. Prereleases are skipped,
+  # RELEASING.md describes these two jobs. Prereleases are skipped,
   # because Homebrew installs the formula for every user.
   homebrew-formula:
     name: Update the Homebrew formula
@@ -522,7 +522,7 @@ jobs:
           gh auth setup-git
           git push origin "$branch"
           gh workflow run homebrew.yaml --ref "$branch"
-          body="Updates Formula/skills_lint.rb to the $TAG release. The release workflow checked each archive against SHA256SUMS and its attestation. Select **Approve workflows to run** to start the pull request's other checks. Formula/README.md lists the first-release steps."
+          body="Updates Formula/skills_lint.rb to the $TAG release. The release workflow checked each archive against SHA256SUMS and its attestation. Select **Approve workflows to run** to start the pull request's other checks."
           if ! gh pr create --base main --head "$branch" --title "$title" --body "$body"; then
             compare="$GITHUB_SERVER_URL/$GH_REPO/compare/main...$branch?expand=1"
             echo "Could not open the pull request. Open it at $compare" >> "$GITHUB_STEP_SUMMARY"

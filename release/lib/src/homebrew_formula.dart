@@ -4,7 +4,7 @@
 
 /// Updates the Homebrew formula in `Formula/skills_lint.rb` to a release.
 ///
-/// `Formula/README.md` specifies the release automation that runs this, and
+/// RELEASING.md describes the release automation that runs this, and
 /// `packages/skills_lint/repo_test/homebrew_formula_test.dart` checks the
 /// formula that it writes.
 library;
