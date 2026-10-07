@@ -309,12 +309,13 @@ $ruleYaml
     }
   });
 
-  cliTests();
+  defineCliTests();
 }
 
-/// The tests that run the CLI, which `compiled_test/` also runs against the
-/// compiled binary.
-void cliTests() {
+/// Defines the tests that start the CLI. [main] calls this, and
+/// `compiled_test/cli_test.dart` calls it again to run the same tests
+/// against the compiled binary.
+void defineCliTests() {
   group('CLI $_flag', () {
     late Directory tempDir;
     late String skillPath;

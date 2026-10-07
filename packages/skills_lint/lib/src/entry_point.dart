@@ -232,7 +232,11 @@ Future<void> runApp(List<String> args) async {
 ArgParser _createArgParser(String helpFlag) {
   final parser = ArgParser()
     ..addFlag(helpFlag, abbr: 'h', negatable: false, help: 'Show usage information.')
-    ..addFlag(_versionFlag, negatable: false, help: 'Print the skills_lint version.')
+    ..addFlag(
+      _versionFlag,
+      negatable: false,
+      help: 'Print the skills_lint version and exit. All other flags are ignored.',
+    )
     ..addFlag(_printWarningsFlag, abbr: 'w', defaultsTo: true, help: 'Print validation warnings.');
 
   // Dynamically add flags for all registered rules.

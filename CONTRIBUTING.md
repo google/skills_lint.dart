@@ -139,7 +139,7 @@ A CLI test starts the CLI with `startCli` from `test/test_utils.dart`. It runs
 compiles the binary in its setup, fails if compiling fails, and then calls the
 shared tests. A test file whose tests all start the CLI is called through its
 `main()`. A file that mixes CLI tests with other tests puts the CLI tests in a
-`cliTests()` function, which both its `main()` and `compiled_test/` call.
+`defineCliTests()` function, which both its `main()` and `compiled_test/` call.
 
 `repo_test/dart_test_process_convention_test.dart` fails if a test starts the
 Dart VM with `TestProcess.start` instead of calling `startCli`, because such a

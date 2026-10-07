@@ -26,15 +26,26 @@ import 'models/source.dart';
 /// Calls with any other executable, such as a shell script, are ignored, as
 /// are `Process.run` and `Process.start`, which tests use for helper tools
 /// rather than for the CLI under test.
-List<ConventionViolation> findDartTestProcesses(Source source) => [
-  for (final MethodInvocation call in source.nodes.whereType<MethodInvocation>())
-    if (_isTestProcessStart(call) && _isDartExecutable(_executable(call)))
+List<ConventionViolation> findDartTestProcesses(Source source) {
+  final List<ConventionViolation> violations = [];
+  for (final MethodInvocation call in source.nodes.whereType<MethodInvocation>()) {
+    if (!_isTestProcessStart(call)) {
+      continue;
+    }
+    final Expression? executable = _executable(call);
+    if (executable == null || !_canBeDart(executable)) {
+      continue;
+    }
+    violations.add(
       source.violationAt(
         call.offset,
-        'TestProcess.start(${_executable(call)!.toSource()}, …) starts the Dart VM '
+        'TestProcess.start(${executable.toSource()}, …) starts the Dart VM '
         'instead of calling startCli',
       ),
-];
+    );
+  }
+  return violations;
+}
 
 bool _isTestProcessStart(MethodInvocation call) =>
     call.methodName.name == 'start' &&
@@ -55,14 +66,37 @@ Expression? _executable(MethodInvocation call) {
   return null;
 }
 
-bool _isDartExecutable(Expression? executable) => switch (executable) {
-  SimpleStringLiteral(:final value) => value == 'dart',
-  ParenthesizedExpression(:final expression) => _isDartExecutable(expression),
-  BinaryExpression(:final leftOperand, :final rightOperand) =>
-    _isDartExecutable(leftOperand) || _isDartExecutable(rightOperand),
-  ConditionalExpression(:final thenExpression, :final elseExpression) =>
-    _isDartExecutable(thenExpression) || _isDartExecutable(elseExpression),
-  PrefixedIdentifier(:final prefix, :final identifier) =>
-    prefix.name == 'Platform' && identifier.name == 'resolvedExecutable',
-  _ => false,
+/// Whether [executable] can evaluate to `'dart'` or
+/// `Platform.resolvedExecutable`.
+///
+/// `compiled ?? 'dart'` and `compiled != null ? compiled : 'dart'` both can,
+/// so each branch of `??` and `?:` is checked.
+bool _canBeDart(Expression executable) {
+  final Expression expression = executable.unParenthesized;
+  if (_isDartLiteral(expression) || _isResolvedExecutable(expression)) {
+    return true;
+  }
+  return _branches(expression).any(_canBeDart);
+}
+
+/// `'dart'` or `"dart"`.
+bool _isDartLiteral(Expression expression) =>
+    expression is SimpleStringLiteral && expression.value == 'dart';
+
+/// `Platform.resolvedExecutable`, the path of the running Dart VM.
+bool _isResolvedExecutable(Expression expression) =>
+    expression is PrefixedIdentifier &&
+    expression.prefix.name == 'Platform' &&
+    expression.identifier.name == 'resolvedExecutable';
+
+/// The parts of [expression] that [_canBeDart] also checks: both operands of
+/// a binary expression such as `a ?? b`, both results of `c ? a : b`, and
+/// none for any other expression.
+List<Expression> _branches(Expression expression) => switch (expression) {
+  BinaryExpression(:final leftOperand, :final rightOperand) => [leftOperand, rightOperand],
+  ConditionalExpression(:final thenExpression, :final elseExpression) => [
+    thenExpression,
+    elseExpression,
+  ],
+  _ => const [],
 };

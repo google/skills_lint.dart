@@ -21,10 +21,7 @@ import '../test/test_utils.dart';
 void main() {
   late Directory outputDir;
 
-  // Compiling takes longer than the default 30 seconds on some CI runners,
-  // so the group that compiles gets more time and the tests inside get the
-  // default back.
-  group('compiled CLI', timeout: const Timeout(Duration(minutes: 5)), () {
+  group('compiled CLI', () {
     setUpAll(() async {
       outputDir = await Directory.systemTemp.createTemp('compiled_cli.');
       final String executable = p.join(
@@ -53,12 +50,10 @@ void main() {
       await outputDir.delete(recursive: true);
     });
 
-    group('tests', timeout: const Timeout(Duration(seconds: 30)), () {
-      cli_integration.main();
-      example_fixtures.main();
-      config_file.cliTests();
-      description_length_limit.cliTests();
-      benchmark_fixture.cliTests();
-    });
+    cli_integration.main();
+    example_fixtures.main();
+    config_file.defineCliTests();
+    description_length_limit.defineCliTests();
+    benchmark_fixture.defineCliTests();
   });
 }

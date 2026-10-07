@@ -68,9 +68,10 @@ Object? serializedRules(Configuration configuration) {
   return yaml['rules'];
 }
 
-/// The tests that run the CLI, which `compiled_test/` also runs against the
-/// compiled binary.
-void cliTests() {
+/// Defines the tests that start the CLI. [main] calls this, and
+/// `compiled_test/cli_test.dart` calls it again to run the same tests
+/// against the compiled binary.
+void defineCliTests() {
   group('Configuration File Integration', () {
     late Directory tempDir;
 
@@ -1039,7 +1040,7 @@ skills_lint:
 }
 
 void main() {
-  cliTests();
+  defineCliTests();
 
   group('Configuration YAML Round-trip Serialization', () {
     test('round-trips empty configuration', () {
