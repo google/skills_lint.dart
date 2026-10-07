@@ -19,6 +19,10 @@ const Set<String> _allowedExcludes = {
   // Eval inputs, including deliberately bad code that the evals expect a
   // reviewer to flag.
   'packages/skills_lint/evals/test_data/**',
+  // Local git worktrees, which .gitignore lists. Each holds a copy of the
+  // repository, third_party/ included.
+  '.worktrees/**',
+  '.claude/**',
 };
 
 /// One or more whitespace characters, the separator between the words of a
@@ -117,11 +121,11 @@ void main() {
 /// The `cognitive_complexity` command in the CI workflow, such as:
 ///
 /// ```yaml
-///         run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin .agents/skills
+///         run: dart run cognitive_complexity --fail-threshold 20 --exclude 'third_party/**' .
 /// ```
 ///
 /// Group 1 is the `--fail-threshold` value (`20`) and group 2 is the rest of
-/// the line, the space-separated paths that it scans.
+/// the line: the `--exclude` globs and the paths that it scans.
 final RegExp _cognitiveComplexityCommand = RegExp(
   r'dart\s+run\s+cognitive_complexity\s+--fail-threshold\s+(\d+)\s+([^\r\n]+)',
 );
