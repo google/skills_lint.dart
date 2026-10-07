@@ -911,14 +911,16 @@ class ValidationSession {
   }
 
   /// Extracts the frontmatter `name:` string from raw [content], returning
-  /// `null` if the content lacks frontmatter or fails YAML parsing.
+  /// `null` if the content lacks frontmatter, fails YAML parsing, or has a
+  /// `name` that is not a string, such as `name: 123`.
   static String? _extractSkillName(String content) {
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(content);
     if (match != null) {
       try {
         final Object? doc = loadYaml(match.group(1)!);
-        if (doc is YamlMap && doc['name'] != null) {
-          return doc['name'].toString().trim();
+        final Object? name = doc is YamlMap ? doc['name'] : null;
+        if (name is String) {
+          return name.trim();
         }
       } on YamlException {
         // Ignore YAML parsing errors during fix post-processing.

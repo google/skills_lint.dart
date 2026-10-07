@@ -5,6 +5,8 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:skills_lint/src/models/skill_context.dart';
+import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/name_format_rule.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
@@ -18,48 +20,67 @@ Future<String> _fix(String dirName) =>
     NameFormatRule().fix('SKILL.md', _skillMd(), Directory(p.join('skills', dirName)));
 
 void main() {
-  group('NameFormatRule.fix', () {
-    for (final (dirName, kind) in [
-      ('my-skill', 'a valid skill name'),
-      ('my_skill', 'an underscore'),
-      ('My_Skill', 'uppercase letters and an underscore'),
-      ('My-Skill', 'uppercase letters'),
-      ('MySkill', 'uppercase letters'),
+  group('NameFormatRule.isValidSkillName', () {
+    for (final String name in [
+      'my-skill',
+      'a',
+      'a1-b2',
+      'a' * NameFormatRule.maxNameLength,
+      'a' * (NameFormatRule.maxNameLength + 1),
+      'my_skill',
+      'My-Skill',
+      '-foo',
+      'foo-',
+      'a--b',
+      '-',
+      '---',
+      'my skill',
+      'café',
     ]) {
-      test('sets name to directory name "$dirName", which has $kind', () async {
+      test('agrees with validate for "$name"', () async {
+        final SkillContext context = createTestSkillContext(
+          directory: Directory(p.join('skills', name)),
+          rawContent: "---\nname: '$name'\ndescription: d\n---\n",
+        );
+
+        final List<ValidationError> errors = await NameFormatRule().validate(context);
+
+        expect(NameFormatRule.isValidSkillName(name), errors.isEmpty);
+      });
+    }
+  });
+
+  group('NameFormatRule.fix', () {
+    for (final String dirName in ['my-skill', 'a1-b2', 'a' * NameFormatRule.maxNameLength]) {
+      test('sets name to directory name "$dirName", a valid skill name', () async {
         expect(await _fix(dirName), _skillMd(name: dirName));
       });
     }
 
-    // These load from YAML as the same string, but have characters other
-    // than ASCII letters, digits, `_` and `-`.
-    for (final dirName in ['my skill', 'a.b', 'café']) {
-      test('leaves the file unchanged when directory "$dirName" has other characters', () async {
-        expect(await _fix(dirName), _skillMd());
-      });
-    }
-
-    // These would change meaning or fail to parse as a plain YAML scalar.
-    for (final dirName in ['My Skill #1', 'a: b', '~', '[a]']) {
-      test('leaves the file unchanged when directory "$dirName" is YAML syntax', () async {
-        expect(await _fix(dirName), _skillMd());
-      });
-    }
-
-    // These have only allowed characters, but a plain YAML scalar would load
-    // as a number, boolean, null or list rather than this string.
-    for (final dirName in [
-      '123',
-      '1e3',
-      '0x1f',
-      'null',
-      'Null',
-      'true',
-      'TRUE',
-      'false',
+    for (final String dirName in [
+      'My-Skill',
+      '-foo',
+      'foo-',
+      'a--b',
       '-',
       '---',
+      'a' * (NameFormatRule.maxNameLength + 1),
+      'My Skill #1',
+      'a: b',
+      '~',
+      '[a]',
     ]) {
+      test(
+        'leaves the file unchanged when directory "$dirName" is not a valid skill name',
+        () async {
+          expect(await _fix(dirName), _skillMd());
+        },
+      );
+    }
+
+    // Valid skill names that a plain YAML scalar would load as a number,
+    // boolean or null rather than this string.
+    for (final dirName in ['123', '1e3', '0x1f', 'null', 'true', 'false']) {
       test(
         'leaves the file unchanged when directory "$dirName" does not load as a string',
         () async {
@@ -105,7 +126,7 @@ void defineCliTests() {
       });
     });
 
-    test('sets name to an underscore directory name and keeps the directory', () async {
+    test('leaves the file and directory unchanged for an underscore directory', () async {
       await withTempDir((skillsDir) async {
         final Directory skillDir = await createDummySkill(
           skillsDir,
@@ -113,19 +134,15 @@ void defineCliTests() {
           skillContent: _skillMd(name: 'my-skill'),
         );
 
-        final (stdout: String fixStdout, stderr: _) = await run(skillsDir, ['--fix']);
+        final (:String stdout, :String stderr) = await run(skillsDir, ['--fix']);
 
-        expect(fixStdout, isNot(contains('Renamed')));
+        expect(stdout, isNot(contains('Renamed')));
+        expect(stderr, contains('does not match the parent directory name'));
         expect(
           await File(p.join(skillDir.path, 'SKILL.md')).readAsString(),
-          _skillMd(name: 'my_skill'),
+          _skillMd(name: 'my-skill'),
         );
         expect(dirNames(skillsDir), ['my_skill']);
-
-        final (stdout: _, :String stderr) = await run(skillsDir, []);
-
-        expect(stderr, isNot(contains('does not match the parent directory name')));
-        expect(stderr, contains('contains invalid characters'));
       });
     });
   });

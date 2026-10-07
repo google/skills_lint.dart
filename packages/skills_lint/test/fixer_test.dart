@@ -11,6 +11,7 @@ import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
+import 'package:skills_lint/src/rules/name_format_rule.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -266,12 +267,22 @@ void main() {
       expect(skillDirNames(), ['old-skill']);
     });
 
-    for (final (newName, reason) in [
-      ('Bad Name', 'a space'),
-      ('my_skill', 'an underscore'),
-      ('My-Skill', 'uppercase letters'),
+    // Names that are not valid skill names, and names that YAML loads as a
+    // number or boolean rather than a string.
+    for (final String newName in [
+      'Bad Name',
+      'my_skill',
+      'My-Skill',
+      '-foo',
+      'foo-',
+      'a--b',
+      '---',
+      'a' * (NameFormatRule.maxNameLength + 1),
+      '1e3',
+      '0x1f',
+      'false',
     ]) {
-      test('does not rename the directory to "$newName", which has $reason', () async {
+      test('does not rename the directory to "$newName"', () async {
         final String stdout = await fixWithName(newName, dryRun: false);
 
         expect(stdout, isNot(contains('Renamed skill directory')));

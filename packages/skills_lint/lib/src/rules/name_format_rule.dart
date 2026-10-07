@@ -30,7 +30,6 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
   static const maxNameLength = 64;
   static final _validNameRegex = RegExp(r'^[a-z0-9-]+$');
-  static final _plainNameRegex = RegExp(r'^[A-Za-z0-9_-]+$');
   static const _nameFieldUrl = 'https://agentskills.io/specification#name-field';
 
   @override
@@ -80,7 +79,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
       );
     }
 
-    if (skillName.startsWith('-') || skillName.endsWith('-')) {
+    if (_hasEdgeHyphen(skillName)) {
       errors.add(
         _buildLeadingTrailingHyphensError(
           skillName: skillName,
@@ -90,7 +89,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
       );
     }
 
-    if (skillName.contains('--')) {
+    if (_hasConsecutiveHyphens(skillName)) {
       errors.add(
         _buildConsecutiveHyphensError(skillName: skillName, suggestion: suggestion, region: region),
       );
@@ -257,7 +256,12 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
 
     final String targetName = basename(directory.path);
-    if (!_isPlainYamlString(targetName)) {
+    // The directory name replaces the `name` value without quoting, so it
+    // must load back from YAML as the same string. A valid skill name
+    // contains only lowercase letters, digits and single inner hyphens,
+    // which YAML always reads as a plain scalar, so loadYaml does not throw.
+    // Names such as `123`, `1e3` and `false` load as other types.
+    if (!isValidSkillName(targetName) || loadYaml(targetName) != targetName) {
       return currentContent;
     }
 
@@ -312,24 +316,22 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return null;
   }
 
-  /// Whether [name] can replace the `name` value without quoting and load
-  /// back from YAML as the string [name].
-  ///
-  /// [name] must contain only ASCII letters, digits, `_` and `-`. YAML reads
-  /// those characters as a plain scalar, a `-` sequence entry or a `---`
-  /// document marker, so [loadYaml] does not throw. Names such as `123`,
-  /// `true` and `null` load as other types and return false.
-  static bool _isPlainYamlString(String name) =>
-      _plainNameRegex.hasMatch(name) && loadYaml(name) == name;
-
   /// Whether [name] is a valid skill name: lowercase ASCII letters, digits
-  /// and hyphens, from 1 to [maxNameLength] characters.
+  /// and hyphens, from 1 to [maxNameLength] characters, with no leading,
+  /// trailing or consecutive hyphens.
+  ///
+  /// A non-empty name passes the format checks in [validate] exactly when
+  /// this returns true.
   static bool isValidSkillName(String name) {
     if (name.isEmpty || name.length > maxNameLength) {
       return false;
     }
-    return _validNameRegex.hasMatch(name);
+    return _validNameRegex.hasMatch(name) && !_hasEdgeHyphen(name) && !_hasConsecutiveHyphens(name);
   }
+
+  static bool _hasEdgeHyphen(String name) => name.startsWith('-') || name.endsWith('-');
+
+  static bool _hasConsecutiveHyphens(String name) => name.contains('--');
 
   /// Returns a best-effort normalization of [input] that conforms to the
   /// skill name format: lowercase, hyphens only, no consecutive/leading/

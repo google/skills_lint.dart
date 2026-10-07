@@ -143,6 +143,15 @@ void main() {
         );
       });
 
+      test('does not fix name to a directory name that is not a valid skill name', () async {
+        final Directory skillDir = await Directory('${tempDir.path}/my_skill').create();
+        final content = '${buildFrontmatter(name: 'wrong-name')}Body';
+
+        final String fixedContent = await NameFormatRule().fix('SKILL.md', content, skillDir);
+
+        expect(fixedContent, content);
+      });
+
       test(
         'fixes name safely with Windows CRLF line endings without delimiter corruption',
         () async {
