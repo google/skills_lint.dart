@@ -71,8 +71,6 @@ jobs:
       # from this pubspec.lock, and the release ships it.
       - name: Resolve the dependencies
         run: dart pub get
-      # Prints version, tag, prerelease, mode and the build matrix, and writes
-      # the release notes from CHANGELOG.md.
       - name: Work out the release
         id: prepare
         env:
@@ -155,9 +153,6 @@ jobs:
           path: .
       - name: Get the release's dependencies
         run: dart pub get --enforce-lockfile
-      # Compiles and runs the executable, checks that --version prints the
-      # pubspec.yaml version, packages it with its license notices, checks the
-      # archive, and writes its .sha256 file.
       - name: Build the archive
         env:
           TARGET: ${{ matrix.target }}
@@ -228,10 +223,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write # Create the tag and the release.
+      contents: write # Push the tag, and create the draft release and its assets.
       actions: write # Start this workflow on the tag.
       id-token: write # actions/attest: request a Sigstore signing certificate.
-      attestations: write # actions/attest: store the attestation.
+      attestations: write # actions/attest also stores each attestation in this repository.
       artifact-metadata: write # actions/attest: create the artifact storage record.
     defaults:
       run:
@@ -326,14 +321,13 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write # Read draft releases, which needs push access.
-      attestations: read # gh attestation verify: read the attestations.
+      attestations: read # gh attestation verify fetches them from this repository's API.
     defaults:
       run:
         working-directory: .
     steps:
-      # Checks that the draft holds install.sh and every file that SHA256SUMS
-      # lists (the archives and pubspec.lock), unchanged, and that the stage
-      # job of a run of this workflow on main attested each asset.
+      # Anyone with push access can change a draft's assets, so each one must
+      # match SHA256SUMS and carry an attestation from a stage run on main.
       - name: Check the draft and its assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -411,8 +405,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write # Publish the draft release.
-      attestations: read # gh attestation verify: read the attestations.
+      contents: write # Read and publish the draft; reading a draft needs push access.
+      attestations: read # gh attestation verify fetches them from this repository's API.
     defaults:
       run:
         working-directory: .
