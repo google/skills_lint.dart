@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 
+import 'test_utils.dart';
+
 /// Drift guard for the `example/valid` and `example/invalid` fixtures.
 ///
 /// The fixtures and `example/README.md` make precise claims about which
@@ -21,12 +23,11 @@ import 'package:test_process/test_process.dart';
 /// up. Fix one or the other — do not silence the test.
 void main() {
   group('example fixtures', () {
-    final String cliPath = p.normalize(p.absolute('bin/skills_lint.dart'));
     final String validPath = p.normalize(p.absolute('example/skills/valid'));
     final String invalidPath = p.normalize(p.absolute('example/skills/invalid'));
 
     test('example/valid passes with default rules', () async {
-      final TestProcess process = await TestProcess.start('dart', [cliPath, '--skill', validPath]);
+      final TestProcess process = await startCli(['--skill', validPath]);
 
       final List<String> stdout = await process.stdout.rest.toList();
       final String stdoutStr = stdout.join('\n');
@@ -36,11 +37,7 @@ void main() {
     });
 
     test('example/invalid fails on invalid-skill-name with default rules', () async {
-      final TestProcess process = await TestProcess.start('dart', [
-        cliPath,
-        '--skill',
-        invalidPath,
-      ]);
+      final TestProcess process = await startCli(['--skill', invalidPath]);
 
       final List<String> stderr = await process.stderr.rest.toList();
       final String stderrStr = stderr.join('\n');
@@ -57,8 +54,7 @@ void main() {
     test(
       'example/invalid surfaces disallowed-field and check-absolute-paths when escalated',
       () async {
-        final TestProcess process = await TestProcess.start('dart', [
-          cliPath,
+        final TestProcess process = await startCli([
           '--skill',
           invalidPath,
           '--disallowed-field',

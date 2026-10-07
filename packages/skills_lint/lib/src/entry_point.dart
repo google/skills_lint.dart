@@ -24,6 +24,7 @@ import 'models/validation_target.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
 import 'validation_session.dart';
+import 'version.dart';
 
 export 'models/output_format.dart';
 export 'validation_session.dart';
@@ -44,6 +45,7 @@ const _dryRunFlag = 'dry-run';
 const _fixApplyFlag = 'fix-apply';
 const _allowMisconfiguredKeysFlag = 'allow-misconfigured-keys';
 const _configOption = 'config';
+const _versionFlag = 'version';
 
 const _formatOption = 'format';
 const _formatText = 'text';
@@ -136,6 +138,10 @@ Future<void> runApp(List<String> args) async {
     formatStr = results[_formatOption] as String? ?? _formatText;
     format = OutputFormat.fromString(formatStr);
 
+    if (results[_versionFlag] as bool) {
+      stdout.writeln(packageVersion);
+      return;
+    }
     if (results[helpFlag] as bool) {
       _printUsage(parser);
       return;
@@ -226,6 +232,11 @@ Future<void> runApp(List<String> args) async {
 ArgParser _createArgParser(String helpFlag) {
   final parser = ArgParser()
     ..addFlag(helpFlag, abbr: 'h', negatable: false, help: 'Show usage information.')
+    ..addFlag(
+      _versionFlag,
+      negatable: false,
+      help: 'Print the skills_lint version and exit. All other flags are ignored.',
+    )
     ..addFlag(_printWarningsFlag, abbr: 'w', defaultsTo: true, help: 'Print validation warnings.');
 
   // Dynamically add flags for all registered rules.
@@ -241,12 +252,12 @@ ArgParser _createArgParser(String helpFlag) {
       final RuleParameterType expectedType = check.parameterSchema[paramName]!;
       if (expectedType == RuleParameterType.stringList) {
         parser.addMultiOption(
-          '${check.name}-$paramName',
+          check.parameterFlag(paramName),
           help: "Override parameter '$paramName' list for rule '${check.name}'.",
         );
       } else {
         parser.addOption(
-          '${check.name}-$paramName',
+          check.parameterFlag(paramName),
           help: "Override parameter '$paramName' for rule '${check.name}'.",
         );
       }
@@ -625,7 +636,7 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
 Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults results) {
   final checkOverrides = <String, Object?>{};
   for (final String paramName in check.parameterSchema.keys) {
-    final paramFlag = '${check.name}-$paramName';
+    final String paramFlag = check.parameterFlag(paramName);
     if (results.options.contains(paramFlag) && results.wasParsed(paramFlag)) {
       final RuleParameterType expectedType = check.parameterSchema[paramName]!;
       checkOverrides[paramName] = _parseParameterValue(paramFlag, results[paramFlag], expectedType);
