@@ -40,18 +40,26 @@ It then resolves the dependencies once, tests the release scripts, builds each
    - `SHA256SUMS`, the checksums that `install.sh` checks.
    - `install.sh`, which installs this version unless `VERSION` is set.
    - `pubspec.lock`, the [dependency versions](#dependencies) of the build.
-   - Build provenance attestations for all of these files. Users check them
-     with `gh attestation verify <file> -R google/skills_lint.dart`.
+   - Build provenance attestations for all of these files. To check that a
+     run of `release.yaml` on `main` built a file, run:
+
+     ```bash
+     gh attestation verify <file> -R google/skills_lint.dart \
+       --signer-workflow google/skills_lint.dart/.github/workflows/release.yaml \
+       --source-ref refs/heads/main
+     ```
+
 3. Starts `release.yaml` again on the tag.
 
 The run on the tag:
 
 1. Checks that the draft holds `install.sh` and every file that `SHA256SUMS`
-   lists, unchanged.
+   lists, unchanged, and that each file passes the attestation check above.
 2. Waits for a [reviewer to approve](#approve-the-pubdev-deployment) the
    `pub` job's deployment to the `pub.dev` environment, then publishes the
    package to pub.dev, unless pub.dev has the version.
-3. Publishes the draft release.
+3. Checks the attestations of the draft's files again, then publishes the
+   draft release.
 
 pub.dev accepts a publish only from a workflow run on a tag that matches
 `skills_lint-v{{version}}`, so publishing needs the second run. The comment on
@@ -73,13 +81,16 @@ is the most recent release that is not a prerelease or a draft.
 
 The run on the tag pauses at the `pub` job until a required reviewer of the
 `pub.dev` environment approves it under **Review deployments** on the run's
-page in the Actions tab. Approve it only if the tag points at a commit on
-`main` that a merged pull request reviewed:
+page in the Actions tab. Approve it only if the run builds a commit on `main`
+that a merged pull request reviewed. Check the commit of the run, not the tag:
+the tag can move after the run starts. `<run-id>` is the number after `/runs/` in
+the run's URL.
 
 ```bash
-git fetch origin main --tags
-git merge-base --is-ancestor 'skills_lint-v<version>^{commit}' origin/main && echo "on main"
-gh pr list -R google/skills_lint.dart --state merged --search "$(git rev-parse 'skills_lint-v<version>^{commit}')"
+sha="$(gh run view <run-id> -R google/skills_lint.dart --json headSha --jq .headSha)"
+git fetch origin main
+git merge-base --is-ancestor "$sha" origin/main && echo "on main"
+gh pr list -R google/skills_lint.dart --state merged --search "$sha"
 ```
 
 The `merge-base` line must print `on main`, and `gh pr list` must list the
@@ -102,10 +113,20 @@ and its OIDC setup is the step most likely to fail. The tag is public from
 the run on `main` on, but the release stays a draft, which only maintainers
 see, until the last job.
 
-- **The run on `main` fails.** Fix the cause and run it again. It deletes a
-  draft left by the failed run and reuses the tag if the tag points at the
-  same commit. If `main` moved on, delete the tag first with
-  `git push --delete origin skills_lint-v<version>`.
+- **The run on `main` fails.** Fix the cause and run it again. It reuses the
+  tag if the tag points at the same commit. If `main` moved on, delete the
+  tag first with `git push --delete origin skills_lint-v<version>`.
+  The run stops if the version has a release, even a draft, because a run on
+  the tag may be waiting to publish that draft. If the failed run created the
+  draft but didn't start the run on the tag, start that run as below instead.
+  To build the draft again, check that no run on the tag is queued, waiting or
+  in progress, then delete the draft:
+
+  ```bash
+  gh run list -R google/skills_lint.dart --workflow release.yaml --branch skills_lint-v<version>
+  gh release delete skills_lint-v<version> -R google/skills_lint.dart
+  ```
+
 - **The run on the tag fails.** Fix the cause, then run the workflow on the
   tag with **release** checked:
   `gh workflow run release.yaml -R google/skills_lint.dart --ref skills_lint-v<version> -f release=true`.
@@ -114,6 +135,22 @@ see, until the last job.
 - **To abandon a release** before pub.dev has it, delete the draft and the
   tag with
   `gh release delete skills_lint-v<version> --cleanup-tag -R google/skills_lint.dart`.
+- **pub.dev has the version, but there is no GitHub release.** This happens
+  if the draft was deleted while the run on the tag waited for approval. Find
+  the commit that pub.dev got: it is the `headSha` of the run on the tag whose
+  `pub` job succeeded.
+
+  ```bash
+  gh run list -R google/skills_lint.dart --workflow release.yaml --branch skills_lint-v<version> \
+    --json databaseId,headSha,conclusion
+  ```
+
+  If that commit is still the head of `main`, run the release on `main`
+  again. Its run on the tag skips pub.dev, which has the version, and
+  publishes the GitHub release. Otherwise don't build executables for the
+  version from another commit, because they would not match the package on
+  pub.dev. Keep the tag at that commit and release the next version, with a
+  `CHANGELOG.md` entry that says the skipped version has no executables.
 
 The workflow creates the release as a draft, attaches the files, then
 publishes it, which is the order that

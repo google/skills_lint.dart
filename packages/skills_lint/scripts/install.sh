@@ -14,7 +14,9 @@
 #
 # Env vars:
 #   REPO         GitHub owner/repo (default: google/skills_lint.dart).
-#   VERSION      "latest" or a specific version like 0.4.0-dev.1 (default: latest).
+#   VERSION      "latest" or a specific version like 0.4.0-dev.1. Default: the
+#                version of the release this script was downloaded from, or
+#                latest for the copy in the repository.
 #   INSTALL_DIR  Install destination (default: /usr/local/bin).
 
 set -euo pipefail

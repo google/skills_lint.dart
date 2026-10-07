@@ -32,8 +32,9 @@ typedef ReleaseTarget = ({String name, Abi abi, String runner});
 /// `scripts/install.sh` reads the targets from a release's `SHA256SUMS`.
 const List<ReleaseTarget> releaseTargets = [
   (name: 'macos-arm64', abi: Abi.macosArm64, runner: 'macos-latest'),
-  // macos-15-intel is GitHub's last Intel macOS image.
-  (name: 'macos-x64', abi: Abi.macosX64, runner: 'macos-15-intel'),
+  // GitHub has no standard `macos-latest` label for Intel, so this names the
+  // newest standard Intel macOS image.
+  (name: 'macos-x64', abi: Abi.macosX64, runner: 'macos-26-intel'),
   (name: 'linux-x64', abi: Abi.linuxX64, runner: 'ubuntu-latest'),
 ];
 

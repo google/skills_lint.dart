@@ -255,6 +255,23 @@ jobs:
             echo "::error::The pub.dev environment needs a required reviewer and only the skills_lint-v* tag rule (rules: $rules; policies: $policies). See RELEASING.md."
             exit 1
           fi
+      # The run never deletes a release: a draft can belong to a run on the tag
+      # that waits for approval, and that run publishes whatever draft the tag
+      # has. A tag left by a failed run is reused only if it points at this
+      # commit.
+      - name: Check the tag and the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" --json isDraft > /dev/null 2>&1; then
+            echo "::error::$TAG already has a release. See \"Order and recovery\" in RELEASING.md."
+            exit 1
+          fi
+          if existing="$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null)" \
+            && [ "$existing" != "$SHA" ]; then
+            echo "::error::The tag $TAG points at $existing, not $SHA."
+            exit 1
+          fi
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-assets
@@ -263,6 +280,7 @@ jobs:
         with:
           name: release-notes
           path: ${{ runner.temp }}
+      # The verify and publish jobs check every release asset against these.
       - name: Attest build provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
@@ -271,31 +289,11 @@ jobs:
             ${{ runner.temp }}/dist/SHA256SUMS
             ${{ runner.temp }}/dist/install.sh
             ${{ runner.temp }}/dist/pubspec.lock
-      # A failed run can leave a draft. A published release can't change, so
-      # the run stops.
-      - name: Delete a draft release left by an earlier run
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if draft="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
-            if [ "$draft" != true ]; then
-              echo "::error::The release $TAG is already published."
-              exit 1
-            fi
-            gh release delete "$TAG" --yes
-          fi
-      # A failed run can leave the tag. The run reuses it only if it points at
-      # this commit.
       - name: Create the tag
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if existing="$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null)"; then
-            if [ "$existing" != "$SHA" ]; then
-              echo "::error::The tag $TAG points at $existing, not $SHA."
-              exit 1
-            fi
-          else
+          if ! gh api "repos/$GH_REPO/git/ref/tags/$TAG" > /dev/null 2>&1; then
             gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$SHA" > /dev/null
           fi
       # The release starts as a draft so that every asset is attached before
@@ -327,12 +325,14 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write # Read draft releases, which needs push access.
+      attestations: read # gh attestation verify: read the attestations.
     defaults:
       run:
         working-directory: .
     steps:
-      # Checks that the draft holds every file that SHA256SUMS lists
-      # (the archives and pubspec.lock), unchanged, and install.sh.
+      # Checks that the draft holds install.sh and every file that SHA256SUMS
+      # lists (the archives and pubspec.lock), unchanged, and that the stage
+      # job of a run of this workflow on main attested each asset.
       - name: Check the draft and its assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -347,6 +347,10 @@ jobs:
           cd "$RUNNER_TEMP/assets"
           sha256sum --check --strict SHA256SUMS
           test -f install.sh
+          for asset in *; do
+            gh attestation verify "$asset" -R "$GH_REPO" \
+              --signer-workflow "$GH_REPO/.github/workflows/release.yaml" --source-ref refs/heads/main
+          done
       # The pub job installs the dependencies that the release was built with.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -407,15 +411,23 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write # Publish the draft release.
+      attestations: read # gh attestation verify: read the attestations.
     defaults:
       run:
         working-directory: .
     steps:
+      # The draft can change while the pub job waits for approval, so the
+      # assets are checked again, as in the verify job, before publishing.
       - name: Publish the draft release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.prepare.outputs.tag }}
         run: |
+          gh release download "$TAG" --dir "$RUNNER_TEMP/assets"
+          for asset in "$RUNNER_TEMP"/assets/*; do
+            gh attestation verify "$asset" -R "$GH_REPO" \
+              --signer-workflow "$GH_REPO/.github/workflows/release.yaml" --source-ref refs/heads/main
+          done
           gh release edit "$TAG" --draft=false
           echo "Published $TAG to pub.dev and [GitHub]($(gh release view "$TAG" --json url --jq .url))." >> "$GITHUB_STEP_SUMMARY"
