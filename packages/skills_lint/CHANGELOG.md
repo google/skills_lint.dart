@@ -9,7 +9,8 @@
 - Made `check-trailing-whitespace` about 20 times faster. Its diagnostics and `--fix` output are unchanged, except for the lone carriage return fix below.
 - Fixed `invalid-skill-name` `--fix` corrupting `SKILL.md`, and in some cases renaming the skill directory, when YAML does not read the directory name back as written, such as `My Skill #1`, `123` or `true`. The fixer now leaves both unchanged and reports the error.
 - Fixed `check-trailing-whitespace` treating a lone carriage return (`\r`) as part of a line. A lone `\r` now ends a line, so running `--fix` twice gives the same result as running it once.
-- Fixed `check-relative-paths` reporting percent-encoded links, such as `[doc](my%20file.md)`, as missing when the file exists. A link with a malformed escape, such as `%zz`, is still reported as missing.
+- Fixed `check-relative-paths` reporting percent-encoded links, such as `[doc](my%20file.md)`, as missing when the file exists. A link that does not decode, such as `x%E9.md`, is checked as written.
+- **Behavior change:** `--fix` no longer renames a skill directory, and `--fix --dry-run` no longer proposes renaming it, to a name that is not a valid skill name, such as `my_skill` written by a custom rule's fixer.
 - Added a `--version` flag that prints the skills_lint version.
 
 ## 0.5.2

@@ -19,15 +19,36 @@ Future<String> _fix(String dirName) =>
 
 void main() {
   group('NameFormatRule.fix', () {
-    for (final dirName in ['my-skill', 'my_skill', 'My_Skill', 'MySkill']) {
-      test('rewrites name to directory name "$dirName"', () async {
+    for (final (dirName, kind) in [
+      ('my-skill', 'a valid skill name'),
+      ('my_skill', 'an underscore'),
+      ('My_Skill', 'uppercase letters and an underscore'),
+      ('My-Skill', 'uppercase letters'),
+      ('MySkill', 'uppercase letters'),
+    ]) {
+      test('sets name to directory name "$dirName", which has $kind', () async {
         expect(await _fix(dirName), _skillMd(name: dirName));
       });
     }
 
+    // These load from YAML as the same string, but have characters other
+    // than ASCII letters, digits, `_` and `-`.
+    for (final dirName in ['my skill', 'a.b', 'café']) {
+      test('leaves the file unchanged when directory "$dirName" has other characters', () async {
+        expect(await _fix(dirName), _skillMd());
+      });
+    }
+
+    // These would change meaning or fail to parse as a plain YAML scalar.
+    for (final dirName in ['My Skill #1', 'a: b', '~', '[a]']) {
+      test('leaves the file unchanged when directory "$dirName" is YAML syntax', () async {
+        expect(await _fix(dirName), _skillMd());
+      });
+    }
+
+    // These have only allowed characters, but a plain YAML scalar would load
+    // as a number, boolean, null or list rather than this string.
     for (final dirName in [
-      'My Skill #1',
-      'a: b',
       '123',
       '1e3',
       '0x1f',
@@ -35,14 +56,16 @@ void main() {
       'Null',
       'true',
       'TRUE',
-      '~',
-      '[a]',
+      'false',
       '-',
       '---',
     ]) {
-      test('leaves the file unchanged for directory "$dirName"', () async {
-        expect(await _fix(dirName), _skillMd());
-      });
+      test(
+        'leaves the file unchanged when directory "$dirName" does not load as a string',
+        () async {
+          expect(await _fix(dirName), _skillMd());
+        },
+      );
     }
   });
 
@@ -54,15 +77,7 @@ void main() {
 /// against the compiled binary.
 void defineCliTests() {
   group('CLI --fix of invalid-skill-name', () {
-    late Directory skillsDir;
-
-    setUp(() async {
-      final Directory tempDir = await Directory.systemTemp.createTemp('name_fix_test.');
-      addTearDown(() => tempDir.delete(recursive: true));
-      skillsDir = await Directory(p.join(tempDir.path, 'skills')).create();
-    });
-
-    Future<({String stdout, String stderr})> run(List<String> args) async {
+    Future<({String stdout, String stderr})> run(Directory skillsDir, List<String> args) async {
       final TestProcess process = await startCli([...args, '-d', skillsDir.path]);
       final String stdout = (await process.stdout.rest.toList()).join('\n');
       final String stderr = (await process.stderr.rest.toList()).join('\n');
@@ -70,41 +85,48 @@ void defineCliTests() {
       return (stdout: stdout, stderr: stderr);
     }
 
+    List<String> dirNames(Directory skillsDir) =>
+        skillsDir.listSync().map((e) => p.basename(e.path)).toList();
+
     test('leaves the file and directory unchanged for directory "My Skill #1"', () async {
-      final Directory skillDir = await createDummySkill(
-        skillsDir,
-        name: 'My Skill #1',
-        skillContent: _skillMd(),
-      );
+      await withTempDir((skillsDir) async {
+        final Directory skillDir = await createDummySkill(
+          skillsDir,
+          name: 'My Skill #1',
+          skillContent: _skillMd(),
+        );
 
-      final (:String stdout, :String stderr) = await run(['--fix']);
+        final (:String stdout, :String stderr) = await run(skillsDir, ['--fix']);
 
-      expect(stdout, isNot(contains('Renamed')));
-      expect(stderr, contains('does not match the parent directory name'));
-      expect(await File(p.join(skillDir.path, 'SKILL.md')).readAsString(), _skillMd());
-      expect(skillsDir.listSync().map((e) => p.basename(e.path)), ['My Skill #1']);
+        expect(stdout, isNot(contains('Renamed')));
+        expect(stderr, contains('does not match the parent directory name'));
+        expect(await File(p.join(skillDir.path, 'SKILL.md')).readAsString(), _skillMd());
+        expect(dirNames(skillsDir), ['My Skill #1']);
+      });
     });
 
     test('sets name to an underscore directory name and keeps the directory', () async {
-      final Directory skillDir = await createDummySkill(
-        skillsDir,
-        name: 'my_skill',
-        skillContent: _skillMd(name: 'my-skill'),
-      );
+      await withTempDir((skillsDir) async {
+        final Directory skillDir = await createDummySkill(
+          skillsDir,
+          name: 'my_skill',
+          skillContent: _skillMd(name: 'my-skill'),
+        );
 
-      final (stdout: String fixStdout, stderr: _) = await run(['--fix']);
+        final (stdout: String fixStdout, stderr: _) = await run(skillsDir, ['--fix']);
 
-      expect(fixStdout, isNot(contains('Renamed')));
-      expect(
-        await File(p.join(skillDir.path, 'SKILL.md')).readAsString(),
-        _skillMd(name: 'my_skill'),
-      );
-      expect(skillsDir.listSync().map((e) => p.basename(e.path)), ['my_skill']);
+        expect(fixStdout, isNot(contains('Renamed')));
+        expect(
+          await File(p.join(skillDir.path, 'SKILL.md')).readAsString(),
+          _skillMd(name: 'my_skill'),
+        );
+        expect(dirNames(skillsDir), ['my_skill']);
 
-      final (stdout: _, :String stderr) = await run([]);
+        final (stdout: _, :String stderr) = await run(skillsDir, []);
 
-      expect(stderr, isNot(contains('does not match the parent directory name')));
-      expect(stderr, contains('contains invalid characters'));
+        expect(stderr, isNot(contains('does not match the parent directory name')));
+        expect(stderr, contains('contains invalid characters'));
+      });
     });
   });
 }

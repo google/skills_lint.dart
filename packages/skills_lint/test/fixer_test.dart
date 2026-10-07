@@ -98,14 +98,33 @@ class RuleThrowsError extends RuleThrows {
       Future.error(StateError('Fixer bug'));
 }
 
-class RuleRenamesSkill extends RuleA {
+/// A fixer that sets the frontmatter `name` from `old-skill` to [newName].
+class RuleWritesName extends RuleA {
+  RuleWritesName(this.newName);
+
+  final String newName;
+
   @override
-  String get name => 'rule-renames-skill';
+  String get name => 'rule-writes-name';
 
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    return currentContent.replaceFirst('name: old-skill', 'name: Bad Name');
+    return currentContent.replaceFirst('name: old-skill', 'name: $newName');
   }
+}
+
+/// A [Stdout] that collects what is written to it.
+class _CapturedOutput implements Stdout {
+  final StringBuffer buffer = StringBuffer();
+
+  @override
+  void write(Object? object) => buffer.write(object);
+
+  @override
+  void writeln([Object? object = '']) => buffer.writeln(object);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
@@ -208,21 +227,63 @@ void main() {
       expect(content, 'Original A B');
     });
 
-    test('does not rename the directory to a name that is not a valid skill name', () async {
-      final skillDir = Directory(p.join(tempDir.path, 'old-skill'));
-      await skillDir.create();
-      final skillFile = File(p.join(skillDir.path, 'SKILL.md'));
-      await skillFile.writeAsString('${buildFrontmatter(name: 'old-skill')}body\n');
+    Future<Directory> createOldSkill() => createDummySkill(
+      tempDir,
+      name: 'old-skill',
+      skillContent: '${buildFrontmatter(name: 'old-skill')}body\n',
+    );
 
-      await validateSkillsInternal(
-        individualSkillPaths: [skillDir.path],
-        fixApply: true,
-        quiet: true,
-        customRules: [RuleRenamesSkill()],
+    /// Runs [RuleWritesName] with [newName] on `old-skill` and returns stdout.
+    Future<String> fixWithName(String newName, {required bool dryRun}) async {
+      final Directory skillDir = await createOldSkill();
+      final output = _CapturedOutput();
+      await IOOverrides.runZoned(
+        () => validateSkillsInternal(
+          individualSkillPaths: [skillDir.path],
+          fix: true,
+          fixApply: !dryRun,
+          customRules: [RuleWritesName(newName)],
+        ),
+        stdout: () => output,
+        stderr: _CapturedOutput.new,
       );
+      return output.buffer.toString();
+    }
 
-      expect(skillDir.existsSync(), isTrue);
-      expect(Directory(p.join(tempDir.path, 'Bad Name')).existsSync(), isFalse);
+    List<String> skillDirNames() => tempDir.listSync().map((e) => p.basename(e.path)).toList();
+
+    test('renames the directory to a valid skill name', () async {
+      final String stdout = await fixWithName('new-skill', dryRun: false);
+
+      expect(stdout, contains('Renamed skill directory: old-skill -> new-skill'));
+      expect(skillDirNames(), ['new-skill']);
     });
+
+    test('dry run proposes renaming the directory to a valid skill name', () async {
+      final String stdout = await fixWithName('new-skill', dryRun: true);
+
+      expect(stdout, contains('[Dry Run] Proposed directory rename: old-skill -> new-skill'));
+      expect(skillDirNames(), ['old-skill']);
+    });
+
+    for (final (newName, reason) in [
+      ('Bad Name', 'a space'),
+      ('my_skill', 'an underscore'),
+      ('My-Skill', 'uppercase letters'),
+    ]) {
+      test('does not rename the directory to "$newName", which has $reason', () async {
+        final String stdout = await fixWithName(newName, dryRun: false);
+
+        expect(stdout, isNot(contains('Renamed skill directory')));
+        expect(skillDirNames(), ['old-skill']);
+      });
+
+      test('dry run does not propose renaming the directory to "$newName"', () async {
+        final String stdout = await fixWithName(newName, dryRun: true);
+
+        expect(stdout, contains('name: $newName'));
+        expect(stdout, isNot(contains('Proposed directory rename')));
+      });
+    }
   });
 }

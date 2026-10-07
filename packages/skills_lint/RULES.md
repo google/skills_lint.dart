@@ -53,7 +53,12 @@ governs how changes to these rules ship.
 - **What it checks:** inline Markdown links in `SKILL.md` with
   relative targets resolve to files that actually exist on disk.
   Web URLs, anchors, `mailto:`, `javascript:`, and `data:` links are
-  skipped.
+  skipped. Percent escapes in the link are decoded first, so
+  `my%20file.md` resolves to `my file.md`. `a%2Fb.md` resolves to
+  `a/b.md`, which matches how GitHub serves such links.
+  A link whose escapes are not valid UTF-8, such as `x%E9.md`, or
+  that has a `%` not followed by two hex digits, such as `bad%zz.md`,
+  is checked as written.
 - **Diagnostic shape:**
   `Linked file does not exist: <path> (resolved to <absolute path>). Did you mean "<sibling>"?`
   The `Did you mean` clause is only included when a near-miss file
@@ -71,7 +76,8 @@ governs how changes to these rules ship.
 - **What it checks:** lines in `SKILL.md` do not have trailing
   whitespace. Exactly two spaces are allowed as a CommonMark hard
   line break; one space or three-or-more spaces, or any trailing tab,
-  is reported.
+  is reported. `\n`, `\r\n` and a lone `\r` all end a line, both
+  for the check and for the fix.
 - **Diagnostic shape:**
   `Line <N> has <count> trailing space(s). Only exactly 2 spaces are
   allowed for line breaks.`
@@ -79,7 +85,7 @@ governs how changes to these rules ship.
   tabs.` instead.
 - **Auto-fix behavior:** trims violating trailing whitespace from
   each offending line. Lines with exactly two trailing spaces are
-  left alone. `\n`, `\r\n` and a lone `\r` all end a line.
+  left alone.
 - **Disable:** `--no-check-trailing-whitespace` (also the default
   state).
 

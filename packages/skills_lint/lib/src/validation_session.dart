@@ -834,21 +834,24 @@ class ValidationSession {
   }) async {
     final String oldSkillName = p.basename(skillDir.path);
     final String? oldFrontmatterName = _extractSkillName(originalContent);
-    final String? targetSkillName = _extractSkillName(currentContent);
-    final bool nameChangedByFix =
-        oldFrontmatterName != null &&
-        targetSkillName != null &&
-        oldFrontmatterName != targetSkillName;
+    final String? renameTarget = switch (_extractSkillName(currentContent)) {
+      final String name
+          when oldFrontmatterName != null &&
+              name != oldFrontmatterName &&
+              NameFormatRule.isValidSkillName(name) =>
+        name,
+      _ => null,
+    };
 
     if (fixApply) {
       await skillMdFile.writeAsString(currentContent);
       _reporter.onFixApplied(oldSkillName);
 
-      final Directory effectiveSkillDir = nameChangedByFix
+      final Directory effectiveSkillDir = renameTarget != null
           ? await _alignSkillDirectory(
               skillDir: skillDir,
               oldSkillName: oldSkillName,
-              targetSkillName: targetSkillName,
+              targetSkillName: renameTarget,
             )
           : skillDir;
 
@@ -860,7 +863,7 @@ class ValidationSession {
     if (fix) {
       _reporter.onDryRunProposed(
         skillName: oldSkillName,
-        targetSkillName: nameChangedByFix ? targetSkillName : null,
+        targetSkillName: renameTarget,
         originalContent: originalContent,
         currentContent: currentContent,
       );
@@ -873,11 +876,9 @@ class ValidationSession {
   Future<Directory> _alignSkillDirectory({
     required Directory skillDir,
     required String oldSkillName,
-    required String? targetSkillName,
+    required String targetSkillName,
   }) async {
-    if (targetSkillName == null ||
-        targetSkillName == oldSkillName ||
-        !NameFormatRule.isValidSkillName(targetSkillName)) {
+    if (targetSkillName == oldSkillName) {
       return skillDir;
     }
 

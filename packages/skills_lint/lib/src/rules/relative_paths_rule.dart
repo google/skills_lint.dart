@@ -92,17 +92,22 @@ class RelativePathsRule extends SkillRule {
 
   /// Returns the file path that the link target [path] points to, with
   /// percent escapes decoded, or `null` if [path] is a URL with a scheme or
-  /// an anchor. A [path] that is not a valid URI, or has a malformed percent
-  /// escape, is returned as written.
+  /// an anchor.
+  ///
+  /// A [path] that is not a valid URI, or whose escapes are not valid UTF-8
+  /// such as `%E9`, is returned as written. [Uri.tryParse] rewrites a `%` that
+  /// does not start an escape, as in `%zz`, to `%25`, so such a link decodes
+  /// to the path as written.
   static String? _filePathOf(String path) {
-    try {
-      final Uri uri = Uri.parse(path);
-      if (uri.hasScheme || path.startsWith('#')) {
-        return null;
-      }
-      return Uri.decodeComponent(uri.path);
-    } on ArgumentError {
+    final Uri? uri = Uri.tryParse(path);
+    if (uri == null) {
       return path;
+    }
+    if (uri.hasScheme || path.startsWith('#')) {
+      return null;
+    }
+    try {
+      return Uri.decodeComponent(uri.path);
     } on FormatException {
       return path;
     }

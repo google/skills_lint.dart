@@ -277,12 +277,15 @@ void main() {
 
     group('percent-encoded links', () {
       Future<ValidationResult> validateLink(String link, {String? existingFile}) async {
-        final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-        await File(
-          '${skillDir.path}/SKILL.md',
-        ).writeAsString('${buildFrontmatter(name: 'test-skill')}[doc]($link)\n');
+        final Directory skillDir = await createDummySkill(
+          tempDir,
+          name: 'test-skill',
+          skillContent: '${buildFrontmatter(name: 'test-skill')}[doc]($link)\n',
+        );
         if (existingFile != null) {
-          await File(p.join(skillDir.path, existingFile)).writeAsString('doc');
+          final file = File(p.join(skillDir.path, existingFile));
+          await file.parent.create(recursive: true);
+          await file.writeAsString('doc');
         }
         final validator = Validator(
           ruleConfigs: {
@@ -305,9 +308,27 @@ void main() {
         expect(result.errors, isEmpty);
       });
 
-      test('reports a link with a malformed escape as broken', () async {
-        final ValidationResult result = await validateLink('bad%zz.md');
-        expect(result.errors, [contains('Linked file does not exist: bad%zz.md')]);
+      test('finds a file whose name has an encoded #', () async {
+        final ValidationResult result = await validateLink('a%23b.md', existingFile: 'a#b.md');
+        expect(result.errors, isEmpty);
+      });
+
+      test('finds a nested file for an encoded slash', () async {
+        final ValidationResult result = await validateLink(
+          'a%2Fb.md',
+          existingFile: p.join('a', 'b.md'),
+        );
+        expect(result.errors, isEmpty);
+      });
+
+      test('resolves a link with a malformed escape as written', () async {
+        final ValidationResult result = await validateLink('bad%zz.md', existingFile: 'bad%zz.md');
+        expect(result.errors, isEmpty);
+      });
+
+      test('reports a link whose escape is not valid UTF-8 as missing', () async {
+        final ValidationResult result = await validateLink('x%E9.md');
+        expect(result.errors, [contains('Linked file does not exist: x%E9.md')]);
       });
     });
   });
