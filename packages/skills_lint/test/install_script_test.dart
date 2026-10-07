@@ -53,6 +53,17 @@ elif [ "$1" = "-m" ]; then
 fi
 ''';
 
+/// A mock implementation of the macOS `sw_vers` command line utility.
+///
+/// Prints `MOCK_SW_VERS` for `-productVersion`, or `15.5` when it is unset.
+/// An empty `MOCK_SW_VERS` prints an empty line.
+const _mockSwVersScript = r'''
+#!/bin/bash
+if [ "$1" = "-productVersion" ]; then
+  echo "${MOCK_SW_VERS-15.5}"
+fi
+''';
+
 void main() {
   group('install.sh integration', () {
     late Directory tempDir;
@@ -74,6 +85,16 @@ void main() {
         chmodUnameResult.exitCode,
         0,
         reason: 'chmod failed for uname mock: ${chmodUnameResult.stderr}',
+      );
+
+      // Write mock sw_vers script
+      final swVersFile = File(p.join(mockBinDir.path, 'sw_vers'));
+      await swVersFile.writeAsString(_mockSwVersScript);
+      final ProcessResult chmodSwVersResult = await Process.run('chmod', ['+x', swVersFile.path]);
+      expect(
+        chmodSwVersResult.exitCode,
+        0,
+        reason: 'chmod failed for sw_vers mock: ${chmodSwVersResult.stderr}',
       );
 
       // Write mock curl script
@@ -157,6 +178,65 @@ void main() {
       );
     });
 
+    group('macOS version', () {
+      test('fails below macOS 14 and names the version it found', () async {
+        final List<String> stderr = await _runInstallScriptExpectingFailure(
+          mockBinDir: mockBinDir,
+          installDir: installDir,
+          environment: {
+            'MOCK_UNAME_S': 'Darwin',
+            'MOCK_UNAME_M': 'arm64',
+            'MOCK_SW_VERS': '13.6.1',
+          },
+        );
+        expect(stderr, contains(allOf(contains('macOS 14'), contains('13.6.1'))));
+        expect(File(p.join(installDir.path, 'skills_lint')).existsSync(), isFalse);
+      });
+
+      test('fails when sw_vers prints no version', () async {
+        final List<String> stderr = await _runInstallScriptExpectingFailure(
+          mockBinDir: mockBinDir,
+          installDir: installDir,
+          environment: {'MOCK_UNAME_S': 'Darwin', 'MOCK_UNAME_M': 'x86_64', 'MOCK_SW_VERS': ''},
+        );
+        expect(stderr, contains(contains('could not read the macOS version')));
+      });
+
+      test('installs on macOS 14.0, the minimum', () async {
+        await _runInstallScriptTest(
+          tempDir: tempDir,
+          mockBinDir: mockBinDir,
+          mockReleaseDir: mockReleaseDir,
+          installDir: installDir,
+          os: 'macos',
+          arch: 'x64',
+          mockUnameS: 'Darwin',
+          mockUnameM: 'x86_64',
+          mockSwVers: '14.0',
+          simulateLaunchFailure: false,
+          expectedExitCode: 0,
+          expectInstalled: true,
+        );
+      });
+
+      test('is not checked on Linux', () async {
+        await _runInstallScriptTest(
+          tempDir: tempDir,
+          mockBinDir: mockBinDir,
+          mockReleaseDir: mockReleaseDir,
+          installDir: installDir,
+          os: 'linux',
+          arch: 'x64',
+          mockUnameS: 'Linux',
+          mockUnameM: 'x86_64',
+          mockSwVers: '13.0',
+          simulateLaunchFailure: false,
+          expectedExitCode: 0,
+          expectInstalled: true,
+        );
+      });
+    });
+
     test('fails if checksum mismatch', () async {
       const version = '0.4.0-test';
       await _createMockRelease(
@@ -168,7 +248,7 @@ void main() {
         shouldCorruptHash: true,
       );
 
-      // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/164
+      // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/91
       final newPath = '${mockBinDir.path}:${Platform.environment['PATH']}';
       final String packageRoot = _getPackageRoot();
       final String scriptPath = p.join(packageRoot, 'scripts', 'install.sh');
@@ -315,7 +395,7 @@ void main() {
     });
 
     test('fails on unsupported architecture', () async {
-      // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/164
+      // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/91
       final newPath = '${mockBinDir.path}:${Platform.environment['PATH']}';
       final String packageRoot = _getPackageRoot();
       final String scriptPath = p.join(packageRoot, 'scripts', 'install.sh');
@@ -335,7 +415,35 @@ void main() {
       expect(stderr.any((line) => line.contains('unsupported architecture')), isTrue);
       await process.shouldExit(1);
     });
-    // TODO(reidbaker): Support running install.sh tests on Windows hosts. https://github.com/google/skills_lint.dart/issues/164
+
+    test('fails on linux-arm64 when the release has no linux-arm64 binary', () async {
+      await _createMockRelease(
+        tempDir: tempDir,
+        mockReleaseDir: mockReleaseDir,
+        os: 'linux',
+        arch: 'x64',
+        binaryContent: 'dummy',
+      );
+      final List<String> stderr = await _runInstallScriptExpectingFailure(
+        mockBinDir: mockBinDir,
+        installDir: installDir,
+        environment: {
+          'MOCK_UNAME_S': 'Linux',
+          'MOCK_UNAME_M': 'aarch64',
+          'MOCK_RELEASE_DIR': mockReleaseDir.path,
+        },
+      );
+      expect(
+        stderr,
+        contains(
+          allOf(
+            contains("no published binary for platform 'linux-arm64'"),
+            contains('Published platforms: linux-x64.'),
+          ),
+        ),
+      );
+    });
+    // TODO(reidbaker): Support running install.sh tests on Windows hosts. https://github.com/google/skills_lint.dart/issues/91
   }, skip: Platform.isWindows ? 'install.sh is not supported on Windows' : null);
 }
 
@@ -397,7 +505,7 @@ Future<void> _createMockRelease({
 
   // Get SHA256 sum
   var hash = '';
-  // TODO(reidbaker): Re-add CertUtil checksum verification for Windows hosts. https://github.com/google/skills_lint.dart/issues/164
+  // TODO(reidbaker): Re-add CertUtil checksum verification for Windows hosts. https://github.com/google/skills_lint.dart/issues/91
   final ProcessResult shaProcess = await Process.run('shasum', [
     '-a',
     '256',
@@ -433,6 +541,7 @@ Future<void> _runInstallScriptTest({
   required String arch,
   required String mockUnameS,
   required String mockUnameM,
+  String mockSwVers = '15.5',
   required bool simulateLaunchFailure,
   required int expectedExitCode,
   required bool expectInstalled,
@@ -450,7 +559,7 @@ Future<void> _runInstallScriptTest({
     binaryContent: binaryContent,
   );
 
-  // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/164
+  // TODO(reidbaker): Use Windows path separator (;) when running on Windows hosts. https://github.com/google/skills_lint.dart/issues/91
   final newPath = '${mockBinDir.path}:${Platform.environment['PATH']}';
   final String packageRoot = _getPackageRoot();
   final String scriptPath = p.join(packageRoot, 'scripts', 'install.sh');
@@ -462,6 +571,7 @@ Future<void> _runInstallScriptTest({
       'PATH': newPath,
       'MOCK_UNAME_S': mockUnameS,
       'MOCK_UNAME_M': mockUnameM,
+      'MOCK_SW_VERS': mockSwVers,
       'MOCK_RELEASE_DIR': mockReleaseDir.path,
       'INSTALL_DIR': installDir.path,
       'VERSION': version,
@@ -488,4 +598,23 @@ Future<void> _runInstallScriptTest({
     final List<String> stderr = await process.stderr.rest.toList();
     expect(stderr.any((line) => line.contains('failed to launch')), isTrue);
   }
+}
+
+/// Runs install.sh with the mocks in [mockBinDir] and [environment], expects
+/// it to exit with code 1, and returns its stderr lines.
+Future<List<String>> _runInstallScriptExpectingFailure({
+  required Directory mockBinDir,
+  required Directory installDir,
+  required Map<String, String> environment,
+}) async {
+  final newPath = '${mockBinDir.path}:${Platform.environment['PATH']}';
+  final String scriptPath = p.join(_getPackageRoot(), 'scripts', 'install.sh');
+  final TestProcess process = await TestProcess.start(
+    'bash',
+    [scriptPath],
+    environment: {'PATH': newPath, 'INSTALL_DIR': installDir.path, ...environment},
+  );
+  final List<String> stderr = await process.stderr.rest.toList();
+  await process.shouldExit(1);
+  return stderr;
 }

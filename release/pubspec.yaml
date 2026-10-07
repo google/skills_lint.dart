@@ -1,0 +1,21 @@
+name: skills_lint_release
+description: >-
+  Scripts that build and publish the skills_lint executables. See
+  RELEASING.md at the repository root.
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  args: ^2.7.0
+  crypto: ^3.0.7
+  path: ^1.9.1
+  yaml: ^3.1.4
+
+dev_dependencies:
+  test: ^1.32.0
+
+executables:
+  release:

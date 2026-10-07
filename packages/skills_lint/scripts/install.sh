@@ -14,7 +14,9 @@
 #
 # Env vars:
 #   REPO         GitHub owner/repo (default: google/skills_lint.dart).
-#   VERSION      "latest" or a specific version like 0.4.0-dev.1 (default: latest).
+#   VERSION      "latest" or a specific version like 0.4.0-dev.1. Default: the
+#                version of the release this script was downloaded from, or
+#                latest for the copy in the repository.
 #   INSTALL_DIR  Install destination (default: /usr/local/bin).
 
 set -euo pipefail
@@ -28,29 +30,22 @@ err()  { echo "install.sh: error: $*" >&2; exit 1; }
 info() { echo "install.sh: $*"; }
 
 # --- Detect platform ---------------------------------------------------------
-# Single source of truth: every "Supported: ..." message and the final
-# platform check derive from this list, so adding a build target only
-# requires touching one constant.
-SUPPORTED_TARGETS="macos-arm64 macos-x64 linux-x64 linux-arm64"
-err_unsupported() { err "$1. Supported platforms: ${SUPPORTED_TARGETS// /, }."; }
-
+# Names the machine as the release archives do, skills_lint-<os>-<arch>.tar.gz.
+# Whether the release has an archive for it is checked against the release's
+# SHA256SUMS below, so this script keeps no list of targets.
 case "$(uname -s)" in
   Darwin) os="macos" ;;
   Linux)  os="linux" ;;
-  *)      err_unsupported "unsupported OS '$(uname -s)'" ;;
+  *)      err "unsupported OS '$(uname -s)'." ;;
 esac
 
 case "$(uname -m)" in
   arm64|aarch64) arch="arm64" ;;
   x86_64|amd64)  arch="x64" ;;
-  *)             err_unsupported "unsupported architecture '$(uname -m)'" ;;
+  *)             err "unsupported architecture '$(uname -m)'." ;;
 esac
 
 target="${os}-${arch}"
-case " $SUPPORTED_TARGETS " in
-  *" $target "*) ;;
-  *) err_unsupported "no published binary for platform '${target}'" ;;
-esac
 
 # --- Required tools ---------------------------------------------------------
 require() { command -v "$1" >/dev/null 2>&1 || err "required tool '$1' not found on PATH."; }
@@ -64,6 +59,21 @@ elif command -v shasum >/dev/null 2>&1; then
   shasum_cmd() { shasum -a 256 "$@"; }
 else
   err "required tools 'sha256sum' or 'shasum' not found on PATH. Install one to verify the binary."
+fi
+
+# --- Check the macOS version ------------------------------------------------
+# The macOS binaries run on the macOS versions that the Dart SDK used for the
+# release build supports. See "Targets" in RELEASING.md.
+MIN_MACOS_VERSION=14
+if [ "$os" = "macos" ]; then
+  macos_version="$(sw_vers -productVersion 2>/dev/null || true)"
+  macos_major="${macos_version%%.*}"
+  case "$macos_major" in
+    ''|*[!0-9]*) err "could not read the macOS version from 'sw_vers -productVersion' (got '${macos_version}')." ;;
+  esac
+  if [ "$macos_major" -lt "$MIN_MACOS_VERSION" ]; then
+    err "${BIN_NAME} requires macOS ${MIN_MACOS_VERSION} or later (found ${macos_version})."
+  fi
 fi
 
 # --- Resolve URLs ----------------------------------------------------------
@@ -82,21 +92,35 @@ tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/dart-skills-lint-install.XXXXXX")"
 # Guard trap to prevent running rm -rf on empty/unbound tmpdir if trap triggers prematurely.
 trap '[ -n "${tmpdir:-}" ] && rm -rf "$tmpdir"' EXIT INT TERM
 
-info "downloading ${archive} from ${REPO} (${VERSION})"
-curl -fsSL --retry 3 -o "${tmpdir}/${archive}" "$archive_url" \
-  || err "could not download ${archive_url}"
+info "downloading SHA256SUMS from ${REPO} (${VERSION})"
 curl -fsSL --retry 3 -o "${tmpdir}/SHA256SUMS" "$sums_url" \
   || err "could not download ${sums_url}"
 
-# --- Verify SHA256 ----------------------------------------------------------
-# Strip the optional leading '*' that `sha256sum -b` (binary mode) puts before
-# the filename, so SHA256SUMS files from either text or binary mode work.
+# --- Find the archive for this machine ---------------------------------------
+# SHA256SUMS lists every archive of the release, so a release without an entry
+# for this machine has no binary for it. Strip the optional leading '*' that
+# `sha256sum -b` (binary mode) puts before the filename, so SHA256SUMS files
+# from either text or binary mode work.
 expected_sha="$(awk -v fname="$archive" '
   { sub(/^\*/, "", $2) }
   $2 == fname { print $1; exit }
 ' "${tmpdir}/SHA256SUMS")"
-[ -n "$expected_sha" ] || err "no SHA256 entry for '${archive}' in SHA256SUMS."
+if [ -z "$expected_sha" ]; then
+  # Each archive is <BIN_NAME>-<platform>.tar.gz; print the platforms.
+  published="$(awk -v prefix="${BIN_NAME}-" '
+    { sub(/^\*/, "", $2) }
+    index($2, prefix) == 1 && sub(/\.tar\.gz$/, "", $2) {
+      printf "%s%s", sep, substr($2, length(prefix) + 1); sep = ", "
+    }
+  ' "${tmpdir}/SHA256SUMS")"
+  err "no published binary for platform '${target}' in ${REPO} (${VERSION}). Published platforms: ${published}."
+fi
 
+info "downloading ${archive}"
+curl -fsSL --retry 3 -o "${tmpdir}/${archive}" "$archive_url" \
+  || err "could not download ${archive_url}"
+
+# --- Verify SHA256 ----------------------------------------------------------
 actual_sha="$(shasum_cmd "${tmpdir}/${archive}" | awk '{print $1}')"
 if [ "$expected_sha" != "$actual_sha" ]; then
   err "SHA256 mismatch for ${archive}. Expected ${expected_sha}, got ${actual_sha}."
