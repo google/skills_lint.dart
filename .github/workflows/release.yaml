@@ -1,0 +1,428 @@
+# Releases skills_lint: the package on pub.dev and the executables in a
+# GitHub Release. See RELEASING.md.
+#
+# - A pull request that changes the release files runs a dry run.
+# - A manual run (workflow_dispatch) on a branch without the `release` input
+#   runs a dry run. A dry run tests the release scripts, builds every target,
+#   checks the package with `dart pub publish --dry-run` and uploads the
+#   release assets as workflow artifacts. It creates no tag, release or
+#   pub.dev version.
+# - A manual run on main with `release` does the same, then creates the tag
+#   skills_lint-v<version> and a draft GitHub Release, and starts this
+#   workflow on the tag with `release`.
+# - The run on the tag checks the draft, publishes the package to pub.dev,
+#   then publishes the draft. pub.dev accepts a publish only from a run on the
+#   tag.
+#
+# The `prepare` job works out which of these a run does; see
+# release/lib/src/release_info.dart. The steps run the `release` command in
+# release/. Jobs that run Dart code from pub have no write permissions, apart
+# from `pub`, which needs `id-token: write` to publish.
+
+name: Release
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/release.yaml'
+      - 'packages/skills_lint/pubspec.yaml'
+      - 'packages/skills_lint/scripts/install.sh'
+      - 'release/**'
+  workflow_dispatch:
+    inputs:
+      release:
+        description: >-
+          Release the pubspec.yaml version. Leave unchecked for a dry run.
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+    working-directory: release
+
+jobs:
+  prepare:
+    name: Prepare
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+      tag: ${{ steps.prepare.outputs.tag }}
+      prerelease: ${{ steps.prepare.outputs.prerelease }}
+      mode: ${{ steps.prepare.outputs.mode }}
+      matrix: ${{ steps.prepare.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      # In a dry run and the run on main, later jobs install the same versions
+      # from this pubspec.lock, and the release ships it.
+      - name: Resolve the dependencies
+        run: dart pub get
+      - name: Work out the release
+        id: prepare
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          RELEASE: ${{ inputs.release || false }}
+        run: >-
+          dart run bin/release.dart prepare --event "$EVENT" --ref-type "$REF_TYPE"
+          --ref-name "$REF_NAME" --release "$RELEASE" --notes-output "$RUNNER_TEMP/notes.md"
+          >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/notes.md
+          if-no-files-found: error
+          retention-days: 7
+      # The run on the tag uses the lockfile of the draft release instead; see
+      # the verify job.
+      - if: steps.prepare.outputs.mode != 'publish'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pubspec-lock
+          path: pubspec.lock
+          if-no-files-found: error
+          retention-days: 7
+
+  test:
+    name: Test the release scripts (${{ matrix.os }})
+    needs: prepare
+    if: needs.prepare.outputs.mode != 'publish'
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pubspec-lock
+          path: .
+      - name: Get the release's dependencies
+        run: dart pub get --enforce-lockfile
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart analyze --fatal-infos
+      - run: dart test
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: prepare
+    if: needs.prepare.outputs.mode != 'publish'
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      # One entry per target in releaseTargets in release/lib/src/archive.dart,
+      # with the runner that builds it.
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pubspec-lock
+          path: .
+      - name: Get the release's dependencies
+        run: dart pub get --enforce-lockfile
+      - name: Build the archive
+        env:
+          TARGET: ${{ matrix.target }}
+        run: dart run bin/release.dart package --target "$TARGET" --output-dir "$RUNNER_TEMP/dist"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: skills_lint-${{ matrix.target }}
+          path: ${{ runner.temp }}/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  assemble:
+    name: Assemble the release assets
+    needs: [prepare, test, build]
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pubspec-lock
+          path: .
+      - name: Get the release's dependencies
+        run: dart pub get --enforce-lockfile
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: ${{ runner.temp }}/dist
+          pattern: skills_lint-*
+          merge-multiple: true
+      # The release ships the pubspec.lock that it was built with, so it can
+      # be rebuilt. SHA256SUMS lists it.
+      - name: Add pubspec.lock to the assets
+        run: >-
+          cp ../pubspec.lock "$RUNNER_TEMP/dist/" && cd "$RUNNER_TEMP/dist" &&
+          sha256sum pubspec.lock > pubspec.lock.sha256
+      - name: Check the checksums and write SHA256SUMS
+        run: dart run bin/release.dart checksums "$RUNNER_TEMP/dist"
+      - name: Write install.sh for the version
+        run: dart run bin/release.dart install-script --output "$RUNNER_TEMP/dist/install.sh"
+      - name: Check the package for pub.dev
+        working-directory: packages/skills_lint
+        run: dart pub publish --dry-run
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-assets
+          path: ${{ runner.temp }}/dist/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Write the job summary
+        env:
+          MODE: ${{ needs.prepare.outputs.mode }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: >-
+          echo "Built the assets for $TAG (mode: $MODE). They are in the release-assets
+          artifact of this run." >> "$GITHUB_STEP_SUMMARY"
+
+  stage:
+    name: Create the tag and the draft release
+    needs: [prepare, assemble]
+    if: needs.prepare.outputs.mode == 'stage'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Push the tag, and create the draft release and its assets.
+      actions: write # Start this workflow on the tag.
+      id-token: write # actions/attest: request a Sigstore signing certificate.
+      attestations: write # actions/attest also stores each attestation in this repository.
+      artifact-metadata: write # actions/attest: create the artifact storage record.
+    defaults:
+      run:
+        working-directory: .
+    env:
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      SHA: ${{ github.sha }}
+    steps:
+      # GitHub re-creates a deleted environment with no protection when a job
+      # uses it, and pub.dev checks only the environment's name. So the run
+      # stops unless pub.dev has a required reviewer and only the
+      # skills_lint-v* tag rule.
+      - name: Check the pub.dev environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rules="$(gh api "repos/$GH_REPO/environments/pub.dev" --jq '[.protection_rules[].type] | join(" ")')"
+          policies="$(gh api "repos/$GH_REPO/environments/pub.dev/deployment-branch-policies" \
+            --jq '[.branch_policies[] | "\(.type):\(.name)"] | join(" ")')"
+          if [[ " $rules " != *" required_reviewers "* || "$policies" != 'tag:skills_lint-v*' ]]; then
+            echo "::error::The pub.dev environment needs a required reviewer and only the skills_lint-v* tag rule (rules: $rules; policies: $policies). See RELEASING.md."
+            exit 1
+          fi
+      # The run never deletes a release: a draft can belong to a run on the tag
+      # that waits for approval, and that run publishes whatever draft the tag
+      # has. A tag left by a failed run is reused only if it points at this
+      # commit.
+      - name: Check the tag and the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" --json isDraft > /dev/null 2>&1; then
+            echo "::error::$TAG already has a release. See \"Order and recovery\" in RELEASING.md."
+            exit 1
+          fi
+          if existing="$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null)" \
+            && [ "$existing" != "$SHA" ]; then
+            echo "::error::The tag $TAG points at $existing, not $SHA."
+            exit 1
+          fi
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-assets
+          path: ${{ runner.temp }}/dist
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}
+      # The verify and publish jobs check every release asset against these.
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            ${{ runner.temp }}/dist/*.tar.gz
+            ${{ runner.temp }}/dist/SHA256SUMS
+            ${{ runner.temp }}/dist/install.sh
+            ${{ runner.temp }}/dist/pubspec.lock
+      - name: Create the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh api "repos/$GH_REPO/git/ref/tags/$TAG" > /dev/null 2>&1; then
+            gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$SHA" > /dev/null
+          fi
+      # The release starts as a draft so that every asset is attached before
+      # it is published. Published releases can be immutable, which blocks
+      # later uploads.
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+        run: >-
+          gh release create "$TAG" --draft --verify-tag --prerelease="$PRERELEASE"
+          --title "skills_lint $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+          "$RUNNER_TEMP"/dist/*
+      - name: Start the publish run on the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yaml --ref "$TAG" -f release=true
+      - name: Write the job summary
+        run: >-
+          echo "Created the tag $TAG and its draft release, and started this workflow on
+          $TAG to publish them." >> "$GITHUB_STEP_SUMMARY"
+
+  verify:
+    name: Check the draft release
+    needs: prepare
+    if: needs.prepare.outputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Read draft releases, which needs push access.
+      attestations: read # gh attestation verify fetches them from this repository's API.
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      # Anyone with push access can change a draft's assets, so each one must
+      # match SHA256SUMS and carry an attestation from a stage run on main.
+      - name: Check the draft and its assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != true ]; then
+            echo "::error::$TAG has no draft release. Start the release from main."
+            exit 1
+          fi
+          gh release download "$TAG" --dir "$RUNNER_TEMP/assets"
+          cd "$RUNNER_TEMP/assets"
+          sha256sum --check --strict SHA256SUMS
+          test -f install.sh
+          for asset in *; do
+            gh attestation verify "$asset" -R "$GH_REPO" \
+              --signer-workflow "$GH_REPO/.github/workflows/release.yaml" --source-ref refs/heads/main
+          done
+      # The pub job installs the dependencies that the release was built with.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pubspec-lock
+          path: ${{ runner.temp }}/assets/pubspec.lock
+          if-no-files-found: error
+          retention-days: 7
+
+  pub:
+    name: Publish to pub.dev
+    needs: [prepare, verify]
+    # Assumes these settings:
+    # - https://pub.dev/packages/skills_lint/admin publishes from
+    #   workflow_dispatch runs on tags matching skills_lint-v{{version}}, not
+    #   from push runs, and requires the GitHub Actions environment pub.dev.
+    # - The repository's pub.dev environment allows only skills_lint-v* tags
+    #   and has a required reviewer, so this job waits for approval. The
+    #   stage job checks this.
+    environment: pub.dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # pub.dev: authenticate with a GitHub OIDC token.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Also gets the OIDC token that `dart pub publish` sends to pub.dev.
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pubspec-lock
+          path: .
+      - name: Get the release's dependencies
+        run: dart pub get --enforce-lockfile
+      # Skips the upload when pub.dev has the version, so that a run started
+      # again after a failed `publish` job only publishes the GitHub release.
+      - name: Publish the package
+        working-directory: packages/skills_lint
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          status="$(curl -sS -o /dev/null -w '%{http_code}' \
+            "https://pub.dev/api/packages/skills_lint/versions/$VERSION")"
+          case "$status" in
+            200) echo "pub.dev has skills_lint $VERSION already." ;;
+            404) dart pub publish --force ;;
+            *) echo "::error::pub.dev returned HTTP $status."; exit 1 ;;
+          esac
+
+  publish:
+    name: Publish the GitHub release
+    needs: [prepare, pub]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Read and publish the draft; reading a draft needs push access.
+      attestations: read # gh attestation verify fetches them from this repository's API.
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      # The draft can change while the pub job waits for approval, so the
+      # assets are checked again, as in the verify job, before publishing.
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          gh release download "$TAG" --dir "$RUNNER_TEMP/assets"
+          for asset in "$RUNNER_TEMP"/assets/*; do
+            gh attestation verify "$asset" -R "$GH_REPO" \
+              --signer-workflow "$GH_REPO/.github/workflows/release.yaml" --source-ref refs/heads/main
+          done
+          gh release edit "$TAG" --draft=false
+          echo "Published $TAG to pub.dev and [GitHub]($(gh release view "$TAG" --json url --jq .url))." >> "$GITHUB_STEP_SUMMARY"
