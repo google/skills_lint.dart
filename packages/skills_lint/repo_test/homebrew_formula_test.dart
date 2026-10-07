@@ -69,19 +69,19 @@ void main() {
     );
   });
 
-  final macho = File(p.join(repoRoot, 'release', 'lib', 'src', 'macho.dart'));
+  const machoPath = 'release/lib/src/macho.dart';
   test('depends_on macos: matches macosMinimumVersion', () {
     final RegExpMatch? match = RegExp(
       r"const String macosMinimumVersion = '([\d.]+)';",
-    ).firstMatch(macho.readAsStringSync());
-    expect(match, isNotNull, reason: 'Found no macosMinimumVersion constant in ${macho.path}.');
+    ).firstMatch(_read(machoPath));
+    expect(match, isNotNull, reason: 'Found no macosMinimumVersion constant in $machoPath.');
     expectNoViolations(
       findMacosViolations(formulaPath, formula, match!.group(1)),
       fix:
           'Set depends_on macos: inside on_macos in $formulaPath to the symbol for '
-          'macosMinimumVersion in release/lib/src/macho.dart.',
+          'macosMinimumVersion in $machoPath.',
     );
-  }, skip: macho.existsSync() ? null : 'release/lib/src/macho.dart does not exist on this branch.');
+  });
 
   test('the Homebrew workflow installs on each target with the runner that builds it', () {
     final workflow = loadYaml(_read('.github/workflows/homebrew.yaml')) as YamlMap;
@@ -127,16 +127,13 @@ const String _targetsSource = 'release/lib/src/archive.dart';
 
 /// The release targets, as `releaseTargets` in [_targetsSource] lists them.
 ///
-/// [_fallbackTargets] applies only where [_targetsSource] does not exist.
+/// The `release` package is not a dependency of this one, so this reads the
+/// records from the source rather than importing them.
 List<ReleaseTarget> _releaseTargets() {
-  final file = File(p.join(repoRoot, _targetsSource));
-  if (!file.existsSync()) {
-    return _fallbackTargets;
-  }
   final List<ReleaseTarget> targets = [
     for (final RegExpMatch match in RegExp(
       r"\(name: '([^']+)', abi: [\w.]+, runner: '([^']+)'\)",
-    ).allMatches(file.readAsStringSync()))
+    ).allMatches(_read(_targetsSource)))
       (name: match.group(1)!, runner: match.group(2)!),
   ];
   if (targets.isEmpty) {
@@ -147,14 +144,5 @@ List<ReleaseTarget> _releaseTargets() {
   }
   return targets;
 }
-
-/// The release targets of the release workflow, for branches that do not
-/// have [_targetsSource].
-const List<ReleaseTarget> _fallbackTargets = [
-  (name: 'macos-arm64', runner: 'macos-latest'),
-  (name: 'macos-x64', runner: 'macos-26-intel'),
-  (name: 'linux-x64', runner: 'ubuntu-latest'),
-  (name: 'linux-arm64', runner: 'ubuntu-24.04-arm'),
-];
 
 String _read(String path) => File(p.joinAll([repoRoot, ...p.posix.split(path)])).readAsStringSync();
