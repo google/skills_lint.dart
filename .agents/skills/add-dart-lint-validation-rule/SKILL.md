@@ -92,8 +92,7 @@ Then, add a case to `RuleRegistry.createRule` to instantiate your rule:
 
 ### Naming parameters
 
-- Config keys are kebab-case. Don't mix `_` and `-`.
-- The generated `--<rule>-<param>` flag must not repeat words from the rule name.
+A parameter's CLI flag is `--<rule>-<param>`, so the parameter name doesn't need to repeat the rule's subject. [rule_parameter_naming_test.dart](../../../packages/skills_lint/repo_test/rule_parameter_naming_test.dart) defines the naming convention and fails on a name that breaks it.
 
 ### 3. Handle Disabled by Default Rules (If applicable)
 If the rule is disabled by default (`defaultSeverity: AnalysisSeverity.disabled`), passing the flag `--check-my-new-rule` will automatically enable it with `AnalysisSeverity.error` severity (handled in `entry_point.dart`).

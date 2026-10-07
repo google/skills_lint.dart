@@ -241,12 +241,12 @@ ArgParser _createArgParser(String helpFlag) {
       final RuleParameterType expectedType = check.parameterSchema[paramName]!;
       if (expectedType == RuleParameterType.stringList) {
         parser.addMultiOption(
-          '${check.name}-$paramName',
+          check.parameterFlag(paramName),
           help: "Override parameter '$paramName' list for rule '${check.name}'.",
         );
       } else {
         parser.addOption(
-          '${check.name}-$paramName',
+          check.parameterFlag(paramName),
           help: "Override parameter '$paramName' for rule '${check.name}'.",
         );
       }
@@ -625,7 +625,7 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
 Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults results) {
   final checkOverrides = <String, Object?>{};
   for (final String paramName in check.parameterSchema.keys) {
-    final paramFlag = '${check.name}-$paramName';
+    final String paramFlag = check.parameterFlag(paramName);
     if (results.options.contains(paramFlag) && results.wasParsed(paramFlag)) {
       final RuleParameterType expectedType = check.parameterSchema[paramName]!;
       checkOverrides[paramName] = _parseParameterValue(paramFlag, results[paramFlag], expectedType);

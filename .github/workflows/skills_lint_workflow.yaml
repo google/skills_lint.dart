@@ -10,7 +10,8 @@ on:
       - 'skills/**'
       - 'packages/skills_lint/**'
       - 'release/**'
-      - '.github/workflows/skills_lint_workflow.yaml'
+      # All workflows, because repo_test/action_pins_test.dart checks the pins in each.
+      - '.github/workflows/**'
   push:
     branches: [ main ]
     paths:
@@ -19,7 +20,8 @@ on:
       - 'skills/**'
       - 'packages/skills_lint/**'
       - 'release/**'
-      - '.github/workflows/skills_lint_workflow.yaml'
+      # All workflows, because repo_test/action_pins_test.dart checks the pins in each.
+      - '.github/workflows/**'
   schedule:
     - cron: '0 0 * * 0' # weekly
 
