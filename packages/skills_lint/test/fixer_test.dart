@@ -13,6 +13,8 @@ import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:test/test.dart';
 
+import 'test_utils.dart';
+
 class RuleA extends SkillRule implements FixableRule {
   @override
   String get name => 'rule-a';
@@ -210,7 +212,7 @@ void main() {
       final skillDir = Directory(p.join(tempDir.path, 'old-skill'));
       await skillDir.create();
       final skillFile = File(p.join(skillDir.path, 'SKILL.md'));
-      await skillFile.writeAsString('---\nname: old-skill\ndescription: d\n---\nbody\n');
+      await skillFile.writeAsString('${buildFrontmatter(name: 'old-skill')}body\n');
 
       await validateSkillsInternal(
         individualSkillPaths: [skillDir.path],

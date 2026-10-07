@@ -143,7 +143,7 @@ void main() {
         );
       });
 
-      test('does not fix name to a directory name that is not a valid skill name', () async {
+      test('fixes name to match directory name (not replacing underscores)', () async {
         final Directory skillDir = await Directory('${tempDir.path}/my_skill').create();
         final file = File('${skillDir.path}/SKILL.md');
         await file.writeAsString('''
@@ -168,7 +168,7 @@ Body''');
 
         final String fixedContent = await rule.fix('SKILL.md', content, context.directory);
 
-        expect(fixedContent, content);
+        expect(fixedContent, contains('name: my_skill'));
       });
 
       test(

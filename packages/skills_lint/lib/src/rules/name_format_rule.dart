@@ -30,6 +30,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
   static const maxNameLength = 64;
   static final _validNameRegex = RegExp(r'^[a-z0-9-]+$');
+  static final _plainNameRegex = RegExp(r'^[A-Za-z0-9_-]+$');
   static const _nameFieldUrl = 'https://agentskills.io/specification#name-field';
 
   @override
@@ -255,13 +256,10 @@ class NameFormatRule extends SkillRule implements FixableRule {
       return currentContent;
     }
 
-    final String dirName = basename(directory.path);
-    // The directory name replaces the `name` value without quoting, so it
-    // must read back from YAML as the same string.
-    if (!isValidSkillName(dirName) || !_readsAsYamlString(dirName)) {
+    final String targetName = basename(directory.path);
+    if (!_isPlainYamlString(targetName)) {
       return currentContent;
     }
-    final targetName = dirName;
 
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(currentContent);
     if (match == null) {
@@ -314,15 +312,15 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return null;
   }
 
-  /// Whether [value], written as a plain YAML scalar, loads as the string
-  /// [value]. Values such as `123`, `true` and `null` load as other types.
-  static bool _readsAsYamlString(String value) {
-    try {
-      return loadYaml(value) == value;
-    } on YamlException {
-      return false;
-    }
-  }
+  /// Whether [name] can replace the `name` value without quoting and load
+  /// back from YAML as the string [name].
+  ///
+  /// [name] must contain only ASCII letters, digits, `_` and `-`. YAML reads
+  /// those characters as a plain scalar, a `-` sequence entry or a `---`
+  /// document marker, so [loadYaml] does not throw. Names such as `123`,
+  /// `true` and `null` load as other types and return false.
+  static bool _isPlainYamlString(String name) =>
+      _plainNameRegex.hasMatch(name) && loadYaml(name) == name;
 
   /// Whether [name] is a valid skill name: lowercase ASCII letters, digits
   /// and hyphens, from 1 to [maxNameLength] characters.

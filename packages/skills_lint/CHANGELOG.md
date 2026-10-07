@@ -7,7 +7,7 @@
 - **Behavior change:** in `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
 - **Behavior change:** `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link.
 - Made `check-trailing-whitespace` about 20 times faster. Its diagnostics and `--fix` output are unchanged, except for the lone carriage return fix below.
-- Fixed `invalid-skill-name` `--fix` corrupting `SKILL.md` and renaming the skill directory when the directory name, such as `My Skill #1`, is not a valid skill name. The fixer now leaves both unchanged and reports the error.
+- Fixed `invalid-skill-name` `--fix` corrupting `SKILL.md`, and in some cases renaming the skill directory, when YAML does not read the directory name back as written, such as `My Skill #1`, `123` or `true`. The fixer now leaves both unchanged and reports the error.
 - Fixed `check-trailing-whitespace` treating a lone carriage return (`\r`) as part of a line. A lone `\r` now ends a line, so running `--fix` twice gives the same result as running it once.
 - Fixed `check-relative-paths` reporting percent-encoded links, such as `[doc](my%20file.md)`, as missing when the file exists. A link with a malformed escape, such as `%zz`, is still reported as missing.
 - Added a `--version` flag that prints the skills_lint version.
