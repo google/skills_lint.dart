@@ -34,6 +34,11 @@ Always use the following template (or a very similar structure) when drafting a 
 - Added `FooClass` to handle XYZ.
 - Updated `BarMethod` to return `Result`.
 
+## API surface
+[Omit if the PR changes nothing that users or callers see. Names and output are hard to change once users depend on them, so reviewers check them here.]
+- [Every public type, parameter, CLI flag and config key the PR adds or changes, with its constraints (for example, "must be a positive integer").]
+- [For anything users see (CLI output, SARIF or JSON, `--help`, config keys): real before and after output, pasted from runs of the base branch and of this branch. Don't write it by hand.]
+
 ## Testing Instructions
 [Explain how reviewers can test your changes locally. Mention any manual verification steps.]
 - Run `dart test` to ensure all tests pass.
