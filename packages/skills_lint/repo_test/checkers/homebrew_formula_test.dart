@@ -2,42 +2,61 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:math';
+
 import 'package:test/test.dart';
 
 import '../src/homebrew_formula.dart';
+import '../src/homebrew_targets.dart';
 import '../src/models/convention_violation.dart';
 
-const List<String> _targets = ['macos-arm64', 'macos-x64', 'linux-arm64', 'linux-x64'];
-final String _zeros = '0' * 64;
-final String _shaA = 'a' * 64;
-final String _shaB = 'b' * 64;
-final String _shaC = 'c' * 64;
-final String _shaD = 'd' * 64;
+/// The targets that Homebrew installs, from `releaseTargets`.
+late final List<String> _targets;
 
-/// Builds a formula with one block per entry of [blocks], which maps
-/// `<os>-<arch>` to the block's `url` target and `sha256` line.
+final String _zeros = '0' * 64;
+
+/// A distinct, well-formed sha256 for the target at [index].
+String _sha(int index) => (index + 1).toRadixString(16).padLeft(64, 'f');
+
+/// Each target's block, with its own url and a distinct sha256.
+Map<String, (String, String)> _validBlocks() => {
+  for (final (int index, String target) in _targets.indexed)
+    target: (target, 'sha256 "${_sha(index)}"'),
+};
+
+/// Each target's block, with its own url and a placeholder sha256.
+Map<String, (String, String)> _placeholderBlocks() => {
+  for (final String target in _targets) target: (target, 'sha256 "$_zeros" $placeholderMarker'),
+};
+
+/// Builds a formula with one block per entry of [blocks], which maps the
+/// block's `<os>-<arch>` to the target in its `url` and its `sha256` line.
+///
+/// The first seven lines are fixed: `version` is on line 2 and
+/// `depends_on macos:` on line 7.
 String _formula({
   String version = 'version "1.2.0"',
   String macos = 'depends_on macos: :sonoma',
   Map<String, (String, String)>? blocks,
 }) {
-  final Map<String, (String, String)> entries =
-      blocks ??
-      {
-        'macos-arm64': ('macos-arm64', 'sha256 "$_shaA"'),
-        'macos-x64': ('macos-x64', 'sha256 "$_shaB"'),
-        'linux-arm64': ('linux-arm64', 'sha256 "$_shaC"'),
-        'linux-x64': ('linux-x64', 'sha256 "$_shaD"'),
-      };
-  String block(String os) => [
-    for (final MapEntry<String, (String, String)> entry in entries.entries)
-      if (entry.key.startsWith(os))
-        '''
-    on_${entry.key.endsWith('arm64') ? 'arm' : 'intel'} do
-      url "${expectedArchiveUrl(entry.value.$1)}"
-      ${entry.value.$2}
-    end''',
-  ].join('\n');
+  final Map<String, (String, String)> entries = blocks ?? _validBlocks();
+  String osBlocks(String os) {
+    final List<String> lines = [];
+    for (final MapEntry<String, (String, String)> entry in entries.entries) {
+      if (!entry.key.startsWith('$os-')) {
+        continue;
+      }
+      final archBlock = entry.key.endsWith('-arm64') ? 'on_arm' : 'on_intel';
+      final (String urlTarget, String sha256Line) = entry.value;
+      lines.add('''
+    $archBlock do
+      url "${expectedArchiveUrl(urlTarget)}"
+      $sha256Line
+    end''');
+    }
+    return lines.join('\n');
+  }
+
   return '''
 class SkillsLint < Formula
   $version
@@ -46,10 +65,10 @@ class SkillsLint < Formula
   end
   on_macos do
     $macos
-${block('macos')}
+${osBlocks('macos')}
   end
   on_linux do
-${block('linux')}
+${osBlocks('linux')}
   end
   def install
     url "https://example.com/ignored.tar.gz"
@@ -58,8 +77,17 @@ end
 ''';
 }
 
-List<String> _archiveProblems(String content, [List<String> targets = _targets]) =>
-    _describe(findArchiveViolations('f.rb', parseFormula(content), targets));
+/// The 1-based line of the `url` that names the archive of [target].
+int _urlLine(String content, String target) {
+  final String url = expectedArchiveUrl(target);
+  final List<String> lines = content.split('\n');
+  final int index = lines.indexWhere((String line) => line.contains(url));
+  expect(index, isNot(-1), reason: 'No url for $target in the formula.');
+  return index + 1;
+}
+
+List<String> _archiveProblems(String content, [List<String>? targets]) =>
+    _describe(findArchiveViolations('f.rb', parseFormula(content), targets ?? _targets));
 
 List<String> _versionProblems(
   String content, {
@@ -79,23 +107,20 @@ List<String> _describe(List<ConventionViolation> violations) => [
 ];
 
 /// Runs the formula checks over small inline formulas, which pins what each
-/// one reports independently of `Formula/skills_lint.rb`.
+/// one reports independently of `Formula/skills_lint.rb`. The formulas have
+/// a block for each target that Homebrew installs.
 void main() {
-  group('formulaTargets', () {
-    test('keeps macOS and Linux targets on arm64 and x64, in order', () {
-      expect(
-        formulaTargets(['linux-x64', 'windows-x64', 'linux-riscv64', 'macos-arm64', 'linux-arm64']),
-        ['linux-x64', 'macos-arm64', 'linux-arm64'],
-      );
-    });
+  setUpAll(() async {
+    _targets = await readHomebrewTargets();
+    expect(_targets.length, greaterThanOrEqualTo(3), reason: 'The tests below edit three blocks.');
   });
 
   group('parseFormula', () {
     test('reads the version, each archive and the macOS dependency, and stops at def', () {
       final HomebrewFormula formula = parseFormula(_formula());
       expect(formula.version?.value, '1.2.0');
-      expect(formula.archives.keys, _targets);
-      expect(formula.archives['linux-arm64']!.sha256s.single.value, _shaC);
+      expect(formula.archives.keys, unorderedEquals(_targets));
+      expect(formula.archives[_targets.last]!.sha256s.single.value, _sha(_targets.length - 1));
       expect(formula.macosMinimum?.value, 'sonoma');
       expect(formula.macosMinimumOnMacosOnly, isTrue);
       expect(formula.unscopedValues, isEmpty);
@@ -109,76 +134,78 @@ void main() {
     });
 
     test('reports swapped archives', () {
-      final String content = _formula(
-        blocks: {
-          'macos-arm64': ('macos-x64', 'sha256 "$_shaA"'),
-          'macos-x64': ('macos-arm64', 'sha256 "$_shaB"'),
-          'linux-arm64': ('linux-arm64', 'sha256 "$_shaC"'),
-          'linux-x64': ('linux-x64', 'sha256 "$_shaD"'),
-        },
+      final [String first, String second, ...] = _targets;
+      final Map<String, (String, String)> blocks = _validBlocks();
+      blocks[first] = (second, blocks[first]!.$2);
+      blocks[second] = (first, blocks[second]!.$2);
+      final String content = _formula(blocks: blocks);
+      final String firstUrl = expectedArchiveUrl(first);
+      final String secondUrl = expectedArchiveUrl(second);
+      expect(
+        _archiveProblems(content),
+        unorderedEquals([
+          'f.rb:${_urlLine(content, second)}: the $first url is "$secondUrl"; expected "$firstUrl"',
+          'f.rb:${_urlLine(content, first)}: the $second url is "$firstUrl"; expected "$secondUrl"',
+        ]),
       );
-      final String arm = expectedArchiveUrl('macos-arm64');
-      final String intel = expectedArchiveUrl('macos-x64');
-      expect(_archiveProblems(content), [
-        'f.rb:9: the macos-arm64 url is "$intel"; expected "$arm"',
-        'f.rb:13: the macos-x64 url is "$arm"; expected "$intel"',
-      ]);
     });
 
     test('reports a missing target and a block for a target that is not released', () {
-      final String content = _formula(
-        blocks: {
-          'macos-arm64': ('macos-arm64', 'sha256 "$_shaA"'),
-          'macos-x64': ('macos-x64', 'sha256 "$_shaB"'),
-          'linux-x64': ('linux-x64', 'sha256 "$_shaD"'),
-        },
-      );
-      expect(_archiveProblems(content, ['macos-arm64', 'linux-arm64', 'linux-x64']), [
-        'f.rb:1: has no block for the release target linux-arm64',
-        'f.rb:13: has a block for macos-x64, which is not a release target',
+      final String missing = _targets.last;
+      final String unreleased = _targets[1];
+      final String content = _formula(blocks: _validBlocks()..remove(missing));
+      final List<String> released = [..._targets]..remove(unreleased);
+      expect(_archiveProblems(content, released), [
+        'f.rb:1: has no block for the release target $missing',
+        'f.rb:${_urlLine(content, unreleased)}: has a block for $unreleased, which is not a release target',
       ]);
     });
 
     test('reports a repeated sha256 and a block without one', () {
-      final String content = _formula(
-        blocks: {
-          'macos-arm64': ('macos-arm64', 'sha256 "$_shaA"'),
-          'macos-x64': ('macos-x64', 'sha256 "$_shaA"'),
-          'linux-arm64': ('linux-arm64', '# no sha256'),
-          'linux-x64': ('linux-x64', 'sha256 "$_shaD"'),
-        },
+      final [String first, String repeating, String withoutSha256, ...] = _targets;
+      final Map<String, (String, String)> blocks = _validBlocks();
+      blocks[repeating] = (repeating, blocks[first]!.$2);
+      blocks[withoutSha256] = (withoutSha256, '# no sha256');
+      final String content = _formula(blocks: blocks);
+      // The check reports the copy that comes second in the file.
+      final int repeatedLine = max(_urlLine(content, first), _urlLine(content, repeating)) + 1;
+      final int blockLine = _urlLine(content, withoutSha256);
+      expect(
+        _archiveProblems(content),
+        unorderedEquals([
+          'f.rb:$blockLine: the $withoutSha256 block has 1 url and 0 sha256 lines; expected one of each',
+          'f.rb:$repeatedLine: sha256 ${_sha(0)} is also the sha256 of another archive',
+        ]),
       );
-      expect(_archiveProblems(content), [
-        'f.rb:19: the linux-arm64 block has 1 url and 0 sha256 lines; expected one of each',
-        'f.rb:14: sha256 $_shaA is also the sha256 of another archive',
-      ]);
     });
 
     test('reports placeholders without the marker, partial placeholders and a real version', () {
-      final String content = _formula(
-        blocks: {
-          'macos-arm64': ('macos-arm64', 'sha256 "$_zeros" $placeholderMarker'),
-          'macos-x64': ('macos-x64', 'sha256 "$_zeros"'),
-          'linux-arm64': ('linux-arm64', 'sha256 "$_shaC" $placeholderMarker'),
-          'linux-x64': ('linux-x64', 'sha256 "$_shaD"'),
-        },
-      );
+      final [String marked, String unmarked, String markedReal, ...] = _targets;
+      final Map<String, (String, String)> blocks = _validBlocks();
+      blocks[marked] = (marked, 'sha256 "$_zeros" $placeholderMarker');
+      blocks[unmarked] = (unmarked, 'sha256 "$_zeros"');
+      blocks[markedReal] = (markedReal, 'sha256 "${_sha(2)}" $placeholderMarker');
+      final String content = _formula(blocks: blocks);
+      const markerRule =
+          'a sha256 is 64 zeros if and only if its line ends with $placeholderMarker';
       const allOrNone =
           'replace every placeholder in one change: the version and all sha256 values are '
           'placeholders, or none are';
-      expect(_archiveProblems(content), [
-        'f.rb:14: a sha256 is 64 zeros if and only if its line ends with $placeholderMarker',
-        'f.rb:20: a sha256 is 64 zeros if and only if its line ends with $placeholderMarker',
-        'f.rb:2: $allOrNone',
-      ]);
+      final List<String> problems = _archiveProblems(content);
+      expect(problems.last, 'f.rb:2: $allOrNone');
+      expect(
+        problems.take(problems.length - 1),
+        unorderedEquals([
+          'f.rb:${_urlLine(content, unmarked) + 1}: $markerRule',
+          'f.rb:${_urlLine(content, markedReal) + 1}: $markerRule',
+        ]),
+      );
     });
 
     test('accepts a formula whose version and sha256 values are all placeholders', () {
       final String content = _formula(
         version: 'version "1.3.0" $placeholderMarker',
-        blocks: {
-          for (final target in _targets) target: (target, 'sha256 "$_zeros" $placeholderMarker'),
-        },
+        blocks: _placeholderBlocks(),
       );
       expect(_archiveProblems(content), isEmpty);
       expect(parseFormula(content).hasPlaceholders, isTrue);
@@ -193,12 +220,8 @@ void main() {
   });
 
   group('findVersionViolations', () {
-    final String placeholders = _formula(
-      version: 'version "1.3.0" $placeholderMarker',
-      blocks: {
-        for (final target in _targets) target: (target, 'sha256 "$_zeros" $placeholderMarker'),
-      },
-    );
+    String placeholders() =>
+        _formula(version: 'version "1.3.0" $placeholderMarker', blocks: _placeholderBlocks());
 
     test('accepts a released version that the CHANGELOG lists', () {
       expect(_versionProblems(_formula()), isEmpty);
@@ -206,11 +229,11 @@ void main() {
     });
 
     test('accepts a placeholder version equal to the pubspec version without its suffix', () {
-      expect(_versionProblems(placeholders, changelog: ''), isEmpty);
+      expect(_versionProblems(placeholders(), changelog: ''), isEmpty);
     });
 
     test('reports a placeholder version that is not the pending release', () {
-      expect(_versionProblems(placeholders, pubspec: '1.4.0-wip'), [
+      expect(_versionProblems(placeholders(), pubspec: '1.4.0-wip'), [
         'f.rb:2: placeholder version "1.3.0" must be 1.4.0, the pubspec version 1.4.0-wip without its suffix',
       ]);
     });

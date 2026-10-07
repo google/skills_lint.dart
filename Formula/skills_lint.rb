@@ -3,7 +3,7 @@
 
 # Homebrew formula for the prebuilt skills_lint executables that
 # .github/workflows/release.yaml attaches to each GitHub Release.
-# Formula/README.md says how this file is checked and how to update it.
+# RELEASING.md says how this file is checked and how to update it.
 #
 # PLACEHOLDER: no release has the executables yet. `version` and every
 # `sha256` below are placeholders, so `brew install` fails until the first

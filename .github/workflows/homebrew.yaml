@@ -1,20 +1,7 @@
-# Checks the Homebrew formula in Formula/. Formula/README.md says what each
-# job checks and how to make the `Homebrew` job a required status check.
-#
-# - `changes` decides whether the formula needs checking. The workflow has no
-#   `paths` filter: a required check whose workflow a path filter skips stays
-#   pending and blocks the pull request.
-# - `style` runs `brew style` and `brew audit --strict`. Neither downloads the
-#   release archives.
-# - `install` installs the formula and runs its test block on each platform
-#   that has an archive. It runs only when the formula has no PLACEHOLDER
-#   marker, because placeholder checksums cannot match any download.
-# - `homebrew` always runs, and fails if any job above failed or was
-#   cancelled. A skipped job passes. Make this job the required check.
-#
-# Homebrew has no bottles for this formula, so `brew install` treats it as a
-# build from source: it checks for the Command Line Tools on macOS before it
-# downloads the prebuilt executable.
+# Checks the Homebrew formula in Formula/ on each pull request and weekly.
+# There is no `paths` filter, because a required check that a path filter
+# skips stays pending; the `changes` job skips the brew jobs instead, and the
+# `homebrew` job always reports, so it is the check to require.
 
 name: Homebrew
 
@@ -94,25 +81,37 @@ jobs:
             echo "released=true" >> "$GITHUB_OUTPUT"
           fi
 
+  targets:
+    name: List the targets
+    needs: changes
+    if: needs.changes.outputs.formula == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    defaults:
+      run:
+        working-directory: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - id: matrix
+        run: dart run bin/release.dart homebrew-matrix >> "$GITHUB_OUTPUT"
+
   install:
     name: brew install and test (${{ matrix.target }})
-    needs: style
+    needs: [style, targets]
     if: needs.style.outputs.released == 'true'
     strategy:
       fail-fast: false
-      matrix:
-        # One entry per archive, on the runner that builds it.
-        # repo_test/homebrew_formula_test.dart checks this list against
-        # release/lib/src/archive.dart.
-        include:
-          - target: macos-arm64
-            os: macos-latest
-          - target: macos-x64
-            os: macos-26-intel
-          - target: linux-x64
-            os: ubuntu-latest
-          - target: linux-arm64
-            os: ubuntu-24.04-arm
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     permissions:
@@ -133,7 +132,7 @@ jobs:
 
   homebrew:
     name: Homebrew
-    needs: [changes, style, install]
+    needs: [changes, style, targets, install]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
