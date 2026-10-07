@@ -14,10 +14,7 @@ import 'package:meta/meta.dart';
 /// not need to check its own parameter values.
 @immutable
 class ParameterConstraint {
-  const ParameterConstraint({
-    required this.description,
-    required bool Function(Object value) accepts,
-  }) : _accepts = accepts;
+  const ParameterConstraint({required this.description, required this._accepts});
 
   /// Describes the accepted values, such as `a positive integer`.
   final String description;

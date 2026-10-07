@@ -49,6 +49,44 @@ Name things for what they are, not for what they are not. A name that describes 
 
 ---
 
+## Readability
+
+Write code a reviewer can follow in one pass.
+
+Prefer a plain loop when a collection literal combines `for`, `if` and a null-aware `?` element. Keep collection-`for` for simple maps and filters.
+
+The vendored [`dart-modern-features`](../../../../.agents/skills/dart-modern-features/SKILL.md) skill recommends null-aware elements. In this repo, this section wins.
+
+Hard to follow:
+
+```dart
+return [
+  for (final String key in parameters.params.keys)
+    if (parameterConstraints.containsKey(key) && parameterSchema.containsKey(key))
+      ?_validateValue(key, parameters.params[key]),
+];
+```
+
+Easier:
+
+```dart
+final List<String> errors = [];
+for (final String key in parameters.params.keys) {
+  final bool isConstrained =
+      parameterConstraints.containsKey(key) && parameterSchema.containsKey(key);
+  if (!isConstrained) {
+    continue;
+  }
+  final String? error = _validateValue(key, parameters.params[key]);
+  if (error != null) {
+    errors.add(error);
+  }
+}
+return errors;
+```
+
+---
+
 ## 🔑 Class Constants for Schema and Property Keys
 
 All JSON schema property keys, serialization map keys, YAML frontmatter keys, and CLI option names must be declared as `static const String` constants co-located on their owning model classes (e.g., `keyRuleId`, `keyStartLine`, `keyName`).
