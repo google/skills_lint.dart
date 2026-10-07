@@ -33,6 +33,10 @@ class CheckType {
   /// [RuleParameterType].
   final Map<String, ParameterConstraint> parameterConstraints;
 
+  /// The CLI option name, without the leading `--`, that overrides
+  /// [parameterName] for this check.
+  String parameterFlag(String parameterName) => '$name-$parameterName';
+
   /// Validates the given [parameters] against this check's [parameterSchema]
   /// and [parameterConstraints].
   ///
