@@ -21,14 +21,29 @@ const Set<String> _allowedExcludes = {
   'packages/skills_lint/evals/test_data/**',
 };
 
+/// One or more whitespace characters, the separator between the words of a
+/// command line.
+///
+/// Splitting `dart test  --coverage=coverage test` on it gives `dart`,
+/// `test`, `--coverage=coverage` and `test`.
+final RegExp _whitespace = RegExp(r'\s+');
+
 /// Returns the entries of [testDirectories] that a `dart test` [command]
 /// selects. A command with no path argument selects `test`, package:test's
 /// default path.
+///
+/// For example, `dart test --coverage=coverage` selects `{test}` and
+/// `dart test repo_test` selects `{repo_test}`.
 Set<String> _categoriesSelectedBy(String command) {
-  final Set<String> paths = {
-    for (final String arg in command.split(RegExp(r'\s+')).skip(2))
-      if (!arg.startsWith('-')) p.url.normalize(arg),
-  };
+  // The first two words are `dart test`.
+  final Iterable<String> arguments = command.split(_whitespace).skip(2);
+  final paths = <String>{};
+  for (final argument in arguments) {
+    final bool isFlag = argument.startsWith('-');
+    if (!isFlag) {
+      paths.add(p.url.normalize(argument));
+    }
+  }
   return paths.isEmpty ? {'test'} : paths;
 }
 
@@ -99,18 +114,37 @@ void main() {
   });
 }
 
-/// Returns the `dart run cognitive_complexity` invocation in the CI workflow.
+/// The `cognitive_complexity` command in the CI workflow, such as:
 ///
-/// Group 1 is the `--fail-threshold` value and group 2 is the list of scanned
-/// paths.
+/// ```yaml
+///         run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin .agents/skills
+/// ```
+///
+/// Group 1 is the `--fail-threshold` value (`20`) and group 2 is the rest of
+/// the line, the space-separated paths that it scans.
+final RegExp _cognitiveComplexityCommand = RegExp(
+  r'dart\s+run\s+cognitive_complexity\s+--fail-threshold\s+(\d+)\s+([^\r\n]+)',
+);
+
+/// A `run:` step of the CI workflow that runs `dart test`, such as either of:
+///
+/// ```yaml
+///         run: dart test repo_test
+///       - run: dart test --coverage=coverage
+/// ```
+///
+/// Group 1 is the command, from `dart test` to the end of the line.
+final RegExp _dartTestRunStep = RegExp(
+  r'^\s*(?:-\s+)?run:\s*(dart\s+test\b[^\r\n]*)',
+  multiLine: true,
+);
+
+/// Returns the [_cognitiveComplexityCommand] match in the CI workflow.
 RegExpMatch _parseCognitiveComplexityInvocation() {
   final File workflowFile = _getWorkflowFile();
   expect(workflowFile.existsSync(), isTrue, reason: 'CI workflow file missing');
   final String content = workflowFile.readAsStringSync();
-  final regex = RegExp(
-    r'dart\s+run\s+cognitive_complexity\s+--fail-threshold\s+(\d+)\s+([^\r\n]+)',
-  );
-  final RegExpMatch? match = regex.firstMatch(content);
+  final RegExpMatch? match = _cognitiveComplexityCommand.firstMatch(content);
   expect(
     match,
     isNotNull,
@@ -144,11 +178,7 @@ RegExpMatch _parseCognitiveComplexityInvocation() {
 List<String> _dartTestInvocations() {
   final String content = _getWorkflowFile().readAsStringSync();
   return [
-    for (final RegExpMatch match in RegExp(
-      r'^\s*(?:-\s+)?run:\s*(dart\s+test\b[^\r\n]*)',
-      multiLine: true,
-    ).allMatches(content))
-      match.group(1)!.trim(),
+    for (final RegExpMatch match in _dartTestRunStep.allMatches(content)) match.group(1)!.trim(),
   ];
 }
 

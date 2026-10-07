@@ -8,9 +8,11 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/rule_registry.dart';
 import 'package:test/test.dart';
+import 'package:test_process/test_process.dart';
 
 import '../../benchmark/src/fixture.dart';
 import '../../benchmark/src/suite.dart';
+import '../test_utils.dart';
 
 final Set<String> _registeredRules = {for (final check in RuleRegistry.allChecks) check.name};
 
@@ -101,19 +103,28 @@ void main() {
     });
   });
 
+  defineCliTests();
+}
+
+/// Defines the tests that start the CLI. [main] calls this, and
+/// `compiled_test/cli_test.dart` calls it again to run the same tests
+/// against the compiled binary.
+void defineCliTests() {
+  final List<SampleSkill> samples = readSampleSkills();
+
   test('every registered rule reports at least once on the fixture', () async {
     final Directory tempDir = Directory.systemTemp.createTempSync('fixture_test.');
     addTearDown(() => tempDir.deleteSync(recursive: true));
     writeFixture(tempDir.path, invalidEvery * plantedViolations.length, samples: samples);
 
-    final ProcessResult result = await Process.run(Platform.resolvedExecutable, [
-      p.absolute('bin', 'skills_lint.dart'),
+    final TestProcess process = await startCli([
       '--format',
       'json',
     ], workingDirectory: tempDir.path);
+    final String stdout = await process.stdoutStream().join('\n');
+    await process.shouldExit(expectedExitCode);
 
-    expect(result.exitCode, expectedExitCode, reason: result.stderr as String);
-    final List<Map<String, Object?>> results = (jsonDecode(result.stdout as String) as List)
+    final List<Map<String, Object?>> results = (jsonDecode(stdout) as List)
         .cast<Map<String, Object?>>();
     final List<List<Map<String, Object?>>> errors = [
       for (final skill in results)
