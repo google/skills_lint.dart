@@ -53,8 +53,7 @@ Name things for what they are, not for what they are not. A name that describes 
 
 Write code a reviewer can follow in one pass.
 
-- Prefer a plain loop when a collection literal combines `for`, `if` and a null-aware `?` element. Keep collection-`for` for simple maps and filters.
-- Build a value in one expression. Don't compute part of it in one statement and finish it in the next.
+Prefer a plain loop when a collection literal combines `for`, `if` and a null-aware `?` element. Keep collection-`for` for simple maps and filters.
 
 The vendored [`dart-modern-features`](../../../../.agents/skills/dart-modern-features/SKILL.md) skill recommends null-aware elements. In this repo, this section wins.
 
@@ -84,19 +83,6 @@ for (final String key in parameters.params.keys) {
   }
 }
 return errors;
-```
-
-A value built across two statements:
-
-```dart
-final String? url = limit.isBelowSpec ? null : docUrl;
-final docsClause = url != null ? ' (see $url)' : '';
-```
-
-In one expression:
-
-```dart
-final docsClause = limit.isBelowSpec || docUrl == null ? '' : ' (see $docUrl)';
 ```
 
 ---

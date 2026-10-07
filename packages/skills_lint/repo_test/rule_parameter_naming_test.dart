@@ -2,16 +2,20 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Rule parameter names in [RuleRegistry.allChecks] are kebab-case, and the
-/// generated `--<rule>-<param>` CLI flag repeats no word of the rule name.
+/// Rule parameter names in [RuleRegistry.allChecks] are kebab-case, and none
+/// starts with a word of its rule's name.
 ///
 /// Why this matters:
 /// - A parameter name is both a `skills_lint.yaml` key and part of a CLI
 ///   flag. Renaming it later breaks users, so it has to be right the first
 ///   time.
 /// - Mixing `_` and `-` in one flag is hard to type and to remember.
-/// - The flag already starts with the rule name. Repeating a word from it
-///   makes the flag long and says nothing new.
+/// - The flag already starts with the rule name. A parameter that starts with
+///   a word of the rule name was namespaced again by an author who did not
+///   know that, as in `--description-too-long-description-length-max`. A
+///   rule-name word later in the parameter, as in
+///   `--published-skill-name-package-name`, can name something else and is
+///   allowed.
 ///
 /// Revisit this if CLI flags stop being generated from the rule name and the
 /// parameter name.
@@ -48,7 +52,7 @@ void main() {
     }
   }
 
-  test('rule parameters are kebab-case and their flags repeat no rule-name word', () {
+  test('rule parameters are kebab-case and do not start with a rule-name word', () {
     final List<String> found = [
       for (final MapEntry<String, String> e in problems.entries)
         if (!misnamedAllowlist.contains(e.key)) '${e.key}: ${e.value}',
@@ -57,8 +61,9 @@ void main() {
       found,
       isEmpty,
       reason:
-          'Rename these rule parameters. Use lowercase words joined by "-", and leave out '
-          'words that the rule name already has:\n${found.join('\n')}',
+          'Rename these rule parameters. Use lowercase words joined by "-". The CLI flag '
+          'is --<rule>-<param>, so do not start the parameter with a word of the rule '
+          'name:\n${found.join('\n')}',
     );
   });
 
@@ -76,17 +81,13 @@ void main() {
 
 /// Returns what is wrong with [param] of [check], or null if nothing is.
 String? _problem(CheckType check, String param) {
-  final Set<String> ruleWords = _words(check.name);
-  final List<String> repeated = [
-    for (final String word in _words(param))
-      if (ruleWords.contains(word)) word,
-  ];
+  final String firstWord = _words(param).first;
   final problems = [
     if (!_kebabCase.hasMatch(param)) 'not kebab-case',
-    if (repeated.isNotEmpty)
-      '--${check.parameterFlag(param)} repeats "${repeated.join('", "')}" from the rule name',
+    if (_words(check.name).contains(firstWord))
+      '--${check.parameterFlag(param)} restates "$firstWord" from the rule name',
   ];
   return problems.isEmpty ? null : problems.join('; ');
 }
 
-Set<String> _words(String name) => name.split(RegExp('[-_]')).toSet();
+List<String> _words(String name) => name.split(RegExp('[-_]'));

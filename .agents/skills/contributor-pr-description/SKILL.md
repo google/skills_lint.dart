@@ -35,7 +35,9 @@ Always use the following template (or a very similar structure) when drafting a 
 - Updated `BarMethod` to return `Result`.
 
 ## API surface
-[Omit if the PR changes nothing that users or callers see. See "API surface" below.]
+[Omit if the PR changes nothing that users or callers see. Names and output are hard to change once users depend on them, so reviewers check them here.]
+- [Every public type, parameter, CLI flag and config key the PR adds or changes, with its constraints (for example, "must be a positive integer").]
+- [For anything users see (CLI output, SARIF or JSON, `--help`, config keys): real before and after output, pasted from runs of the base branch and of this branch. Don't write it by hand.]
 
 ## Testing Instructions
 [Explain how reviewers can test your changes locally. Mention any manual verification steps.]
@@ -43,14 +45,6 @@ Always use the following template (or a very similar structure) when drafting a 
 - [Any specific manual testing steps]
 
 ```
-
-## API surface
-
-Names and output are hard to change once users depend on them, so get them reviewed first.
-
-- List every public type, parameter, CLI flag and config key the PR adds or changes, with its constraints (for example, "must be a positive integer").
-- For anything users see (CLI output, SARIF or JSON, `--help`, config keys), paste real before and after output from a run. Don't write it by hand.
-- Show this to the reviewer and get approval before you write the code.
 
 ## Tone and Style
 

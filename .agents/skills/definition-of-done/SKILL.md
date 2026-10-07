@@ -32,7 +32,7 @@ Before stating that a task is complete, you MUST execute and pass the following 
 10. **Citations**: Open every URL the change adds. Each URL must resolve and support the claim it is attached to. Cite the Agent Skills specification only for rules the specification states.
 11. **Comments**: Comments describe what the code does. Don't describe what isn't there, what a caller does, or work that was not done, unless someone is likely to redo it by accident.
 12. **Doc scope**: Dartdoc states what callers rely on.
-13. **API surface**: If the change adds or alters anything users or callers see, follow [API surface](../contributor-pr-description/SKILL.md#api-surface): real before and after output, approved before you write the code.
+13. **API surface**: If the change adds or alters anything users or callers see, fill in the API surface section of the [PR description](../contributor-pr-description/SKILL.md).
 
 ## 🚦 Output Formatting
 
