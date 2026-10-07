@@ -7,7 +7,7 @@
 - **Behavior change:** in `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
 - **Behavior change:** `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link.
 - Made `check-trailing-whitespace` about 20 times faster. Its diagnostics and `--fix` output are unchanged, except for the lone carriage return fix below.
-- Fixed `invalid-skill-name` `--fix` corrupting `SKILL.md`, and in some cases renaming the skill directory, when the directory name is not a valid skill name, such as `My Skill #1` or `my_skill`, or YAML reads it as another type, like `123`. The fixer now leaves both unchanged and reports the error.
+- Fixed `invalid-skill-name` `--fix` corrupting `SKILL.md`, and sometimes renaming the skill directory, when the directory name is not a valid skill name, such as `my_skill`. It now leaves both unchanged, and quotes names such as `123` that YAML reads as another type.
 - Fixed `check-trailing-whitespace` treating a lone carriage return (`\r`) as part of a line. A lone `\r` now ends a line, so running `--fix` twice gives the same result as running it once.
 - Fixed `check-relative-paths` reporting percent-encoded links, such as `[doc](my%20file.md)`, as missing when the file exists. A link that does not decode, such as `x%E9.md`, is checked as written.
 - **Behavior change:** `--fix` no longer renames a skill directory, and `--fix --dry-run` no longer proposes renaming it, to a name that is not a valid skill name or not a string, such as `my_skill` or `123` written by a custom rule's fixer.

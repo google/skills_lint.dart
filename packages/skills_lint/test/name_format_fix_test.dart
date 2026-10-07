@@ -81,12 +81,23 @@ void main() {
     // Valid skill names that a plain YAML scalar would load as a number,
     // boolean or null rather than this string.
     for (final dirName in ['123', '1e3', '0x1f', 'null', 'true', 'false']) {
-      test(
-        'leaves the file unchanged when directory "$dirName" does not load as a string',
-        () async {
-          expect(await _fix(dirName), _skillMd());
-        },
-      );
+      test('sets name to directory name "$dirName" in double quotes', () async {
+        expect(await _fix(dirName), _skillMd(name: '"$dirName"'));
+      });
+    }
+
+    for (final quote in ['"', "'"]) {
+      for (final dirName in ['my-skill', '123']) {
+        test('keeps the $quote quotes around name when setting it to "$dirName"', () async {
+          final String fixed = await NameFormatRule().fix(
+            'SKILL.md',
+            _skillMd(name: '${quote}old$quote'),
+            Directory(p.join('skills', dirName)),
+          );
+
+          expect(fixed, _skillMd(name: '$quote$dirName$quote'));
+        });
+      }
     }
   });
 
@@ -143,6 +154,27 @@ void defineCliTests() {
           _skillMd(name: 'my-skill'),
         );
         expect(dirNames(skillsDir), ['my_skill']);
+      });
+    });
+
+    test('writes a quoted name and keeps the directory for directory "123"', () async {
+      await withTempDir((skillsDir) async {
+        final Directory skillDir = await createDummySkill(
+          skillsDir,
+          name: '123',
+          skillContent: _skillMd(),
+        );
+
+        final TestProcess process = await startCli(['--fix', '-d', skillsDir.path]);
+        final String stdout = (await process.stdout.rest.toList()).join('\n');
+        await process.shouldExit(0);
+
+        expect(stdout, isNot(contains('Renamed')));
+        expect(
+          await File(p.join(skillDir.path, 'SKILL.md')).readAsString(),
+          _skillMd(name: '"123"'),
+        );
+        expect(dirNames(skillsDir), ['123']);
       });
     });
   });

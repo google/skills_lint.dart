@@ -256,12 +256,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
 
     final String targetName = basename(directory.path);
-    // The directory name replaces the `name` value without quoting, so it
-    // must load back from YAML as the same string. A valid skill name
-    // contains only lowercase letters, digits and single inner hyphens,
-    // which YAML always reads as a plain scalar, so loadYaml does not throw.
-    // Names such as `123`, `1e3` and `false` load as other types.
-    if (!isValidSkillName(targetName) || loadYaml(targetName) != targetName) {
+    if (!isValidSkillName(targetName)) {
       return currentContent;
     }
 
@@ -297,7 +292,17 @@ class NameFormatRule extends SkillRule implements FixableRule {
     final String beforeName = frontmatter.substring(0, span.start.offset);
     final String afterName = frontmatter.substring(span.end.offset);
 
-    final fixedFrontmatter = '$beforeName$targetName$afterName';
+    // A valid skill name has no quotes or backslashes, so it needs no
+    // escaping inside either quote style. Keep the quote style the name
+    // already uses. Otherwise write it plain unless YAML would read it as
+    // another type, as with `123`, `1e3` or `false`. A valid skill name is
+    // always a well-formed plain scalar, so loadYaml does not throw.
+    final String quote = switch (nameNode.style) {
+      ScalarStyle.SINGLE_QUOTED => "'",
+      ScalarStyle.DOUBLE_QUOTED => '"',
+      _ => loadYaml(targetName) == targetName ? '' : '"',
+    };
+    final fixedFrontmatter = '$beforeName$quote$targetName$quote$afterName';
     final int yamlOffset = currentContent.indexOf(frontmatter, match.start);
     return currentContent.replaceRange(
       yamlOffset,

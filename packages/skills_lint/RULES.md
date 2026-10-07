@@ -165,10 +165,11 @@ governs how changes to these rules ship.
 - **Auto-fix behavior:** when the only violation is a directory
   mismatch, the fixer rewrites the frontmatter `name:` value to
   match the parent directory name. It only writes a directory name
-  that is itself a valid skill name and that YAML reads back as the
-  same string. For any other directory name, such as `my_skill`,
-  `My Skill #1`, `123` or `true`, it leaves the file unchanged and
-  the error is still reported. Other violations
+  that is itself a valid skill name. It keeps the quotes the value
+  already has, and double-quotes a name such as `123` or `true` that
+  YAML would otherwise read as a number or boolean. For any other
+  directory name, such as `my_skill` or `My Skill #1`, it leaves the
+  file unchanged and the error is still reported. Other violations
   (invalid characters, length, etc.) are not auto-fixed because the
   normalization is a suggestion and the author may want a different
   name entirely.
