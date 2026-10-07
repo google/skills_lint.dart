@@ -13,6 +13,7 @@ import 'package:path/path.dart' as p;
 
 import 'archive.dart';
 import 'checksums.dart';
+import 'homebrew_formula.dart';
 import 'install_script.dart';
 import 'licenses.dart';
 import 'paths.dart';
@@ -32,6 +33,7 @@ Future<int> runRelease(List<String> arguments) async {
     ..addCommand(_PackageCommand())
     ..addCommand(_LicensesCommand())
     ..addCommand(_ChecksumsCommand())
+    ..addCommand(_HomebrewFormulaCommand())
     ..addCommand(_InstallScriptCommand())
     ..addCommand(_PrepareCommand());
   try {
@@ -136,6 +138,39 @@ class _ChecksumsCommand extends _ReleaseCommand {
       usageException('Give one directory.');
     }
     stdout.write(mergeChecksums(Directory(rest.single)).readAsStringSync());
+  }
+}
+
+class _HomebrewFormulaCommand extends _ReleaseCommand {
+  _HomebrewFormulaCommand() {
+    argParser
+      ..addOption('version', mandatory: true, help: 'The released version.')
+      ..addOption('sha256sums', mandatory: true, help: "The release's $sha256SumsName file.");
+  }
+
+  @override
+  String get name => 'homebrew-formula';
+
+  @override
+  String get description =>
+      'Sets the version of Formula/skills_lint.rb and the sha256 of each archive from '
+      '$sha256SumsName, and removes its PLACEHOLDER comments.';
+
+  @override
+  Future<void> run() async {
+    noRest();
+    final formula = File(p.join(repoRoot, 'Formula', 'skills_lint.rb'));
+    if (!formula.existsSync()) {
+      throw ReleaseException('${formula.path} does not exist.');
+    }
+    formula.writeAsStringSync(
+      updateFormula(
+        formula.readAsStringSync(),
+        version: option('version'),
+        checksums: parseSha256Sums(File(option('sha256sums')).readAsStringSync()),
+      ),
+    );
+    stdout.writeln('Updated ${formula.path} to ${option('version')}.');
   }
 }
 

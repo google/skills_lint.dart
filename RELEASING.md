@@ -60,6 +60,10 @@ The run on the tag:
    package to pub.dev, unless pub.dev has the version.
 3. Checks the attestations of the draft's files again, then publishes the
    draft release.
+4. Unless the release is a prerelease, checks the published archives again
+   and opens a pull request that updates the Homebrew formula to the release.
+   [`Formula/README.md`](Formula/README.md#release-automation) describes it.
+   Review and merge that pull request; nothing pushes to `main`.
 
 pub.dev accepts a publish only from a workflow run on a tag that matches
 `skills_lint-v{{version}}`, so publishing needs the second run. The comment on
@@ -169,6 +173,10 @@ platform. The rest follows from that list:
 - `release package --target` accepts only its targets.
 - `install.sh` finds the archive for the machine in the release's
   `SHA256SUMS`, and names the release's platforms when there is none.
+- `repo_test/homebrew_formula_test.dart` fails until
+  [`Formula/skills_lint.rb`](Formula/skills_lint.rb) and
+  `.github/workflows/homebrew.yaml` have each macOS and Linux target on arm64
+  and x64. Homebrew cannot install other targets.
 
 The minimum macOS version comes from the Dart SDK used for the build: Dart
 3.11 and later target macOS 14
@@ -177,7 +185,8 @@ so a Dart upgrade can raise it. It is the `minos` of the `LC_BUILD_VERSION`
 load command in the built executable, which `vtool -show-build <executable>`
 prints. `release package` fails if that value differs from
 `macosMinimumVersion` in `release/lib/src/macho.dart`. When it changes, update
-that constant, `MIN_MACOS_VERSION` in `install.sh`, the README and this file.
+that constant, `MIN_MACOS_VERSION` in `install.sh`, `depends_on macos:` in
+`Formula/skills_lint.rb`, the README and this file.
 
 There is no Windows executable yet; see
 [issue #86](https://github.com/google/skills_lint.dart/issues/86).
@@ -199,6 +208,7 @@ dart run bin/release.dart --help
 | `checksums` | Checks each `.sha256` file in a directory and merges them into `SHA256SUMS`. |
 | `install-script` | Writes `install.sh` with the `pubspec.yaml` version as the version it installs by default. |
 | `licenses` | Writes the license notices for the executable. |
+| `homebrew-formula` | Sets the `version` of `Formula/skills_lint.rb` and the `sha256` of each archive from a release's `SHA256SUMS`, and removes its `PLACEHOLDER` comments. |
 
 When the workflow moves to a new Dart SDK, check the Dart runtime licenses
 described in

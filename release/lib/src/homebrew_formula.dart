@@ -1,0 +1,122 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+/// Updates the Homebrew formula in `Formula/skills_lint.rb` to a release.
+///
+/// `Formula/README.md` specifies the release automation that runs this, and
+/// `packages/skills_lint/repo_test/homebrew_formula_test.dart` checks the
+/// formula that it writes.
+library;
+
+import 'release_exception.dart';
+
+/// The `version` line of the formula, with an optional trailing comment.
+final RegExp _versionLine = RegExp(r'^(\s*)version "[^"]*"(\s*#.*)?$');
+
+/// A `url` line of the formula that names a release archive, which group 1
+/// captures.
+final RegExp _archiveUrlLine = RegExp(r'^\s*url "[^"]*/(skills_lint-[a-z0-9-]+\.tar\.gz)"\s*$');
+
+/// A `sha256` line, with an optional trailing comment.
+final RegExp _sha256Line = RegExp(r'^(\s*)sha256 "[^"]*"(\s*#.*)?$');
+
+final RegExp _releaseVersion = RegExp(r'^\d+\.\d+\.\d+$');
+
+/// Returns the checksum of each file that [sha256Sums], the text of a
+/// `SHA256SUMS` file, lists, keyed by file name.
+///
+/// Throws a [ReleaseException] if a line is not `<64 hex digits>  <name>`.
+Map<String, String> parseSha256Sums(String sha256Sums) {
+  final line = RegExp(r'^([0-9a-f]{64})  (\S+)$');
+  final Map<String, String> checksums = {};
+  for (final String text in sha256Sums.split('\n')) {
+    if (text.trim().isEmpty) {
+      continue;
+    }
+    final RegExpMatch? match = line.firstMatch(text);
+    if (match == null) {
+      throw ReleaseException('SHA256SUMS has a line that is not "<sha256>  <name>": $text');
+    }
+    checksums[match.group(2)!] = match.group(1)!;
+  }
+  return checksums;
+}
+
+/// Returns [formula] with its `version` set to [version] and the `sha256`
+/// after each archive `url` set to that archive's checksum in [checksums].
+///
+/// Each `url` names an archive, and the `sha256` line after it is that
+/// archive's checksum; the formula test checks this pairing. The formula's
+/// `PLACEHOLDER` comments, which the first release removes, go too: the
+/// trailing comment of each line that this changes, and the header
+/// paragraph that starts with `# PLACEHOLDER:`.
+///
+/// Throws a [ReleaseException] if [version] is not `<major>.<minor>.<patch>`,
+/// the formula has no `version` or no archive `url`, a `url` has no `sha256`
+/// line after it, [checksums] has no checksum for an archive, or a
+/// `PLACEHOLDER` comment remains.
+String updateFormula(
+  String formula, {
+  required String version,
+  required Map<String, String> checksums,
+}) {
+  if (!_releaseVersion.hasMatch(version)) {
+    throw ReleaseException(
+      'Homebrew installs releases only, and $version is not <major>.<minor>.<patch>.',
+    );
+  }
+  final List<String> lines = _withoutPlaceholderHeader(formula.split('\n'));
+  var versions = 0;
+  var archives = 0;
+  for (var i = 0; i < lines.length; i++) {
+    if (_versionLine.firstMatch(lines[i]) case final RegExpMatch match) {
+      lines[i] = '${match.group(1)}version "$version"';
+      versions++;
+    } else if (_archiveUrlLine.firstMatch(lines[i]) case final RegExpMatch match) {
+      lines[i + 1] = _sha256For(lines, i + 1, match.group(1)!, checksums);
+      archives++;
+    }
+  }
+  if (versions != 1 || archives == 0) {
+    throw ReleaseException(
+      'The formula has $versions version lines and $archives archive urls; '
+      'expected one version line and at least one url.',
+    );
+  }
+  final String updated = lines.join('\n');
+  if (updated.contains('PLACEHOLDER')) {
+    throw ReleaseException(
+      'The formula has a PLACEHOLDER comment that this command does not remove.',
+    );
+  }
+  return updated;
+}
+
+String _sha256For(List<String> lines, int index, String archive, Map<String, String> checksums) {
+  final RegExpMatch? line = index < lines.length ? _sha256Line.firstMatch(lines[index]) : null;
+  if (line == null) {
+    throw ReleaseException('The url of $archive is not followed by a sha256 line.');
+  }
+  final String? checksum = checksums[archive];
+  if (checksum == null) {
+    throw ReleaseException('SHA256SUMS has no checksum for $archive.');
+  }
+  return '${line.group(1)}sha256 "$checksum"';
+}
+
+/// Returns [lines] without the comment paragraph that starts with
+/// `# PLACEHOLDER:`, and without the `#` line that separates it from the
+/// comment above.
+List<String> _withoutPlaceholderHeader(List<String> lines) {
+  final int start = lines.indexWhere((line) => line.startsWith('# PLACEHOLDER:'));
+  if (start == -1) {
+    return lines;
+  }
+  var end = start;
+  while (end < lines.length && lines[end].startsWith('#')) {
+    end++;
+  }
+  final int from = start > 0 && lines[start - 1] == '#' ? start - 1 : start;
+  return [...lines.sublist(0, from), ...lines.sublist(end)];
+}

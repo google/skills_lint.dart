@@ -12,7 +12,8 @@
 #   workflow on the tag with `release`.
 # - The run on the tag checks the draft, publishes the package to pub.dev,
 #   then publishes the draft. pub.dev accepts a publish only from a run on the
-#   tag.
+#   tag. For a release that is not a prerelease, it then opens a pull request
+#   that updates the Homebrew formula; see Formula/README.md.
 #
 # The `prepare` job works out which of these a run does; see
 # release/lib/src/release_info.dart. The steps run the `release` command in
@@ -426,3 +427,105 @@ jobs:
           done
           gh release edit "$TAG" --draft=false
           echo "Published $TAG to pub.dev and [GitHub]($(gh release view "$TAG" --json url --jq .url))." >> "$GITHUB_STEP_SUMMARY"
+
+  # Formula/README.md specifies these two jobs. Prereleases are skipped,
+  # because Homebrew installs the formula for every user.
+  homebrew-formula:
+    name: Update the Homebrew formula
+    needs: [prepare, publish]
+    if: needs.prepare.outputs.prerelease != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      attestations: read # gh attestation verify fetches them from this repository's API.
+    steps:
+      # The formula on main, not on the tag: main can have formula changes
+      # made after the tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - name: Check the published assets
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          gh release download "$TAG" --dir "$RUNNER_TEMP/assets"
+          cd "$RUNNER_TEMP/assets"
+          sha256sum --check --strict SHA256SUMS
+          for asset in *; do
+            gh attestation verify "$asset" -R "$GH_REPO" \
+              --signer-workflow "$GH_REPO/.github/workflows/release.yaml" --source-ref refs/heads/main
+          done
+      - name: Update the formula
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          dart pub get
+          dart run bin/release.dart homebrew-formula --version "$VERSION" \
+            --sha256sums "$RUNNER_TEMP/assets/SHA256SUMS"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: homebrew-formula
+          path: Formula/skills_lint.rb
+          if-no-files-found: error
+          retention-days: 7
+
+  # Runs no Dart code, so that no code from pub runs with write permissions.
+  homebrew-pull-request:
+    name: Open the Homebrew formula pull request
+    needs: [prepare, homebrew-formula]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Push the formula branch.
+      pull-requests: write # Open the pull request.
+      actions: write # Start homebrew.yaml on the branch.
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: homebrew-formula
+          path: Formula
+      # GitHub starts the pull_request runs of a pull request that
+      # GITHUB_TOKEN opens only after a maintainer approves them, so this
+      # starts homebrew.yaml on the branch, which reports the Homebrew check
+      # on the same commit. Opening the pull request needs the setting "Allow
+      # GitHub Actions to create and approve pull requests"; without it, the
+      # summary links to opening it by hand.
+      - name: Push the branch and open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          branch="homebrew/$TAG"
+          title="Update the Homebrew formula to $VERSION"
+          git switch -c "$branch"
+          git add Formula/skills_lint.rb
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "$title"
+          gh auth setup-git
+          git push origin "$branch"
+          gh workflow run homebrew.yaml --ref "$branch"
+          body="Updates Formula/skills_lint.rb to the $TAG release. The release workflow checked each archive against SHA256SUMS and its attestation. Select **Approve workflows to run** to start the pull request's other checks. Formula/README.md lists the first-release steps."
+          if ! gh pr create --base main --head "$branch" --title "$title" --body "$body"; then
+            compare="$GITHUB_SERVER_URL/$GH_REPO/compare/main...$branch?expand=1"
+            echo "Could not open the pull request. Open it at $compare" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Could not open the pull request. Open it at $compare"
+            exit 1
+          fi
