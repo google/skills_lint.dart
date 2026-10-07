@@ -177,6 +177,10 @@ summary also times each rule on its own. If you add a rule, check its
 time there. To run the benchmarks locally or to read the report, see
 [`packages/skills_lint/benchmark/README.md`](packages/skills_lint/benchmark/README.md).
 
+## Releasing
+
+See [RELEASING.md](RELEASING.md).
+
 ## Community Guidelines
 
 This project follows

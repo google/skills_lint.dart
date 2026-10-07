@@ -11,7 +11,7 @@ import 'src/package_directories.dart';
 
 /// Pins the BSD copyright header to every Dart source file in the package.
 ///
-/// Every `.dart` file in `lib/`, `bin/`, and `test/` must begin with the
+/// Every `.dart` file under [dartSourceDirectories] must begin with the
 /// standard three-line copyright block. The year is not pinned — any four-digit
 /// year is accepted — but the rest of the text is matched exactly.
 
