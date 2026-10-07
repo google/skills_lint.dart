@@ -86,9 +86,12 @@ void main() {
     final workflow = loadYaml(_read('.github/workflows/homebrew.yaml')) as YamlMap;
     final tap = (workflow['env'] as YamlMap)['TAP'] as String;
     final String name = p.basenameWithoutExtension(formulaPath);
-    final String readme = _read('packages/skills_lint/README.md');
-    expect(readme, contains('brew tap $tap https://github.com/google/skills_lint.dart\n'));
-    expect(readme, contains('brew install $tap/$name\n'));
+    final List<String> readmeLines = [
+      for (final String line in _read('packages/skills_lint/README.md').split('\n'))
+        line.trimRight(),
+    ];
+    expect(readmeLines, contains('brew tap $tap https://github.com/google/skills_lint.dart'));
+    expect(readmeLines, contains('brew install $tap/$name'));
   });
 }
 
