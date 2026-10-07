@@ -309,10 +309,16 @@ $ruleYaml
     }
   });
 
+  defineCliTests();
+}
+
+/// Defines the tests that start the CLI. [main] calls this, and
+/// `compiled_test/cli_test.dart` calls it again to run the same tests
+/// against the compiled binary.
+void defineCliTests() {
   group('CLI $_flag', () {
     late Directory tempDir;
     late String skillPath;
-    final String binPath = p.normalize(p.absolute('bin/skills_lint.dart'));
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('description_limit_test.');
@@ -339,16 +345,11 @@ $rule
     }
 
     Future<TestProcess> run(List<String> args) {
-      return TestProcess.start('dart', [
-        binPath,
-        '-s',
-        skillPath,
-        ...args,
-      ], workingDirectory: tempDir.path);
+      return startCli(['-s', skillPath, ...args], workingDirectory: tempDir.path);
     }
 
     test('--help lists the flag', () async {
-      final TestProcess process = await TestProcess.start('dart', [binPath, '--help']);
+      final TestProcess process = await startCli(['--help']);
 
       await process.shouldExit(0);
       final String stdout = (await process.stdout.rest.toList()).join('\n');

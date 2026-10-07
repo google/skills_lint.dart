@@ -54,20 +54,27 @@ jobs:
       - run: dart analyze --fatal-infos
 
       - name: Run cognitive complexity check
-        run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/repo_test packages/skills_lint/example packages/skills_lint/skills packages/skills_lint/benchmark .agents/skills
+        run: dart run cognitive_complexity --fail-threshold 20 packages/skills_lint/bin packages/skills_lint/lib packages/skills_lint/test packages/skills_lint/repo_test packages/skills_lint/compiled_test packages/skills_lint/example packages/skills_lint/skills packages/skills_lint/benchmark .agents/skills
         working-directory: .
 
       # One step per test directory, so a failure names its kind. See "Where
-      # tests go" in CONTRIBUTING.md. Plain `dart test` runs test/ only. The
-      # repo test step also runs when the product tests fail, so one run
-      # reports both kinds of failure.
+      # tests go" in CONTRIBUTING.md. Plain `dart test` runs test/ only. Each
+      # later test step also runs when an earlier test step fails, so one run
+      # reports every kind of failure.
       - name: Run tests
         id: product_tests
         run: dart test
 
       - name: Run repo tests
+        id: repo_tests
         if: success() || steps.product_tests.conclusion == 'failure'
         run: dart test repo_test
+
+      # Compiles the CLI the way a release does and runs the CLI tests from
+      # test/ against the binary.
+      - name: Run compiled CLI tests
+        if: success() || steps.product_tests.conclusion == 'failure' || steps.repo_tests.conclusion == 'failure'
+        run: dart test compiled_test
 
       - name: Verify example
         run: dart run example/main.dart
