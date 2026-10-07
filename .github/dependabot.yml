@@ -13,6 +13,14 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    # Dependabot proposes a version only after it has been out this many
+    # days, so a compromised release has time to be found and pulled first.
+    # 7 is the minimum that zizmor's dependabot-cooldown audit accepts by
+    # default: https://docs.zizmor.sh/audits/#dependabot-cooldown
+    # GitHub Actions updates support only default-days, not the semver-*-days
+    # keys: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#cooldown-
+    cooldown:
+      default-days: 7
     # Pin updates are internal-only changes. See "Changelog" in
     # .agents/skills/definition-of-done/SKILL.md.
     labels:
