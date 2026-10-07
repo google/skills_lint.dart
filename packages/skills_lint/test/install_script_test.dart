@@ -416,7 +416,7 @@ void main() {
       await process.shouldExit(1);
     });
 
-    test('fails on linux-arm64, which has no published binary', () async {
+    test('fails on linux-arm64 when the release has no linux-arm64 binary', () async {
       await _createMockRelease(
         tempDir: tempDir,
         mockReleaseDir: mockReleaseDir,

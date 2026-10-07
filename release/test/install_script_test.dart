@@ -53,7 +53,13 @@ echo "$MOCK_SW_VERS"
 /// The `uname -s` and `uname -m` output of a machine that runs [target].
 (String, String) _unameFor(String target) {
   final [String os, String arch] = target.split('-');
-  return (os == 'macos' ? 'Darwin' : 'Linux', arch == 'x64' ? 'x86_64' : arch);
+  return switch ((os, arch)) {
+    ('macos', 'x64') => ('Darwin', 'x86_64'),
+    ('macos', _) => ('Darwin', arch),
+    (_, 'x64') => ('Linux', 'x86_64'),
+    (_, 'arm64') => ('Linux', 'aarch64'),
+    _ => ('Linux', arch),
+  };
 }
 
 void main() {
@@ -129,20 +135,30 @@ void main() {
     });
   }
 
-  // A platform that install.sh recognizes and the release has no archive for.
-  final String? other = [
-    for (final os in ['linux', 'macos'])
-      for (final arch in ['arm64', 'x64']) '$os-$arch',
-  ].where((String target) => !supportedTargets.contains(target)).firstOrNull;
-  test('names the platforms that the release has archives for on any other machine', () async {
-    final ProcessResult result = await install(other!);
-    expect(result.exitCode, 1, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
-    final RegExpMatch? published = RegExp(
-      "no published binary for platform '$other'.*Published platforms: (.+)\\.\$",
-      multiLine: true,
-    ).firstMatch(result.stderr as String);
-    expect(published?.group(1)?.split(', '), unorderedEquals(supportedTargets));
-  }, skip: other == null ? 'Every platform that install.sh recognizes has an archive.' : null);
+  test(
+    'names the platforms that the release has archives for on a machine it has none for',
+    () async {
+      // A release without the archive of the first target.
+      final String missing = supportedTargets.first;
+      final sums = File(p.join(release.path, 'SHA256SUMS'));
+      sums.writeAsStringSync(
+        sums
+            .readAsLinesSync()
+            .where((String line) => !line.endsWith(archiveName(missing)))
+            .map((String line) => '$line\n')
+            .join(),
+      );
+      File(p.join(release.path, archiveName(missing))).deleteSync();
+
+      final ProcessResult result = await install(missing);
+      expect(result.exitCode, 1, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+      final RegExpMatch? published = RegExp(
+        "no published binary for platform '$missing'.*Published platforms: (.+)\\.\$",
+        multiLine: true,
+      ).firstMatch(result.stderr as String);
+      expect(published?.group(1)?.split(', '), unorderedEquals(supportedTargets.skip(1)));
+    },
+  );
 
   test('refuses a Mac older than the minimum macOS version of the executables', () async {
     final int major = int.parse(macosMinimumVersion.split('.').first);

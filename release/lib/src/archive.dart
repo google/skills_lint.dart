@@ -36,6 +36,9 @@ const List<ReleaseTarget> releaseTargets = [
   // newest standard Intel macOS image.
   (name: 'macos-x64', abi: Abi.macosX64, runner: 'macos-26-intel'),
   (name: 'linux-x64', abi: Abi.linuxX64, runner: 'ubuntu-latest'),
+  // GitHub has no `ubuntu-latest` label for arm64, so this names the arm64
+  // image of the Ubuntu version that `ubuntu-latest` runs.
+  (name: 'linux-arm64', abi: Abi.linuxArm64, runner: 'ubuntu-24.04-arm'),
 ];
 
 /// The names of [releaseTargets].
