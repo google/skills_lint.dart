@@ -67,7 +67,7 @@ Package-wide quality expectations are structured into modular rubric files locat
 
 - **Package Code Quality (`evals/code_quality_rubric.json`)**: Skills that author or modify code MUST adhere to the code quality expectations defined in `code_quality_rubric.json`. This ensures that generated code compiles cleanly, adheres to Effective Dart, works across platforms, and is placed in standard canonical directories.
 - **Evaluation Quality (`evals/eval_quality_rubric.json`)**: Skills that author or modify evaluation suites MUST adhere to `eval_quality_rubric.json`.
-- **Dart-Only Implementation Policy**: All test fixtures, validation scripts, evaluation harnesses, benchmark scripts, and reference tooling across this repository must be authored exclusively in Dart. Python, JavaScript, TypeScript, or other scripting languages are strictly forbidden. The one exception is the Ruby Homebrew formula `Formula/skills-lint.rb`; [Rejected Architectural Anti-Patterns](../documentation/knowledge/architecture_overview.md#-rejected-architectural-anti-patterns) gives the reason.
+- **Dart-Only Implementation Policy**: All test fixtures, validation scripts, evaluation harnesses, benchmark scripts, and reference tooling across this repository must be authored exclusively in Dart. Python, JavaScript, TypeScript, or other scripting languages are strictly forbidden. The one exception is the Ruby Homebrew formula `Formula/skills_lint.rb`; [Rejected Architectural Anti-Patterns](../documentation/knowledge/architecture_overview.md#-rejected-architectural-anti-patterns) gives the reason.
 
 ## 🚀 Validating Evals Locally
 
