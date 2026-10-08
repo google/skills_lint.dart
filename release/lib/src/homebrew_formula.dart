@@ -34,10 +34,11 @@ final RegExp _releaseVersion = RegExp(r'^\d+\.\d+\.\d+(?:\+\d+)?$');
 /// comment.
 ///
 /// Throws a [ReleaseException] if [version] is not
-/// `<major>.<minor>.<patch>` or `<major>.<minor>.<patch>+<build>`, the formula doesn't have exactly one `version`
-/// line or has no archive `url`, a `url` is not followed by a `sha256` line,
-/// a `sha256` line follows no archive `url` that it reads, [checksums] has
-/// no checksum for an archive, or the result still contains `PLACEHOLDER`.
+/// `<major>.<minor>.<patch>` with an optional numeric `+<build>`, the formula
+/// doesn't have exactly one `version` line or has no archive `url`, a `url`
+/// is not followed by a `sha256` line, a `sha256` line follows no archive
+/// `url` that it reads, [checksums] has no checksum for an archive, or the
+/// result still contains `PLACEHOLDER`.
 String updateFormula(
   String formula, {
   required String version,
@@ -46,7 +47,7 @@ String updateFormula(
   if (!_releaseVersion.hasMatch(version)) {
     throw ReleaseException(
       'Homebrew installs releases only, and $version is not <major>.<minor>.<patch> with an '
-      'optional +<build>.',
+      'optional numeric +<build>.',
     );
   }
   final List<String> lines = _withoutPlaceholderHeader(formula.split('\n'));
