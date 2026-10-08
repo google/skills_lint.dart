@@ -6,11 +6,12 @@
 - When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
 - **Behavior change:** in `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
 - **Behavior change:** `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link.
-- Made `check-trailing-whitespace` about 20 times faster. Its diagnostics and `--fix` output are unchanged, except for the lone carriage return fix below.
-- Fixed `invalid-skill-name` `--fix` corrupting `SKILL.md`, and sometimes renaming the skill directory, when the directory name is not a valid skill name, such as `my_skill`. It now leaves both unchanged, and quotes names such as `123` that YAML reads as another type.
-- Fixed `check-trailing-whitespace` treating a lone carriage return (`\r`) as part of a line. A lone `\r` now ends a line, so running `--fix` twice gives the same result as running it once.
-- Fixed `check-relative-paths` reporting percent-encoded links, such as `[doc](my%20file.md)`, as missing when the file exists. A link that does not decode, such as `x%E9.md`, is checked as written.
-- **Behavior change:** `--fix` no longer renames a skill directory, and `--fix --dry-run` no longer proposes renaming it, to a name that is not a valid skill name or not a string, such as `my_skill` or `123` written by a custom rule's fixer.
+- Made `check-trailing-whitespace` about 20 times faster. Its diagnostics and `--fix` output are unchanged, except for the lone carriage return change below.
+- Fixed `invalid-skill-name` `--fix` writing a directory name that YAML misreads, and then renaming the directory to the misread name: `My Skill #1` became `My Skill`, and `0x1f` became `31`. A name such as `0x1f` is written in quotes.
+- **Behavior change:** `invalid-skill-name` `--fix` writes only a directory name that is a valid skill name. For a directory such as `my_skill`, it leaves `name` unchanged and reports the mismatch.
+- **Behavior change:** `check-trailing-whitespace` treats a lone carriage return (`\r`) as a line break. It reports trailing whitespace before one, and running `--fix` twice gives the same result as running it once.
+- **Behavior change:** `check-relative-paths` decodes percent escapes before it looks for the file, so `[doc](my%20file.md)` resolves to `my file.md`. A file named literally `my%20file.md` no longer matches it.
+- **Behavior change:** after a custom rule's fixer changes `name`, `--fix` renames the skill directory, and `--fix --dry-run` proposes the rename, only to a valid skill name that YAML reads as a string. It does not rename to `my_skill` or to an unquoted `123`.
 - Added a `--version` flag that prints the skills_lint version.
 
 ## 0.5.2
