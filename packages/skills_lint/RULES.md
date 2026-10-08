@@ -53,12 +53,10 @@ governs how changes to these rules ship.
 - **What it checks:** inline Markdown links in `SKILL.md` with
   relative targets resolve to files that actually exist on disk.
   Web URLs, anchors, `mailto:`, `javascript:`, and `data:` links are
-  skipped. Percent escapes in the link are decoded first, so
-  `my%20file.md` resolves to `my file.md`. `a%2Fb.md` resolves to
-  `a/b.md`, which matches how GitHub serves such links.
-  A link whose escapes are not valid UTF-8, such as `x%E9.md`, or
-  that has a `%` not followed by two hex digits, such as `bad%zz.md`,
-  is checked as written.
+  skipped. Percent escapes are decoded first, as on GitHub, so
+  `my%20file.md` resolves to `my file.md` and `a%2Fb.md` to `a/b.md`.
+  A link that does not decode to a relative path, such as `x%E9.md`
+  or `%2Fetc%2Fpasswd`, is checked as written.
 - **Diagnostic shape:**
   `Linked file does not exist: <path> (resolved to <absolute path>). Did you mean "<sibling>"?`
   The `Did you mean` clause is only included when a near-miss file

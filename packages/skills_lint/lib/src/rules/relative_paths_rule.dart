@@ -94,10 +94,9 @@ class RelativePathsRule extends SkillRule {
   /// percent escapes decoded, or `null` if [path] is a URL with a scheme or
   /// an anchor.
   ///
-  /// A [path] that is not a valid URI, or whose escapes are not valid UTF-8
-  /// such as `%E9`, is returned as written. [Uri.tryParse] rewrites a `%` that
-  /// does not start an escape, as in `%zz`, to `%25`, so such a link decodes
-  /// to the path as written.
+  /// A [path] that is not a valid URI, whose escapes are not valid UTF-8,
+  /// such as `%E9`, or that decodes to an absolute path or to one with a NUL,
+  /// is returned as written.
   static String? _filePathOf(String path) {
     final Uri? uri = Uri.tryParse(path);
     if (uri == null) {
@@ -106,11 +105,20 @@ class RelativePathsRule extends SkillRule {
     if (uri.hasScheme || path.startsWith('#')) {
       return null;
     }
+    final String decoded;
     try {
-      return Uri.decodeComponent(uri.path);
+      decoded = Uri.decodeComponent(uri.path);
     } on FormatException {
+      // Uri.tryParse turns a % that starts no escape into %25, so only invalid
+      // UTF-8, such as %E9, makes decoding fail.
       return path;
     }
+    // join would ignore the skill directory for an absolute path, and
+    // File.existsSync ignores everything after a NUL.
+    if (isAbsolute(decoded) || decoded.contains('\u0000')) {
+      return path;
+    }
+    return decoded;
   }
 }
 

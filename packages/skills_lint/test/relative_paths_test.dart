@@ -330,6 +330,20 @@ void main() {
         final ValidationResult result = await validateLink('x%E9.md');
         expect(result.errors, [contains('Linked file does not exist: x%E9.md')]);
       });
+
+      test('reports a link that decodes to an absolute path as missing', () async {
+        final String target = p.join(tempDir.path, 'outside.md');
+        await File(target).writeAsString('doc');
+
+        final ValidationResult result = await validateLink(Uri.encodeComponent(target));
+
+        expect(result.errors, [contains('Linked file does not exist')]);
+      });
+
+      test('reports a link with an encoded NUL as missing', () async {
+        final ValidationResult result = await validateLink('a.md%00b', existingFile: 'a.md');
+        expect(result.errors, [contains('Linked file does not exist: a.md%00b')]);
+      });
     });
   });
 }
