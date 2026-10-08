@@ -42,7 +42,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final YamlMap yaml = context.parsedYaml!;
     final YamlNode? nameNode = getNameNode(yaml);
-    final String skillName = nameNode?.value?.toString() ?? '';
+    final String skillName = nameText(nameNode) ?? '';
 
     if (skillName.isEmpty) {
       return errors; // Handled by required fields check
@@ -318,6 +318,18 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
     return null;
   }
+
+  /// Returns the `name` value in [node] as text, or `null` if [node] is
+  /// missing or holds YAML null.
+  ///
+  /// The spec defines a name as text, so a plain scalar is read as written:
+  /// `name: 1e3` gives `1e3`, not YAML's reading of it, `1000.0`.
+  static String? nameText(YamlNode? node) => switch (node) {
+    YamlScalar(value: final String name) => name,
+    YamlScalar(value: null) => null,
+    YamlScalar(:final SourceSpan span) => span.text.trim(),
+    _ => node?.value?.toString(),
+  };
 
   /// Whether [name] is a valid skill name: lowercase ASCII letters, digits
   /// and hyphens, from 1 to [maxNameLength] characters, with no leading,

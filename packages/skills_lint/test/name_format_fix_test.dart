@@ -50,6 +50,36 @@ void main() {
     }
   });
 
+  group('NameFormatRule.nameText', () {
+    for (final (String name, String text) in [
+      ('123', '123'),
+      ('true', 'true'),
+      ('1e3', '1e3'),
+      ('0x1f', '0x1f'),
+      ("'123'", '123'),
+    ]) {
+      test('reads name: $name as "$text"', () {
+        final SkillContext context = createTestSkillContext(
+          directory: Directory(p.join('skills', 'my-skill')),
+          name: name,
+        );
+
+        expect(NameFormatRule.nameText(NameFormatRule.getNameNode(context.parsedYaml!)), text);
+      });
+    }
+
+    for (final name in ['1e3', '0x1f']) {
+      test('lets validate pass name: $name in directory "$name"', () async {
+        final SkillContext context = createTestSkillContext(
+          directory: Directory(p.join('skills', name)),
+          name: name,
+        );
+
+        expect(await NameFormatRule().validate(context), isEmpty);
+      });
+    }
+  });
+
   group('NameFormatRule.fix', () {
     for (final String dirName in ['my-skill', 'a1-b2', 'a' * NameFormatRule.maxNameLength]) {
       test('sets name to directory name "$dirName", a valid skill name', () async {

@@ -151,6 +151,9 @@ governs how changes to these rules ship.
   - only lowercase letters, digits, and hyphens
   - has no leading, trailing, or consecutive hyphens
   - exactly equal to the parent directory's name
+
+  The value counts as the text written, so `name: 1e3` is `1e3`,
+  not the number `1000.0` that YAML reads.
 - **Diagnostic shape:** each violation produces a separate error
   message naming the frontmatter `name:` field explicitly,
   quoting the offending value, and suggesting a normalized form

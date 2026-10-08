@@ -266,12 +266,21 @@ void main() {
       expect(skillDirNames(), ['new-skill']);
     });
 
-    test('renames the directory when the original name loads as a number', () async {
-      final String stdout = await fixWithName('new-skill', oldName: '123', dryRun: false);
+    for (final oldName in ['123', 'true']) {
+      test('renames the directory when the original name is $oldName', () async {
+        final String stdout = await fixWithName('new-skill', oldName: oldName, dryRun: false);
 
-      expect(stdout, contains('Renamed skill directory: 123 -> new-skill'));
-      expect(skillDirNames(), ['new-skill']);
-    });
+        expect(stdout, contains('Renamed skill directory: $oldName -> new-skill'));
+        expect(skillDirNames(), ['new-skill']);
+      });
+
+      test('dry run proposes renaming the directory when the original name is $oldName', () async {
+        final String stdout = await fixWithName('new-skill', oldName: oldName, dryRun: true);
+
+        expect(stdout, contains('[Dry Run] Proposed directory rename: $oldName -> new-skill'));
+        expect(skillDirNames(), [oldName]);
+      });
+    }
 
     test('dry run proposes renaming the directory to a valid skill name', () async {
       final String stdout = await fixWithName('new-skill', dryRun: true);
