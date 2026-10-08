@@ -61,7 +61,8 @@ The run on the tag:
 3. Checks the attestations of the draft's files again, then publishes the
    draft release.
 4. Unless the release is a prerelease, checks the published archives again
-   and opens a pull request that updates the Homebrew formula to the release.
+   and pushes the branch `homebrew/skills_lint-v<version>`, which updates the
+   Homebrew formula to the release.
    [Release automation](#release-automation) describes it.
 
 pub.dev accepts a publish only from a workflow run on a tag that matches
@@ -228,18 +229,15 @@ are skipped.
   checks them with `sha256sum --check --strict` and `gh attestation verify`,
   and runs `release homebrew-formula` on the formula from `main`. It has
   read-only permissions.
-- `homebrew-pull-request` pushes the result to the branch
-  `homebrew/skills_lint-v<version>` and opens a pull request. It never pushes
-  to `main`. GitHub does not start `pull_request` runs for a pull request
-  that `GITHUB_TOKEN` opens until a maintainer selects **Approve workflows to
-  run**, so the job also starts `homebrew.yaml` on the branch, which reports
-  the `Homebrew` check. If the repository does not
-  [allow GitHub Actions to open pull requests](#repository-settings), the job
-  writes a link to open it by hand in the job summary.
+- `homebrew-branch` pushes the result to the branch
+  `homebrew/skills_lint-v<version>` and writes a link to open a pull request
+  from it in the job summary. It never pushes to `main`. The branch starts
+  from `main` as it is when the job runs and holds one commit, so the link,
+  which compares it with `main`, shows exactly the formula update.
 
-Review and merge that pull request like any other. A GitHub App or personal
-access token would start the other checks without the approval click, at the
-cost of a secret to store and rotate.
+Open that pull request, then review and merge it like any other. The job
+doesn't open it, because that needs the setting that also lets workflows
+approve pull requests.
 
 ### Update the formula by hand
 
@@ -354,11 +352,3 @@ These need a repository admin.
   `@reidbaker-agent`, the owner of every other file, to approve every other
   pull request, including its own, which GitHub does not allow.
 
-- **Allow the release automation to open pull requests:**
-
-  ```bash
-  gh api -X PUT repos/google/skills_lint.dart/actions/permissions/workflow \
-    -F can_approve_pull_request_reviews=true
-  ```
-
-  It fails with HTTP 409 if the organization does not allow the setting.

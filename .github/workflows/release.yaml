@@ -12,7 +12,7 @@
 #   workflow on the tag with `release`.
 # - The run on the tag checks the draft, publishes the package to pub.dev,
 #   then publishes the draft. pub.dev accepts a publish only from a run on the
-#   tag. For a release that is not a prerelease, it then opens a pull request
+#   tag. For a release that is not a prerelease, it then pushes a branch
 #   that updates the Homebrew formula; see RELEASING.md.
 #
 # The `prepare` job works out which of these a run does; see
@@ -478,15 +478,13 @@ jobs:
           retention-days: 7
 
   # Runs no Dart code, so that no code from pub runs with write permissions.
-  homebrew-pull-request:
-    name: Open the Homebrew formula pull request
+  homebrew-branch:
+    name: Push the Homebrew formula branch
     needs: [prepare, homebrew-formula]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write # Push the formula branch.
-      pull-requests: write # Open the pull request.
-      actions: write # Start homebrew.yaml on the branch.
     defaults:
       run:
         working-directory: .
@@ -499,13 +497,7 @@ jobs:
         with:
           name: homebrew-formula
           path: Formula
-      # GitHub starts the pull_request runs of a pull request that
-      # GITHUB_TOKEN opens only after a maintainer approves them, so this
-      # starts homebrew.yaml on the branch, which reports the Homebrew check
-      # on the same commit. Opening the pull request needs the setting "Allow
-      # GitHub Actions to create and approve pull requests"; without it, the
-      # summary links to opening it by hand.
-      - name: Push the branch and open the pull request
+      - name: Push the branch
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -513,20 +505,12 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           branch="homebrew/$TAG"
-          title="Update the Homebrew formula to $VERSION"
           git switch -c "$branch"
           git add Formula/skills_lint.rb
           # github-actions[bot] and its noreply address; 41898282 is its user ID.
           git -c user.name='github-actions[bot]' \
             -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit -m "$title"
+            commit -m "Update the Homebrew formula to $VERSION"
           gh auth setup-git
           git push origin "$branch"
-          gh workflow run homebrew.yaml --ref "$branch"
-          body="Updates Formula/skills_lint.rb to the $TAG release. The release workflow checked each archive against SHA256SUMS and its attestation. Select **Approve workflows to run** to start the pull request's other checks."
-          if ! gh pr create --base main --head "$branch" --title "$title" --body "$body"; then
-            compare="$GITHUB_SERVER_URL/$GH_REPO/compare/main...$branch?expand=1"
-            echo "Could not open the pull request. Open it at $compare" >> "$GITHUB_STEP_SUMMARY"
-            echo "::error::Could not open the pull request. Open it at $compare"
-            exit 1
-          fi
+          echo "Open the pull request: $GITHUB_SERVER_URL/$GH_REPO/compare/main...$branch?expand=1" >> "$GITHUB_STEP_SUMMARY"
