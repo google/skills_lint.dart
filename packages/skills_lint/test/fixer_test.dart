@@ -99,18 +99,19 @@ class RuleThrowsError extends RuleThrows {
       Future.error(StateError('Fixer bug'));
 }
 
-/// A fixer that sets the frontmatter `name` from `old-skill` to [newName].
+/// A fixer that sets the frontmatter `name` from [oldName] to [newName].
 class RuleWritesName extends RuleA {
-  RuleWritesName(this.newName);
+  RuleWritesName(this.newName, {this.oldName = 'old-skill'});
 
   final String newName;
+  final String oldName;
 
   @override
   String get name => 'rule-writes-name';
 
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    return currentContent.replaceFirst('name: old-skill', 'name: $newName');
+    return currentContent.replaceFirst('name: $oldName', 'name: $newName');
   }
 }
 
@@ -228,22 +229,27 @@ void main() {
       expect(content, 'Original A B');
     });
 
-    Future<Directory> createOldSkill() => createDummySkill(
+    Future<Directory> createOldSkill(String name) => createDummySkill(
       tempDir,
-      name: 'old-skill',
-      skillContent: '${buildFrontmatter(name: 'old-skill')}body\n',
+      name: name,
+      skillContent: '${buildFrontmatter(name: name)}body\n',
     );
 
-    /// Runs [RuleWritesName] with [newName] on `old-skill` and returns stdout.
-    Future<String> fixWithName(String newName, {required bool dryRun}) async {
-      final Directory skillDir = await createOldSkill();
+    /// Runs [RuleWritesName] with [newName] on a skill whose directory and
+    /// `name` are [oldName], and returns stdout.
+    Future<String> fixWithName(
+      String newName, {
+      required bool dryRun,
+      String oldName = 'old-skill',
+    }) async {
+      final Directory skillDir = await createOldSkill(oldName);
       final output = _CapturedOutput();
       await IOOverrides.runZoned(
         () => validateSkillsInternal(
           individualSkillPaths: [skillDir.path],
           fix: true,
           fixApply: !dryRun,
-          customRules: [RuleWritesName(newName)],
+          customRules: [RuleWritesName(newName, oldName: oldName)],
         ),
         stdout: () => output,
         stderr: _CapturedOutput.new,
@@ -257,6 +263,13 @@ void main() {
       final String stdout = await fixWithName('new-skill', dryRun: false);
 
       expect(stdout, contains('Renamed skill directory: old-skill -> new-skill'));
+      expect(skillDirNames(), ['new-skill']);
+    });
+
+    test('renames the directory when the original name loads as a number', () async {
+      final String stdout = await fixWithName('new-skill', oldName: '123', dryRun: false);
+
+      expect(stdout, contains('Renamed skill directory: 123 -> new-skill'));
       expect(skillDirNames(), ['new-skill']);
     });
 

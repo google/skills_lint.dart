@@ -833,11 +833,11 @@ class ValidationSession {
     required ValidationResult fallbackResult,
   }) async {
     final String oldSkillName = p.basename(skillDir.path);
-    final String? oldFrontmatterName = _extractSkillName(originalContent);
+    final Object? oldFrontmatterName = _extractSkillName(originalContent);
     final String? renameTarget = switch (_extractSkillName(currentContent)) {
       final String name
           when oldFrontmatterName != null &&
-              name != oldFrontmatterName &&
+              name != oldFrontmatterName.toString() &&
               NameFormatRule.isValidSkillName(name) =>
         name,
       _ => null,
@@ -910,18 +910,16 @@ class ValidationSession {
     return renamed;
   }
 
-  /// Extracts the frontmatter `name:` string from raw [content], returning
-  /// `null` if the content lacks frontmatter, fails YAML parsing, or has a
-  /// `name` that is not a string, such as `name: 123`.
-  static String? _extractSkillName(String content) {
+  /// Extracts the frontmatter `name:` value from raw [content], trimmed if it
+  /// is a string, returning `null` if the content lacks frontmatter, fails
+  /// YAML parsing, or has no `name`. `name: 123` gives the int `123`.
+  static Object? _extractSkillName(String content) {
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(content);
     if (match != null) {
       try {
         final Object? doc = loadYaml(match.group(1)!);
         final Object? name = doc is YamlMap ? doc['name'] : null;
-        if (name is String) {
-          return name.trim();
-        }
+        return name is String ? name.trim() : name;
       } on YamlException {
         // Ignore YAML parsing errors during fix post-processing.
       }
