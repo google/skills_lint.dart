@@ -78,10 +78,12 @@ String updateFormula(
       archives++;
     }
   }
-  if (versions != 1 || archives == 0) {
+  final int sha256s = lines.where(_sha256Line.hasMatch).length;
+  if (versions != 1 || archives == 0 || sha256s != archives) {
     throw ReleaseException(
-      'The formula has $versions version lines and $archives archive urls; '
-      'expected one version line and at least one url.',
+      'The formula has $versions version lines, $archives archive urls and $sha256s sha256 '
+      'lines; expected one version line and at least one archive url, each followed by its '
+      'sha256 line.',
     );
   }
   final String updated = lines.join('\n');

@@ -183,6 +183,15 @@ void main() {
       );
     });
 
+    test('rejects a url line that it does not read', () {
+      expectError(
+        _releasedFormula.replaceFirst('macos-arm64.tar.gz"', 'macos-arm64.tar.gz" # Apple silicon'),
+        '0.6.1',
+        _checksums,
+        '1 archive urls and 2 sha256 lines',
+      );
+    });
+
     test('rejects a PLACEHOLDER comment that it does not remove', () {
       final String formula = _placeholderFormula.replaceFirst(
         '  livecheck do',
