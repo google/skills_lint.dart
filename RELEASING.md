@@ -137,6 +137,10 @@ see, until the last job.
   `gh workflow run release.yaml -R google/skills_lint.dart --ref skills_lint-v<version> -f release=true`.
   If pub.dev has the version already, the run skips it and publishes the
   draft.
+- **A Homebrew job fails.** The release is published by then, so a run on
+  the tag stops at `verify`. If the branch `homebrew/skills_lint-v<version>`
+  exists, open the pull request from it; otherwise
+  [update the formula by hand](#update-the-formula-by-hand).
 - **To abandon a release** before pub.dev has it, delete the draft and the
   tag with
   `gh release delete skills_lint-v<version> --cleanup-tag -R google/skills_lint.dart`.
