@@ -3,40 +3,40 @@
 // BSD-style license that can be found in the LICENSE file.
 
 /// Updates the Homebrew formula in `Formula/skills_lint.rb` to a release.
-///
-/// RELEASING.md describes the release automation that runs this, and
-/// `packages/skills_lint/repo_test/homebrew_formula_test.dart` checks the
-/// formula that it writes.
 library;
 
 import 'checksums.dart';
 import 'release_exception.dart';
 
 /// The `version` line of the formula, with an optional trailing comment.
+/// Group 1 is its indentation.
 final RegExp _versionLine = RegExp(r'^(\s*)version "[^"]*"(\s*#.*)?$');
 
 /// A `url` line of the formula that names a release archive, which group 1
 /// captures.
 final RegExp _archiveUrlLine = RegExp(r'^\s*url "[^"]*/(skills_lint-[a-z0-9-]+\.tar\.gz)"\s*$');
 
-/// A `sha256` line, with an optional trailing comment.
+/// A `sha256` line, with an optional trailing comment. Group 1 is its
+/// indentation.
 final RegExp _sha256Line = RegExp(r'^(\s*)sha256 "[^"]*"(\s*#.*)?$');
 
+/// A version that the formula can name: `<major>.<minor>.<patch>`, with no
+/// prerelease or build suffix.
 final RegExp _releaseVersion = RegExp(r'^\d+\.\d+\.\d+$');
 
-/// Returns [formula] with its `version` set to [version] and the `sha256`
-/// after each archive `url` set to that archive's checksum in [checksums].
+/// Returns [formula] with its `version` set to [version], and the `sha256`
+/// line after each archive `url` set to that archive's checksum in
+/// [checksums].
 ///
-/// Each `url` names an archive, and the `sha256` line after it is that
-/// archive's checksum; the formula test checks this pairing. The formula's
-/// `PLACEHOLDER` comments, which the first release removes, go too: the
-/// trailing comment of each line that this changes, and the header
-/// paragraph that starts with `# PLACEHOLDER:`.
+/// Drops the trailing comment of each line it changes, and the comment
+/// lines from the one that starts with `# PLACEHOLDER:` to the end of that
+/// comment.
 ///
-/// Throws a [ReleaseException] if [version] is not `<major>.<minor>.<patch>`,
-/// the formula has no `version` or no archive `url`, a `url` has no `sha256`
-/// line after it, [checksums] has no checksum for an archive, or a
-/// `PLACEHOLDER` comment remains.
+/// Throws a [ReleaseException] if [version] is not
+/// `<major>.<minor>.<patch>`, the formula doesn't have exactly one `version`
+/// line or has no archive `url`, a `url` is not followed by a `sha256` line,
+/// a `sha256` line follows no archive `url` that it reads, [checksums] has
+/// no checksum for an archive, or the result still contains `PLACEHOLDER`.
 String updateFormula(
   String formula, {
   required String version,
@@ -77,20 +77,20 @@ String updateFormula(
 }
 
 String _sha256For(List<String> lines, int index, String archive, Map<String, String> checksums) {
-  final RegExpMatch? line = index < lines.length ? _sha256Line.firstMatch(lines[index]) : null;
-  if (line == null) {
+  final RegExpMatch? match = index < lines.length ? _sha256Line.firstMatch(lines[index]) : null;
+  if (match == null) {
     throw ReleaseException('The url of $archive is not followed by a sha256 line.');
   }
   final String? checksum = checksums[archive];
   if (checksum == null) {
     throw ReleaseException('$sha256SumsName has no checksum for $archive.');
   }
-  return '${line.group(1)}sha256 "$checksum"';
+  return '${match.group(1)}sha256 "$checksum"';
 }
 
-/// Returns [lines] without the comment paragraph that starts with
-/// `# PLACEHOLDER:`, and without the `#` line that separates it from the
-/// comment above.
+/// Returns [lines] without the comment lines from the one that starts with
+/// `# PLACEHOLDER:` to the end of that comment, and without the `#` line
+/// that separates them from the comment above.
 List<String> _withoutPlaceholderHeader(List<String> lines) {
   final int start = lines.indexWhere((line) => line.startsWith('# PLACEHOLDER:'));
   if (start == -1) {
