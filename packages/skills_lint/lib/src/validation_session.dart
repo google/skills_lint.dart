@@ -836,10 +836,11 @@ class ValidationSession {
     final String? oldFrontmatterName = NameFormatRule.nameText(
       _extractNameNode(originalContent),
     )?.trim();
-    final Object? newFrontmatterName = _extractNameNode(currentContent)?.value;
-    final String? renameTarget = switch (newFrontmatterName is String
-        ? newFrontmatterName.trim()
-        : null) {
+    final String? newFrontmatterName = switch (_extractNameNode(currentContent)?.value) {
+      final String name => name.trim(),
+      _ => null,
+    };
+    final String? renameTarget = switch (newFrontmatterName) {
       final String name
           when oldFrontmatterName != null &&
               name != oldFrontmatterName &&
@@ -923,7 +924,7 @@ class ValidationSession {
     if (match != null) {
       try {
         final Object? doc = loadYaml(match.group(1)!);
-        return doc is YamlMap ? doc.nodes['name'] : null;
+        return doc is YamlMap ? NameFormatRule.getNameNode(doc) : null;
       } on YamlException {
         // Ignore YAML parsing errors during fix post-processing.
       }

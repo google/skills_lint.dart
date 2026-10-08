@@ -309,7 +309,8 @@ class NameFormatRule extends SkillRule implements FixableRule {
     );
   }
 
-  @visibleForTesting
+  /// Returns the value node of the `name` key in [yaml], or `null` if there
+  /// is none.
   static YamlNode? getNameNode(YamlMap yaml) {
     for (final MapEntry<dynamic, YamlNode> entry in yaml.nodes.entries) {
       if (entry.key is YamlNode && (entry.key as YamlNode).value == 'name') {
