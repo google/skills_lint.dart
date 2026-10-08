@@ -110,6 +110,17 @@ void main() {
       expect(info.prerelease, isTrue);
     });
 
+    test('a release with a numeric build is staged, and one with another build is not', () {
+      final ReleaseInfo info = _resolve(version: '0.6.0+1', release: true);
+      expect(info.mode, ReleaseMode.stage);
+      expect(info.prerelease, isFalse);
+      expect(
+        () => _resolve(version: '0.6.0+hotfix', release: true),
+        _throwsReleaseException('not a number'),
+      );
+      expect(_resolve(version: '0.6.0+hotfix').mode, ReleaseMode.dryRun);
+    });
+
     test('other events fail', () {
       expect(() => _resolve(event: 'push'), _throwsReleaseException('push'));
     });

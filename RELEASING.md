@@ -76,7 +76,8 @@ without them, and pub.dev checks only the name. The run on `main` fails
 until the environment has them.
 
 A version with a `-` suffix, such as `1.0.0-dev.1`, is released as a prerelease.
-A version with build metadata, such as `0.5.4+1`, is a release.
+A version with a numeric build, such as `0.5.4+1`, is a release. A stage run
+fails for a version with any other build, such as `0.5.4+hotfix`.
 The README's
 install command downloads from `releases/latest`, and
 [the latest release](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
