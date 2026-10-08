@@ -13,6 +13,12 @@ import '../src/models/convention_violation.dart';
 /// The targets that Homebrew installs, from `releaseTargets`.
 late final List<String> _targets;
 
+/// The violation for a formula whose version and sha256 values are not all
+/// placeholders or all real.
+const String _allOrNone =
+    'replace every placeholder in one change: the version and all sha256 values are '
+    'placeholders, or none are';
+
 /// A distinct, well-formed sha256 for the target at [index].
 String _sha(int index) => (index + 1).toRadixString(16).padLeft(64, 'f');
 
@@ -185,13 +191,9 @@ void main() {
       blocks[unmarked] = (unmarked, 'sha256 "$placeholderSha256"');
       blocks[markedReal] = (markedReal, 'sha256 "${_sha(2)}" $placeholderMarker');
       final String content = _formula(blocks: blocks);
-      const markerRule =
-          'a sha256 is 64 zeros if and only if its line ends with $placeholderMarker';
-      const allOrNone =
-          'replace every placeholder in one change: the version and all sha256 values are '
-          'placeholders, or none are';
+      const markerRule = 'a sha256 is 64 zeros if and only if its line has $placeholderMarker';
       final List<String> problems = _archiveProblems(content);
-      expect(problems.last, 'f.rb:2: $allOrNone');
+      expect(problems.last, 'f.rb:2: $_allOrNone');
       expect(
         problems.take(problems.length - 1),
         unorderedEquals([
@@ -208,6 +210,13 @@ void main() {
       );
       expect(_archiveProblems(content), isEmpty);
       expect(parseFormula(content).hasPlaceholders, isTrue);
+    });
+
+    test('reports a placeholder version with real sha256 values, and the reverse', () {
+      final String placeholderVersion = _formula(version: 'version "1.3.0" $placeholderMarker');
+      final String placeholderSha256s = _formula(blocks: _placeholderBlocks());
+      expect(_archiveProblems(placeholderVersion), ['f.rb:2: $_allOrNone']);
+      expect(_archiveProblems(placeholderSha256s), ['f.rb:2: $_allOrNone']);
     });
 
     test('reports a url outside a platform block', () {
@@ -234,6 +243,9 @@ void main() {
     test('reports a placeholder version that is not the pending release', () {
       expect(_versionProblems(placeholders(), pubspec: '1.4.0-wip'), [
         'f.rb:2: placeholder version "1.3.0" must be 1.4.0, the pubspec version 1.4.0-wip without its suffix',
+      ]);
+      expect(_versionProblems(placeholders(), pubspec: '1.3.1-wip'), [
+        'f.rb:2: placeholder version "1.3.0" must be 1.3.1, the pubspec version 1.3.1-wip without its suffix',
       ]);
     });
 

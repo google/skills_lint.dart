@@ -24,7 +24,7 @@ import 'models/convention_violation.dart';
 /// The `sha256` of each archive before the first release with executables.
 final String placeholderSha256 = '0' * 64;
 
-/// The comment at the end of each line whose value is a placeholder.
+/// The comment that marks each line whose value is a placeholder.
 const String placeholderMarker = '# PLACEHOLDER';
 
 /// The major version of each macOS that `depends_on macos:` can name.
@@ -70,7 +70,7 @@ String expectedArchiveUrl(String target) =>
     'skills_lint-v#{version}/skills_lint-$target.tar.gz';
 
 /// One value in the formula, the 1-based line it is on, and whether that
-/// line ends with [placeholderMarker].
+/// line has [placeholderMarker].
 typedef FormulaValue = ({String value, int line, bool placeholder});
 
 /// The `url` and `sha256` lines inside one `on_<os>` and `on_<arch>` block
@@ -307,7 +307,7 @@ List<ConventionViolation> _sha256Violations(String path, List<FormulaValue> sha2
         ConventionViolation(
           path,
           sha.line,
-          'a sha256 is 64 zeros if and only if its line ends with $placeholderMarker',
+          'a sha256 is 64 zeros if and only if its line has $placeholderMarker',
         ),
       );
     } else if (!isZeros && !seenRealValues.add(sha.value)) {
