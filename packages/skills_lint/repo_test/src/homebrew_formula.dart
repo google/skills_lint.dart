@@ -6,9 +6,9 @@
 /// it disagrees with the release archives, the package version or the
 /// minimum macOS version of the executables.
 ///
-/// `brew audit` cannot tell that an `on_arm` block names the x64 archive,
-/// that a `sha256` belongs to another archive, or that `version` names a
-/// release that does not exist. Each of these breaks `brew install` on some
+/// The offline `brew audit` accepts a formula whose `on_arm` block names the
+/// x64 archive, whose archives share a `sha256`, or whose `version` is not a
+/// release in the CHANGELOG. Each of these breaks `brew install` on some
 /// platform.
 ///
 /// The reader handles the subset of Ruby that the formula uses: one

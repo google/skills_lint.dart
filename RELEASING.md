@@ -202,8 +202,9 @@ While the formula's `version` and checksums are placeholders, marked
 Two checks cover the formula:
 
 - [`repo_test/homebrew_formula_test.dart`](packages/skills_lint/repo_test/homebrew_formula_test.dart)
-  checks the `url` and `sha256` of each target, the `version`, and
-  `depends_on macos:` against the release.
+  checks that each target's `url` names its own archive, that no two
+  archives share a `sha256`, the `version` against the pubspec and
+  `CHANGELOG.md`, and `depends_on macos:` against `macosMinimumVersion`.
 - [`homebrew.yaml`](.github/workflows/homebrew.yaml) runs `brew style` and
   `brew audit --strict`. Once the formula has no placeholders, it also
   installs the formula and runs its `test` block on each target. Its
