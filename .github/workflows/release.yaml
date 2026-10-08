@@ -507,7 +507,7 @@ jobs:
           branch="homebrew/$TAG"
           git switch -c "$branch"
           git add Formula/skills_lint.rb
-          # github-actions[bot] and its noreply address; 41898282 is its user ID.
+          # 41898282 is the user ID of github-actions[bot].
           git -c user.name='github-actions[bot]' \
             -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
             commit -m "Update the Homebrew formula to $VERSION"
