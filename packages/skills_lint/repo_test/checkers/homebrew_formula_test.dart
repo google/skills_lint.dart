@@ -13,8 +13,6 @@ import '../src/models/convention_violation.dart';
 /// The targets that Homebrew installs, from `releaseTargets`.
 late final List<String> _targets;
 
-final String _zeros = '0' * 64;
-
 /// A distinct, well-formed sha256 for the target at [index].
 String _sha(int index) => (index + 1).toRadixString(16).padLeft(64, 'f');
 
@@ -26,7 +24,8 @@ Map<String, (String, String)> _validBlocks() => {
 
 /// Each target's block, with its own url and a placeholder sha256.
 Map<String, (String, String)> _placeholderBlocks() => {
-  for (final String target in _targets) target: (target, 'sha256 "$_zeros" $placeholderMarker'),
+  for (final String target in _targets)
+    target: (target, 'sha256 "$placeholderSha256" $placeholderMarker'),
 };
 
 /// Builds a formula with one block per entry of [blocks], which maps the
@@ -182,8 +181,8 @@ void main() {
     test('reports placeholders without the marker, partial placeholders and a real version', () {
       final [String marked, String unmarked, String markedReal, ...] = _targets;
       final Map<String, (String, String)> blocks = _validBlocks();
-      blocks[marked] = (marked, 'sha256 "$_zeros" $placeholderMarker');
-      blocks[unmarked] = (unmarked, 'sha256 "$_zeros"');
+      blocks[marked] = (marked, 'sha256 "$placeholderSha256" $placeholderMarker');
+      blocks[unmarked] = (unmarked, 'sha256 "$placeholderSha256"');
       blocks[markedReal] = (markedReal, 'sha256 "${_sha(2)}" $placeholderMarker');
       final String content = _formula(blocks: blocks);
       const markerRule =

@@ -13,6 +13,13 @@ import 'src/homebrew_targets.dart';
 import 'src/repo_paths.dart';
 import 'src/source_conventions.dart';
 
+/// The `macosMinimumVersion` declaration in `release/lib/src/macho.dart`,
+/// such as `const String macosMinimumVersion = '14.0';`. Group 1 is the
+/// version.
+final RegExp _macosMinimumVersionDeclaration = RegExp(
+  r"const String macosMinimumVersion = '([\d.]+)';",
+);
+
 /// Checks `Formula/skills_lint.rb` against the release targets, the package
 /// version, the minimum macOS version and the package README.
 ///
@@ -68,9 +75,7 @@ void main() {
   });
 
   test('depends_on macos: is inside on_macos and matches macosMinimumVersion', () {
-    final RegExpMatch? match = RegExp(
-      r"const String macosMinimumVersion = '([\d.]+)';",
-    ).firstMatch(_read(machoPath));
+    final RegExpMatch? match = _macosMinimumVersionDeclaration.firstMatch(_read(machoPath));
     expect(match, isNotNull, reason: 'Found no macosMinimumVersion constant in $machoPath.');
     expectNoViolations(
       findMacosViolations(formulaPath, formula, match!.group(1)),

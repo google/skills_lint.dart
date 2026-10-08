@@ -60,6 +60,10 @@ final RegExp _macosDependency = RegExp(r'^depends_on macos: :(\w+)');
 /// A well-formed `sha256` value.
 final RegExp _sha256Format = RegExp(r'^[0-9a-f]{64}$');
 
+/// The line of a violation about a statement that the formula lacks. The
+/// statement has no line, so the violation points at the top of the file.
+const int _topOfFile = 1;
+
 /// The `url` that the formula must give for the archive of [target].
 String expectedArchiveUrl(String target) =>
     'https://github.com/google/skills_lint.dart/releases/download/'
@@ -227,7 +231,9 @@ List<ConventionViolation> findArchiveViolations(
   }
   for (final target in targets) {
     if (!formula.archives.containsKey(target)) {
-      violations.add(ConventionViolation(path, 1, 'has no block for the release target $target'));
+      violations.add(
+        ConventionViolation(path, _topOfFile, 'has no block for the release target $target'),
+      );
     }
   }
   for (final FormulaArchive archive in formula.archives.values) {
@@ -331,7 +337,7 @@ ConventionViolation? _mixedPlaceholderViolation(String path, HomebrewFormula for
   }
   return ConventionViolation(
     path,
-    formula.version?.line ?? 1,
+    formula.version?.line ?? _topOfFile,
     'replace every placeholder in one change: the version and all sha256 values are '
     'placeholders, or none are',
   );
@@ -353,7 +359,7 @@ List<ConventionViolation> findVersionViolations(
 }) {
   final FormulaValue? version = formula.version;
   if (version == null) {
-    return [ConventionViolation(path, 1, 'has no version')];
+    return [ConventionViolation(path, _topOfFile, 'has no version')];
   }
   final String? problem = _versionProblem(
     version.value,
@@ -415,7 +421,7 @@ List<ConventionViolation> findMacosViolations(
 ) {
   final FormulaValue? dependency = formula.macosMinimum;
   if (dependency == null) {
-    return [ConventionViolation(path, 1, 'has no depends_on macos: inside on_macos')];
+    return [ConventionViolation(path, _topOfFile, 'has no depends_on macos: inside on_macos')];
   }
   final List<ConventionViolation> violations = [];
   if (!formula.macosMinimumOnMacosOnly) {
