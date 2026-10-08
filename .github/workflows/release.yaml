@@ -428,8 +428,7 @@ jobs:
           gh release edit "$TAG" --draft=false
           echo "Published $TAG to pub.dev and [GitHub]($(gh release view "$TAG" --json url --jq .url))." >> "$GITHUB_STEP_SUMMARY"
 
-  # RELEASING.md describes these two jobs. Prereleases are skipped,
-  # because Homebrew installs the formula for every user.
+  # RELEASING.md describes these two jobs.
   homebrew-formula:
     name: Update the Homebrew formula
     needs: [prepare, publish]
@@ -517,6 +516,7 @@ jobs:
           title="Update the Homebrew formula to $VERSION"
           git switch -c "$branch"
           git add Formula/skills_lint.rb
+          # github-actions[bot] and its noreply address; 41898282 is its user ID.
           git -c user.name='github-actions[bot]' \
             -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
             commit -m "$title"

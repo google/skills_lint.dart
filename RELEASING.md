@@ -63,7 +63,6 @@ The run on the tag:
 4. Unless the release is a prerelease, checks the published archives again
    and opens a pull request that updates the Homebrew formula to the release.
    [Release automation](#release-automation) describes it.
-   Review and merge that pull request; nothing pushes to `main`.
 
 pub.dev accepts a publish only from a workflow run on a tag that matches
 `skills_lint-v{{version}}`, so publishing needs the second run. The comment on
