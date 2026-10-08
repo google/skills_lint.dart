@@ -101,6 +101,15 @@ void main() {
       expect(next, contains('macos-x64.tar.gz"\n      sha256 "$_arm"'));
     });
 
+    test('accepts a version with build metadata', () {
+      final String next = updateFormula(
+        _releasedFormula,
+        version: '0.6.0+1',
+        checksums: _checksums,
+      );
+      expect(next, contains('version "0.6.0+1"\n'));
+    });
+
     test('takes each checksum from the archive that the url above it names', () {
       final String swapped = _placeholderFormula
           .replaceFirst('macos-arm64.tar.gz', 'TEMP')

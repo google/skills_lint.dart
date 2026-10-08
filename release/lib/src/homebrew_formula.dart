@@ -20,9 +20,10 @@ final RegExp _archiveUrlLine = RegExp(r'^\s*url "[^"]*/(skills_lint-[a-z0-9-]+\.
 /// indentation.
 final RegExp _sha256Line = RegExp(r'^(\s*)sha256 "[^"]*"(\s*#.*)?$');
 
-/// A version that the formula can name: `<major>.<minor>.<patch>`, with no
-/// prerelease or build suffix.
-final RegExp _releaseVersion = RegExp(r'^\d+\.\d+\.\d+$');
+/// A version that the formula can name: `<major>.<minor>.<patch>`, with an
+/// optional numeric `+<build>` suffix, such as `0.5.4+1`, and no prerelease
+/// suffix.
+final RegExp _releaseVersion = RegExp(r'^\d+\.\d+\.\d+(?:\+\d+)?$');
 
 /// Returns [formula] with its `version` set to [version], and the `sha256`
 /// line after each archive `url` set to that archive's checksum in
@@ -33,7 +34,7 @@ final RegExp _releaseVersion = RegExp(r'^\d+\.\d+\.\d+$');
 /// comment.
 ///
 /// Throws a [ReleaseException] if [version] is not
-/// `<major>.<minor>.<patch>`, the formula doesn't have exactly one `version`
+/// `<major>.<minor>.<patch>` or `<major>.<minor>.<patch>+<build>`, the formula doesn't have exactly one `version`
 /// line or has no archive `url`, a `url` is not followed by a `sha256` line,
 /// a `sha256` line follows no archive `url` that it reads, [checksums] has
 /// no checksum for an archive, or the result still contains `PLACEHOLDER`.
@@ -44,7 +45,8 @@ String updateFormula(
 }) {
   if (!_releaseVersion.hasMatch(version)) {
     throw ReleaseException(
-      'Homebrew installs releases only, and $version is not <major>.<minor>.<patch>.',
+      'Homebrew installs releases only, and $version is not <major>.<minor>.<patch> with an '
+      'optional +<build>.',
     );
   }
   final List<String> lines = _withoutPlaceholderHeader(formula.split('\n'));
