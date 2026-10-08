@@ -324,7 +324,9 @@ class NameFormatRule extends SkillRule implements FixableRule {
   /// missing or holds YAML null.
   ///
   /// The spec defines a name as text, so a plain scalar is read as written:
-  /// `name: 1e3` gives `1e3`, not YAML's reading of it, `1000.0`.
+  /// `name: 1e3` gives `1e3`, not YAML's reading of it, `1000.0`. The text is
+  /// trimmed, because a scalar that ends the document spans its trailing
+  /// spaces.
   static String? nameText(YamlNode? node) => switch (node) {
     YamlScalar(value: final String name) => name,
     YamlScalar(value: null) => null,

@@ -10,6 +10,7 @@ import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/name_format_rule.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
+import 'package:yaml/yaml.dart';
 
 import 'test_utils.dart';
 
@@ -67,6 +68,10 @@ void main() {
         expect(NameFormatRule.nameText(NameFormatRule.getNameNode(context.parsedYaml!)), text);
       });
     }
+
+    test('trims the trailing spaces of a scalar that ends the document', () {
+      expect(NameFormatRule.nameText(loadYamlNode('1e3   ')), '1e3');
+    });
 
     for (final name in ['1e3', '0x1f']) {
       test('lets validate pass name: $name in directory "$name"', () async {
