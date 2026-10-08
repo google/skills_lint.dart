@@ -196,8 +196,8 @@ repository is the tap `google/skills-lint`. Homebrew maps a tap name
 repository's URL to `brew tap`. The README of each version on pub.dev never
 changes, so keep the tap name and the formula name.
 
-The formula's `version` and checksums are placeholders until the first
-release with executables, and `brew install` fails until then.
+While the formula's `version` and checksums are placeholders, marked
+`# PLACEHOLDER`, `brew install` fails.
 
 Two checks cover the formula:
 

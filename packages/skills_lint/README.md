@@ -116,7 +116,7 @@ The macOS binaries need macOS 14 or later. On macOS, replace
 The formula lives in this repository, in
 [`Formula/`](https://github.com/google/skills_lint.dart/tree/main/Formula).
 It installs the latest release that has prebuilt executables, and fails
-before the first one.
+until the formula is updated for the first one.
 
 ```bash
 brew tap google/skills-lint https://github.com/google/skills_lint.dart
