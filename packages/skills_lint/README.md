@@ -139,7 +139,8 @@ downloaded, run:
 ```bash
 gh attestation verify "$(brew --cache google/skills-lint/skills_lint)" \
   --repo google/skills_lint.dart \
-  --signer-workflow google/skills_lint.dart/.github/workflows/release.yaml
+  --signer-workflow google/skills_lint.dart/.github/workflows/release.yaml \
+  --source-ref refs/heads/main
 ```
 
 ## Usage
