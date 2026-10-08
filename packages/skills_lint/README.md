@@ -111,12 +111,12 @@ sudo install -m 0755 "skills_lint-${TARGET}" /usr/local/bin/skills_lint
 The macOS binaries need macOS 14 or later. On macOS, replace
 `sha256sum -c -` with `shasum -a 256 -c -`.
 
-### 4. Homebrew — macOS 14+ and Linux (arm64, x64), no Dart required
+### 4. Homebrew — Linux + macOS, no Dart required
 
 The formula lives in this repository, in
 [`Formula/`](https://github.com/google/skills_lint.dart/tree/main/Formula).
 It installs the latest release that has prebuilt executables, and fails
-before the first one.
+until the formula is updated for the first one.
 
 ```bash
 brew tap google/skills-lint https://github.com/google/skills_lint.dart
@@ -139,7 +139,8 @@ downloaded, run:
 ```bash
 gh attestation verify "$(brew --cache google/skills-lint/skills_lint)" \
   --repo google/skills_lint.dart \
-  --signer-workflow google/skills_lint.dart/.github/workflows/release.yaml
+  --signer-workflow google/skills_lint.dart/.github/workflows/release.yaml \
+  --source-ref refs/heads/main
 ```
 
 ## Usage

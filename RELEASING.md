@@ -75,7 +75,8 @@ and its `skills_lint-v*` tag rule. GitHub re-creates a deleted environment
 without them, and pub.dev checks only the name. The run on `main` fails
 until the environment has them.
 
-A version with a suffix, such as `1.0.0-dev.1`, is released as a prerelease.
+A version with a `-` suffix, such as `1.0.0-dev.1`, is released as a prerelease.
+A version with build metadata, such as `0.5.4+1`, is a release.
 The README's
 install command downloads from `releases/latest`, and
 [the latest release](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
@@ -200,14 +201,15 @@ repository is the tap `google/skills-lint`. Homebrew maps a tap name
 repository's URL to `brew tap`. The README of each version on pub.dev never
 changes, so keep the tap name and the formula name.
 
-The formula's `version` and checksums are placeholders until the first
-release with executables, and `brew install` fails until then.
+While the formula's `version` and checksums are placeholders, marked
+`# PLACEHOLDER`, `brew install` fails.
 
 Two checks cover the formula:
 
 - [`repo_test/homebrew_formula_test.dart`](packages/skills_lint/repo_test/homebrew_formula_test.dart)
-  checks the `url` and `sha256` of each target, the `version`, and
-  `depends_on macos:` against the release.
+  checks that each target's `url` names its own archive, that no two
+  archives share a `sha256`, the `version` against the pubspec and
+  `CHANGELOG.md`, and `depends_on macos:` against `macosMinimumVersion`.
 - [`homebrew.yaml`](.github/workflows/homebrew.yaml) runs `brew style` and
   `brew audit --strict`. Once the formula has no placeholders, it also
   installs the formula and runs its `test` block on each target. Its

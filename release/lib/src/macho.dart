@@ -13,8 +13,7 @@ import 'release_exception.dart';
 /// The minimum macOS version of the macOS executables.
 ///
 /// It comes from the Dart SDK that compiles them: Dart 3.11 and later target
-/// macOS 14. `MIN_MACOS_VERSION` in `scripts/install.sh`, the README and
-/// `RELEASING.md` state the same version.
+/// macOS 14. `RELEASING.md` lists the other places that state it.
 const String macosMinimumVersion = '14.0';
 
 const int _magic64 = 0xfeedfacf;
@@ -55,8 +54,7 @@ void checkMacosMinimum(Uint8List binary) {
     throw ReleaseException(
       'The executable needs macOS $minimum, but the release states macOS $macosMinimumVersion. '
       'The Dart SDK changed its minimum macOS version. Update macosMinimumVersion in '
-      'release/lib/src/macho.dart, MIN_MACOS_VERSION in scripts/install.sh, the README and '
-      'RELEASING.md.',
+      'release/lib/src/macho.dart and the places that RELEASING.md lists under Targets.',
     );
   }
 }

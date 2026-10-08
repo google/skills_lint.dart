@@ -1,7 +1,7 @@
 # Checks the Homebrew formula in Formula/ on each pull request and weekly.
 # There is no `paths` filter, because a required check that a path filter
 # skips stays pending; the `changes` job skips the brew jobs instead, and the
-# `homebrew` job always reports, so it is the check to require.
+# `Homebrew` job always reports, so it is the check to require.
 
 name: Homebrew
 
@@ -31,8 +31,8 @@ jobs:
     outputs:
       formula: ${{ steps.diff.outputs.formula }}
     steps:
-      # Formula/ is the formula, release/ builds the archives it installs and
-      # lists their targets, and this file runs the checks.
+      # release/ builds the archives that the formula installs and lists their
+      # targets.
       - name: Check the changed files
         id: diff
         env:

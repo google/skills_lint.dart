@@ -13,7 +13,11 @@ import '../src/models/convention_violation.dart';
 /// The targets that Homebrew installs, from `releaseTargets`.
 late final List<String> _targets;
 
-final String _zeros = '0' * 64;
+/// The violation for a formula whose version and sha256 values are not all
+/// placeholders or all real.
+const String _allOrNone =
+    'replace every placeholder in one change: the version and all sha256 values are '
+    'placeholders, or none are';
 
 /// A distinct, well-formed sha256 for the target at [index].
 String _sha(int index) => (index + 1).toRadixString(16).padLeft(64, 'f');
@@ -26,7 +30,8 @@ Map<String, (String, String)> _validBlocks() => {
 
 /// Each target's block, with its own url and a placeholder sha256.
 Map<String, (String, String)> _placeholderBlocks() => {
-  for (final String target in _targets) target: (target, 'sha256 "$_zeros" $placeholderMarker'),
+  for (final String target in _targets)
+    target: (target, 'sha256 "$placeholderSha256" $placeholderMarker'),
 };
 
 /// Builds a formula with one block per entry of [blocks], which maps the
@@ -182,17 +187,13 @@ void main() {
     test('reports placeholders without the marker, partial placeholders and a real version', () {
       final [String marked, String unmarked, String markedReal, ...] = _targets;
       final Map<String, (String, String)> blocks = _validBlocks();
-      blocks[marked] = (marked, 'sha256 "$_zeros" $placeholderMarker');
-      blocks[unmarked] = (unmarked, 'sha256 "$_zeros"');
+      blocks[marked] = (marked, 'sha256 "$placeholderSha256" $placeholderMarker');
+      blocks[unmarked] = (unmarked, 'sha256 "$placeholderSha256"');
       blocks[markedReal] = (markedReal, 'sha256 "${_sha(2)}" $placeholderMarker');
       final String content = _formula(blocks: blocks);
-      const markerRule =
-          'a sha256 is 64 zeros if and only if its line ends with $placeholderMarker';
-      const allOrNone =
-          'replace every placeholder in one change: the version and all sha256 values are '
-          'placeholders, or none are';
+      const markerRule = 'a sha256 is 64 zeros if and only if its line has $placeholderMarker';
       final List<String> problems = _archiveProblems(content);
-      expect(problems.last, 'f.rb:2: $allOrNone');
+      expect(problems.last, 'f.rb:2: $_allOrNone');
       expect(
         problems.take(problems.length - 1),
         unorderedEquals([
@@ -209,6 +210,13 @@ void main() {
       );
       expect(_archiveProblems(content), isEmpty);
       expect(parseFormula(content).hasPlaceholders, isTrue);
+    });
+
+    test('reports a placeholder version with real sha256 values, and the reverse', () {
+      final String placeholderVersion = _formula(version: 'version "1.3.0" $placeholderMarker');
+      final String placeholderSha256s = _formula(blocks: _placeholderBlocks());
+      expect(_archiveProblems(placeholderVersion), ['f.rb:2: $_allOrNone']);
+      expect(_archiveProblems(placeholderSha256s), ['f.rb:2: $_allOrNone']);
     });
 
     test('reports a url outside a platform block', () {
@@ -228,14 +236,27 @@ void main() {
       expect(_versionProblems(_formula(), pubspec: '1.2.0'), isEmpty);
     });
 
-    test('accepts a placeholder version equal to the pubspec version without its suffix', () {
+    test('accepts a placeholder version equal to the pubspec version without -wip', () {
       expect(_versionProblems(placeholders(), changelog: ''), isEmpty);
     });
 
     test('reports a placeholder version that is not the pending release', () {
       expect(_versionProblems(placeholders(), pubspec: '1.4.0-wip'), [
-        'f.rb:2: placeholder version "1.3.0" must be 1.4.0, the pubspec version 1.4.0-wip without its suffix',
+        'f.rb:2: placeholder version "1.3.0" must be 1.4.0, the pubspec version 1.4.0-wip without -wip',
       ]);
+      expect(_versionProblems(placeholders(), pubspec: '1.3.1-wip'), [
+        'f.rb:2: placeholder version "1.3.0" must be 1.3.1, the pubspec version 1.3.1-wip without -wip',
+      ]);
+    });
+
+    test('accepts a version with build metadata, as a placeholder and as a release', () {
+      final String placeholder = _formula(
+        version: 'version "1.3.0+1" $placeholderMarker',
+        blocks: _placeholderBlocks(),
+      );
+      final String released = _formula(version: 'version "1.2.0+1"');
+      expect(_versionProblems(placeholder, pubspec: '1.3.0+1-wip', changelog: ''), isEmpty);
+      expect(_versionProblems(released, changelog: '## 1.2.0+1\n'), isEmpty);
     });
 
     test('reports a release that the CHANGELOG does not list', () {

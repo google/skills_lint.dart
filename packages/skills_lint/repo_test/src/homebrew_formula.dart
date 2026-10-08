@@ -6,9 +6,9 @@
 /// it disagrees with the release archives, the package version or the
 /// minimum macOS version of the executables.
 ///
-/// `brew audit` cannot tell that an `on_arm` block names the x64 archive,
-/// that a `sha256` belongs to another archive, or that `version` names a
-/// release that does not exist. Each of these breaks `brew install` on some
+/// The offline `brew audit` accepts a formula whose `on_arm` block names the
+/// x64 archive, whose archives share a `sha256`, or whose `version` is not a
+/// release in the CHANGELOG. Each of these breaks `brew install` on some
 /// platform.
 ///
 /// The reader handles the subset of Ruby that the formula uses: one
@@ -24,7 +24,7 @@ import 'models/convention_violation.dart';
 /// The `sha256` of each archive before the first release with executables.
 final String placeholderSha256 = '0' * 64;
 
-/// The comment at the end of each line whose value is a placeholder.
+/// The comment that marks each line whose value is a placeholder.
 const String placeholderMarker = '# PLACEHOLDER';
 
 /// The major version of each macOS that `depends_on macos:` can name.
@@ -60,13 +60,17 @@ final RegExp _macosDependency = RegExp(r'^depends_on macos: :(\w+)');
 /// A well-formed `sha256` value.
 final RegExp _sha256Format = RegExp(r'^[0-9a-f]{64}$');
 
+/// The line of a violation about a statement that the formula lacks. The
+/// statement has no line, so the violation points at the top of the file.
+const int _topOfFile = 1;
+
 /// The `url` that the formula must give for the archive of [target].
 String expectedArchiveUrl(String target) =>
     'https://github.com/google/skills_lint.dart/releases/download/'
     'skills_lint-v#{version}/skills_lint-$target.tar.gz';
 
 /// One value in the formula, the 1-based line it is on, and whether that
-/// line ends with [placeholderMarker].
+/// line has [placeholderMarker].
 typedef FormulaValue = ({String value, int line, bool placeholder});
 
 /// The `url` and `sha256` lines inside one `on_<os>` and `on_<arch>` block
@@ -227,7 +231,9 @@ List<ConventionViolation> findArchiveViolations(
   }
   for (final target in targets) {
     if (!formula.archives.containsKey(target)) {
-      violations.add(ConventionViolation(path, 1, 'has no block for the release target $target'));
+      violations.add(
+        ConventionViolation(path, _topOfFile, 'has no block for the release target $target'),
+      );
     }
   }
   for (final FormulaArchive archive in formula.archives.values) {
@@ -301,7 +307,7 @@ List<ConventionViolation> _sha256Violations(String path, List<FormulaValue> sha2
         ConventionViolation(
           path,
           sha.line,
-          'a sha256 is 64 zeros if and only if its line ends with $placeholderMarker',
+          'a sha256 is 64 zeros if and only if its line has $placeholderMarker',
         ),
       );
     } else if (!isZeros && !seenRealValues.add(sha.value)) {
@@ -331,7 +337,7 @@ ConventionViolation? _mixedPlaceholderViolation(String path, HomebrewFormula for
   }
   return ConventionViolation(
     path,
-    formula.version?.line ?? 1,
+    formula.version?.line ?? _topOfFile,
     'replace every placeholder in one change: the version and all sha256 values are '
     'placeholders, or none are',
   );
@@ -340,9 +346,9 @@ ConventionViolation? _mixedPlaceholderViolation(String path, HomebrewFormula for
 /// Reports where the `version` of [formula] breaks the version rule.
 ///
 /// The version is never a prerelease, because Homebrew installs it for every
-/// user. While the formula has placeholders, the version is
-/// [pubspecVersion] without its prerelease suffix, the release that the
-/// placeholders wait for. Once the values are real, the version is a
+/// user; a version with build metadata, such as `1.2.0+1`, is a release.
+/// While the formula has placeholders, the version is [pubspecVersion]
+/// without `-wip`, the release that the placeholders wait for. Once the values are real, the version is a
 /// release: [changelog] has a `## <version>` heading for it, and it is not
 /// newer than [pubspecVersion].
 List<ConventionViolation> findVersionViolations(
@@ -353,7 +359,7 @@ List<ConventionViolation> findVersionViolations(
 }) {
   final FormulaValue? version = formula.version;
   if (version == null) {
-    return [ConventionViolation(path, 1, 'has no version')];
+    return [ConventionViolation(path, _topOfFile, 'has no version')];
   }
   final String? problem = _versionProblem(
     version.value,
@@ -379,16 +385,16 @@ String? _versionProblem(
   } on FormatException {
     return 'version "$value" is not a semantic version';
   }
-  if (version.isPreRelease || version.build.isNotEmpty) {
+  if (version.isPreRelease) {
     return 'version "$value" is a prerelease; Homebrew installs releases only';
   }
   if (formulaHasPlaceholders) {
-    final pendingRelease = Version(pubspec.major, pubspec.minor, pubspec.patch);
-    if (version == pendingRelease) {
+    final String pendingRelease = '$pubspec'.replaceFirst('-wip', '');
+    if (value == pendingRelease) {
       return null;
     }
     return 'placeholder version "$value" must be $pendingRelease, the pubspec version $pubspec '
-        'without its suffix';
+        'without -wip';
   }
   final bool changelogHasHeading = changelog
       .split('\n')
@@ -415,7 +421,7 @@ List<ConventionViolation> findMacosViolations(
 ) {
   final FormulaValue? dependency = formula.macosMinimum;
   if (dependency == null) {
-    return [ConventionViolation(path, 1, 'has no depends_on macos: inside on_macos')];
+    return [ConventionViolation(path, _topOfFile, 'has no depends_on macos: inside on_macos')];
   }
   final List<ConventionViolation> violations = [];
   if (!formula.macosMinimumOnMacosOnly) {

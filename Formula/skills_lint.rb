@@ -6,8 +6,8 @@
 # RELEASING.md says how this file is checked and how to update it.
 #
 # PLACEHOLDER: no release has the executables yet. `version` and every
-# `sha256` below are placeholders, so `brew install` fails until the first
-# release replaces them. The sha256 placeholders are 64 zeros.
+# `sha256` below are placeholders, so `brew install` fails until the formula
+# is updated for the first release with executables.
 class SkillsLint < Formula
   desc "Linter for AI agent skills (SKILL.md files)"
   homepage "https://github.com/google/skills_lint.dart"
@@ -16,7 +16,7 @@ class SkillsLint < Formula
 
   livecheck do
     url :stable
-    regex(/^skills_lint-v?(\d+(?:\.\d+)+)$/i)
+    regex(/^skills_lint-v?(\d+(?:\.\d+)+(?:\+\d+)?)$/i)
     strategy :github_latest
   end
 
