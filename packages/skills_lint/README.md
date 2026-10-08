@@ -111,7 +111,7 @@ sudo install -m 0755 "skills_lint-${TARGET}" /usr/local/bin/skills_lint
 The macOS binaries need macOS 14 or later. On macOS, replace
 `sha256sum -c -` with `shasum -a 256 -c -`.
 
-### 4. Homebrew — macOS 14+ and Linux (arm64, x64), no Dart required
+### 4. Homebrew — Linux + macOS, no Dart required
 
 The formula lives in this repository, in
 [`Formula/`](https://github.com/google/skills_lint.dart/tree/main/Formula).
