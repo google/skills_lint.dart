@@ -161,16 +161,15 @@ governs how changes to these rules ship.
   The directory-mismatch error offers both fix directions (edit the
   field or rename the directory).
 - **Auto-fix behavior:** when the only violation is a directory
-  mismatch, the fixer rewrites the frontmatter `name:` value to
-  match the parent directory name. It only writes a directory name
-  that is itself a valid skill name. It keeps the quotes the value
-  already has, and double-quotes a name such as `123` or `true` that
-  YAML would otherwise read as a number or boolean. For any other
-  directory name, such as `my_skill` or `My Skill #1`, it leaves the
-  file unchanged and the error is still reported. Other violations
-  (invalid characters, length, etc.) are not auto-fixed because the
-  normalization is a suggestion and the author may want a different
-  name entirely.
+  mismatch and the directory name is itself a valid skill name, the
+  fixer rewrites the frontmatter `name:` value to the directory name.
+  It keeps the quotes the value already has, and double-quotes a name
+  such as `123`, `true` or `null` that YAML would read as another
+  type. For a directory name that is not a valid skill name, such as
+  `my_skill` or `My Skill #1`, it leaves the file unchanged and the
+  error is reported. Other violations (invalid characters, length,
+  etc.) are not auto-fixed because the normalization is a suggestion
+  and the author may want a different name entirely.
 - **Disable:** `--no-invalid-skill-name`.
 
 ## published-skill-name

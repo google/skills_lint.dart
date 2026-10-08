@@ -292,11 +292,9 @@ class NameFormatRule extends SkillRule implements FixableRule {
     final String beforeName = frontmatter.substring(0, span.start.offset);
     final String afterName = frontmatter.substring(span.end.offset);
 
-    // A valid skill name has no quotes or backslashes, so it needs no
-    // escaping inside either quote style. Keep the quote style the name
-    // already uses. Otherwise write it plain unless YAML would read it as
-    // another type, as with `123`, `1e3` or `false`. A valid skill name is
-    // always a well-formed plain scalar, so loadYaml does not throw.
+    // A valid skill name needs no escaping in either quote style, and
+    // loadYaml cannot throw on it. Some, such as `123` or `false`, load as
+    // another type when plain.
     final String quote = switch (nameNode.style) {
       ScalarStyle.SINGLE_QUOTED => "'",
       ScalarStyle.DOUBLE_QUOTED => '"',
