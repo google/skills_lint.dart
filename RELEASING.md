@@ -251,8 +251,10 @@ If the automation fails:
    cd assets && sha256sum --check --strict SHA256SUMS
    ```
 
-2. In `Formula/skills_lint.rb`, set `version` to `<version>` and each
-   `sha256` to its archive's line in `SHA256SUMS`. On the first release, also
+2. In `release/`, run
+   `dart run bin/release.dart homebrew-formula --version <version> --sha256sums <assets>/SHA256SUMS`,
+   where `<assets>` is the directory from step 1. If it rejects the formula,
+   set `version` and each `sha256` in `Formula/skills_lint.rb` by hand, and
    remove every `PLACEHOLDER` comment.
 3. Run `dart test repo_test/homebrew_formula_test.dart` in
    `packages/skills_lint`, and open a pull request.
