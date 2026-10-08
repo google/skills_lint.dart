@@ -348,9 +348,9 @@ ConventionViolation? _mixedPlaceholderViolation(String path, HomebrewFormula for
 /// The version is never a prerelease, because Homebrew installs it for every
 /// user; a version with build metadata, such as `1.2.0+1`, is a release.
 /// While the formula has placeholders, the version is [pubspecVersion]
-/// without `-wip`, the release that the placeholders wait for. Once the values are real, the version is a
-/// release: [changelog] has a `## <version>` heading for it, and it is not
-/// newer than [pubspecVersion].
+/// without `-wip`, the release that the placeholders wait for. Once the
+/// values are real, the version is a release: [changelog] has a
+/// `## <version>` heading for it, and it is not newer than [pubspecVersion].
 List<ConventionViolation> findVersionViolations(
   String path,
   HomebrewFormula formula, {
