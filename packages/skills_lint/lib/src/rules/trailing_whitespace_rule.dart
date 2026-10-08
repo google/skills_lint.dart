@@ -128,35 +128,22 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
       return currentContent;
     }
 
-    final buffer = StringBuffer();
-    var lineStart = 0;
-    for (final Match lineBreak in _lineBreak.allMatches(currentContent)) {
-      buffer
-        ..write(fixLine(currentContent.substring(lineStart, lineBreak.start)))
-        ..write(lineBreak[0]);
-      lineStart = lineBreak.end;
-    }
-    buffer.write(fixLine(currentContent.substring(lineStart)));
-    return buffer.toString();
+    return currentContent.splitMapJoin(_lineBreak, onNonMatch: fixLine);
   }
 
   @visibleForTesting
   String fixLine(String line) {
-    final bool hasCR = line.endsWith('\r');
-    final String lineWithoutCR = hasCR ? line.substring(0, line.length - 1) : line;
-
-    final int whitespaceStart = trailingWhitespaceStart(lineWithoutCR);
-    if (whitespaceStart == lineWithoutCR.length) {
+    final int whitespaceStart = trailingWhitespaceStart(line);
+    if (whitespaceStart == line.length) {
       return line;
     }
 
-    final String whitespace = lineWithoutCR.substring(whitespaceStart);
+    final String whitespace = line.substring(whitespaceStart);
     if (whitespace == '  ') {
       return line; // Keep the 2 space hard line break.
     }
 
-    final String fixedLine = lineWithoutCR.substring(0, whitespaceStart);
-    return hasCR ? '$fixedLine\r' : fixedLine;
+    return line.substring(0, whitespaceStart);
   }
 
   /// Returns the index where the run of spaces and tabs at the end of [line]

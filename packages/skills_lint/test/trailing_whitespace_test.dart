@@ -171,11 +171,17 @@ void main() {
         expect(rule.fixLine('Line with 2 spaces  '), 'Line with 2 spaces  ');
       });
 
-      test('handles Windows line endings', () {
+      test('handles Windows line endings', () async {
         final rule = TrailingWhitespaceRule();
 
-        expect(rule.fixLine('Line with 1 space \r'), 'Line with 1 space\r');
-        expect(rule.fixLine('Line with 3 spaces   \r'), 'Line with 3 spaces\r');
+        expect(
+          await rule.fix(
+            'SKILL.md',
+            'Line with 1 space \r\nLine with 3 spaces   \r\n',
+            Directory('dummy'),
+          ),
+          'Line with 1 space\r\nLine with 3 spaces\r\n',
+        );
       });
     });
 
@@ -384,7 +390,8 @@ List<String> _referenceDiagnostics(String content) {
 }
 
 /// The `--fix` output of the regular-expression implementation.
-String _referenceFix(String content) => content.replaceAllMapped(
-  RegExp(r'[ \t]+(?=\r\n|\r|\n|$)'),
-  (Match m) => m.group(0) == '  ' ? '  ' : '',
+String _referenceFix(String content) => content.splitMapJoin(
+  _referenceLineBreak,
+  onNonMatch: (String line) =>
+      line.replaceFirstMapped(_referenceRegExp, (Match m) => m[1] == '  ' ? '  ' : ''),
 );
