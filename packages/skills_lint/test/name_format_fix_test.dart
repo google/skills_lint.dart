@@ -179,5 +179,27 @@ void defineCliTests() {
         expect(dirNames(skillsDir), ['123']);
       });
     });
+
+    for (final name in ['123', 'true']) {
+      test('passes and leaves the file unchanged for name: $name in directory "$name"', () async {
+        await withTempDir((skillsDir) async {
+          final Directory skillDir = await createDummySkill(
+            skillsDir,
+            name: name,
+            skillContent: _skillMd(name: name),
+          );
+
+          final (:String stdout, :String stderr) = await run(skillsDir, ['--fix'], exitCode: 0);
+
+          expect(stdout, isNot(contains('Applied fixes')));
+          expect(stderr, isEmpty);
+          expect(
+            await File(p.join(skillDir.path, 'SKILL.md')).readAsString(),
+            _skillMd(name: name),
+          );
+          expect(dirNames(skillsDir), [name]);
+        });
+      });
+    }
   });
 }
