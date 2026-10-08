@@ -56,7 +56,8 @@ governs how changes to these rules ship.
   skipped. Percent escapes are decoded first, as on GitHub, so
   `my%20file.md` resolves to `my file.md` and `a%2Fb.md` to `a/b.md`.
   A link that does not decode to a relative path, such as `x%E9.md`
-  or `%2Fetc%2Fpasswd`, is checked as written.
+  or `%2Fetc%2Fpasswd`, or that decodes to one with a NUL, such as
+  `a.md%00b`, is checked as written.
 - **Diagnostic shape:**
   `Linked file does not exist: <path> (resolved to <absolute path>). Did you mean "<sibling>"?`
   The `Did you mean` clause is only included when a near-miss file
