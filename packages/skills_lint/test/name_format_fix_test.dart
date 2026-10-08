@@ -40,7 +40,7 @@ void main() {
       test('agrees with validate for "$name"', () async {
         final SkillContext context = createTestSkillContext(
           directory: Directory(p.join('skills', name)),
-          rawContent: "---\nname: '$name'\ndescription: d\n---\n",
+          name: "'$name'",
         );
 
         final List<ValidationError> errors = await NameFormatRule().validate(context);
@@ -109,11 +109,15 @@ void main() {
 /// against the compiled binary.
 void defineCliTests() {
   group('CLI --fix of invalid-skill-name', () {
-    Future<({String stdout, String stderr})> run(Directory skillsDir, List<String> args) async {
+    Future<({String stdout, String stderr})> run(
+      Directory skillsDir,
+      List<String> args, {
+      int exitCode = 1,
+    }) async {
       final TestProcess process = await startCli([...args, '-d', skillsDir.path]);
       final String stdout = (await process.stdout.rest.toList()).join('\n');
       final String stderr = (await process.stderr.rest.toList()).join('\n');
-      await process.shouldExit(1);
+      await process.shouldExit(exitCode);
       return (stdout: stdout, stderr: stderr);
     }
 
@@ -165,9 +169,7 @@ void defineCliTests() {
           skillContent: _skillMd(),
         );
 
-        final TestProcess process = await startCli(['--fix', '-d', skillsDir.path]);
-        final String stdout = (await process.stdout.rest.toList()).join('\n');
-        await process.shouldExit(0);
+        final (:String stdout, stderr: _) = await run(skillsDir, ['--fix'], exitCode: 0);
 
         expect(stdout, isNot(contains('Renamed')));
         expect(
