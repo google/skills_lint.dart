@@ -236,17 +236,27 @@ void main() {
       expect(_versionProblems(_formula(), pubspec: '1.2.0'), isEmpty);
     });
 
-    test('accepts a placeholder version equal to the pubspec version without its suffix', () {
+    test('accepts a placeholder version equal to the pubspec version without -wip', () {
       expect(_versionProblems(placeholders(), changelog: ''), isEmpty);
     });
 
     test('reports a placeholder version that is not the pending release', () {
       expect(_versionProblems(placeholders(), pubspec: '1.4.0-wip'), [
-        'f.rb:2: placeholder version "1.3.0" must be 1.4.0, the pubspec version 1.4.0-wip without its suffix',
+        'f.rb:2: placeholder version "1.3.0" must be 1.4.0, the pubspec version 1.4.0-wip without -wip',
       ]);
       expect(_versionProblems(placeholders(), pubspec: '1.3.1-wip'), [
-        'f.rb:2: placeholder version "1.3.0" must be 1.3.1, the pubspec version 1.3.1-wip without its suffix',
+        'f.rb:2: placeholder version "1.3.0" must be 1.3.1, the pubspec version 1.3.1-wip without -wip',
       ]);
+    });
+
+    test('accepts a version with build metadata, as a placeholder and as a release', () {
+      final String placeholder = _formula(
+        version: 'version "1.3.0+1" $placeholderMarker',
+        blocks: _placeholderBlocks(),
+      );
+      final String released = _formula(version: 'version "1.2.0+1"');
+      expect(_versionProblems(placeholder, pubspec: '1.3.0+1-wip', changelog: ''), isEmpty);
+      expect(_versionProblems(released, changelog: '## 1.2.0+1\n'), isEmpty);
     });
 
     test('reports a release that the CHANGELOG does not list', () {

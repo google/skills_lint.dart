@@ -346,9 +346,9 @@ ConventionViolation? _mixedPlaceholderViolation(String path, HomebrewFormula for
 /// Reports where the `version` of [formula] breaks the version rule.
 ///
 /// The version is never a prerelease, because Homebrew installs it for every
-/// user. While the formula has placeholders, the version is
-/// [pubspecVersion] without its prerelease suffix, the release that the
-/// placeholders wait for. Once the values are real, the version is a
+/// user; a version with build metadata, such as `1.2.0+1`, is a release.
+/// While the formula has placeholders, the version is [pubspecVersion]
+/// without `-wip`, the release that the placeholders wait for. Once the values are real, the version is a
 /// release: [changelog] has a `## <version>` heading for it, and it is not
 /// newer than [pubspecVersion].
 List<ConventionViolation> findVersionViolations(
@@ -385,16 +385,16 @@ String? _versionProblem(
   } on FormatException {
     return 'version "$value" is not a semantic version';
   }
-  if (version.isPreRelease || version.build.isNotEmpty) {
+  if (version.isPreRelease) {
     return 'version "$value" is a prerelease; Homebrew installs releases only';
   }
   if (formulaHasPlaceholders) {
-    final pendingRelease = Version(pubspec.major, pubspec.minor, pubspec.patch);
-    if (version == pendingRelease) {
+    final String pendingRelease = '$pubspec'.replaceFirst('-wip', '');
+    if (value == pendingRelease) {
       return null;
     }
     return 'placeholder version "$value" must be $pendingRelease, the pubspec version $pubspec '
-        'without its suffix';
+        'without -wip';
   }
   final bool changelogHasHeading = changelog
       .split('\n')

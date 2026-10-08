@@ -16,7 +16,7 @@ class SkillsLint < Formula
 
   livecheck do
     url :stable
-    regex(/^skills_lint-v?(\d+(?:\.\d+)+)$/i)
+    regex(/^skills_lint-v?(\d+(?:\.\d+)+(?:\+\d+)?)$/i)
     strategy :github_latest
   end
 
