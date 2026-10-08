@@ -467,7 +467,8 @@ jobs:
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          dart pub get
+          cp "$RUNNER_TEMP/assets/pubspec.lock" ..
+          dart pub get --enforce-lockfile
           dart run bin/release.dart homebrew-formula --version "$VERSION" \
             --sha256sums "$RUNNER_TEMP/assets/SHA256SUMS"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
