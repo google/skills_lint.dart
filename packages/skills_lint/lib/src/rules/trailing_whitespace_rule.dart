@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:meta/meta.dart';
 
@@ -52,21 +53,22 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
     final errors = <ValidationError>[];
-    final List<String> lines = context.rawContent.split(_lineBreak);
+    // LineSplitter splits at the same breaks as [_lineBreak], and is faster than splitting on it.
+    final List<String> lines = const LineSplitter().convert(context.rawContent);
 
     for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
       final int lineNumber = lineIndex + 1;
-      final String trimmedLine = lines[lineIndex];
+      final String line = lines[lineIndex];
 
-      final int whitespaceStart = trailingWhitespaceStart(trimmedLine);
-      if (whitespaceStart == trimmedLine.length) {
+      final int whitespaceStart = trailingWhitespaceStart(line);
+      if (whitespaceStart == line.length) {
         continue;
       }
 
-      final String whitespace = trimmedLine.substring(whitespaceStart);
+      final String whitespace = line.substring(whitespaceStart);
       final SourceRegion region = calculateTrailingWhitespaceRegion(
         lineNumber: lineNumber,
-        trimmedLine: trimmedLine,
+        trimmedLine: line,
         whitespace: whitespace,
       );
 
