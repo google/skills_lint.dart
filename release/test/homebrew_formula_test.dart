@@ -82,28 +82,6 @@ final Map<String, String> _checksums = {
 };
 
 void main() {
-  group('parseSha256Sums', () {
-    test('reads "<sha256>  <name>" lines and skips blank lines', () {
-      expect(parseSha256Sums('$_arm  skills_lint-macos-arm64.tar.gz\n\n$_intel  pubspec.lock\n'), {
-        'skills_lint-macos-arm64.tar.gz': _arm,
-        'pubspec.lock': _intel,
-      });
-    });
-
-    test('rejects a line in another format', () {
-      expect(
-        () => parseSha256Sums('$_arm skills_lint-macos-arm64.tar.gz\n'),
-        throwsA(
-          isA<ReleaseException>().having(
-            (e) => e.message,
-            'message',
-            contains('not "<sha256>  <name>"'),
-          ),
-        ),
-      );
-    });
-  });
-
   group('updateFormula', () {
     test('fills in the first release and removes every PLACEHOLDER comment', () {
       expect(

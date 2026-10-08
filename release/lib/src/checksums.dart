@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Writes and checks SHA-256 checksums in the format of `shasum -a 256`,
+/// Writes, reads and checks SHA-256 checksums in the format of `shasum -a 256`,
 /// which `scripts/install.sh` reads.
 library;
 
@@ -74,4 +74,28 @@ File mergeChecksums(Directory dir) {
     part.deleteSync();
   }
   return sums;
+}
+
+/// A line of [sha256SumsName], such as
+/// `<64 hex digits>  skills_lint-linux-x64.tar.gz`. Group 1 is the checksum
+/// and group 2 the file name.
+final RegExp _sha256SumsLine = RegExp(r'^([0-9a-f]{64})  (\S+)$');
+
+/// Returns the checksum of each file that [sha256Sums], the text of a
+/// [sha256SumsName] file, lists, keyed by file name.
+///
+/// Throws a [ReleaseException] if a line is not `<64 hex digits>  <name>`.
+Map<String, String> parseSha256Sums(String sha256Sums) {
+  final Map<String, String> checksums = {};
+  for (final String line in sha256Sums.split('\n')) {
+    if (line.trim().isEmpty) {
+      continue;
+    }
+    final RegExpMatch? match = _sha256SumsLine.firstMatch(line);
+    if (match == null) {
+      throw ReleaseException('$sha256SumsName has a line that is not "<sha256>  <name>": $line');
+    }
+    checksums[match.group(2)!] = match.group(1)!;
+  }
+  return checksums;
 }

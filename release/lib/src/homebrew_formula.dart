@@ -9,6 +9,7 @@
 /// formula that it writes.
 library;
 
+import 'checksums.dart';
 import 'release_exception.dart';
 
 /// The `version` line of the formula, with an optional trailing comment.
@@ -22,26 +23,6 @@ final RegExp _archiveUrlLine = RegExp(r'^\s*url "[^"]*/(skills_lint-[a-z0-9-]+\.
 final RegExp _sha256Line = RegExp(r'^(\s*)sha256 "[^"]*"(\s*#.*)?$');
 
 final RegExp _releaseVersion = RegExp(r'^\d+\.\d+\.\d+$');
-
-/// Returns the checksum of each file that [sha256Sums], the text of a
-/// `SHA256SUMS` file, lists, keyed by file name.
-///
-/// Throws a [ReleaseException] if a line is not `<64 hex digits>  <name>`.
-Map<String, String> parseSha256Sums(String sha256Sums) {
-  final line = RegExp(r'^([0-9a-f]{64})  (\S+)$');
-  final Map<String, String> checksums = {};
-  for (final String text in sha256Sums.split('\n')) {
-    if (text.trim().isEmpty) {
-      continue;
-    }
-    final RegExpMatch? match = line.firstMatch(text);
-    if (match == null) {
-      throw ReleaseException('SHA256SUMS has a line that is not "<sha256>  <name>": $text');
-    }
-    checksums[match.group(2)!] = match.group(1)!;
-  }
-  return checksums;
-}
 
 /// Returns [formula] with its `version` set to [version] and the `sha256`
 /// after each archive `url` set to that archive's checksum in [checksums].
@@ -102,7 +83,7 @@ String _sha256For(List<String> lines, int index, String archive, Map<String, Str
   }
   final String? checksum = checksums[archive];
   if (checksum == null) {
-    throw ReleaseException('SHA256SUMS has no checksum for $archive.');
+    throw ReleaseException('$sha256SumsName has no checksum for $archive.');
   }
   return '${line.group(1)}sha256 "$checksum"';
 }
