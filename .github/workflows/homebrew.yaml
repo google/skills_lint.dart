@@ -8,7 +8,6 @@ on:
   pull_request:
   schedule:
     - cron: '0 6 * * 1' # weekly, to catch Homebrew changes that break the formula
-  workflow_dispatch:
 
 permissions: {}
 
@@ -24,9 +23,8 @@ jobs:
   changes:
     name: Find formula changes
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     permissions:
-      pull-requests: read
+      pull-requests: read # gh api lists the pull request's files.
     outputs:
       formula: ${{ steps.diff.outputs.formula }}
     steps:
@@ -54,7 +52,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.formula == 'true'
     runs-on: macos-latest
-    timeout-minutes: 15
     permissions:
       contents: read
     outputs:
@@ -85,7 +82,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.formula == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
@@ -112,7 +108,6 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -134,8 +129,6 @@ jobs:
     needs: [changes, style, targets, install]
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions: {}
     steps:
       - name: Fail if a job failed or was cancelled
         env:
