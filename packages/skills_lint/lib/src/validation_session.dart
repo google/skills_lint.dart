@@ -831,7 +831,7 @@ class ValidationSession {
     required List<IgnoreEntry> skillIgnores,
     required ValidationResult fallbackResult,
   }) async {
-    final String directoryName = p.basename(skillDir.path);
+    final String currentDirectoryName = p.basename(skillDir.path);
     final String? newDirectoryName = _newDirectoryName(
       originalContent: originalContent,
       fixedContent: currentContent,
@@ -839,12 +839,12 @@ class ValidationSession {
 
     if (fixApply) {
       await skillMdFile.writeAsString(currentContent);
-      _reporter.onFixApplied(directoryName);
+      _reporter.onFixApplied(currentDirectoryName);
 
       final Directory effectiveSkillDir = newDirectoryName != null
           ? await _alignSkillDirectory(
               skillDir: skillDir,
-              directoryName: directoryName,
+              currentDirectoryName: currentDirectoryName,
               newDirectoryName: newDirectoryName,
             )
           : skillDir;
@@ -856,7 +856,7 @@ class ValidationSession {
 
     if (fix) {
       _reporter.onDryRunProposed(
-        skillName: directoryName,
+        skillName: currentDirectoryName,
         targetSkillName: newDirectoryName,
         originalContent: originalContent,
         currentContent: currentContent,
@@ -891,14 +891,14 @@ class ValidationSession {
     return fixed.skillName;
   }
 
-  /// Renames [skillDir], whose name is [directoryName], to
+  /// Renames [skillDir], whose name is [currentDirectoryName], to
   /// [newDirectoryName], and returns the directory to validate next.
   Future<Directory> _alignSkillDirectory({
     required Directory skillDir,
-    required String directoryName,
+    required String currentDirectoryName,
     required String newDirectoryName,
   }) async {
-    if (newDirectoryName == directoryName) {
+    if (newDirectoryName == currentDirectoryName) {
       return skillDir;
     }
 
@@ -908,7 +908,7 @@ class ValidationSession {
 
     if (newDir.existsSync()) {
       _reporter.onRenameTargetExists(
-        oldSkillName: directoryName,
+        oldSkillName: currentDirectoryName,
         targetSkillName: newDirectoryName,
         destinationPath: newDir.path,
       );
@@ -920,13 +920,13 @@ class ValidationSession {
       renamed = await skillDir.rename(newDirPath);
     } on FileSystemException catch (e) {
       _reporter.onRenameFailed(
-        oldSkillName: directoryName,
+        oldSkillName: currentDirectoryName,
         targetSkillName: newDirectoryName,
         error: e,
       );
       return skillDir;
     }
-    _reporter.onSkillRenamed(directoryName, newDirectoryName);
+    _reporter.onSkillRenamed(currentDirectoryName, newDirectoryName);
     return renamed;
   }
 
