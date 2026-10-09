@@ -13,7 +13,6 @@ import 'package:path/path.dart' as p;
 
 import 'archive.dart';
 import 'checksums.dart';
-import 'homebrew_targets.dart';
 import 'install_script.dart';
 import 'licenses.dart';
 import 'paths.dart';
@@ -221,7 +220,7 @@ class _HomebrewMatrixCommand extends _ReleaseCommand {
   @override
   void run() {
     noRest();
-    stdout.writeln('matrix=${buildMatrix(homebrewTargets())}');
+    stdout.writeln('matrix=${buildMatrix(homebrewTargets)}');
   }
 }
 

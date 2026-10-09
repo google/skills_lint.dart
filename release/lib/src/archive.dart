@@ -64,6 +64,16 @@ String? hostTarget(Abi abi) => releaseTargets
     .map((ReleaseTarget target) => target.name)
     .firstOrNull;
 
+/// The targets that the Homebrew formula installs.
+///
+/// A formula picks its archive with `on_macos` or `on_linux` and `on_arm` or
+/// `on_intel`, so it can install only the macOS and Linux targets on arm64
+/// and x64.
+final List<ReleaseTarget> homebrewTargets = [
+  for (final ReleaseTarget target in releaseTargets)
+    if (target.name.split('-') case ['macos' || 'linux', 'arm64' || 'x64']) target,
+];
+
 /// Returns a GitHub Actions `strategy.matrix` as JSON: an `include` entry for
 /// each of [targets], with the `target` and the runner (`os`) that builds it.
 ///
