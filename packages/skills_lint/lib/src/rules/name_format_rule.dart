@@ -29,7 +29,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
   final AnalysisSeverity severity;
 
   static const maxNameLength = 64;
-  static final _validNameRegex = RegExp(r'^[a-z0-9-]+$');
+  static final _allowedCharactersRegex = RegExp(r'^[a-z0-9-]+$');
   static const _nameFieldUrl = 'https://agentskills.io/specification#name-field';
 
   @override
@@ -42,7 +42,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final YamlMap yaml = context.parsedYaml!;
     final YamlNode? nameNode = getNameNode(yaml);
-    final String skillName = nameText(nameNode) ?? '';
+    final String skillName = skillNameOf(nameNode) ?? '';
 
     if (skillName.isEmpty) {
       return errors; // Handled by required fields check
@@ -50,11 +50,15 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final SourceRegion? region = context.yamlNodeToRegion(nameNode);
     final String suggestion = suggestNormalizedName(skillName);
-    final String dirName = basename(context.directory.path);
+    final String directoryName = basename(context.directory.path);
 
-    if (skillName != dirName) {
+    if (skillName != directoryName) {
       errors.add(
-        _buildDirectoryMismatchError(skillName: skillName, dirName: dirName, region: region),
+        _buildDirectoryMismatchError(
+          skillName: skillName,
+          directoryName: directoryName,
+          region: region,
+        ),
       );
     }
 
@@ -89,7 +93,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
   ValidationError _buildDirectoryMismatchError({
     required String skillName,
-    required String dirName,
+    required String directoryName,
     required SourceRegion? region,
   }) {
     return ValidationError(
@@ -98,19 +102,19 @@ class NameFormatRule extends SkillRule implements FixableRule {
       file: SkillContext.skillFileName,
       message:
           'Frontmatter `name` "$skillName" does not match the parent '
-          'directory name "$dirName". '
-          'Fix by either setting `name: $dirName` in SKILL.md '
-          'or renaming the directory from "$dirName" to "$skillName". '
+          'directory name "$directoryName". '
+          'Fix by either setting `name: $directoryName` in SKILL.md '
+          'or renaming the directory from "$directoryName" to "$skillName". '
           '(see $_nameFieldUrl)',
       markdownMessage:
           '**Frontmatter `name` does not match parent directory name.**\n\n'
           '* **Current:** `$skillName`\n'
-          '* **Expected:** `$dirName`\n\n'
+          '* **Expected:** `$directoryName`\n\n'
           '**How to fix:**\n'
           '```yaml\n'
-          'name: $dirName\n'
+          'name: $directoryName\n'
           '```\n'
-          '*Or rename the directory `$dirName` to `$skillName`.*\n\n'
+          '*Or rename the directory `$directoryName` to `$skillName`.*\n\n'
           '*(See [Agent Skills Specification]($_nameFieldUrl))*',
       region: region,
     );
@@ -244,8 +248,8 @@ class NameFormatRule extends SkillRule implements FixableRule {
       return currentContent;
     }
 
-    final String targetName = basename(directory.path);
-    if (!isValidSkillName(targetName)) {
+    final String directoryName = basename(directory.path);
+    if (!isValidSkillName(directoryName)) {
       return currentContent;
     }
 
@@ -278,8 +282,8 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
 
     final SourceSpan span = nameNode.span;
-    final String beforeName = frontmatter.substring(0, span.start.offset);
-    final String afterName = frontmatter.substring(span.end.offset);
+    final String beforeNameNode = frontmatter.substring(0, span.start.offset);
+    final String afterNameNode = frontmatter.substring(span.end.offset);
 
     // Unquoted, YAML reads some valid names as another type: `123` as a
     // number, `false` as a boolean. Valid names hold only letters, digits and
@@ -287,9 +291,9 @@ class NameFormatRule extends SkillRule implements FixableRule {
     final String quote = switch (nameNode.style) {
       ScalarStyle.SINGLE_QUOTED => "'",
       ScalarStyle.DOUBLE_QUOTED => '"',
-      _ => loadYaml(targetName) == targetName ? '' : '"',
+      _ => loadYaml(directoryName) == directoryName ? '' : '"',
     };
-    final fixedFrontmatter = '$beforeName$quote$targetName$quote$afterName';
+    final fixedFrontmatter = '$beforeNameNode$quote$directoryName$quote$afterNameNode';
     final int yamlOffset = currentContent.indexOf(frontmatter, match.start);
     return currentContent.replaceRange(
       yamlOffset,
@@ -309,25 +313,27 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return null;
   }
 
-  /// Gets the skill name from [node], the value of the `name` key, as text,
-  /// or `null` if there is no name, as in `name:`.
+  /// Gets the skill name from [nameNode], the value of the `name` key, as
+  /// text, or `null` if there is no name, as in `name:`.
   ///
-  /// Compare names with this rather than with `node.value`: for `name: 1e3`
-  /// it gives `1e3`, where `node.value` is the number `1000.0`.
-  static String? nameText(YamlNode? node) => switch (node) {
-    YamlScalar(value: final String name) => name,
+  /// Compare names with this rather than with `nameNode.value`: for
+  /// `name: 1e3` it gives `1e3`, where `nameNode.value` is the number
+  /// `1000.0`.
+  static String? skillNameOf(YamlNode? nameNode) => switch (nameNode) {
+    YamlScalar(value: final String skillName) => skillName,
     YamlScalar(value: null) => null,
     // The spec defines a name as text, so read a number or boolean from the
     // source as written. A scalar that ends the document spans its trailing
     // spaces, hence the trim.
     YamlScalar(:final SourceSpan span) => span.text.trim(),
-    _ => node?.value?.toString(),
+    _ => nameNode?.value?.toString(),
   };
 
-  /// Whether [name] is a valid skill name: lowercase ASCII letters, digits
-  /// and hyphens, from 1 to [maxNameLength] characters, with no leading,
-  /// trailing or consecutive hyphens.
-  static bool isValidSkillName(String name) => name.isNotEmpty && _formatProblems(name).isEmpty;
+  /// Whether [skillName] is a valid skill name: lowercase ASCII letters,
+  /// digits and hyphens, from 1 to [maxNameLength] characters, with no
+  /// leading, trailing or consecutive hyphens.
+  static bool isValidSkillName(String skillName) =>
+      skillName.isNotEmpty && _formatProblems(skillName).isEmpty;
 
   /// The format rules that [skillName] breaks, in the order [validate]
   /// reports them.
@@ -338,7 +344,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
       if (skillName.length > maxNameLength) _FormatProblem.tooLong,
       // Checked in lowercase so that uppercase letters, already reported,
       // are not reported again as invalid characters.
-      if (!_validNameRegex.hasMatch(lowercased)) _FormatProblem.invalidCharacters,
+      if (!_allowedCharactersRegex.hasMatch(lowercased)) _FormatProblem.invalidCharacters,
       if (skillName.startsWith('-') || skillName.endsWith('-')) _FormatProblem.edgeHyphen,
       if (skillName.contains('--')) _FormatProblem.consecutiveHyphens,
     ];

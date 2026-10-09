@@ -20,7 +20,7 @@ Future<String> _fix(String dirName) =>
     NameFormatRule().fix('SKILL.md', _skillMd(), Directory(p.join('skills', dirName)));
 
 void main() {
-  group('NameFormatRule.nameText', () {
+  group('NameFormatRule.skillNameOf', () {
     for (final (String name, String text) in [
       ('123', '123'),
       ('true', 'true'),
@@ -34,12 +34,12 @@ void main() {
           name: name,
         );
 
-        expect(NameFormatRule.nameText(NameFormatRule.getNameNode(context.parsedYaml!)), text);
+        expect(NameFormatRule.skillNameOf(NameFormatRule.getNameNode(context.parsedYaml!)), text);
       });
     }
 
     test('trims the trailing spaces of a scalar that ends the document', () {
-      expect(NameFormatRule.nameText(loadYamlNode('1e3   ')), '1e3');
+      expect(NameFormatRule.skillNameOf(loadYamlNode('1e3   ')), '1e3');
     });
 
     for (final name in ['1e3', '0x1f']) {

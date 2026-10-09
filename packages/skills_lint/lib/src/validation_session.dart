@@ -833,7 +833,7 @@ class ValidationSession {
     required ValidationResult fallbackResult,
   }) async {
     final String oldSkillName = p.basename(skillDir.path);
-    final String? oldFrontmatterName = NameFormatRule.nameText(
+    final String? oldFrontmatterName = NameFormatRule.skillNameOf(
       _extractNameNode(originalContent),
     )?.trim();
     final String? newFrontmatterName = switch (_extractNameNode(currentContent)?.value) {
