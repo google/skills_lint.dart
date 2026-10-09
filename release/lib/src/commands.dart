@@ -160,7 +160,7 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
   @override
   Future<void> run() async {
     noRest();
-    final formula = File(p.join(repoRoot, 'Formula', 'skills_lint.rb'));
+    final formula = File(homebrewFormulaPath);
     if (!formula.existsSync()) {
       throw ReleaseException('${formula.path} does not exist.');
     }
