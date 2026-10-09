@@ -7,11 +7,11 @@ import 'dart:math';
 import 'package:test/test.dart';
 
 import '../src/homebrew_formula.dart';
-import '../src/homebrew_targets.dart';
 import '../src/models/convention_violation.dart';
 
-/// The targets that Homebrew installs, from `releaseTargets`.
-late final List<String> _targets;
+/// The targets of the test formulas. The checks take the targets as an
+/// argument, so these don't need to match `releaseTargets`.
+const List<String> _targets = ['macos-arm64', 'linux-arm64', 'linux-x64'];
 
 /// The violation for a formula whose version and sha256 values are not all
 /// placeholders or all real.
@@ -112,14 +112,8 @@ List<String> _describe(List<ConventionViolation> violations) => [
 ];
 
 /// Runs the formula checks over small inline formulas, which pins what each
-/// one reports independently of `Formula/skills_lint.rb`. The formulas have
-/// a block for each target that Homebrew installs.
+/// one reports independently of `Formula/skills_lint.rb`.
 void main() {
-  setUpAll(() async {
-    _targets = await readHomebrewTargets();
-    expect(_targets.length, greaterThanOrEqualTo(3), reason: 'The tests below edit three blocks.');
-  });
-
   group('parseFormula', () {
     test('reads the version, each archive and the macOS dependency, and stops at def', () {
       final HomebrewFormula formula = parseFormula(_formula());

@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -9,7 +10,6 @@ import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
 
 import 'src/homebrew_formula.dart';
-import 'src/homebrew_targets.dart';
 import 'src/repo_paths.dart';
 import 'src/source_conventions.dart';
 
@@ -34,7 +34,7 @@ void main() {
 
   late List<String> targets;
   setUpAll(() async {
-    targets = await readHomebrewTargets();
+    targets = await _homebrewTargets();
   });
 
   test('has one block with the release url and a sha256 for each target', () {
@@ -98,6 +98,30 @@ void main() {
     expect(readmeLines, contains('brew tap $tap https://github.com/google/skills_lint.dart'));
     expect(readmeLines, contains('brew install $tap/$name'));
   });
+}
+
+/// Returns the name of each target that the formula needs a block for, such
+/// as `macos-arm64`.
+///
+/// They come from `releaseTargets` in `release/lib/src/archive.dart`, the one
+/// list of targets. The `release` package is not a dependency of
+/// `skills_lint`, so this runs its `homebrew-matrix` command, which also gives
+/// `homebrew.yaml` its install matrix.
+Future<List<String>> _homebrewTargets() async {
+  const prefix = 'matrix=';
+  final ProcessResult result = await Process.run(Platform.resolvedExecutable, [
+    'run',
+    'bin/release.dart',
+    'homebrew-matrix',
+  ], workingDirectory: p.join(repoRoot, 'release'));
+  final output = result.stdout as String;
+  expect(result.exitCode, 0, reason: 'stdout: $output\nstderr: ${result.stderr}');
+  expect(output, startsWith(prefix));
+  final matrix = jsonDecode(output.substring(prefix.length)) as Map<String, Object?>;
+  return [
+    for (final entry in matrix['include']! as List<Object?>)
+      (entry! as Map<String, Object?>)['target']! as String,
+  ];
 }
 
 String _read(String path) => File(p.joinAll([repoRoot, ...p.posix.split(path)])).readAsStringSync();
