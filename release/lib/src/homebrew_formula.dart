@@ -101,7 +101,10 @@ String releaseFormula(String template, {required String version, required String
       'optional numeric build.',
     );
   }
-  return renderFormula(template, (version: version, checksums: parseSha256Sums(sha256Sums)));
+  return renderFormula(
+    template,
+    FormulaValues(version: version, checksums: parseSha256Sums(sha256Sums)),
+  );
 }
 
 /// The `on_<os>` block for [os], with an `on_<arch>` block for each of
