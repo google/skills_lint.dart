@@ -24,25 +24,24 @@ jobs:
     name: Find formula changes
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read # gh api lists the pull request's files.
+      contents: read
     outputs:
       formula: ${{ steps.diff.outputs.formula }}
     steps:
+      # Depth 2 holds the pull request's merge commit and its first parent, the
+      # base branch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
       - name: Check the changed files
         id: diff
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
-            echo "formula=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename')
-          if grep -Eq '^(Formula/|release/|\.github/workflows/homebrew\.yaml$)' <<< "$files"; then
-            echo "formula=true" >> "$GITHUB_OUTPUT"
-          else
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
+            git diff --quiet HEAD^1 HEAD -- Formula release .github/workflows/homebrew.yaml; then
             echo "formula=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "formula=true" >> "$GITHUB_OUTPUT"
           fi
 
   style:
