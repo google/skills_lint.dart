@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'package:pub_semver/pub_semver.dart';
 
 import 'archive.dart';
+import 'checksums.dart';
 import 'macho.dart';
 import 'release_exception.dart';
 import 'release_info.dart';
@@ -80,6 +81,21 @@ String renderFormula(
   return _withLf(template)
       .replaceAll(_versionPlaceholder, values.version)
       .replaceFirst(_platformsPlaceholder, osBlocks.join('\n\n'));
+}
+
+/// The formula that [template] gives for the release [version], with the
+/// checksums from [sha256Sums], the text of the release's `SHA256SUMS`.
+///
+/// Throws a [ReleaseException] if Homebrew can't install [version] (see
+/// [isHomebrewVersion]), or for any reason [renderFormula] does.
+String releaseFormula(String template, {required String version, required String sha256Sums}) {
+  if (!isHomebrewVersion(version)) {
+    throw ReleaseException(
+      'Homebrew installs releases only, and $version is not <major>.<minor>.<patch> with an '
+      'optional numeric build.',
+    );
+  }
+  return renderFormula(template, (version: version, checksums: parseSha256Sums(sha256Sums)));
 }
 
 /// The `on_<os>` block for [os], with an `on_<arch>` block for each of

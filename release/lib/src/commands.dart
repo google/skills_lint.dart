@@ -228,13 +228,16 @@ class _HomebrewMatrixCommand extends _ReleaseCommand {
 
 class _HomebrewFormulaCommand extends _ReleaseCommand {
   _HomebrewFormulaCommand() {
-    argParser.addFlag(
-      'check',
-      negatable: false,
-      help:
-          'Write nothing. Fail if the formula differs from what the template gives, or if its '
-          'version breaks the release rules.',
-    );
+    argParser
+      ..addFlag(
+        'check',
+        negatable: false,
+        help:
+            'Write nothing. Fail if the formula differs from what the template gives, or if its '
+            'version breaks the release rules.',
+      )
+      ..addOption('version', help: 'Write the formula for this release. Needs --sha256sums.')
+      ..addOption('sha256sums', help: "The release's $sha256SumsName file. Needs --version.");
   }
 
   @override
@@ -242,8 +245,8 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
 
   @override
   String get description =>
-      'Writes Formula/skills_lint.rb from release/templates/skills_lint.rb.tmpl, keeping its '
-      'version and checksums.';
+      'Writes Formula/skills_lint.rb from release/templates/skills_lint.rb.tmpl, with the version '
+      'and checksums it has, or with those of the release that --version and --sha256sums give.';
 
   @override
   void run() {
@@ -267,7 +270,20 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
       stdout.writeln('${formula.path} matches its template.');
       return;
     }
-    formula.writeAsStringSync(renderFormula(template, readFormula(current)));
+    final String? version = argResults!.option('version');
+    final String? sha256Sums = argResults!.option('sha256sums');
+    if ((version == null) != (sha256Sums == null)) {
+      usageException('Give both --version and --sha256sums, or neither.');
+    }
+    formula.writeAsStringSync(
+      version == null
+          ? renderFormula(template, readFormula(current))
+          : releaseFormula(
+              template,
+              version: version,
+              sha256Sums: File(sha256Sums!).readAsStringSync(),
+            ),
+    );
     stdout.writeln('Wrote ${formula.path}.');
   }
 }
