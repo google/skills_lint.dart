@@ -60,10 +60,8 @@ The run on the tag:
    package to pub.dev, unless pub.dev has the version.
 3. Checks the attestations of the draft's files again, then publishes the
    draft release.
-4. Unless the release is a prerelease, checks the published archives again
-   and pushes the branch `homebrew/skills_lint-v<version>`, which updates the
-   Homebrew formula to the release.
-   [Release automation](#release-automation) describes it.
+4. Unless the release is a prerelease, pushes a branch that updates the
+   [Homebrew formula](#homebrew-formula) to the release.
 
 pub.dev accepts a publish only from a workflow run on a tag that matches
 `skills_lint-v{{version}}`, so publishing needs the second run. The comment on
@@ -140,8 +138,10 @@ see, until the last job.
   draft.
 - **A Homebrew job fails.** The release is published by then, so a run on
   the tag stops at `verify`. If the branch `homebrew/skills_lint-v<version>`
-  exists, open the pull request from it; otherwise
-  [update the formula by hand](#update-the-formula-by-hand).
+  exists, open the pull request from it. Otherwise, after the checks that
+  `homebrew-formula` runs, run
+  `dart run bin/release.dart homebrew-formula --version <version> --sha256sums <SHA256SUMS>`
+  in `release/` and open a pull request with the result.
 - **To abandon a release** before pub.dev has it, delete the draft and the
   tag with
   `gh release delete skills_lint-v<version> --cleanup-tag -R google/skills_lint.dart`.
@@ -213,50 +213,19 @@ change, so keep the tap name and the formula name.
 - [`repo_test/homebrew_formula_test.dart`](packages/skills_lint/repo_test/homebrew_formula_test.dart)
   fails when the formula disagrees with the release targets, the version or
   the macOS minimum, and says what to fix.
-- For each release with executables, the formula's `version` and each
-  `sha256` come from that release's `SHA256SUMS`, after the archives pass the
-  attestation check in [Release a version](#release-a-version).
-
-### Release automation
-
-After a release that is not a prerelease, two jobs in `release.yaml` update
-the formula. Homebrew installs the formula for every user, so prereleases
-are skipped.
-
-- `homebrew-formula` downloads the published archives and `SHA256SUMS`,
-  checks them with `sha256sum --check --strict` and `gh attestation verify`,
-  and runs `release homebrew-formula` on the formula from `main`. It has
-  read-only permissions.
-- `homebrew-branch` pushes the result to the branch
-  `homebrew/skills_lint-v<version>` and writes a link to open a pull request
-  from it in the job summary. It never pushes to `main`. The branch starts
-  from `main` as it is when the job runs and holds one commit, so the link,
-  which compares it with `main`, shows exactly the formula update.
-
-Open that pull request, then review and merge it like any other. The job
-doesn't open it, because that needs the setting that also lets workflows
-approve pull requests.
-
-### Update the formula by hand
-
-If the automation fails:
-
-1. Download the release's files, check them against `SHA256SUMS`, and check
-   each archive's attestation with the `gh attestation verify` command in
-   [Release a version](#release-a-version):
-
-   ```bash
-   gh release download skills_lint-v<version> -R google/skills_lint.dart --dir assets
-   cd assets && sha256sum --check --strict SHA256SUMS
-   ```
-
-2. In `release/`, run
-   `dart run bin/release.dart homebrew-formula --version <version> --sha256sums <assets>/SHA256SUMS`,
-   where `<assets>` is the directory from step 1. If it rejects the formula,
-   set `version` and each `sha256` in `Formula/skills_lint.rb` by hand, and
-   remove every `PLACEHOLDER` comment.
-3. Run `dart test repo_test/homebrew_formula_test.dart` in
-   `packages/skills_lint`, and open a pull request.
+- After each release that is not a prerelease, two `release.yaml` jobs
+  update the formula. Homebrew installs it for every user, so prereleases
+  are skipped.
+  - `homebrew-formula`, with read-only permissions, checks the published
+    archives against `SHA256SUMS` and their attestations, then runs
+    `release homebrew-formula` on the formula from `main`.
+  - `homebrew-branch` runs no Dart. It pushes the result as one commit on
+    `homebrew/skills_lint-v<version>`, branched from `main`, and writes a
+    compare link to the job summary, so the link shows exactly the formula
+    update. It never pushes to `main`.
+- A maintainer opens the pull request from that link. The workflow can't,
+  because the setting that would allow it also lets workflows approve pull
+  requests.
 
 ## Release scripts
 
