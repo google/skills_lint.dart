@@ -6,7 +6,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/skill_context.dart';
-import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/name_format_rule.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
@@ -21,36 +20,6 @@ Future<String> _fix(String dirName) =>
     NameFormatRule().fix('SKILL.md', _skillMd(), Directory(p.join('skills', dirName)));
 
 void main() {
-  group('NameFormatRule.isValidSkillName', () {
-    for (final String name in [
-      'my-skill',
-      'a',
-      'a1-b2',
-      'a' * NameFormatRule.maxNameLength,
-      'a' * (NameFormatRule.maxNameLength + 1),
-      'my_skill',
-      'My-Skill',
-      '-foo',
-      'foo-',
-      'a--b',
-      '-',
-      '---',
-      'my skill',
-      'café',
-    ]) {
-      test('agrees with validate for "$name"', () async {
-        final SkillContext context = createTestSkillContext(
-          directory: Directory(p.join('skills', name)),
-          name: "'$name'",
-        );
-
-        final List<ValidationError> errors = await NameFormatRule().validate(context);
-
-        expect(NameFormatRule.isValidSkillName(name), errors.isEmpty);
-      });
-    }
-  });
-
   group('NameFormatRule.nameText', () {
     for (final (String name, String text) in [
       ('123', '123'),

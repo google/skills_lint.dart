@@ -58,41 +58,30 @@ class NameFormatRule extends SkillRule implements FixableRule {
       );
     }
 
-    if (skillName != skillName.toLowerCase()) {
-      errors.add(
-        _buildLowercaseError(skillName: skillName, suggestion: suggestion, region: region),
-      );
-    }
-
-    if (skillName.length > maxNameLength) {
-      errors.add(_buildMaxLengthError(skillName: skillName, region: region));
-    }
-
-    // Check invalid characters ignoring casing differences if casing error was already emitted
-    final bool hasInvalidChars = skillName != skillName.toLowerCase()
-        ? !_validNameRegex.hasMatch(skillName.toLowerCase())
-        : !_validNameRegex.hasMatch(skillName);
-
-    if (hasInvalidChars) {
-      errors.add(
-        _buildInvalidCharsError(skillName: skillName, suggestion: suggestion, region: region),
-      );
-    }
-
-    if (_hasEdgeHyphen(skillName)) {
-      errors.add(
-        _buildLeadingTrailingHyphensError(
+    for (final _FormatProblem problem in _formatProblems(skillName)) {
+      errors.add(switch (problem) {
+        _FormatProblem.uppercase => _buildLowercaseError(
           skillName: skillName,
           suggestion: suggestion,
           region: region,
         ),
-      );
-    }
-
-    if (_hasConsecutiveHyphens(skillName)) {
-      errors.add(
-        _buildConsecutiveHyphensError(skillName: skillName, suggestion: suggestion, region: region),
-      );
+        _FormatProblem.tooLong => _buildMaxLengthError(skillName: skillName, region: region),
+        _FormatProblem.invalidCharacters => _buildInvalidCharsError(
+          skillName: skillName,
+          suggestion: suggestion,
+          region: region,
+        ),
+        _FormatProblem.edgeHyphen => _buildLeadingTrailingHyphensError(
+          skillName: skillName,
+          suggestion: suggestion,
+          region: region,
+        ),
+        _FormatProblem.consecutiveHyphens => _buildConsecutiveHyphensError(
+          skillName: skillName,
+          suggestion: suggestion,
+          region: region,
+        ),
+      });
     }
 
     return errors;
@@ -338,19 +327,22 @@ class NameFormatRule extends SkillRule implements FixableRule {
   /// Whether [name] is a valid skill name: lowercase ASCII letters, digits
   /// and hyphens, from 1 to [maxNameLength] characters, with no leading,
   /// trailing or consecutive hyphens.
-  ///
-  /// A non-empty name passes the format checks in [validate] exactly when
-  /// this returns true.
-  static bool isValidSkillName(String name) {
-    if (name.isEmpty || name.length > maxNameLength) {
-      return false;
-    }
-    return _validNameRegex.hasMatch(name) && !_hasEdgeHyphen(name) && !_hasConsecutiveHyphens(name);
+  static bool isValidSkillName(String name) => name.isNotEmpty && _formatProblems(name).isEmpty;
+
+  /// The format rules that [skillName] breaks, in the order [validate]
+  /// reports them.
+  static List<_FormatProblem> _formatProblems(String skillName) {
+    final String lowercased = skillName.toLowerCase();
+    return [
+      if (skillName != lowercased) _FormatProblem.uppercase,
+      if (skillName.length > maxNameLength) _FormatProblem.tooLong,
+      // Checked in lowercase so that uppercase letters, already reported,
+      // are not reported again as invalid characters.
+      if (!_validNameRegex.hasMatch(lowercased)) _FormatProblem.invalidCharacters,
+      if (skillName.startsWith('-') || skillName.endsWith('-')) _FormatProblem.edgeHyphen,
+      if (skillName.contains('--')) _FormatProblem.consecutiveHyphens,
+    ];
   }
-
-  static bool _hasEdgeHyphen(String name) => name.startsWith('-') || name.endsWith('-');
-
-  static bool _hasConsecutiveHyphens(String name) => name.contains('--');
 
   /// Returns a best-effort normalization of [input] that conforms to the
   /// skill name format: lowercase, hyphens only, no consecutive/leading/
@@ -361,3 +353,6 @@ class NameFormatRule extends SkillRule implements FixableRule {
   @visibleForTesting
   static String suggestNormalizedName(String input) => normalizeSkillNameToken(input);
 }
+
+/// A format rule of the spec that a skill name breaks.
+enum _FormatProblem { uppercase, tooLong, invalidCharacters, edgeHyphen, consecutiveHyphens }
