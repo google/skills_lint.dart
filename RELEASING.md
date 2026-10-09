@@ -171,10 +171,6 @@ platform. The rest follows from that list:
 - `release package --target` accepts only its targets.
 - `install.sh` finds the archive for the machine in the release's
   `SHA256SUMS`, and names the release's platforms when there is none.
-- Each target's system and architecture say which Homebrew formula blocks
-  select it, if any. `release homebrew-matrix` prints the targets that the
-  [Homebrew formula](#homebrew-formula) installs, and the formula has a block
-  for each.
 
 The minimum macOS version comes from the Dart SDK used for the build: Dart
 3.11 and later target macOS 14
@@ -183,41 +179,26 @@ so a Dart upgrade can raise it. It is the `minos` of the `LC_BUILD_VERSION`
 load command in the built executable, which `vtool -show-build <executable>`
 prints. `release package` fails if that value differs from
 `macosMinimumVersion` in `release/lib/src/macho.dart`. When it changes, update
-that constant, `MIN_MACOS_VERSION` in `install.sh`, the README and this
-file, then [regenerate the formula](#homebrew-formula), which takes
-`depends_on macos:` from the constant.
+that constant, `MIN_MACOS_VERSION` in `install.sh`, the README and this file.
 
 There is no Windows executable yet; see
 [issue #86](https://github.com/google/skills_lint.dart/issues/86).
 
 ## Homebrew formula
 
-[`Formula/skills_lint.rb`](Formula/skills_lint.rb) installs the release
-executables. `release homebrew-formula` generates it from
-[`release/templates/skills_lint.rb.tmpl`](release/templates/skills_lint.rb.tmpl):
-the version and a block per target are generated, and the rest is the
-template's Ruby. This repository is the tap `google/skills-lint`. Homebrew looks
-for a tap `user/repo` at `github.com/user/homebrew-repo`, so the README's
-`brew tap` command passes this repository's URL. Published READMEs never
-change, so keep the tap name and the formula name.
+`release homebrew-formula` generates [`Formula/skills_lint.rb`](Formula/skills_lint.rb)
+from [`release/templates/skills_lint.rb.tmpl`](release/templates/skills_lint.rb.tmpl).
+Only the version and each target's `url` and `sha256` are generated.
 
-- While the formula's `version` and checksums are placeholders, marked
-  `# PLACEHOLDER`, `brew install` fails.
-- [`homebrew.yaml`](.github/workflows/homebrew.yaml) runs `brew style` and
-  `brew audit`, and once there are no placeholders, installs and tests the
-  formula on each target.
-- Require the `Homebrew` status check on `main` (ruleset 21051370) so a pull
-  request that breaks the formula can't merge.
-- `release homebrew-formula --check`, which
-  [`repo_test/homebrew_formula_test.dart`](packages/skills_lint/repo_test/homebrew_formula_test.dart)
-  runs, fails when the formula differs from what the template gives, or when
-  its version isn't the pending release (while placeholders remain) or a
-  released version no newer than the pubspec. To fix a difference, edit the
-  template, not the formula, and run `dart run bin/release.dart
-  homebrew-formula` in `release/`.
-- For each release with executables, the formula's `version` and each
-  `sha256` come from that release's `SHA256SUMS`, after the archives pass the
-  attestation check in [Release a version](#release-a-version).
+- Until a release has executables, the checksums are placeholders, the version
+  is the pending release, and `brew install` fails.
+- After that, the version is a released version, and the checksums come from
+  that release's `SHA256SUMS`.
+- The repo tests fail when the formula isn't what the template gives, and the
+  `Homebrew` check fails when brew rejects the formula or can't install it.
+- Require the `Homebrew` status check on `main` (ruleset 21051370).
+- Published READMEs keep their install commands, so don't rename the tap
+  `google/skills-lint` or the formula `skills_lint`.
 
 ## Release scripts
 
