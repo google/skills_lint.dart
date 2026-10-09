@@ -8,7 +8,6 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
-import 'package:yaml/yaml.dart';
 
 import 'config_parser.dart';
 import 'fixable_rule.dart';
@@ -875,28 +874,21 @@ class ValidationSession {
     required String originalContent,
     required String fixedContent,
   }) {
-    final String? originalName = NameFormatRule.skillNameOf(
-      _extractNameNode(originalContent),
-    )?.trim();
-    if (originalName == null) {
+    final String? originalName = NameFormatRule.readSkillName(originalContent)?.skillName;
+    final ({String skillName, bool isYamlString})? fixed = NameFormatRule.readSkillName(
+      fixedContent,
+    );
+    if (originalName == null || fixed == null) {
       return null;
     }
-
-    // The fixed name becomes a directory name, so it must be a YAML string:
-    // a plain `false` or `0x1f` is a boolean or a number.
-    final Object? fixedValue = _extractNameNode(fixedContent)?.value;
-    if (fixedValue is! String) {
+    // The name becomes a directory name, so it must be text, not a plain `false` or `0x1f`.
+    if (!fixed.isYamlString) {
       return null;
     }
-    final String fixedName = fixedValue.trim();
-
-    if (fixedName == originalName) {
+    if (fixed.skillName == originalName || !NameFormatRule.isValidSkillName(fixed.skillName)) {
       return null;
     }
-    if (!NameFormatRule.isValidSkillName(fixedName)) {
-      return null;
-    }
-    return fixedName;
+    return fixed.skillName;
   }
 
   /// Renames [skillDir], whose name is [directoryName], to
@@ -936,22 +928,6 @@ class ValidationSession {
     }
     _reporter.onSkillRenamed(directoryName, newDirectoryName);
     return renamed;
-  }
-
-  /// Extracts the frontmatter `name:` node from raw [content], returning
-  /// `null` if the content lacks frontmatter, fails YAML parsing, or has no
-  /// `name`.
-  static YamlNode? _extractNameNode(String content) {
-    final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(content);
-    if (match != null) {
-      try {
-        final Object? doc = loadYaml(match.group(1)!);
-        return doc is YamlMap ? NameFormatRule.getNameNode(doc) : null;
-      } on YamlException {
-        // Ignore YAML parsing errors during fix post-processing.
-      }
-    }
-    return null;
   }
 
   /// Mutates [ignores] in place to add baseline entries for any non-ignored
