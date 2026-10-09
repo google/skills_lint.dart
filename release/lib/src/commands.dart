@@ -14,6 +14,7 @@ import 'package:path/path.dart' as p;
 import 'archive.dart';
 import 'checksums.dart';
 import 'homebrew_formula.dart';
+import 'homebrew_formula_check.dart';
 import 'install_script.dart';
 import 'licenses.dart';
 import 'paths.dart';
@@ -252,8 +253,9 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
   void run() {
     noRest();
     final formula = File(homebrewFormulaPath);
-    final String template = File(homebrewTemplatePath).readAsStringSync();
-    final String current = formula.readAsStringSync();
+    // A Windows checkout can give these files CRLF line endings.
+    final String template = File(homebrewTemplatePath).readAsStringSync().replaceAll('\r\n', '\n');
+    final String current = formula.readAsStringSync().replaceAll('\r\n', '\n');
     if (argResults!.flag('check')) {
       final List<String> problems = formulaProblems(
         current,

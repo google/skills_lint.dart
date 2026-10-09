@@ -15,7 +15,7 @@ import 'release_exception.dart';
 String changelogSection(String changelog, String version) {
   final heading = '## $version';
   final List<String> lines = changelog.replaceAll('\r\n', '\n').split('\n');
-  final int start = lines.indexWhere((line) => line.trimRight() == heading);
+  final int start = _headingIndex(lines, version);
   if (start == -1) {
     throw ReleaseException('CHANGELOG.md has no "$heading" heading.');
   }
@@ -27,3 +27,12 @@ String changelogSection(String changelog, String version) {
   }
   return trimmed;
 }
+
+/// Whether [changelog] has the `## <version>` heading that
+/// [changelogSection] reads.
+bool hasChangelogHeading(String changelog, String version) =>
+    _headingIndex(changelog.split('\n'), version) != -1;
+
+// trimRight also drops the \r of a CRLF line ending.
+int _headingIndex(List<String> lines, String version) =>
+    lines.indexWhere((line) => line.trimRight() == '## $version');

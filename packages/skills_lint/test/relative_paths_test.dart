@@ -274,5 +274,76 @@ void main() {
       expect(errors.first.ruleId, equals('check-relative-paths'));
       expect(errors.first.region?.startLine, equals(7));
     });
+
+    group('percent-encoded links', () {
+      Future<ValidationResult> validateLink(String link, {String? existingFile}) async {
+        final Directory skillDir = await createDummySkill(
+          tempDir,
+          name: 'test-skill',
+          skillContent: '${buildFrontmatter(name: 'test-skill')}[doc]($link)\n',
+        );
+        if (existingFile != null) {
+          final file = File(p.join(skillDir.path, existingFile));
+          await file.parent.create(recursive: true);
+          await file.writeAsString('doc');
+        }
+        final validator = Validator(
+          ruleConfigs: {
+            RelativePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error),
+          },
+        );
+        return validator.validate(skillDir);
+      }
+
+      test('finds a file whose name has an encoded space', () async {
+        final ValidationResult result = await validateLink(
+          'my%20file.md',
+          existingFile: 'my file.md',
+        );
+        expect(result.errors, isEmpty);
+      });
+
+      test('finds a file whose name has encoded unicode', () async {
+        final ValidationResult result = await validateLink('caf%C3%A9.md', existingFile: 'café.md');
+        expect(result.errors, isEmpty);
+      });
+
+      test('finds a file whose name has an encoded #', () async {
+        final ValidationResult result = await validateLink('a%23b.md', existingFile: 'a#b.md');
+        expect(result.errors, isEmpty);
+      });
+
+      test('finds a nested file for an encoded slash', () async {
+        final ValidationResult result = await validateLink(
+          'a%2Fb.md',
+          existingFile: p.join('a', 'b.md'),
+        );
+        expect(result.errors, isEmpty);
+      });
+
+      test('resolves a link with a malformed escape as written', () async {
+        final ValidationResult result = await validateLink('bad%zz.md', existingFile: 'bad%zz.md');
+        expect(result.errors, isEmpty);
+      });
+
+      test('reports a link whose escape is not valid UTF-8 as missing', () async {
+        final ValidationResult result = await validateLink('x%E9.md');
+        expect(result.errors, [contains('Linked file does not exist: x%E9.md')]);
+      });
+
+      test('reports a link that decodes to an absolute path as missing', () async {
+        final String target = p.join(tempDir.path, 'outside.md');
+        await File(target).writeAsString('doc');
+
+        final ValidationResult result = await validateLink(Uri.encodeComponent(target));
+
+        expect(result.errors, [contains('Linked file does not exist')]);
+      });
+
+      test('reports a link with an encoded NUL as missing', () async {
+        final ValidationResult result = await validateLink('a.md%00b', existingFile: 'a.md');
+        expect(result.errors, [contains('Linked file does not exist: a.md%00b')]);
+      });
+    });
   });
 }

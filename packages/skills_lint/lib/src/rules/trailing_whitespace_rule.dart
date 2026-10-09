@@ -2,8 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:meta/meta.dart';
+import 'package:source_span/source_span.dart';
 
 import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
@@ -49,24 +51,23 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
     final errors = <ValidationError>[];
-    final List<String> lines = context.rawContent.split('\n');
+    // LineSplitter ends lines where SourceFile does, so these line numbers
+    // match the ones that SkillContext.offsetToLine gives other rules.
+    final List<String> lines = const LineSplitter().convert(context.rawContent);
 
     for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
       final int lineNumber = lineIndex + 1;
       final String line = lines[lineIndex];
 
-      // Remove carriage return if present (Windows line endings)
-      final String trimmedLine = line.endsWith('\r') ? line.substring(0, line.length - 1) : line;
-
-      final int whitespaceStart = trailingWhitespaceStart(trimmedLine);
-      if (whitespaceStart == trimmedLine.length) {
+      final int whitespaceStart = trailingWhitespaceStart(line);
+      if (whitespaceStart == line.length) {
         continue;
       }
 
-      final String whitespace = trimmedLine.substring(whitespaceStart);
+      final String whitespace = line.substring(whitespaceStart);
       final SourceRegion region = calculateTrailingWhitespaceRegion(
         lineNumber: lineNumber,
-        trimmedLine: trimmedLine,
+        trimmedLine: line,
         whitespace: whitespace,
       );
 
@@ -126,26 +127,38 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
       return currentContent;
     }
 
-    return currentContent.split('\n').map(fixLine).join('\n');
+    // LineSplitter drops the line breaks, which the fix must keep. SourceFile
+    // finds the same lines and knows where each starts, so the break after a
+    // line is the text from its end to the start of the next line.
+    final List<String> lines = const LineSplitter().convert(currentContent);
+    final file = SourceFile.fromString(currentContent);
+    final fixed = StringBuffer();
+    for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      final String line = lines[lineIndex];
+      final int lineEnd = file.getOffset(lineIndex) + line.length;
+      final int nextLineStart = lineIndex + 1 < file.lines
+          ? file.getOffset(lineIndex + 1)
+          : currentContent.length;
+      fixed
+        ..write(fixLine(line))
+        ..write(currentContent.substring(lineEnd, nextLineStart));
+    }
+    return fixed.toString();
   }
 
   @visibleForTesting
   String fixLine(String line) {
-    final bool hasCR = line.endsWith('\r');
-    final String lineWithoutCR = hasCR ? line.substring(0, line.length - 1) : line;
-
-    final int whitespaceStart = trailingWhitespaceStart(lineWithoutCR);
-    if (whitespaceStart == lineWithoutCR.length) {
+    final int whitespaceStart = trailingWhitespaceStart(line);
+    if (whitespaceStart == line.length) {
       return line;
     }
 
-    final String whitespace = lineWithoutCR.substring(whitespaceStart);
+    final String whitespace = line.substring(whitespaceStart);
     if (whitespace == '  ') {
       return line; // Keep the 2 space hard line break.
     }
 
-    final String fixedLine = lineWithoutCR.substring(0, whitespaceStart);
-    return hasCR ? '$fixedLine\r' : fixedLine;
+    return line.substring(0, whitespaceStart);
   }
 
   /// Returns the index where the run of spaces and tabs at the end of [line]
