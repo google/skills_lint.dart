@@ -1,6 +1,5 @@
-# Checks the Homebrew formula in Formula/. Require the `Homebrew` job: it
-# always runs, and fails if another job fails. The other jobs skip pull
-# requests that don't change Formula/, release/ or this file.
+# Checks the Homebrew formula in Formula/: brew style and audit, then brew
+# install and test on each target.
 
 name: Homebrew
 
@@ -20,6 +19,7 @@ env:
   FORMULA: google/skills-lint/skills_lint
 
 jobs:
+  # Skips the brew jobs on pull requests that change none of their inputs.
   changes:
     name: Find formula changes
     runs-on: ubuntu-latest
@@ -28,8 +28,6 @@ jobs:
     outputs:
       formula: ${{ steps.diff.outputs.formula }}
     steps:
-      # release/ builds the archives that the formula installs and lists their
-      # targets.
       - name: Check the changed files
         id: diff
         env:
@@ -124,6 +122,8 @@ jobs:
       - run: brew test "$FORMULA"
       - run: brew audit --strict --online --formula "$FORMULA"
 
+  # Always runs, so it reports one result to require on main even when the
+  # other jobs skip.
   homebrew:
     name: Homebrew
     needs: [changes, style, targets, install]
