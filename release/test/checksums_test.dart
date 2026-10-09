@@ -112,7 +112,7 @@ void main() {
           isA<ReleaseException>().having(
             (e) => e.message,
             'message',
-            contains('not "<sha256>  <name>"'),
+            contains('$first skills_lint-macos-arm64.tar.gz'),
           ),
         ),
       );
