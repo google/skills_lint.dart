@@ -220,7 +220,7 @@ class _HomebrewMatrixCommand extends _ReleaseCommand {
   @override
   void run() {
     noRest();
-    stdout.writeln('matrix=${buildMatrix(homebrewTargets)}');
+    stdout.writeln('matrix=${buildMatrix(homebrewTargets())}');
   }
 }
 
