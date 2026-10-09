@@ -39,6 +39,17 @@ typedef ReleaseInfo = ({String version, String tag, bool prerelease, ReleaseMode
 /// quotes or shell syntax.
 final RegExp _versionCharacters = RegExp(r'^[0-9A-Za-z.+-]+$');
 
+/// `<major>.<minor>.<patch>` with an optional numeric build, such as `0.5.4`
+/// or `0.5.4+1`.
+final RegExp _homebrewVersion = RegExp(r'^\d+\.\d+\.\d+(\+\d+)?$');
+
+/// Whether the Homebrew formula can install [version]: a release version,
+/// such as `0.5.4` or `0.5.4+1`, whose build, if it has one, is a number.
+///
+/// Homebrew installs the formula for every user, so it never names a
+/// prerelease, and the formula's livecheck regex reads only numeric builds.
+bool isHomebrewVersion(String version) => _homebrewVersion.hasMatch(version);
+
 /// Returns the `version` from the [pubspec] YAML text.
 ///
 /// Throws a [ReleaseException] if there is no version, or if it holds a
@@ -69,9 +80,10 @@ String readPubspecVersion(String pubspec) {
 /// - A `workflow_dispatch` run on the tag `skills_lint-v<version>` with
 ///   [release] is a [ReleaseMode.publish].
 ///
-/// Throws a [ReleaseException] for any other run, and for a stage or publish
-/// run of a `-wip` version. A version with any other `-` suffix, such as
-/// `1.0.0-dev.1`, is a prerelease.
+/// Throws a [ReleaseException] for any other run, for a stage or publish run
+/// of a `-wip` version, and for a stage or publish run of a release whose
+/// build is not numeric, such as `0.5.4+hotfix`. A version with any other `-`
+/// suffix, such as `1.0.0-dev.1`, is a prerelease.
 ReleaseInfo resolveRelease({
   required String version,
   required String event,
@@ -103,7 +115,14 @@ ReleaseInfo resolveRelease({
       'CHANGELOG.md first.',
     );
   }
-  return (version: version, tag: tag, prerelease: version.contains('-'), mode: mode);
+  final bool prerelease = version.contains('-');
+  if (mode != ReleaseMode.dryRun && !prerelease && !isHomebrewVersion(version)) {
+    throw ReleaseException(
+      'The Homebrew formula cannot name $version: it takes <major>.<minor>.<patch> with an '
+      'optional numeric build, such as 0.5.4+1.',
+    );
+  }
+  return (version: version, tag: tag, prerelease: prerelease, mode: mode);
 }
 
 /// Returns [info] as `name=value` lines for `$GITHUB_OUTPUT`.

@@ -33,11 +33,6 @@ For a full definition of the skill standard, see the [Agent Skills Specification
 SDK required) and as a Dart package on pub.dev. Pick the path that
 matches your environment.
 
-> **Homebrew note.** A `brew install dart-skills-lint` path is on the
-> roadmap; it will land after `skills_lint` migrates to its own
-> dedicated repository. Until then, the install paths below cover all
-> supported platforms.
-
 ### 1. Dart developers — pub.dev
 
 If you already have the Dart SDK installed, the standard pub.dev paths
@@ -115,6 +110,13 @@ sudo install -m 0755 "skills_lint-${TARGET}" /usr/local/bin/skills_lint
 
 The macOS binaries need macOS 14 or later. On macOS, replace
 `sha256sum -c -` with `shasum -a 256 -c -`.
+
+### 4. Homebrew — Linux + macOS, no Dart required
+
+```bash
+brew tap google/skills-lint https://github.com/google/skills_lint.dart
+brew install google/skills-lint/skills_lint
+```
 
 ## Usage
 

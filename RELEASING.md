@@ -71,7 +71,9 @@ and its `skills_lint-v*` tag rule. GitHub re-creates a deleted environment
 without them, and pub.dev checks only the name. The run on `main` fails
 until the environment has them.
 
-A version with a suffix, such as `1.0.0-dev.1`, is released as a prerelease.
+A version with a `-` suffix, such as `1.0.0-dev.1`, is released as a prerelease.
+A version with a numeric build, such as `0.5.4+1`, is a release. A stage run
+fails for a version with any other build, such as `0.5.4+hotfix`.
 The README's
 install command downloads from `releases/latest`, and
 [the latest release](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
@@ -182,23 +184,32 @@ that constant, `MIN_MACOS_VERSION` in `install.sh`, the README and this file.
 There is no Windows executable yet; see
 [issue #86](https://github.com/google/skills_lint.dart/issues/86).
 
+## Homebrew formula
+
+`release homebrew-formula` generates [`Formula/skills_lint.rb`](Formula/skills_lint.rb)
+from [`release/templates/skills_lint.rb.tmpl`](release/templates/skills_lint.rb.tmpl).
+Only the version and each target's `url` and `sha256` are generated.
+
+- Until a release has executables, the checksums are placeholders, the version
+  is the pending release, and `brew install` fails.
+- After that, the version is a released version, and the checksums come from
+  that release's `SHA256SUMS`.
+- The repo tests fail when the formula isn't what the template gives, and the
+  `Homebrew` check fails when brew rejects the formula or can't install it.
+- Require the `Homebrew` status check on `main` (ruleset 21051370).
+- Published READMEs keep their install commands, so don't rename the tap
+  `google/skills-lint` or the formula `skills_lint`.
+
 ## Release scripts
 
 The workflow steps run the `release` command of the `skills_lint_release`
 package in `release/`. It is a workspace package that is never published, so
-its dependencies stay out of `skills_lint`. Run it from `release/`:
+its dependencies stay out of `skills_lint`. To list its commands, run this
+from `release/`:
 
 ```bash
 dart run bin/release.dart --help
 ```
-
-| Command | What it does |
-| :--- | :--- |
-| `prepare` | Works out whether the run is a dry run, creates the release, or publishes it; checks the version; prints the result as `name=value` lines for `$GITHUB_OUTPUT`; and writes the release notes. |
-| `package` | Compiles the executable for this machine, runs it, checks that `--version` prints the `pubspec.yaml` version, packages it with its license notices, checks the archive and writes its `.sha256` file. |
-| `checksums` | Checks each `.sha256` file in a directory and merges them into `SHA256SUMS`. |
-| `install-script` | Writes `install.sh` with the `pubspec.yaml` version as the version it installs by default. |
-| `licenses` | Writes the license notices for the executable. |
 
 When the workflow moves to a new Dart SDK, check the Dart runtime licenses
 described in

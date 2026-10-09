@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -56,6 +57,18 @@ void main() {
     final String changelog = File(p.join(skillsLintPackageDir, 'CHANGELOG.md')).readAsStringSync();
     expect(changelog, contains(File(notes).readAsStringSync().trim()));
     expect(changelogSection(changelog, version), File(notes).readAsStringSync().trim());
+  });
+
+  test('homebrew-matrix prints a matrix entry for each target that Homebrew installs', () async {
+    final ProcessResult result = await _release(['homebrew-matrix']);
+    expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+    final stdout = result.stdout as String;
+    expect(stdout, startsWith('matrix='));
+    final matrix = jsonDecode(stdout.substring('matrix='.length)) as Map<String, Object?>;
+    expect(
+      [for (final entry in matrix['include']! as List<Object?>) (entry! as Map)['target']],
+      [for (final ReleaseTarget target in homebrewTargets()) target.name],
+    );
   });
 
   test('a release error exits with code 1 and names the problem', () async {
