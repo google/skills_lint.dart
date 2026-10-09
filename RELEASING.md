@@ -208,8 +208,9 @@ change, so keep the tap name and the formula name.
   `# PLACEHOLDER`, `brew install` fails.
 - [`homebrew.yaml`](.github/workflows/homebrew.yaml) runs `brew style` and
   `brew audit`, and once there are no placeholders, installs and tests the
-  formula on each target. Its `Homebrew` job is the check to require on
-  `main`.
+  formula on each target.
+- The `main` ruleset requires the `Homebrew` status check from that workflow,
+  so a pull request that breaks the formula can't merge.
 - [`repo_test/homebrew_formula_test.dart`](packages/skills_lint/repo_test/homebrew_formula_test.dart)
   fails when the formula disagrees with the release targets, the version or
   the macOS minimum, and says what to fix.
