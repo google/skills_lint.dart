@@ -292,9 +292,9 @@ class NameFormatRule extends SkillRule implements FixableRule {
     final String beforeName = frontmatter.substring(0, span.start.offset);
     final String afterName = frontmatter.substring(span.end.offset);
 
-    // A valid skill name needs no escaping in either quote style, and
-    // loadYaml cannot throw on it. Some, such as `123` or `false`, load as
-    // another type when plain.
+    // Unquoted, YAML reads some valid names as another type: `123` as a
+    // number, `false` as a boolean. Valid names hold only letters, digits and
+    // hyphens, so they never need escaping, and loadYaml parses any of them.
     final String quote = switch (nameNode.style) {
       ScalarStyle.SINGLE_QUOTED => "'",
       ScalarStyle.DOUBLE_QUOTED => '"',
@@ -320,16 +320,17 @@ class NameFormatRule extends SkillRule implements FixableRule {
     return null;
   }
 
-  /// Returns the `name` value in [node] as text, or `null` if [node] is
-  /// missing or holds YAML null.
+  /// Gets the skill name from [node], the value of the `name` key, as text,
+  /// or `null` if there is no name, as in `name:`.
   ///
-  /// The spec defines a name as text, so a plain scalar is read as written:
-  /// `name: 1e3` gives `1e3`, not YAML's reading of it, `1000.0`. The text is
-  /// trimmed, because a scalar that ends the document spans its trailing
-  /// spaces.
+  /// Compare names with this rather than with `node.value`: for `name: 1e3`
+  /// it gives `1e3`, where `node.value` is the number `1000.0`.
   static String? nameText(YamlNode? node) => switch (node) {
     YamlScalar(value: final String name) => name,
     YamlScalar(value: null) => null,
+    // The spec defines a name as text, so read a number or boolean from the
+    // source as written. A scalar that ends the document spans its trailing
+    // spaces, hence the trim.
     YamlScalar(:final SourceSpan span) => span.text.trim(),
     _ => node?.value?.toString(),
   };
