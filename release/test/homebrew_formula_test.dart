@@ -119,26 +119,28 @@ void main() {
       expect(updated, contains('macos-arm64.tar.gz"\n      sha256 "$_arm"'));
     });
 
+    /// Expects a [ReleaseException] whose message names [subject], so that
+    /// rewording a message doesn't break the tests.
     void expectError(
       String formula,
       String version,
       Map<String, String> checksums,
-      String message,
+      String subject,
     ) {
       expect(
         () => updateFormula(formula, version: version, checksums: checksums),
-        throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains(message))),
+        throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains(subject))),
       );
     }
 
     test('rejects a prerelease version', () {
-      expectError(_placeholderFormula, '0.6.0-wip', _checksums, 'is not <major>.<minor>.<patch>');
+      expectError(_placeholderFormula, '0.6.0-wip', _checksums, '0.6.0-wip');
     });
 
     test('rejects SHA256SUMS without an archive of the formula', () {
       expectError(_placeholderFormula, '0.6.0', {
         'skills_lint-macos-arm64.tar.gz': _arm,
-      }, 'SHA256SUMS has no checksum for skills_lint-macos-x64.tar.gz');
+      }, 'skills_lint-macos-x64.tar.gz');
     });
 
     test('rejects a url without a sha256 line after it', () {
@@ -146,12 +148,7 @@ void main() {
         '      sha256 "$_zeros" # PLACEHOLDER\n',
         '',
       );
-      expectError(
-        formula,
-        '0.6.0',
-        _checksums,
-        'skills_lint-macos-arm64.tar.gz is not followed by a sha256 line',
-      );
+      expectError(formula, '0.6.0', _checksums, 'skills_lint-macos-arm64.tar.gz');
     });
 
     test('rejects a formula without a version or without archives', () {
@@ -159,13 +156,13 @@ void main() {
         _placeholderFormula.replaceFirst(RegExp('  version .*\n'), ''),
         '0.6.0',
         _checksums,
-        'has 0 version lines',
+        '0 version',
       );
       expectError(
         'class SkillsLint < Formula\n  version "1.0.0"\nend\n',
         '0.6.0',
         _checksums,
-        '0 archive urls',
+        '0 archive',
       );
     });
 
@@ -174,7 +171,7 @@ void main() {
         _releasedFormula.replaceFirst('macos-arm64.tar.gz"', 'macos-arm64.tar.gz" # Apple silicon'),
         '0.6.1',
         _checksums,
-        '1 archive urls and 2 sha256 lines',
+        '2 sha256',
       );
     });
 
@@ -183,12 +180,7 @@ void main() {
         '  livecheck do',
         '  # PLACEHOLDER\n  livecheck do',
       );
-      expectError(
-        formula,
-        '0.6.0',
-        _checksums,
-        'PLACEHOLDER comment that this command does not remove',
-      );
+      expectError(formula, '0.6.0', _checksums, 'PLACEHOLDER');
     });
   });
 
