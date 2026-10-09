@@ -50,10 +50,11 @@ class RelativePathsRule extends SkillRule {
         continue;
       }
 
-      final String? effectivePath = _filePathOf(path);
-      if (effectivePath == null) {
+      if (_isUrlOrAnchor(path)) {
         continue; // Ignore web URLs, email links, anchors, etc.
       }
+
+      final String effectivePath = _filePathOf(path);
 
       final String resolvedPath = absolute(normalize(join(context.directory.path, effectivePath)));
       final linkedFile = File(resolvedPath);
@@ -90,20 +91,23 @@ class RelativePathsRule extends SkillRule {
     return errors;
   }
 
+  /// Whether the link target [path] is a URL with a scheme, such as
+  /// `https:` or `mailto:`, or an anchor in this file.
+  static bool _isUrlOrAnchor(String path) {
+    final Uri? uri = Uri.tryParse(path);
+    return uri != null && (uri.hasScheme || path.startsWith('#'));
+  }
+
   /// Returns the file path that the link target [path] points to, with
-  /// percent escapes decoded, or `null` if [path] is a URL with a scheme or
-  /// an anchor.
+  /// percent escapes decoded.
   ///
   /// A [path] that is not a valid URI, whose escapes are not valid UTF-8,
   /// such as `%E9`, or that decodes to an absolute path or to one with a NUL,
   /// is returned as written.
-  static String? _filePathOf(String path) {
+  static String _filePathOf(String path) {
     final Uri? uri = Uri.tryParse(path);
     if (uri == null) {
       return path;
-    }
-    if (uri.hasScheme || path.startsWith('#')) {
-      return null;
     }
     final String decoded;
     try {
