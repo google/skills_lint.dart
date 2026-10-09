@@ -428,13 +428,11 @@ jobs:
           gh release edit "$TAG" --draft=false
           echo "Published $TAG to pub.dev and [GitHub]($(gh release view "$TAG" --json url --jq .url))." >> "$GITHUB_STEP_SUMMARY"
 
-  # RELEASING.md describes these two jobs.
   homebrew-formula:
     name: Update the Homebrew formula
     needs: [prepare, publish]
     if: needs.prepare.outputs.prerelease != 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     permissions:
       contents: read
       attestations: read # gh attestation verify fetches them from this repository's API.
@@ -449,18 +447,16 @@ jobs:
         with:
           sdk: stable
       - name: Check the published assets
-        working-directory: .
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          gh release download "$TAG" --dir "$RUNNER_TEMP/assets"
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/assets"
           cd "$RUNNER_TEMP/assets"
           sha256sum --check --strict SHA256SUMS
           for asset in *; do
-            gh attestation verify "$asset" -R "$GH_REPO" \
-              --signer-workflow "$GH_REPO/.github/workflows/release.yaml" --source-ref refs/heads/main
+            gh attestation verify "$asset" -R "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yaml" --source-ref refs/heads/main
           done
       - name: Update the formula
         env:
@@ -482,7 +478,6 @@ jobs:
     name: Push the Homebrew formula branch
     needs: [prepare, homebrew-formula]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     permissions:
       contents: write # Push the formula branch.
     defaults:
@@ -500,7 +495,6 @@ jobs:
       - name: Push the branch
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
@@ -513,4 +507,4 @@ jobs:
             commit -m "Update the Homebrew formula to $VERSION"
           gh auth setup-git
           git push origin "$branch"
-          echo "Open the pull request: $GITHUB_SERVER_URL/$GH_REPO/compare/main...$branch?expand=1" >> "$GITHUB_STEP_SUMMARY"
+          echo "Open the pull request: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch?expand=1" >> "$GITHUB_STEP_SUMMARY"
