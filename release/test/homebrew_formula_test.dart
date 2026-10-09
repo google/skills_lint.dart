@@ -113,6 +113,29 @@ end
     });
   });
 
+  group('releaseFormula', () {
+    test('takes the checksum of each archive from SHA256SUMS', () {
+      final Map<String, String> checksums = _checksums(releaseTargets);
+      final String sums = [
+        for (final String archive in checksums.keys) '${checksums[archive]}  $archive',
+        '${'b' * 64}  pubspec.lock',
+      ].join('\n');
+      final String formula = releaseFormula(_template, version: '1.2.0+1', sha256Sums: sums);
+      expect(formula, startsWith('version "1.2.0+1"\n'));
+      expect(readFormula(formula).checksums, checksums);
+    });
+
+    test('rejects a version that Homebrew cannot install', () {
+      for (final version in ['1.2.0-wip', 'abc', '1.2', '1.2.0+hotfix']) {
+        expect(
+          () => releaseFormula(_template, version: version, sha256Sums: ''),
+          throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains(version))),
+          reason: version,
+        );
+      }
+    });
+  });
+
   group('readFormula', () {
     test('reads back the version and checksums that renderFormula wrote', () {
       final FormulaValues release = readFormula(_release('1.2.0'));

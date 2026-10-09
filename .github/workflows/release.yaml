@@ -12,7 +12,8 @@
 #   workflow on the tag with `release`.
 # - The run on the tag checks the draft, publishes the package to pub.dev,
 #   then publishes the draft. pub.dev accepts a publish only from a run on the
-#   tag.
+#   tag. For a release that is not a prerelease, it then pushes a branch
+#   that updates the Homebrew formula; see RELEASING.md.
 #
 # The `prepare` job works out which of these a run does; see
 # release/lib/src/release_info.dart. The steps run the `release` command in
@@ -426,3 +427,92 @@ jobs:
           done
           gh release edit "$TAG" --draft=false
           echo "Published $TAG to pub.dev and [GitHub]($(gh release view "$TAG" --json url --jq .url))." >> "$GITHUB_STEP_SUMMARY"
+
+  homebrew-formula:
+    name: Update the Homebrew formula
+    needs: [prepare, publish]
+    if: needs.prepare.outputs.prerelease != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      attestations: read # gh attestation verify fetches them from this repository's API.
+    steps:
+      # The tag, so that pub get --enforce-lockfile installs exactly what the
+      # release's pubspec.lock lists. Only the template comes from main, which
+      # can have formula changes made after the tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: main
+          sparse-checkout: release/templates/skills_lint.rb.tmpl
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - name: Check the published assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/assets"
+          cd "$RUNNER_TEMP/assets"
+          sha256sum --check --strict SHA256SUMS
+          for asset in *; do
+            gh attestation verify "$asset" -R "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yaml" --source-ref refs/heads/main
+          done
+      - name: Update the formula
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          cp "$RUNNER_TEMP/assets/pubspec.lock" ..
+          cp ../main/release/templates/skills_lint.rb.tmpl templates/
+          dart pub get --enforce-lockfile
+          dart run bin/release.dart homebrew-formula --version "$VERSION" \
+            --sha256sums "$RUNNER_TEMP/assets/SHA256SUMS"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: homebrew-formula
+          path: Formula/skills_lint.rb
+          if-no-files-found: error
+          retention-days: 7
+
+  # Runs no Dart code, so that no code from pub runs with write permissions.
+  homebrew-branch:
+    name: Push the Homebrew formula branch
+    needs: [prepare, homebrew-formula]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Push the formula branch.
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: homebrew-formula
+          path: Formula
+      - name: Push the branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          branch="homebrew/$TAG"
+          git switch -c "$branch"
+          git add Formula/skills_lint.rb
+          # 41898282 is the user ID of github-actions[bot].
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "Update the Homebrew formula to $VERSION"
+          gh auth setup-git
+          git push origin "$branch"
+          echo "Open the pull request: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch?expand=1" >> "$GITHUB_STEP_SUMMARY"

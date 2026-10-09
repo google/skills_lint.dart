@@ -2,10 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Writes and checks SHA-256 checksums in the format of `shasum -a 256`,
+/// Writes, reads and checks SHA-256 checksums in the format of `shasum -a 256`,
 /// which `scripts/install.sh` reads.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -22,7 +23,16 @@ const String sha256SumsName = 'SHA256SUMS';
 
 const String _archiveSuffix = '.tar.gz';
 
-String _line(File file) => '${sha256.convert(file.readAsBytesSync())}  ${p.basename(file.path)}';
+/// What separates the checksum from the file name in a checksum line, as
+/// `shasum -a 256` writes it.
+const String _separator = '  ';
+
+/// A checksum line, such as `<64 hex digits>  skills_lint-linux-x64.tar.gz`.
+/// Group 1 is the checksum and group 2 the file name.
+final RegExp _checksumLine = RegExp('^([0-9a-f]{64})$_separator(\\S+)\$');
+
+String _line(File file) =>
+    '${sha256.convert(file.readAsBytesSync())}$_separator${p.basename(file.path)}';
 
 /// Writes `<file>.sha256`, which holds the line `<hash>  <name>` for [file],
 /// and returns it.
@@ -52,7 +62,7 @@ File mergeChecksums(Directory dir) {
   final Map<String, String> linesByName = {};
   for (final part in parts) {
     final String line = part.readAsStringSync().trim();
-    final String name = line.split('  ').last;
+    final String name = line.split(_separator).last;
     final file = File(p.join(dir.path, name));
     if (!file.existsSync()) {
       throw ReleaseException('${p.basename(part.path)} names $name, which is not in ${dir.path}.');
@@ -74,4 +84,23 @@ File mergeChecksums(Directory dir) {
     part.deleteSync();
   }
   return sums;
+}
+
+/// The checksum of each file in [sha256Sums], the text of a release's
+/// [sha256SumsName], keyed by file name.
+///
+/// Throws a [ReleaseException] on a line that is not a checksum line.
+Map<String, String> parseSha256Sums(String sha256Sums) {
+  final Map<String, String> checksums = {};
+  for (final String line in LineSplitter.split(sha256Sums)) {
+    if (line.trim().isEmpty) {
+      continue;
+    }
+    final RegExpMatch? match = _checksumLine.firstMatch(line);
+    if (match == null) {
+      throw ReleaseException('$sha256SumsName has a line that is not "<sha256>  <name>": $line');
+    }
+    checksums[match.group(2)!] = match.group(1)!;
+  }
+  return checksums;
 }

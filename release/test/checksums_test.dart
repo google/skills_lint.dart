@@ -93,4 +93,29 @@ void main() {
       expect(() => mergeChecksums(dir), throwsA(isA<ReleaseException>()));
     });
   });
+
+  group('parseSha256Sums', () {
+    final String first = 'a' * 64;
+    final String second = 'b' * 64;
+
+    test('reads "<sha256>  <name>" lines and skips blank lines', () {
+      expect(parseSha256Sums('$first  skills_lint-macos-arm64.tar.gz\n\n$second  pubspec.lock\n'), {
+        'skills_lint-macos-arm64.tar.gz': first,
+        'pubspec.lock': second,
+      });
+    });
+
+    test('rejects a line in another format', () {
+      expect(
+        () => parseSha256Sums('$first skills_lint-macos-arm64.tar.gz\n'),
+        throwsA(
+          isA<ReleaseException>().having(
+            (e) => e.message,
+            'message',
+            contains('$first skills_lint-macos-arm64.tar.gz'),
+          ),
+        ),
+      );
+    });
+  });
 }
