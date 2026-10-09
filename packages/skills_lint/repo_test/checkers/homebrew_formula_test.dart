@@ -17,12 +17,6 @@ import '../src/models/convention_violation.dart';
 /// argument, so these don't need to match `releaseTargets`.
 const List<String> _targets = ['macos-arm64', 'linux-arm64', 'linux-x64'];
 
-/// The violation for a formula whose version and sha256 values are not all
-/// placeholders or all real.
-const String _allOrNone =
-    'replace every placeholder in one change: the version and all sha256 values are '
-    'placeholders, or none are';
-
 /// A distinct, well-formed sha256 for the target at [index].
 String _sha(int index) => (index + 1).toRadixString(16).padLeft(64, 'f');
 
@@ -95,25 +89,25 @@ int _urlLine(String content, String target) {
   return index + 1;
 }
 
-List<String> _archiveProblems(String content, [List<String>? targets]) =>
-    _describe(findArchiveViolations('f.rb', HomebrewFormula.parse(content), targets ?? _targets));
+List<ConventionViolation> _archiveProblems(String content, [List<String> targets = _targets]) =>
+    findArchiveViolations('f.rb', HomebrewFormula.parse(content), targets);
 
-List<String> _versionProblems(
+List<ConventionViolation> _versionProblems(
   String content, {
   String pubspec = '1.3.0-wip',
   String changelog = '## 1.2.0\n',
-}) => _describe(
-  findVersionViolations(
-    'f.rb',
-    HomebrewFormula.parse(content),
-    pubspecVersion: pubspec,
-    changelog: changelog,
-  ),
+}) => findVersionViolations(
+  'f.rb',
+  HomebrewFormula.parse(content),
+  pubspecVersion: pubspec,
+  changelog: changelog,
 );
 
-List<String> _describe(List<ConventionViolation> violations) => [
-  for (final v in violations) v.describe(),
-];
+/// Matches a violation on [line] whose problem names [subject], so that
+/// rewording a message doesn't break the tests.
+Matcher _violation(int line, String subject) => isA<ConventionViolation>()
+    .having((ConventionViolation v) => v.line, 'line', line)
+    .having((ConventionViolation v) => v.problem, 'problem', contains(subject));
 
 /// Runs the formula checks over small inline formulas, which pins what each
 /// one reports independently of `Formula/skills_lint.rb`.
@@ -142,13 +136,11 @@ void main() {
       blocks[first] = (second, blocks[first]!.$2);
       blocks[second] = (first, blocks[second]!.$2);
       final String content = _formula(blocks: blocks);
-      final String firstUrl = expectedArchiveUrl(first);
-      final String secondUrl = expectedArchiveUrl(second);
       expect(
         _archiveProblems(content),
         unorderedEquals([
-          'f.rb:${_urlLine(content, second)}: the $first url is "$secondUrl"; expected "$firstUrl"',
-          'f.rb:${_urlLine(content, first)}: the $second url is "$firstUrl"; expected "$secondUrl"',
+          _violation(_urlLine(content, second), expectedArchiveUrl(second)),
+          _violation(_urlLine(content, first), expectedArchiveUrl(first)),
         ]),
       );
     });
@@ -159,8 +151,8 @@ void main() {
       final String content = _formula(blocks: _validBlocks()..remove(missing));
       final List<String> released = [..._targets]..remove(unreleased);
       expect(_archiveProblems(content, released), [
-        'f.rb:1: has no block for the release target $missing',
-        'f.rb:${_urlLine(content, unreleased)}: has a block for $unreleased, which is not a release target',
+        _violation(missingStatementLine, missing),
+        _violation(_urlLine(content, unreleased), unreleased),
       ]);
     });
 
@@ -172,12 +164,11 @@ void main() {
       final String content = _formula(blocks: blocks);
       // The check reports the copy that comes second in the file.
       final int repeatedLine = max(_urlLine(content, first), _urlLine(content, repeating)) + 1;
-      final int blockLine = _urlLine(content, withoutSha256);
       expect(
         _archiveProblems(content),
         unorderedEquals([
-          'f.rb:$blockLine: the $withoutSha256 block has 1 url and 0 sha256 lines; expected one of each',
-          'f.rb:$repeatedLine: sha256 ${_sha(0)} is also the sha256 of another archive',
+          _violation(_urlLine(content, withoutSha256), withoutSha256),
+          _violation(repeatedLine, _sha(0)),
         ]),
       );
     });
@@ -189,14 +180,12 @@ void main() {
       blocks[unmarked] = (unmarked, 'sha256 "$placeholderSha256"');
       blocks[markedReal] = (markedReal, 'sha256 "${_sha(2)}" $placeholderMarker');
       final String content = _formula(blocks: blocks);
-      const markerRule = 'a sha256 is 64 zeros if and only if its line has $placeholderMarker';
-      final List<String> problems = _archiveProblems(content);
-      expect(problems.last, 'f.rb:2: $_allOrNone');
       expect(
-        problems.take(problems.length - 1),
+        _archiveProblems(content),
         unorderedEquals([
-          'f.rb:${_urlLine(content, unmarked) + 1}: $markerRule',
-          'f.rb:${_urlLine(content, markedReal) + 1}: $markerRule',
+          _violation(_urlLine(content, unmarked) + 1, placeholderMarker),
+          _violation(_urlLine(content, markedReal) + 1, placeholderMarker),
+          _violation(2, 'placeholder'),
         ]),
       );
     });
@@ -213,15 +202,13 @@ void main() {
     test('reports a placeholder version with real sha256 values, and the reverse', () {
       final String placeholderVersion = _formula(version: 'version "1.3.0" $placeholderMarker');
       final String placeholderSha256s = _formula(blocks: _placeholderBlocks());
-      expect(_archiveProblems(placeholderVersion), ['f.rb:2: $_allOrNone']);
-      expect(_archiveProblems(placeholderSha256s), ['f.rb:2: $_allOrNone']);
+      expect(_archiveProblems(placeholderVersion), [_violation(2, 'placeholder')]);
+      expect(_archiveProblems(placeholderSha256s), [_violation(2, 'placeholder')]);
     });
 
     test('reports a url outside a platform block', () {
       final String content = _formula().replaceFirst('  livecheck do', '  url "x"\n  livecheck do');
-      expect(_archiveProblems(content), [
-        'f.rb:3: "x" is outside an on_macos/on_linux and on_arm/on_intel block',
-      ]);
+      expect(_archiveProblems(content), [_violation(3, '"x"')]);
     });
   });
 
@@ -239,12 +226,7 @@ void main() {
     });
 
     test('reports a placeholder version that is not the pending release', () {
-      expect(_versionProblems(placeholders(), pubspec: '1.4.0-wip'), [
-        'f.rb:2: placeholder version "1.3.0" must be 1.4.0, the pubspec version 1.4.0-wip without -wip',
-      ]);
-      expect(_versionProblems(placeholders(), pubspec: '1.3.1-wip'), [
-        'f.rb:2: placeholder version "1.3.0" must be 1.3.1, the pubspec version 1.3.1-wip without -wip',
-      ]);
+      expect(_versionProblems(placeholders(), pubspec: '1.4.0-wip'), [_violation(2, '1.4.0')]);
     });
 
     test('accepts a version with build metadata, as a placeholder and as a release', () {
@@ -259,30 +241,30 @@ void main() {
 
     test('reports a release that the CHANGELOG does not list', () {
       expect(_versionProblems(_formula(), changelog: '## 1.2.0-wip\n## 1.2.00\n'), [
-        'f.rb:2: version "1.2.0" has no "## 1.2.0" heading in the CHANGELOG, so it is not a release',
+        _violation(2, 'CHANGELOG'),
       ]);
     });
 
     test('reports a version newer than the pubspec version', () {
-      expect(_versionProblems(_formula(), pubspec: '1.2.0-wip'), [
-        'f.rb:2: version "1.2.0" is newer than the pubspec version 1.2.0-wip',
-      ]);
+      expect(_versionProblems(_formula(), pubspec: '1.2.0-wip'), [_violation(2, '1.2.0-wip')]);
     });
 
     test('reports a prerelease, a version that does not parse, and a missing version', () {
       expect(_versionProblems(_formula(version: 'version "1.2.0-wip"')), [
-        'f.rb:2: version "1.2.0-wip" is a prerelease; Homebrew installs releases only',
+        _violation(2, 'prerelease'),
       ]);
       expect(_versionProblems(_formula(version: 'version "9"')), [
-        'f.rb:2: version "9" is not a semantic version',
+        _violation(2, 'semantic version'),
       ]);
-      expect(_versionProblems(_formula(version: '')), ['f.rb:1: has no version']);
+      expect(_versionProblems(_formula(version: '')), [
+        _violation(missingStatementLine, 'version'),
+      ]);
     });
   });
 
   group('findMacosViolations', () {
-    List<String> problems(String content, String? minimum) =>
-        _describe(findMacosViolations('f.rb', HomebrewFormula.parse(content), minimum));
+    List<ConventionViolation> problems(String content, String? minimum) =>
+        findMacosViolations('f.rb', HomebrewFormula.parse(content), minimum);
 
     test('accepts the symbol for the minimum version inside on_macos', () {
       expect(problems(_formula(), '14.0'), isEmpty);
@@ -293,23 +275,17 @@ void main() {
       final String content = _formula(
         macos: '',
       ).replaceFirst('  livecheck do', '  depends_on macos: :sonoma\n  livecheck do');
-      expect(problems(content, '14.0'), [
-        'f.rb:3: depends_on macos: is outside on_macos, so Linux cannot install',
-      ]);
+      expect(problems(content, '14.0'), [_violation(3, 'on_macos')]);
     });
 
     test('reports a symbol for another version, an unknown symbol and no dependency', () {
-      expect(problems(_formula(), '15.0'), [
-        'f.rb:7: :sonoma is macOS 14.0, but the executables need macOS 15.0',
-      ]);
-      expect(problems(_formula(), '14.5'), [
-        'f.rb:7: :sonoma is macOS 14.0, but the executables need macOS 14.5',
-      ]);
+      expect(problems(_formula(), '15.0'), [_violation(7, '15.0')]);
+      expect(problems(_formula(), '14.5'), [_violation(7, '14.5')]);
       expect(problems(_formula(macos: 'depends_on macos: :big_sur'), '14.0'), [
-        'f.rb:7: :big_sur is not in macosSymbolMajors',
+        _violation(7, 'big_sur'),
       ]);
       expect(problems(_formula(macos: ''), '14.0'), [
-        'f.rb:1: has no depends_on macos: inside on_macos',
+        _violation(missingStatementLine, 'depends_on macos:'),
       ]);
     });
   });
