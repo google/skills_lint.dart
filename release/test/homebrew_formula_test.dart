@@ -14,11 +14,11 @@ const String _template = 'version "{{version}}"\n{{platforms}}\nend\n';
 const String _url =
     'https://github.com/google/skills_lint.dart/releases/download/skills_lint-v#{version}';
 
-const ReleaseTarget _macosArm = (os: TargetOs.macos, arch: TargetArch.arm64, runner: 'm');
-const ReleaseTarget _linuxIntel = (os: TargetOs.linux, arch: TargetArch.x64, runner: 'l');
-const ReleaseTarget _linuxArm = (os: TargetOs.linux, arch: TargetArch.arm64, runner: 'l');
-const ReleaseTarget _windows = (os: TargetOs.windows, arch: TargetArch.x64, runner: 'w');
-const ReleaseTarget _riscv = (os: TargetOs.linux, arch: TargetArch.riscv64, runner: 'r');
+const _macosArm = ReleaseTarget(os: TargetOs.macos, arch: TargetArch.arm64, runner: 'm');
+const _linuxIntel = ReleaseTarget(os: TargetOs.linux, arch: TargetArch.x64, runner: 'l');
+const _linuxArm = ReleaseTarget(os: TargetOs.linux, arch: TargetArch.arm64, runner: 'l');
+const _windows = ReleaseTarget(os: TargetOs.windows, arch: TargetArch.x64, runner: 'w');
+const _riscv = ReleaseTarget(os: TargetOs.linux, arch: TargetArch.riscv64, runner: 'r');
 
 const List<ReleaseTarget> _targets = [_macosArm, _linuxIntel, _windows, _riscv];
 
@@ -30,10 +30,11 @@ Map<String, String> _checksums(List<ReleaseTarget> targets) => {
 };
 
 String _render(String version, {Map<String, String>? checksums, List<ReleaseTarget>? targets}) =>
-    renderFormula(_template, (
-      version: version,
-      checksums: checksums,
-    ), targets: targets ?? _targets);
+    renderFormula(
+      _template,
+      FormulaValues(version: version, checksums: checksums),
+      targets: targets ?? _targets,
+    );
 
 List<String> _problems(
   String formula, {
@@ -98,7 +99,7 @@ end
         throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains('linux-x64'))),
       );
       expect(
-        () => renderFormula('{{version}}', (version: '1.2.0', checksums: null)),
+        () => renderFormula('{{version}}', const FormulaValues(version: '1.2.0')),
         throwsA(isA<ReleaseException>()),
       );
     });
