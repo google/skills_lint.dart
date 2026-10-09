@@ -21,8 +21,11 @@ final String releasePackageDir = p.dirname(
 /// The root directory of the repository.
 final String repoRoot = p.dirname(releasePackageDir);
 
-/// The Homebrew formula, which `release homebrew-formula` updates.
+/// The Homebrew formula, which `release homebrew-formula` generates.
 final String homebrewFormulaPath = p.join(repoRoot, 'Formula', 'skills_lint.rb');
+
+/// The template that `release homebrew-formula` generates the formula from.
+final String homebrewTemplatePath = p.join(releasePackageDir, 'templates', 'skills_lint.rb.tmpl');
 
 /// The root directory of the `skills_lint` package that the release ships.
 final String skillsLintPackageDir = p.join(repoRoot, 'packages', 'skills_lint');

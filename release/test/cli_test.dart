@@ -61,7 +61,7 @@ void main() {
   test('homebrew-matrix prints the matrix of the targets that Homebrew installs', () async {
     final ProcessResult result = await _release(['homebrew-matrix']);
     expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
-    expect(result.stdout, 'matrix=${buildMatrix(homebrewTargets)}\n');
+    expect(result.stdout, 'matrix=${buildMatrix(homebrewTargets())}\n');
   });
 
   test('a release error exits with code 1 and names the problem', () async {

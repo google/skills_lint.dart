@@ -179,8 +179,10 @@ platform. The rest follows from that list:
 - `release package --target` accepts only its targets.
 - `install.sh` finds the archive for the machine in the release's
   `SHA256SUMS`, and names the release's platforms when there is none.
-- `release homebrew-matrix` prints the targets that the
-  [Homebrew formula](#homebrew-formula) installs.
+- Each target's system and architecture say which Homebrew formula blocks
+  select it, if any. `release homebrew-matrix` prints the targets that the
+  [Homebrew formula](#homebrew-formula) installs, and the formula has a block
+  for each.
 
 The minimum macOS version comes from the Dart SDK used for the build: Dart
 3.11 and later target macOS 14
@@ -189,9 +191,9 @@ so a Dart upgrade can raise it. It is the `minos` of the `LC_BUILD_VERSION`
 load command in the built executable, which `vtool -show-build <executable>`
 prints. `release package` fails if that value differs from
 `macosMinimumVersion` in `release/lib/src/macho.dart`. When it changes, update
-that constant, `MIN_MACOS_VERSION` in `install.sh`, `depends_on macos:` in
-`Formula/skills_lint.rb`, the README and this file. Homebrew names macOS
-versions by major release only, so the constant must be `<major>.0`.
+that constant, `MIN_MACOS_VERSION` in `install.sh`, the README and this
+file, then [regenerate the formula](#homebrew-formula), which takes
+`depends_on macos:` from the constant.
 
 There is no Windows executable yet; see
 [issue #86](https://github.com/google/skills_lint.dart/issues/86).
@@ -199,7 +201,10 @@ There is no Windows executable yet; see
 ## Homebrew formula
 
 [`Formula/skills_lint.rb`](Formula/skills_lint.rb) installs the release
-executables. This repository is the tap `google/skills-lint`. Homebrew looks
+executables. `release homebrew-formula` generates it from
+[`release/templates/skills_lint.rb.tmpl`](release/templates/skills_lint.rb.tmpl):
+the version and a block per target are generated, and the rest is the
+template's Ruby. This repository is the tap `google/skills-lint`. Homebrew looks
 for a tap `user/repo` at `github.com/user/homebrew-repo`, so the README's
 `brew tap` command passes this repository's URL. Published READMEs never
 change, so keep the tap name and the formula name.
@@ -209,17 +214,22 @@ change, so keep the tap name and the formula name.
 - [`homebrew.yaml`](.github/workflows/homebrew.yaml) runs `brew style` and
   `brew audit`, and once there are no placeholders, installs and tests the
   formula on each target.
-- The `main` ruleset requires the `Homebrew` status check from that workflow,
-  so a pull request that breaks the formula can't merge.
-- [`repo_test/homebrew_formula_test.dart`](packages/skills_lint/repo_test/homebrew_formula_test.dart)
-  fails when the formula disagrees with the release targets, the version or
-  the macOS minimum, and says what to fix.
+- Require the `Homebrew` status check on `main` (ruleset 21051370) so a pull
+  request that breaks the formula can't merge.
+- `release homebrew-formula --check`, which
+  [`repo_test/homebrew_formula_test.dart`](packages/skills_lint/repo_test/homebrew_formula_test.dart)
+  runs, fails when the formula differs from what the template gives, or when
+  its version isn't the pending release (while placeholders remain) or a
+  released version no newer than the pubspec. To fix a difference, edit the
+  template, not the formula, and run `dart run bin/release.dart
+  homebrew-formula` in `release/`.
 - After each release that is not a prerelease, two `release.yaml` jobs
   update the formula. Homebrew installs it for every user, so prereleases
   are skipped.
   - `homebrew-formula`, with read-only permissions, checks the published
     archives against `SHA256SUMS` and their attestations, then runs
-    `release homebrew-formula` on the formula from `main`.
+    `release homebrew-formula --version <version> --sha256sums <file>` on
+    `main`'s template.
   - `homebrew-branch` runs no Dart. It pushes the result as one commit on
     `homebrew/skills_lint-v<version>`, branched from `main`, and writes a
     compare link to the job summary, so the link shows exactly the formula

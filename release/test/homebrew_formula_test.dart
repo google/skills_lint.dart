@@ -2,208 +2,144 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
-
 import 'package:skills_lint_release/src/archive.dart';
 import 'package:skills_lint_release/src/homebrew_formula.dart';
-import 'package:skills_lint_release/src/paths.dart';
 import 'package:skills_lint_release/src/release_exception.dart';
 import 'package:test/test.dart';
 
-final String _zeros = '0' * 64;
-final String _arm = 'a' * 64;
-final String _intel = 'b' * 64;
+/// A template with only the placeholders, so the tests don't depend on the
+/// real template's Ruby.
+const String _template = 'version "{{version}}"\n{{platforms}}\nend\n';
 
-const String _base =
+const String _url =
     'https://github.com/google/skills_lint.dart/releases/download/skills_lint-v#{version}';
 
-/// A formula in the format of `Formula/skills_lint.rb` with placeholders.
-final String _placeholderFormula =
-    '''
-# typed: strict
+const ReleaseTarget _macosArm = (os: TargetOs.macos, arch: TargetArch.arm64, runner: 'm');
+const ReleaseTarget _linuxIntel = (os: TargetOs.linux, arch: TargetArch.x64, runner: 'l');
+const ReleaseTarget _linuxArm = (os: TargetOs.linux, arch: TargetArch.arm64, runner: 'l');
+const ReleaseTarget _windows = (os: TargetOs.windows, arch: TargetArch.x64, runner: 'w');
+const ReleaseTarget _riscv = (os: TargetOs.linux, arch: TargetArch.riscv64, runner: 'r');
 
-# Homebrew formula for the prebuilt skills_lint executables.
-# RELEASING.md says how this file is checked and how to update it.
-#
-# PLACEHOLDER: no release has the executables yet. `version` and every
-# `sha256` below are placeholders.
-class SkillsLint < Formula
-  version "0.5.3" # PLACEHOLDER: set to the first release with executables.
+const List<ReleaseTarget> _targets = [_macosArm, _linuxIntel, _windows, _riscv];
 
-  livecheck do
-    url :stable
-  end
+final String _sha = 'a' * 64;
 
-  on_macos do
-    on_arm do
-      url "$_base/skills_lint-macos-arm64.tar.gz"
-      sha256 "$_zeros" # PLACEHOLDER
-    end
-    on_intel do
-      url "$_base/skills_lint-macos-x64.tar.gz"
-      sha256 "$_zeros" # PLACEHOLDER
-    end
-  end
-end
-''';
-
-final String _releasedFormula =
-    '''
-# typed: strict
-
-# Homebrew formula for the prebuilt skills_lint executables.
-# RELEASING.md says how this file is checked and how to update it.
-class SkillsLint < Formula
-  version "0.6.0"
-
-  livecheck do
-    url :stable
-  end
-
-  on_macos do
-    on_arm do
-      url "$_base/skills_lint-macos-arm64.tar.gz"
-      sha256 "$_arm"
-    end
-    on_intel do
-      url "$_base/skills_lint-macos-x64.tar.gz"
-      sha256 "$_intel"
-    end
-  end
-end
-''';
-
-final Map<String, String> _checksums = {
-  'skills_lint-macos-arm64.tar.gz': _arm,
-  'skills_lint-macos-x64.tar.gz': _intel,
-  'pubspec.lock': 'c' * 64,
+/// A checksum for the archive of each of [targets].
+Map<String, String> _checksums(List<ReleaseTarget> targets) => {
+  for (final ReleaseTarget target in targets) archiveName(target.name): _sha,
 };
 
+String _render(String version, {Map<String, String>? checksums, List<ReleaseTarget>? targets}) =>
+    renderFormula(_template, (
+      version: version,
+      checksums: checksums,
+    ), targets: targets ?? _targets);
+
+List<String> _problems(
+  String formula, {
+  String pubspec = '1.3.0-wip',
+  String changelog = '## 1.2.0\n',
+}) => formulaProblems(
+  formula,
+  template: _template,
+  pubspecVersion: pubspec,
+  changelog: changelog,
+  targets: _targets,
+);
+
 void main() {
-  group('updateFormula', () {
-    test('fills in the first release and removes every PLACEHOLDER comment', () {
+  group('renderFormula', () {
+    test('nests an arch block in an os block for each target that Homebrew can install', () {
+      expect(_render('1.2.0', checksums: _checksums(_targets)), '''
+version "1.2.0"
+  on_macos do
+    depends_on macos: :sonoma
+
+    on_arm do
+      url "$_url/skills_lint-macos-arm64.tar.gz"
+      sha256 "$_sha"
+    end
+  end
+
+  on_linux do
+    on_intel do
+      url "$_url/skills_lint-linux-x64.tar.gz"
+      sha256 "$_sha"
+    end
+  end
+end
+''');
+    });
+
+    test('adds a block for a new target and changes nothing else', () {
+      final List<ReleaseTarget> more = [..._targets, _linuxArm];
+      final String before = _render('1.2.0', checksums: _checksums(more));
+      final String after = _render('1.2.0', checksums: _checksums(more), targets: more);
+      expect(after, contains('skills_lint-linux-arm64.tar.gz'));
       expect(
-        updateFormula(_placeholderFormula, version: '0.6.0', checksums: _checksums),
-        _releasedFormula,
+        after.replaceFirst('''
+    on_arm do
+      url "$_url/skills_lint-linux-arm64.tar.gz"
+      sha256 "$_sha"
+    end
+''', ''),
+        before,
       );
     });
 
-    test('updates a released formula to the next release', () {
-      final String next = updateFormula(
-        _releasedFormula,
-        version: '0.6.1',
-        checksums: {'skills_lint-macos-arm64.tar.gz': _intel, 'skills_lint-macos-x64.tar.gz': _arm},
-      );
-      expect(next, contains('version "0.6.1"'));
-      expect(next, contains('macos-arm64.tar.gz"\n      sha256 "$_intel"'));
-      expect(next, contains('macos-x64.tar.gz"\n      sha256 "$_arm"'));
+    test('writes placeholder checksums when there are no checksums', () {
+      final String formula = _render('1.3.0');
+      expect(RegExp('sha256 "$placeholderSha256" # PLACEHOLDER').allMatches(formula), hasLength(2));
     });
 
-    test('accepts a version with build metadata', () {
-      final String next = updateFormula(
-        _releasedFormula,
-        version: '0.6.0+1',
-        checksums: _checksums,
-      );
-      expect(next, contains('version "0.6.0+1"\n'));
-    });
-
-    test('takes each checksum from the archive that the url above it names', () {
-      final String swapped = _placeholderFormula
-          .replaceFirst('macos-arm64.tar.gz', 'TEMP')
-          .replaceFirst('macos-x64.tar.gz', 'macos-arm64.tar.gz')
-          .replaceFirst('TEMP', 'macos-x64.tar.gz');
-      final String updated = updateFormula(swapped, version: '0.6.0', checksums: _checksums);
-      expect(updated, contains('macos-x64.tar.gz"\n      sha256 "$_intel"'));
-      expect(updated, contains('macos-arm64.tar.gz"\n      sha256 "$_arm"'));
-    });
-
-    /// Expects a [ReleaseException] whose message names [subject], so that
-    /// rewording a message doesn't break the tests.
-    void expectError(
-      String formula,
-      String version,
-      Map<String, String> checksums,
-      String subject,
-    ) {
+    test('rejects checksums that lack an archive, and a template without a placeholder', () {
       expect(
-        () => updateFormula(formula, version: version, checksums: checksums),
-        throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains(subject))),
+        () => _render('1.2.0', checksums: _checksums([_macosArm])),
+        throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains('linux-x64'))),
       );
-    }
-
-    test('rejects a prerelease version', () {
-      expectError(_placeholderFormula, '0.6.0-wip', _checksums, '0.6.0-wip');
-    });
-
-    test('rejects a version that is not <major>.<minor>.<patch>', () {
-      for (final version in ['abc', '0.6', '0.6.0+hotfix']) {
-        expectError(_placeholderFormula, version, _checksums, version);
-      }
-    });
-
-    test('rejects SHA256SUMS without an archive of the formula', () {
-      expectError(_placeholderFormula, '0.6.0', {
-        'skills_lint-macos-arm64.tar.gz': _arm,
-      }, 'skills_lint-macos-x64.tar.gz');
-    });
-
-    test('rejects a url without a sha256 line after it', () {
-      final String formula = _placeholderFormula.replaceFirst(
-        '      sha256 "$_zeros" # PLACEHOLDER\n',
-        '',
+      expect(
+        () => renderFormula('{{version}}', (version: '1.2.0', checksums: null)),
+        throwsA(isA<ReleaseException>()),
       );
-      expectError(formula, '0.6.0', _checksums, 'skills_lint-macos-arm64.tar.gz');
-    });
-
-    test('rejects a formula without a version or without archives', () {
-      expectError(
-        _placeholderFormula.replaceFirst(RegExp('  version .*\n'), ''),
-        '0.6.0',
-        _checksums,
-        '0 version',
-      );
-      expectError(
-        'class SkillsLint < Formula\n  version "1.0.0"\nend\n',
-        '0.6.0',
-        _checksums,
-        '0 archive',
-      );
-    });
-
-    test('rejects a url line that it does not read', () {
-      expectError(
-        _releasedFormula.replaceFirst('macos-arm64.tar.gz"', 'macos-arm64.tar.gz" # Apple silicon'),
-        '0.6.1',
-        _checksums,
-        '2 sha256',
-      );
-    });
-
-    test('rejects a PLACEHOLDER comment that it does not remove', () {
-      final String formula = _placeholderFormula.replaceFirst(
-        '  livecheck do',
-        '  # PLACEHOLDER\n  livecheck do',
-      );
-      expectError(formula, '0.6.0', _checksums, 'PLACEHOLDER');
     });
   });
 
-  test(
-    'updates Formula/skills_lint.rb with the checksum of each target that Homebrew installs',
-    () {
-      final String formula = File(homebrewFormulaPath).readAsStringSync();
-      final Map<String, String> checksums = {};
-      final List<ReleaseTarget> targets = homebrewTargets;
-      for (final (int index, ReleaseTarget target) in targets.indexed) {
-        checksums[archiveName(target.name)] = (index + 1).toRadixString(16).padLeft(64, 'f');
-      }
-      final String updated = updateFormula(formula, version: '9.8.7', checksums: checksums);
-      expect(updated, contains('version "9.8.7"\n'));
-      expect(updated, isNot(contains('PLACEHOLDER')));
-      for (final MapEntry<String, String> checksum in checksums.entries) {
-        expect(updated, contains('/${checksum.key}"\n      sha256 "${checksum.value}"\n'));
-      }
-    },
-  );
+  group('readFormula', () {
+    test('reads back the version and checksums that renderFormula wrote', () {
+      final Map<String, String> checksums = _checksums(homebrewTargets(_targets));
+      final FormulaValues release = readFormula(_render('1.2.0', checksums: checksums));
+      expect(release.version, '1.2.0');
+      expect(release.checksums, checksums);
+      final FormulaValues placeholders = readFormula(_render('1.3.0'));
+      expect(placeholders.version, '1.3.0');
+      expect(placeholders.checksums, isNull);
+    });
+  });
+
+  group('formulaProblems', () {
+    test('accepts a rendered release, and a rendered placeholder for the pending release', () {
+      expect(_problems(_render('1.2.0', checksums: _checksums(_targets))), isEmpty);
+      expect(_problems(_render('1.3.0')), isEmpty);
+    });
+
+    test('reports a hand edit by its line', () {
+      final String edited = _render(
+        '1.2.0',
+        checksums: _checksums(_targets),
+      ).replaceFirst('on_intel', 'on_arm');
+      expect(_problems(edited), [contains('line 12')]);
+    });
+
+    test('reports a version that breaks the release rules', () {
+      final Map<String, String> checksums = _checksums(_targets);
+      expect(_problems(_render('1.2.0-dev.1', checksums: checksums)), [contains('1.2.0-dev.1')]);
+      expect(_problems(_render('1.2.5')), [contains('1.3.0')]);
+      expect(_problems(_render('1.2.0', checksums: checksums), changelog: ''), [
+        contains('CHANGELOG'),
+      ]);
+      expect(_problems(_render('1.2.0', checksums: checksums), pubspec: '1.2.0-wip'), [
+        contains('1.2.0-wip'),
+      ]);
+    });
+  });
 }

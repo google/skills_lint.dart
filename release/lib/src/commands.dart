@@ -33,10 +33,10 @@ Future<int> runRelease(List<String> arguments) async {
     ..addCommand(_PackageCommand())
     ..addCommand(_LicensesCommand())
     ..addCommand(_ChecksumsCommand())
-    ..addCommand(_HomebrewFormulaCommand())
     ..addCommand(_InstallScriptCommand())
     ..addCommand(_PrepareCommand())
-    ..addCommand(_HomebrewMatrixCommand());
+    ..addCommand(_HomebrewMatrixCommand())
+    ..addCommand(_HomebrewFormulaCommand());
   try {
     await runner.run(arguments);
     return 0;
@@ -142,39 +142,6 @@ class _ChecksumsCommand extends _ReleaseCommand {
   }
 }
 
-class _HomebrewFormulaCommand extends _ReleaseCommand {
-  _HomebrewFormulaCommand() {
-    argParser
-      ..addOption('version', mandatory: true, help: 'The released version.')
-      ..addOption('sha256sums', mandatory: true, help: "The release's $sha256SumsName file.");
-  }
-
-  @override
-  String get name => 'homebrew-formula';
-
-  @override
-  String get description =>
-      'Sets the version of Formula/skills_lint.rb and the sha256 of each archive from '
-      '$sha256SumsName, and removes its PLACEHOLDER comments.';
-
-  @override
-  Future<void> run() async {
-    noRest();
-    final formula = File(homebrewFormulaPath);
-    if (!formula.existsSync()) {
-      throw ReleaseException('${formula.path} does not exist.');
-    }
-    formula.writeAsStringSync(
-      updateFormula(
-        formula.readAsStringSync(),
-        version: option('version'),
-        checksums: parseSha256Sums(File(option('sha256sums')).readAsStringSync()),
-      ),
-    );
-    stdout.writeln('Updated ${formula.path} to ${option('version')}.');
-  }
-}
-
 class _InstallScriptCommand extends _ReleaseCommand {
   _InstallScriptCommand() {
     argParser.addOption('output', mandatory: true, help: 'The file to write the script to.');
@@ -255,7 +222,53 @@ class _HomebrewMatrixCommand extends _ReleaseCommand {
   @override
   void run() {
     noRest();
-    stdout.writeln('matrix=${buildMatrix(homebrewTargets)}');
+    stdout.writeln('matrix=${buildMatrix(homebrewTargets())}');
+  }
+}
+
+class _HomebrewFormulaCommand extends _ReleaseCommand {
+  _HomebrewFormulaCommand() {
+    argParser.addFlag(
+      'check',
+      negatable: false,
+      help:
+          'Write nothing. Fail if the formula differs from what the template gives, or if its '
+          'version breaks the release rules.',
+    );
+  }
+
+  @override
+  String get name => 'homebrew-formula';
+
+  @override
+  String get description =>
+      'Writes Formula/skills_lint.rb from release/templates/skills_lint.rb.tmpl, keeping its '
+      'version and checksums.';
+
+  @override
+  void run() {
+    noRest();
+    final formula = File(homebrewFormulaPath);
+    final String template = File(homebrewTemplatePath).readAsStringSync();
+    final String current = formula.readAsStringSync();
+    if (argResults!.flag('check')) {
+      final List<String> problems = formulaProblems(
+        current,
+        template: template,
+        pubspecVersion: _pubspecVersion(),
+        changelog: File(p.join(skillsLintPackageDir, 'CHANGELOG.md')).readAsStringSync(),
+      );
+      if (problems.isNotEmpty) {
+        throw ReleaseException(
+          '${formula.path}:\n${problems.join('\n')}\n'
+          'To regenerate it, run `dart run bin/release.dart homebrew-formula` in release/.',
+        );
+      }
+      stdout.writeln('${formula.path} matches its template.');
+      return;
+    }
+    formula.writeAsStringSync(renderFormula(template, readFormula(current)));
+    stdout.writeln('Wrote ${formula.path}.');
   }
 }
 
