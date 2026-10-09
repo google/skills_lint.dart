@@ -136,12 +136,9 @@ see, until the last job.
   `gh workflow run release.yaml -R google/skills_lint.dart --ref skills_lint-v<version> -f release=true`.
   If pub.dev has the version already, the run skips it and publishes the
   draft.
-- **A Homebrew job fails.** The release is published by then, so a run on
-  the tag stops at `verify`. If the branch `homebrew/skills_lint-v<version>`
-  exists, open the pull request from it. Otherwise, after the checks that
-  `homebrew-formula` runs, run
-  `dart run bin/release.dart homebrew-formula --version <version> --sha256sums <SHA256SUMS>`
-  in `release/` and open a pull request with the result.
+- **A Homebrew job fails.** Re-run the failed jobs. If the branch
+  `homebrew/skills_lint-v<version>` already exists, open the pull request
+  from it instead.
 - **To abandon a release** before pub.dev has it, delete the draft and the
   tag with
   `gh release delete skills_lint-v<version> --cleanup-tag -R google/skills_lint.dart`.
@@ -202,6 +199,11 @@ Only the version and each target's `url` and `sha256` are generated.
   is the pending release, and `brew install` fails.
 - After that, the version is a released version, and the checksums come from
   that release's `SHA256SUMS`.
+- After a release that isn't a prerelease, `release.yaml` pushes
+  `homebrew/skills_lint-v<version>` with the formula for that release and
+  links its compare page in the job summary. A maintainer opens the pull
+  request; "Allow GitHub Actions to create and approve pull requests" stays
+  off.
 - The repo tests fail when the formula isn't what the template gives, and the
   `Homebrew` check fails when brew rejects the formula or can't install it.
 - Require the `Homebrew` status check on `main` (ruleset 21051370).
