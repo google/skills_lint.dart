@@ -1,7 +1,6 @@
-# Checks the Homebrew formula in Formula/ on each pull request and weekly.
-# There is no `paths` filter, because a required check that a path filter
-# skips stays pending; the `changes` job skips the brew jobs instead, and the
-# `Homebrew` job always reports, so it is the check to require.
+# Checks the Homebrew formula in Formula/. Require the `Homebrew` job: it
+# always runs, and fails if another job fails. The other jobs skip pull
+# requests that don't change Formula/, release/ or this file.
 
 name: Homebrew
 
