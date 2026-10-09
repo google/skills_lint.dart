@@ -116,7 +116,7 @@ void main() {
       expect(info.prerelease, isFalse);
       expect(
         () => _resolve(version: '0.6.0+hotfix', release: true),
-        _throwsReleaseException('not a number'),
+        _throwsReleaseException('0.6.0+hotfix'),
       );
       expect(_resolve(version: '0.6.0+hotfix').mode, ReleaseMode.dryRun);
     });

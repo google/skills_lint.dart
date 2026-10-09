@@ -40,8 +40,8 @@ String updateFormula(
 }) {
   if (!isHomebrewVersion(version)) {
     throw ReleaseException(
-      'Homebrew installs releases only, and $version is a prerelease or has a build that is not '
-      'a number.',
+      'Homebrew installs releases only, and $version is not <major>.<minor>.<patch> with an '
+      'optional numeric build.',
     );
   }
   final List<String> lines = _withoutPlaceholderHeader(formula.split('\n'));

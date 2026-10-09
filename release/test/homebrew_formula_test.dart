@@ -136,6 +136,12 @@ void main() {
       expectError(_placeholderFormula, '0.6.0-wip', _checksums, '0.6.0-wip');
     });
 
+    test('rejects a version that is not <major>.<minor>.<patch>', () {
+      for (final version in ['abc', '0.6', '0.6.0+hotfix']) {
+        expectError(_placeholderFormula, version, _checksums, version);
+      }
+    });
+
     test('rejects SHA256SUMS without an archive of the formula', () {
       expectError(_placeholderFormula, '0.6.0', {
         'skills_lint-macos-arm64.tar.gz': _arm,

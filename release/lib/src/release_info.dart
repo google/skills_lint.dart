@@ -39,16 +39,16 @@ typedef ReleaseInfo = ({String version, String tag, bool prerelease, ReleaseMode
 /// quotes or shell syntax.
 final RegExp _versionCharacters = RegExp(r'^[0-9A-Za-z.+-]+$');
 
-/// A version with no build, or with one `+` followed only by digits, such as
-/// `0.5.4` or `0.5.4+1`.
-final RegExp _numericBuild = RegExp(r'^[^+]*(\+\d+)?$');
+/// `<major>.<minor>.<patch>` with an optional numeric build, such as `0.5.4`
+/// or `0.5.4+1`.
+final RegExp _homebrewVersion = RegExp(r'^\d+\.\d+\.\d+(\+\d+)?$');
 
-/// Whether the Homebrew formula can install [version]: a release whose build,
-/// if it has one, is a number, such as `0.5.4` or `0.5.4+1`.
+/// Whether the Homebrew formula can install [version]: a release version,
+/// such as `0.5.4` or `0.5.4+1`, whose build, if it has one, is a number.
 ///
 /// Homebrew installs the formula for every user, so it never names a
 /// prerelease, and the formula's livecheck regex reads only numeric builds.
-bool isHomebrewVersion(String version) => !version.contains('-') && _numericBuild.hasMatch(version);
+bool isHomebrewVersion(String version) => _homebrewVersion.hasMatch(version);
 
 /// Returns the `version` from the [pubspec] YAML text.
 ///
@@ -118,8 +118,8 @@ ReleaseInfo resolveRelease({
   final bool prerelease = version.contains('-');
   if (mode != ReleaseMode.dryRun && !prerelease && !isHomebrewVersion(version)) {
     throw ReleaseException(
-      '$version has a build that is not a number. The Homebrew formula takes only a numeric '
-      'build, such as 0.5.4+1.',
+      'The Homebrew formula cannot name $version: it takes <major>.<minor>.<patch> with an '
+      'optional numeric build, such as 0.5.4+1.',
     );
   }
   return (version: version, tag: tag, prerelease: prerelease, mode: mode);
