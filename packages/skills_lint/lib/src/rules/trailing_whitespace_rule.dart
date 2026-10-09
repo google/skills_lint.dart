@@ -5,6 +5,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:meta/meta.dart';
+import 'package:source_span/source_span.dart';
 
 import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
@@ -23,9 +24,6 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
   static const int _space = 0x20;
   static const int _tab = 0x09;
   static const String _skillFileName = 'SKILL.md';
-
-  /// The line breaks that end a line: `\r\n`, a lone `\r`, and `\n`.
-  static final RegExp _lineBreak = RegExp(r'\r\n|\r|\n');
 
   @override
   String get name => ruleName;
@@ -53,7 +51,8 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
     final errors = <ValidationError>[];
-    // LineSplitter splits at the same breaks as [_lineBreak], and is faster than splitting on it.
+    // LineSplitter ends lines where SourceFile does, so these line numbers
+    // match the ones that SkillContext.offsetToLine gives other rules.
     final List<String> lines = const LineSplitter().convert(context.rawContent);
 
     for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
@@ -128,7 +127,23 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
       return currentContent;
     }
 
-    return currentContent.splitMapJoin(_lineBreak, onNonMatch: fixLine);
+    // LineSplitter drops the line breaks, which the fix must keep. SourceFile
+    // finds the same lines and knows where each starts, so the break after a
+    // line is the text from its end to the start of the next line.
+    final List<String> lines = const LineSplitter().convert(currentContent);
+    final file = SourceFile.fromString(currentContent);
+    final fixed = StringBuffer();
+    for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      final String line = lines[lineIndex];
+      final int lineEnd = file.getOffset(lineIndex) + line.length;
+      final int nextLineStart = lineIndex + 1 < file.lines
+          ? file.getOffset(lineIndex + 1)
+          : currentContent.length;
+      fixed
+        ..write(fixLine(line))
+        ..write(currentContent.substring(lineEnd, nextLineStart));
+    }
+    return fixed.toString();
   }
 
   @visibleForTesting
