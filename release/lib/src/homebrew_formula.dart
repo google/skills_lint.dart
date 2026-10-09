@@ -7,47 +7,41 @@ library;
 
 import 'checksums.dart';
 import 'release_exception.dart';
+import 'release_info.dart';
 
 /// The `version` line of the formula, with an optional trailing comment.
 /// Group 1 is its indentation.
 final RegExp _versionLine = RegExp(r'^(\s*)version "[^"]*"(\s*#.*)?$');
 
-/// A `url` line of the formula that names a release archive, which group 1
-/// captures.
-final RegExp _archiveUrlLine = RegExp(r'^\s*url "[^"]*/(skills_lint-[a-z0-9-]+\.tar\.gz)"\s*$');
+/// A `url` line of the formula, such as
+/// `url "https://…/skills_lint-macos-arm64.tar.gz"`. Group 1 is the file name
+/// at the end of the url.
+final RegExp _urlLine = RegExp(r'^\s*url "[^"]*/([^"/]+)"\s*$');
 
 /// A `sha256` line, with an optional trailing comment. Group 1 is its
 /// indentation.
 final RegExp _sha256Line = RegExp(r'^(\s*)sha256 "[^"]*"(\s*#.*)?$');
 
-/// A version that the formula can name: `<major>.<minor>.<patch>`, with an
-/// optional numeric `+<build>` suffix, such as `0.5.4+1`, and no prerelease
-/// suffix.
-final RegExp _releaseVersion = RegExp(r'^\d+\.\d+\.\d+(?:\+\d+)?$');
-
-/// Returns [formula] with its `version` set to [version], and the `sha256`
-/// line after each archive `url` set to that archive's checksum in
-/// [checksums].
+/// The formula text for the release [version], with the `sha256` under each
+/// archive `url` taken from [checksums], the checksums in the release's
+/// `SHA256SUMS` keyed by file name.
 ///
-/// Drops the trailing comment of each line it changes, and the comment
-/// lines from the one that starts with `# PLACEHOLDER:` to the end of that
-/// comment.
+/// The `PLACEHOLDER` header comment and the trailing comment of each changed
+/// line are dropped, so the first release leaves no placeholder behind.
 ///
-/// Throws a [ReleaseException] if [version] is not
-/// `<major>.<minor>.<patch>` with an optional numeric `+<build>`, the formula
-/// doesn't have exactly one `version` line or has no archive `url`, a `url`
-/// is not followed by a `sha256` line, a `sha256` line follows no archive
-/// `url` that it reads, [checksums] has no checksum for an archive, or the
-/// result still contains `PLACEHOLDER`.
+/// Throws a [ReleaseException] if Homebrew can't install [version] (see
+/// [isHomebrewVersion]), if [checksums] lacks an archive, or if the formula
+/// isn't laid out as this expects: one `version` line, each `url` directly
+/// followed by its `sha256`, and no other `PLACEHOLDER` comment.
 String updateFormula(
   String formula, {
   required String version,
   required Map<String, String> checksums,
 }) {
-  if (!_releaseVersion.hasMatch(version)) {
+  if (!isHomebrewVersion(version)) {
     throw ReleaseException(
-      'Homebrew installs releases only, and $version is not <major>.<minor>.<patch> with an '
-      'optional numeric +<build>.',
+      'Homebrew installs releases only, and $version is a prerelease or has a build that is not '
+      'a number.',
     );
   }
   final List<String> lines = _withoutPlaceholderHeader(formula.split('\n'));
@@ -57,7 +51,7 @@ String updateFormula(
     if (_versionLine.firstMatch(lines[i]) case final RegExpMatch match) {
       lines[i] = '${match.group(1)}version "$version"';
       versions++;
-    } else if (_archiveUrlLine.firstMatch(lines[i]) case final RegExpMatch match) {
+    } else if (_urlLine.firstMatch(lines[i]) case final RegExpMatch match) {
       lines[i + 1] = _sha256For(lines, i + 1, match.group(1)!, checksums);
       archives++;
     }
@@ -91,9 +85,8 @@ String _sha256For(List<String> lines, int index, String archive, Map<String, Str
   return '${match.group(1)}sha256 "$checksum"';
 }
 
-/// Returns [lines] without the comment lines from the one that starts with
-/// `# PLACEHOLDER:` to the end of that comment, and without the `#` line
-/// that separates them from the comment above.
+/// [lines] without the header comment that starts with `# PLACEHOLDER:`,
+/// and without the bare `#` line that separates it from the comment above.
 List<String> _withoutPlaceholderHeader(List<String> lines) {
   final int start = lines.indexWhere((line) => line.startsWith('# PLACEHOLDER:'));
   if (start == -1) {
