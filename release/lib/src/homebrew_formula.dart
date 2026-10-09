@@ -49,10 +49,16 @@ final RegExp _versionStatement = RegExp(r'^\s*version "([^"]*)"(\s*#.*)?$', mult
 final RegExp _archiveStatements = RegExp(r'url "[^"]*/([^"/]+)"\n\s*sha256 "([^"]*)"');
 
 /// The values of the formula that change from release to release.
-///
-/// `checksums` holds the `sha256` of each archive keyed by its file name, or
-/// is null while the formula has placeholders.
-typedef FormulaValues = ({String version, Map<String, String>? checksums});
+final class FormulaValues {
+  const FormulaValues({required this.version, this.checksums});
+
+  /// The release that the formula installs, such as `0.5.4+1`.
+  final String version;
+
+  /// The `sha256` of each archive keyed by its file name, or null while the
+  /// formula has placeholders.
+  final Map<String, String>? checksums;
+}
 
 /// The formula that [template] gives for [values], with a block for each
 /// target of [targets] that Homebrew can install.
@@ -162,7 +168,10 @@ FormulaValues readFormula(String formula) {
     for (final RegExpMatch archive in archives) archive.group(1)!: archive.group(2)!,
   };
   final bool placeholders = checksums.values.every((String sha) => sha == placeholderSha256);
-  return (version: versions.single.group(1)!, checksums: placeholders ? null : checksums);
+  return FormulaValues(
+    version: versions.single.group(1)!,
+    checksums: placeholders ? null : checksums,
+  );
 }
 
 /// Each way that [formula] differs from what [template] gives for its own

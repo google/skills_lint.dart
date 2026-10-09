@@ -47,12 +47,18 @@ enum TargetArch {
 }
 
 /// A platform that each release has an archive for, and the GitHub-hosted
-/// runner image that builds it. `dart compile exe` builds for the host only,
-/// so each target builds on a runner of its own platform.
-typedef ReleaseTarget = ({TargetOs os, TargetArch arch, String runner});
+/// runner image that builds it.
+final class ReleaseTarget {
+  const ReleaseTarget({required this.os, required this.arch, required this.runner});
 
-/// The names and ABI of a [ReleaseTarget].
-extension ReleaseTargetNames on ReleaseTarget {
+  final TargetOs os;
+
+  final TargetArch arch;
+
+  /// The runner image that builds this target's executable. `dart compile
+  /// exe` builds for the host only, so it runs on this target's platform.
+  final String runner;
+
   /// The platform in the archive's name, such as `macos-arm64`.
   String get name => '${os.name}-${arch.name}';
 
@@ -67,14 +73,14 @@ extension ReleaseTargetNames on ReleaseTarget {
 /// The build matrix of the release workflow comes from [buildMatrix], and
 /// `scripts/install.sh` reads the targets from a release's `SHA256SUMS`.
 const List<ReleaseTarget> releaseTargets = [
-  (os: TargetOs.macos, arch: TargetArch.arm64, runner: 'macos-latest'),
+  ReleaseTarget(os: TargetOs.macos, arch: TargetArch.arm64, runner: 'macos-latest'),
   // GitHub has no standard `macos-latest` label for Intel, so this names the
   // newest standard Intel macOS image.
-  (os: TargetOs.macos, arch: TargetArch.x64, runner: 'macos-26-intel'),
-  (os: TargetOs.linux, arch: TargetArch.x64, runner: 'ubuntu-latest'),
+  ReleaseTarget(os: TargetOs.macos, arch: TargetArch.x64, runner: 'macos-26-intel'),
+  ReleaseTarget(os: TargetOs.linux, arch: TargetArch.x64, runner: 'ubuntu-latest'),
   // GitHub has no `ubuntu-latest` label for arm64, so this names the arm64
   // image of the Ubuntu version that `ubuntu-latest` runs.
-  (os: TargetOs.linux, arch: TargetArch.arm64, runner: 'ubuntu-24.04-arm'),
+  ReleaseTarget(os: TargetOs.linux, arch: TargetArch.arm64, runner: 'ubuntu-24.04-arm'),
 ];
 
 /// The names of [releaseTargets].
