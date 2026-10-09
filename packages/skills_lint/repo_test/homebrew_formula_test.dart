@@ -9,7 +9,10 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
 
-import 'src/homebrew_formula.dart';
+import 'src/homebrew/archive_violations.dart';
+import 'src/homebrew/homebrew_formula.dart';
+import 'src/homebrew/macos_violations.dart';
+import 'src/homebrew/version_violations.dart';
 import 'src/repo_paths.dart';
 import 'src/source_conventions.dart';
 
@@ -23,14 +26,15 @@ final RegExp _macosMinimumVersionDeclaration = RegExp(
 /// Checks `Formula/skills_lint.rb` against the release targets, the package
 /// version, the minimum macOS version and the package README.
 ///
-/// `src/homebrew_formula.dart` says why. `checkers/homebrew_formula_test.dart`
-/// pins what each check reports on small formulas. RELEASING.md says how to
-/// update the formula.
+/// `brew audit` accepts a formula whose `on_arm` block names the x64 archive,
+/// whose archives share a `sha256`, or whose `version` is not a release. Each
+/// of these breaks `brew install` on some platform.
+/// `checkers/homebrew_formula_test.dart` tests each check on small formulas.
 void main() {
   const formulaPath = 'Formula/skills_lint.rb';
   const machoPath = 'release/lib/src/macho.dart';
   final String content = _read(formulaPath);
-  final HomebrewFormula formula = parseFormula(content);
+  final formula = HomebrewFormula.parse(content);
 
   late List<String> targets;
   setUpAll(() async {

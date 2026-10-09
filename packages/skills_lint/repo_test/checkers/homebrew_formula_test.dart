@@ -6,7 +6,11 @@ import 'dart:math';
 
 import 'package:test/test.dart';
 
-import '../src/homebrew_formula.dart';
+import '../src/homebrew/archive_violations.dart';
+import '../src/homebrew/formula_value.dart';
+import '../src/homebrew/homebrew_formula.dart';
+import '../src/homebrew/macos_violations.dart';
+import '../src/homebrew/version_violations.dart';
 import '../src/models/convention_violation.dart';
 
 /// The targets of the test formulas. The checks take the targets as an
@@ -92,7 +96,7 @@ int _urlLine(String content, String target) {
 }
 
 List<String> _archiveProblems(String content, [List<String>? targets]) =>
-    _describe(findArchiveViolations('f.rb', parseFormula(content), targets ?? _targets));
+    _describe(findArchiveViolations('f.rb', HomebrewFormula.parse(content), targets ?? _targets));
 
 List<String> _versionProblems(
   String content, {
@@ -101,7 +105,7 @@ List<String> _versionProblems(
 }) => _describe(
   findVersionViolations(
     'f.rb',
-    parseFormula(content),
+    HomebrewFormula.parse(content),
     pubspecVersion: pubspec,
     changelog: changelog,
   ),
@@ -114,9 +118,9 @@ List<String> _describe(List<ConventionViolation> violations) => [
 /// Runs the formula checks over small inline formulas, which pins what each
 /// one reports independently of `Formula/skills_lint.rb`.
 void main() {
-  group('parseFormula', () {
+  group('HomebrewFormula.parse', () {
     test('reads the version, each archive and the macOS dependency, and stops at def', () {
-      final HomebrewFormula formula = parseFormula(_formula());
+      final formula = HomebrewFormula.parse(_formula());
       expect(formula.version?.value, '1.2.0');
       expect(formula.archives.keys, unorderedEquals(_targets));
       expect(formula.archives[_targets.last]!.sha256s.single.value, _sha(_targets.length - 1));
@@ -203,7 +207,7 @@ void main() {
         blocks: _placeholderBlocks(),
       );
       expect(_archiveProblems(content), isEmpty);
-      expect(parseFormula(content).hasPlaceholders, isTrue);
+      expect(HomebrewFormula.parse(content).hasPlaceholders, isTrue);
     });
 
     test('reports a placeholder version with real sha256 values, and the reverse', () {
@@ -278,7 +282,7 @@ void main() {
 
   group('findMacosViolations', () {
     List<String> problems(String content, String? minimum) =>
-        _describe(findMacosViolations('f.rb', parseFormula(content), minimum));
+        _describe(findMacosViolations('f.rb', HomebrewFormula.parse(content), minimum));
 
     test('accepts the symbol for the minimum version inside on_macos', () {
       expect(problems(_formula(), '14.0'), isEmpty);
