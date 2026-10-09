@@ -437,11 +437,18 @@ jobs:
       contents: read
       attestations: read # gh attestation verify fetches them from this repository's API.
     steps:
-      # The formula on main, not on the tag: main can have formula changes
-      # made after the tag.
+      # The tag, so that pub get --enforce-lockfile installs exactly what the
+      # release's pubspec.lock lists. Only the template comes from main, which
+      # can have formula changes made after the tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
+          path: main
+          sparse-checkout: release/templates/skills_lint.rb.tmpl
+          sparse-checkout-cone-mode: false
           persist-credentials: false
       - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
         with:
@@ -463,6 +470,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           cp "$RUNNER_TEMP/assets/pubspec.lock" ..
+          cp ../main/release/templates/skills_lint.rb.tmpl templates/
           dart pub get --enforce-lockfile
           dart run bin/release.dart homebrew-formula --version "$VERSION" \
             --sha256sums "$RUNNER_TEMP/assets/SHA256SUMS"
