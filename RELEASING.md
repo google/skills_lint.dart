@@ -210,7 +210,7 @@ Two checks cover the formula:
 - [`homebrew.yaml`](.github/workflows/homebrew.yaml) runs `brew style` and
   `brew audit --strict`. Once the formula has no placeholders, it also
   installs the formula and runs its `test` block on each target. Its
-  `Homebrew` job is the check to [require](#repository-settings).
+  `Homebrew` job is the check to require on `main`.
 
 To update the formula for a release that has executables:
 
@@ -282,40 +282,3 @@ workflow on any branch with **release** unchecked:
 ```bash
 gh workflow run release.yaml -R google/skills_lint.dart --ref <branch>
 ```
-
-## Repository settings
-
-These need a repository admin.
-
-- **Require the `Homebrew` check on `main`.** Add a `required_status_checks`
-  rule to the `main` ruleset. 15368 is the GitHub Actions app.
-
-  ```bash
-  gh api repos/google/skills_lint.dart/rulesets/21051370 \
-    | jq '{name, target, enforcement, conditions, bypass_actors,
-           rules: (.rules + [{type: "required_status_checks", parameters: {
-             strict_required_status_checks_policy: false,
-             do_not_enforce_on_create: false,
-             required_status_checks: [{context: "Homebrew", integration_id: 15368}]}}])}' \
-    | gh api -X PUT repos/google/skills_lint.dart/rulesets/21051370 --input -
-  ```
-
-- **Require `@reidbaker`'s approval for `Formula/`.** CODEOWNERS only requests
-  the review. To require it, add a `required_reviewers` entry to the
-  `pull_request` rule of the same ruleset. The reviewer must be a team with
-  write access that has `@reidbaker`; `<team-id>` is its ID from
-  `gh api orgs/google/teams/<team-slug> --jq .id`.
-
-  ```bash
-  gh api repos/google/skills_lint.dart/rulesets/21051370 \
-    | jq '{name, target, enforcement, conditions, bypass_actors,
-           rules: [.rules[] | if .type == "pull_request" then
-             .parameters.required_reviewers = [{minimum_approvals: 1,
-               file_patterns: ["Formula/**"],
-               reviewer: {id: <team-id>, type: "Team"}}] else . end]}' \
-    | gh api -X PUT repos/google/skills_lint.dart/rulesets/21051370 --input -
-  ```
-
-  Turning on `require_code_owner_review` instead would also require
-  `@reidbaker-agent`, the owner of every other file, to approve every other
-  pull request, including its own, which GitHub does not allow.

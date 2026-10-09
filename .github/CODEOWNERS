@@ -1,5 +1,5 @@
 # Requests a review from reidbaker-agent on every PR. Approval is not required because the ruleset does not require code-owner review.
 * @reidbaker-agent
 
-# Requests a review from reidbaker on every change to the Homebrew formula, which installs on users' machines. The last matching line wins, so these files do not request reidbaker-agent. RELEASING.md says how to make this review required.
+# Requests a review from reidbaker on every change to the Homebrew formula, which installs on users' machines. The last matching line wins, so these files do not request reidbaker-agent.
 /Formula/ @reidbaker
