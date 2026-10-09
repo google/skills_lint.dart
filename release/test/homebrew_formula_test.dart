@@ -4,6 +4,7 @@
 
 import 'package:skills_lint_release/src/archive.dart';
 import 'package:skills_lint_release/src/homebrew_formula.dart';
+import 'package:skills_lint_release/src/homebrew_formula_check.dart';
 import 'package:skills_lint_release/src/release_exception.dart';
 import 'package:test/test.dart';
 
@@ -20,84 +21,91 @@ const _linuxArm = ReleaseTarget(os: TargetOs.linux, arch: TargetArch.arm64, runn
 const _windows = ReleaseTarget(os: TargetOs.windows, arch: TargetArch.x64, runner: 'w');
 const _riscv = ReleaseTarget(os: TargetOs.linux, arch: TargetArch.riscv64, runner: 'r');
 
-const List<ReleaseTarget> _targets = [_macosArm, _linuxIntel, _windows, _riscv];
-
-final String _sha = 'a' * 64;
-
-/// A checksum for the archive of each of [targets].
+/// A different checksum for the archive of each of [targets]: `111…`, then
+/// `222…`, and so on. A formula that puts one archive's checksum in another
+/// archive's block doesn't match.
 Map<String, String> _checksums(List<ReleaseTarget> targets) => {
-  for (final ReleaseTarget target in targets) archiveName(target.name): _sha,
+  for (final (int i, ReleaseTarget target) in targets.indexed)
+    archiveName(target.name): '${i + 1}' * 64,
 };
 
-String _render(String version, {Map<String, String>? checksums, List<ReleaseTarget>? targets}) =>
-    renderFormula(
-      _template,
-      FormulaValues(version: version, checksums: checksums),
-      targets: targets ?? _targets,
-    );
-
-List<String> _problems(
-  String formula, {
-  String pubspec = '1.3.0-wip',
-  String changelog = '## 1.2.0\n',
-}) => formulaProblems(
-  formula,
-  template: _template,
-  pubspecVersion: pubspec,
-  changelog: changelog,
-  targets: _targets,
+String _render(
+  String version, {
+  required List<ReleaseTarget> targets,
+  Map<String, String>? checksums,
+}) => renderFormula(
+  _template,
+  FormulaValues(version: version, checksums: checksums),
+  targets: targets,
 );
+
+/// A formula for [version] with a checksum for each of [releaseTargets].
+String _release(String version) =>
+    _render(version, targets: releaseTargets, checksums: _checksums(releaseTargets));
+
+/// A formula for [version] with placeholder checksums.
+String _placeholders(String version) => _render(version, targets: releaseTargets);
+
+List<String> _problems(String formula, {required String pubspec, required String changelog}) =>
+    formulaProblems(formula, template: _template, pubspecVersion: pubspec, changelog: changelog);
 
 void main() {
   group('renderFormula', () {
-    test('nests an arch block in an os block for each target that Homebrew can install', () {
-      expect(_render('1.2.0', checksums: _checksums(_targets)), '''
+    test('nests an arch block in an os block for each target that Homebrew installs', () {
+      final List<ReleaseTarget> targets = [_linuxIntel, _linuxArm, _windows, _riscv];
+      expect(_render('1.2.0', targets: targets, checksums: _checksums(targets)), '''
 version "1.2.0"
-  on_macos do
-    depends_on macos: :sonoma
-
-    on_arm do
-      url "$_url/skills_lint-macos-arm64.tar.gz"
-      sha256 "$_sha"
-    end
-  end
-
   on_linux do
     on_intel do
       url "$_url/skills_lint-linux-x64.tar.gz"
-      sha256 "$_sha"
+      sha256 "${'1' * 64}"
+    end
+    on_arm do
+      url "$_url/skills_lint-linux-arm64.tar.gz"
+      sha256 "${'2' * 64}"
     end
   end
 end
 ''');
     });
 
+    test('puts depends_on macos: inside on_macos only', () {
+      final List<ReleaseTarget> targets = [_macosArm, _linuxIntel];
+      final String formula = _render('1.2.0', targets: targets, checksums: _checksums(targets));
+      expect(formula, contains('  on_macos do\n    depends_on macos: :'));
+      expect('depends_on'.allMatches(formula), hasLength(1));
+    });
+
     test('adds a block for a new target and changes nothing else', () {
-      final List<ReleaseTarget> more = [..._targets, _linuxArm];
-      final String before = _render('1.2.0', checksums: _checksums(more));
-      final String after = _render('1.2.0', checksums: _checksums(more), targets: more);
-      expect(after, contains('skills_lint-linux-arm64.tar.gz'));
+      final List<ReleaseTarget> before = [_macosArm, _linuxIntel];
+      final List<ReleaseTarget> after = [...before, _linuxArm];
+      final Map<String, String> checksums = _checksums(after);
+      final String added = _render('1.2.0', targets: after, checksums: checksums);
       expect(
-        after.replaceFirst('''
+        added.replaceFirst('''
     on_arm do
       url "$_url/skills_lint-linux-arm64.tar.gz"
-      sha256 "$_sha"
+      sha256 "${checksums['skills_lint-linux-arm64.tar.gz']}"
     end
 ''', ''),
-        before,
+        _render('1.2.0', targets: before, checksums: checksums),
       );
     });
 
     test('writes placeholder checksums when there are no checksums', () {
-      final String formula = _render('1.3.0');
+      final String formula = _render('1.3.0', targets: [_macosArm, _linuxIntel]);
       expect(RegExp('sha256 "$placeholderSha256" # PLACEHOLDER').allMatches(formula), hasLength(2));
     });
 
-    test('rejects checksums that lack an archive, and a template without a placeholder', () {
+    test('rejects checksums that lack an archive', () {
       expect(
-        () => _render('1.2.0', checksums: _checksums([_macosArm])),
+        () =>
+            _render('1.2.0', targets: [_macosArm, _linuxIntel], checksums: _checksums([_macosArm])),
         throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains('linux-x64'))),
       );
+    });
+
+    test('rejects a template without a placeholder', () {
       expect(
         () => renderFormula('{{version}}', const FormulaValues(version: '1.2.0')),
         throwsA(isA<ReleaseException>()),
@@ -107,39 +115,60 @@ end
 
   group('readFormula', () {
     test('reads back the version and checksums that renderFormula wrote', () {
-      final Map<String, String> checksums = _checksums(homebrewTargets(_targets));
-      final FormulaValues release = readFormula(_render('1.2.0', checksums: checksums));
+      final FormulaValues release = readFormula(_release('1.2.0'));
       expect(release.version, '1.2.0');
-      expect(release.checksums, checksums);
-      final FormulaValues placeholders = readFormula(_render('1.3.0'));
+      expect(release.checksums, _checksums(releaseTargets));
+    });
+
+    test('reads placeholder checksums as no checksums', () {
+      final FormulaValues placeholders = readFormula(_placeholders('1.3.0'));
       expect(placeholders.version, '1.3.0');
       expect(placeholders.checksums, isNull);
     });
   });
 
   group('formulaProblems', () {
-    test('accepts a rendered release, and a rendered placeholder for the pending release', () {
-      expect(_problems(_render('1.2.0', checksums: _checksums(_targets))), isEmpty);
-      expect(_problems(_render('1.3.0')), isEmpty);
+    test('accepts a released version older than the pubspec version', () {
+      expect(_problems(_release('1.2.0'), pubspec: '1.3.0-wip', changelog: '## 1.2.0\n'), isEmpty);
     });
 
-    test('reports a hand edit by its line', () {
-      final String edited = _render(
-        '1.2.0',
-        checksums: _checksums(_targets),
-      ).replaceFirst('on_intel', 'on_arm');
-      expect(_problems(edited), [contains('line 12')]);
+    test('accepts a released version equal to the pubspec version', () {
+      // The state right after a release, when the formula bump lands.
+      expect(_problems(_release('1.2.0'), pubspec: '1.2.0', changelog: '## 1.2.0\n'), isEmpty);
     });
 
-    test('reports a version that breaks the release rules', () {
-      final Map<String, String> checksums = _checksums(_targets);
-      expect(_problems(_render('1.2.0-dev.1', checksums: checksums)), [contains('1.2.0-dev.1')]);
-      expect(_problems(_render('1.2.5')), [contains('1.3.0')]);
-      expect(_problems(_render('1.2.0', checksums: checksums), changelog: ''), [
-        contains('CHANGELOG'),
+    test('accepts placeholders for the pubspec version without -wip', () {
+      expect(_problems(_placeholders('1.3.0'), pubspec: '1.3.0-wip', changelog: ''), isEmpty);
+    });
+
+    test('rejects placeholders for any other version', () {
+      expect(_problems(_placeholders('1.2.5'), pubspec: '1.3.0-wip', changelog: ''), [
+        'placeholder version "1.2.5" must be 1.3.0, the pubspec version without -wip',
       ]);
-      expect(_problems(_render('1.2.0', checksums: checksums), pubspec: '1.2.0-wip'), [
-        contains('1.2.0-wip'),
+    });
+
+    test('rejects a version that Homebrew cannot install', () {
+      expect(_problems(_release('1.2.0-dev.1'), pubspec: '1.2.0-dev.1', changelog: ''), [
+        'version "1.2.0-dev.1" is not a release that Homebrew can install',
+      ]);
+    });
+
+    test('rejects a released version that has no CHANGELOG heading', () {
+      expect(_problems(_release('1.2.0'), pubspec: '1.3.0-wip', changelog: '## 1.1.0\n'), [
+        'version "1.2.0" has no "## 1.2.0" heading in the CHANGELOG',
+      ]);
+    });
+
+    test('rejects a released version newer than the pubspec version', () {
+      expect(_problems(_release('1.2.0'), pubspec: '1.2.0-wip', changelog: '## 1.2.0\n'), [
+        'version "1.2.0" is newer than the pubspec version 1.2.0-wip',
+      ]);
+    });
+
+    test('rejects a change outside the version and checksums', () {
+      final String edited = _release('1.2.0').replaceFirst('on_intel', 'on_arm');
+      expect(_problems(edited, pubspec: '1.3.0-wip', changelog: '## 1.2.0\n'), [
+        'it is not what the template gives',
       ]);
     });
   });
