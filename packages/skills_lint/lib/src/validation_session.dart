@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
+import 'package:yaml/yaml.dart';
 
 import 'config_parser.dart';
 import 'fixable_rule.dart';
@@ -874,21 +875,22 @@ class ValidationSession {
     required String originalContent,
     required String fixedContent,
   }) {
-    final String? originalName = NameFormatRule.readSkillName(originalContent)?.skillName;
-    final ({String skillName, bool isYamlString})? fixed = NameFormatRule.readSkillName(
-      fixedContent,
-    );
-    if (originalName == null || fixed == null) {
+    final String? originalName = NameFormatRule.skillNameOf(
+      NameFormatRule.nameNodeOf(originalContent),
+    )?.trim();
+    final YamlNode? fixedNode = NameFormatRule.nameNodeOf(fixedContent);
+    final String? fixedName = NameFormatRule.skillNameOf(fixedNode)?.trim();
+    if (originalName == null || fixedName == null) {
       return null;
     }
     // The name becomes a directory name, so it must be text, not a plain `false` or `0x1f`.
-    if (!fixed.isYamlString) {
+    if (fixedNode?.value is! String) {
       return null;
     }
-    if (fixed.skillName == originalName || !NameFormatRule.isValidSkillName(fixed.skillName)) {
+    if (fixedName == originalName || !NameFormatRule.isValidSkillName(fixedName)) {
       return null;
     }
-    return fixed.skillName;
+    return fixedName;
   }
 
   /// Renames [skillDir], whose name is [currentDirectoryName], to

@@ -329,13 +329,10 @@ class NameFormatRule extends SkillRule implements FixableRule {
     _ => nameNode?.value?.toString(),
   };
 
-  /// Reads the skill name from the frontmatter of the SKILL.md [content], as
-  /// [skillNameOf] does, with surrounding whitespace trimmed.
-  ///
-  /// `isYamlString` is false when YAML reads the name as another type, such
-  /// as a plain `123` or `false`. Returns `null` if [content] has no
-  /// frontmatter, the frontmatter is not a valid YAML map, or it has no name.
-  static ({String skillName, bool isYamlString})? readSkillName(String content) {
+  /// Returns the value node of the `name` key in the frontmatter of the
+  /// SKILL.md [content], or `null` if [content] has no frontmatter, the
+  /// frontmatter is not a valid YAML map, or it has no `name`.
+  static YamlNode? nameNodeOf(String content) {
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(content);
     if (match == null) {
       return null;
@@ -346,15 +343,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     } on YamlException {
       return null;
     }
-    if (yaml is! YamlMap) {
-      return null;
-    }
-    final YamlNode? nameNode = getNameNode(yaml);
-    final String? skillName = skillNameOf(nameNode)?.trim();
-    if (skillName == null) {
-      return null;
-    }
-    return (skillName: skillName, isYamlString: nameNode?.value is String);
+    return yaml is YamlMap ? getNameNode(yaml) : null;
   }
 
   /// Whether [skillName] is a valid skill name: lowercase ASCII letters,
