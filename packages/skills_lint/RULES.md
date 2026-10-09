@@ -53,7 +53,11 @@ governs how changes to these rules ship.
 - **What it checks:** inline Markdown links in `SKILL.md` with
   relative targets resolve to files that actually exist on disk.
   Web URLs, anchors, `mailto:`, `javascript:`, and `data:` links are
-  skipped.
+  skipped. Percent escapes are decoded first, as on GitHub, so
+  `my%20file.md` resolves to `my file.md` and `a%2Fb.md` to `a/b.md`.
+  A link that does not decode to a relative path, such as `x%E9.md`
+  or `%2Fetc%2Fpasswd`, or that decodes to one with a NUL, such as
+  `a.md%00b`, is checked as written.
 - **Diagnostic shape:**
   `Linked file does not exist: <path> (resolved to <absolute path>). Did you mean "<sibling>"?`
   The `Did you mean` clause is only included when a near-miss file
@@ -71,7 +75,8 @@ governs how changes to these rules ship.
 - **What it checks:** lines in `SKILL.md` do not have trailing
   whitespace. Exactly two spaces are allowed as a CommonMark hard
   line break; one space or three-or-more spaces, or any trailing tab,
-  is reported.
+  is reported. `\n`, `\r\n` and a lone `\r` all end a line, both
+  for the check and for the fix.
 - **Diagnostic shape:**
   `Line <N> has <count> trailing space(s). Only exactly 2 spaces are
   allowed for line breaks.`
@@ -147,6 +152,9 @@ governs how changes to these rules ship.
   - only lowercase letters, digits, and hyphens
   - has no leading, trailing, or consecutive hyphens
   - exactly equal to the parent directory's name
+
+  The value counts as the text written, so `name: 1e3` is `1e3`,
+  not the number `1000.0` that YAML reads.
 - **Diagnostic shape:** each violation produces a separate error
   message naming the frontmatter `name:` field explicitly,
   quoting the offending value, and suggesting a normalized form
@@ -157,11 +165,15 @@ governs how changes to these rules ship.
   The directory-mismatch error offers both fix directions (edit the
   field or rename the directory).
 - **Auto-fix behavior:** when the only violation is a directory
-  mismatch, the fixer rewrites the frontmatter `name:` value to
-  match the parent directory name. Other violations (invalid
-  characters, length, etc.) are not auto-fixed because the
-  normalization is a suggestion and the author may want a different
-  name entirely.
+  mismatch and the directory name is itself a valid skill name, the
+  fixer rewrites the frontmatter `name:` value to the directory name.
+  It keeps the quotes the value already has, and double-quotes a name
+  such as `123`, `true` or `null` that YAML would read as another
+  type. For a directory name that is not a valid skill name, such as
+  `my_skill` or `My Skill #1`, it leaves the file unchanged and the
+  error is reported. Other violations (invalid characters, length,
+  etc.) are not auto-fixed because the normalization is a suggestion
+  and the author may want a different name entirely.
 - **Disable:** `--no-invalid-skill-name`.
 
 ## published-skill-name

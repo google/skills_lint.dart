@@ -11,7 +11,10 @@ import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
+import 'package:skills_lint/src/rules/name_format_rule.dart';
 import 'package:test/test.dart';
+
+import 'test_utils.dart';
 
 class RuleA extends SkillRule implements FixableRule {
   @override
@@ -94,6 +97,36 @@ class RuleThrowsError extends RuleThrows {
   @override
   Future<String> fix(String filePath, String currentContent, Directory directory) =>
       Future.error(StateError('Fixer bug'));
+}
+
+/// A fixer that sets the frontmatter `name` from [oldName] to [newName].
+class RuleWritesName extends RuleA {
+  RuleWritesName(this.newName, {this.oldName = 'old-skill'});
+
+  final String newName;
+  final String oldName;
+
+  @override
+  String get name => 'rule-writes-name';
+
+  @override
+  Future<String> fix(String filePath, String currentContent, Directory directory) async {
+    return currentContent.replaceFirst('name: $oldName', 'name: $newName');
+  }
+}
+
+/// A [Stdout] that collects what is written to it.
+class _CapturedOutput implements Stdout {
+  final StringBuffer buffer = StringBuffer();
+
+  @override
+  void write(Object? object) => buffer.write(object);
+
+  @override
+  void writeln([Object? object = '']) => buffer.writeln(object);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
@@ -195,5 +228,95 @@ void main() {
       final String content = await skillFile.readAsString();
       expect(content, 'Original A B');
     });
+
+    Future<Directory> createOldSkill(String name) => createDummySkill(
+      tempDir,
+      name: name,
+      skillContent: '${buildFrontmatter(name: name)}body\n',
+    );
+
+    /// Runs [RuleWritesName] with [newName] on a skill whose directory and
+    /// `name` are [oldName], and returns stdout.
+    Future<String> fixWithName(
+      String newName, {
+      required bool dryRun,
+      String oldName = 'old-skill',
+    }) async {
+      final Directory skillDir = await createOldSkill(oldName);
+      final output = _CapturedOutput();
+      await IOOverrides.runZoned(
+        () => validateSkillsInternal(
+          individualSkillPaths: [skillDir.path],
+          fix: true,
+          fixApply: !dryRun,
+          customRules: [RuleWritesName(newName, oldName: oldName)],
+        ),
+        stdout: () => output,
+        stderr: _CapturedOutput.new,
+      );
+      return output.buffer.toString();
+    }
+
+    List<String> skillDirNames() => tempDir.listSync().map((e) => p.basename(e.path)).toList();
+
+    test('renames the directory to a valid skill name', () async {
+      final String stdout = await fixWithName('new-skill', dryRun: false);
+
+      expect(stdout, contains('Renamed skill directory: old-skill -> new-skill'));
+      expect(skillDirNames(), ['new-skill']);
+    });
+
+    for (final oldName in ['123', 'true']) {
+      test('renames the directory when the original name is $oldName', () async {
+        final String stdout = await fixWithName('new-skill', oldName: oldName, dryRun: false);
+
+        expect(stdout, contains('Renamed skill directory: $oldName -> new-skill'));
+        expect(skillDirNames(), ['new-skill']);
+      });
+
+      test('dry run proposes renaming the directory when the original name is $oldName', () async {
+        final String stdout = await fixWithName('new-skill', oldName: oldName, dryRun: true);
+
+        expect(stdout, contains('[Dry Run] Proposed directory rename: $oldName -> new-skill'));
+        expect(skillDirNames(), [oldName]);
+      });
+    }
+
+    test('dry run proposes renaming the directory to a valid skill name', () async {
+      final String stdout = await fixWithName('new-skill', dryRun: true);
+
+      expect(stdout, contains('[Dry Run] Proposed directory rename: old-skill -> new-skill'));
+      expect(skillDirNames(), ['old-skill']);
+    });
+
+    // Names that are not valid skill names, and names that YAML loads as a
+    // number or boolean rather than a string.
+    for (final String newName in [
+      'Bad Name',
+      'my_skill',
+      'My-Skill',
+      '-foo',
+      'foo-',
+      'a--b',
+      '---',
+      'a' * (NameFormatRule.maxNameLength + 1),
+      '1e3',
+      '0x1f',
+      'false',
+    ]) {
+      test('does not rename the directory to "$newName"', () async {
+        final String stdout = await fixWithName(newName, dryRun: false);
+
+        expect(stdout, isNot(contains('Renamed skill directory')));
+        expect(skillDirNames(), ['old-skill']);
+      });
+
+      test('dry run does not propose renaming the directory to "$newName"', () async {
+        final String stdout = await fixWithName(newName, dryRun: true);
+
+        expect(stdout, contains('name: $newName'));
+        expect(stdout, isNot(contains('Proposed directory rename')));
+      });
+    }
   });
 }

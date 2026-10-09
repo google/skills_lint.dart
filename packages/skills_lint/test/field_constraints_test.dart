@@ -143,32 +143,13 @@ void main() {
         );
       });
 
-      test('fixes name to match directory name (not replacing underscores)', () async {
+      test('does not fix name to a directory name that is not a valid skill name', () async {
         final Directory skillDir = await Directory('${tempDir.path}/my_skill').create();
-        final file = File('${skillDir.path}/SKILL.md');
-        await file.writeAsString('''
----
-name: wrong-name
-description: A test skill
----
-Body''');
+        final content = '${buildFrontmatter(name: 'wrong-name')}Body';
 
-        final rule = NameFormatRule();
-        final String content = await file.readAsString();
-        final RegExpMatch? match = RegExp(
-          r'^---\s*\n(.*?)\n---\s*\n',
-          dotAll: true,
-        ).firstMatch(content);
-        final parsedYaml = loadYaml(match!.group(1)!) as YamlMap?;
-        final context = SkillContext(
-          directory: skillDir,
-          rawContent: content,
-          parsedYaml: parsedYaml,
-        );
+        final String fixedContent = await NameFormatRule().fix('SKILL.md', content, skillDir);
 
-        final String fixedContent = await rule.fix('SKILL.md', content, context.directory);
-
-        expect(fixedContent, contains('name: my_skill'));
+        expect(fixedContent, content);
       });
 
       test(
