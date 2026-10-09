@@ -1,7 +1,6 @@
-# Checks the Homebrew formula in Formula/ on each pull request and weekly.
-# There is no `paths` filter, because a required check that a path filter
-# skips stays pending; the `changes` job skips the brew jobs instead, and the
-# `Homebrew` job always reports, so it is the check to require.
+# Checks the Homebrew formula in Formula/. Require the `Homebrew` job: it
+# always runs, and fails if another job fails. The other jobs skip pull
+# requests that don't change Formula/, release/ or this file.
 
 name: Homebrew
 
@@ -9,7 +8,6 @@ on:
   pull_request:
   schedule:
     - cron: '0 6 * * 1' # weekly, to catch Homebrew changes that break the formula
-  workflow_dispatch:
 
 permissions: {}
 
@@ -25,9 +23,8 @@ jobs:
   changes:
     name: Find formula changes
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     permissions:
-      pull-requests: read
+      pull-requests: read # gh api lists the pull request's files.
     outputs:
       formula: ${{ steps.diff.outputs.formula }}
     steps:
@@ -55,7 +52,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.formula == 'true'
     runs-on: macos-latest
-    timeout-minutes: 15
     permissions:
       contents: read
     outputs:
@@ -86,7 +82,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.formula == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
@@ -113,7 +108,6 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -135,8 +129,6 @@ jobs:
     needs: [changes, style, targets, install]
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions: {}
     steps:
       - name: Fail if a job failed or was cancelled
         env:

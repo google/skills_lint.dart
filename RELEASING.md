@@ -180,8 +180,7 @@ platform. The rest follows from that list:
 - `install.sh` finds the archive for the machine in the release's
   `SHA256SUMS`, and names the release's platforms when there is none.
 - `release homebrew-matrix` prints the targets that the
-  [Homebrew formula](#homebrew-formula) installs: those on macOS or Linux, on
-  arm64 or x64, the only platforms that a formula can select an archive for.
+  [Homebrew formula](#homebrew-formula) installs.
 
 The minimum macOS version comes from the Dart SDK used for the build: Dart
 3.11 and later target macOS 14
@@ -200,25 +199,23 @@ There is no Windows executable yet; see
 ## Homebrew formula
 
 [`Formula/skills_lint.rb`](Formula/skills_lint.rb) installs the release
-executables with Homebrew, and the package README has the commands. This
-repository is the tap `google/skills-lint`. Homebrew maps a tap name
-`user/repo` to `github.com/user/homebrew-repo`, so users pass this
-repository's URL to `brew tap`. The README of each version on pub.dev never
-changes, so keep the tap name and the formula name.
+executables. This repository is the tap `google/skills-lint`. Homebrew looks
+for a tap `user/repo` at `github.com/user/homebrew-repo`, so the README's
+`brew tap` command passes this repository's URL. Published READMEs never
+change, so keep the tap name and the formula name.
 
-While the formula's `version` and checksums are placeholders, marked
-`# PLACEHOLDER`, `brew install` fails.
-
-Two checks cover the formula:
-
-- [`repo_test/homebrew_formula_test.dart`](packages/skills_lint/repo_test/homebrew_formula_test.dart)
-  checks that each target's `url` names its own archive, that no two
-  archives share a `sha256`, the `version` against the pubspec and
-  `CHANGELOG.md`, and `depends_on macos:` against `macosMinimumVersion`.
+- While the formula's `version` and checksums are placeholders, marked
+  `# PLACEHOLDER`, `brew install` fails.
 - [`homebrew.yaml`](.github/workflows/homebrew.yaml) runs `brew style` and
-  `brew audit --strict`. Once the formula has no placeholders, it also
-  installs the formula and runs its `test` block on each target. Its
-  `Homebrew` job is the check to [require](#repository-settings).
+  `brew audit`, and once there are no placeholders, installs and tests the
+  formula on each target. Its `Homebrew` job is the check to require on
+  `main`.
+- [`repo_test/homebrew_formula_test.dart`](packages/skills_lint/repo_test/homebrew_formula_test.dart)
+  fails when the formula disagrees with the release targets, the version or
+  the macOS minimum, and says what to fix.
+- For each release with executables, the formula's `version` and each
+  `sha256` come from that release's `SHA256SUMS`, after the archives pass the
+  attestation check in [Release a version](#release-a-version).
 
 ### Release automation
 
@@ -265,21 +262,12 @@ If the automation fails:
 
 The workflow steps run the `release` command of the `skills_lint_release`
 package in `release/`. It is a workspace package that is never published, so
-its dependencies stay out of `skills_lint`. Run it from `release/`:
+its dependencies stay out of `skills_lint`. To list its commands, run this
+from `release/`:
 
 ```bash
 dart run bin/release.dart --help
 ```
-
-| Command | What it does |
-| :--- | :--- |
-| `prepare` | Works out whether the run is a dry run, creates the release, or publishes it; checks the version; prints the result as `name=value` lines for `$GITHUB_OUTPUT`; and writes the release notes. |
-| `package` | Compiles the executable for this machine, runs it, checks that `--version` prints the `pubspec.yaml` version, packages it with its license notices, checks the archive and writes its `.sha256` file. |
-| `checksums` | Checks each `.sha256` file in a directory and merges them into `SHA256SUMS`. |
-| `install-script` | Writes `install.sh` with the `pubspec.yaml` version as the version it installs by default. |
-| `licenses` | Writes the license notices for the executable. |
-| `homebrew-matrix` | Prints the targets that the Homebrew formula installs, with their runners, as the install matrix of `homebrew.yaml`. |
-| `homebrew-formula` | Sets the `version` of `Formula/skills_lint.rb` and the `sha256` of each archive from a release's `SHA256SUMS`, and removes its `PLACEHOLDER` comments. |
 
 When the workflow moves to a new Dart SDK, check the Dart runtime licenses
 described in
@@ -315,41 +303,3 @@ workflow on any branch with **release** unchecked:
 ```bash
 gh workflow run release.yaml -R google/skills_lint.dart --ref <branch>
 ```
-
-## Repository settings
-
-These need a repository admin.
-
-- **Require the `Homebrew` check on `main`.** Add a `required_status_checks`
-  rule to the `main` ruleset. 15368 is the GitHub Actions app.
-
-  ```bash
-  gh api repos/google/skills_lint.dart/rulesets/21051370 \
-    | jq '{name, target, enforcement, conditions, bypass_actors,
-           rules: (.rules + [{type: "required_status_checks", parameters: {
-             strict_required_status_checks_policy: false,
-             do_not_enforce_on_create: false,
-             required_status_checks: [{context: "Homebrew", integration_id: 15368}]}}])}' \
-    | gh api -X PUT repos/google/skills_lint.dart/rulesets/21051370 --input -
-  ```
-
-- **Require `@reidbaker`'s approval for `Formula/`.** CODEOWNERS only requests
-  the review. To require it, add a `required_reviewers` entry to the
-  `pull_request` rule of the same ruleset. The reviewer must be a team with
-  write access that has `@reidbaker`; `<team-id>` is its ID from
-  `gh api orgs/google/teams/<team-slug> --jq .id`.
-
-  ```bash
-  gh api repos/google/skills_lint.dart/rulesets/21051370 \
-    | jq '{name, target, enforcement, conditions, bypass_actors,
-           rules: [.rules[] | if .type == "pull_request" then
-             .parameters.required_reviewers = [{minimum_approvals: 1,
-               file_patterns: ["Formula/**"],
-               reviewer: {id: <team-id>, type: "Team"}}] else . end]}' \
-    | gh api -X PUT repos/google/skills_lint.dart/rulesets/21051370 --input -
-  ```
-
-  Turning on `require_code_owner_review` instead would also require
-  `@reidbaker-agent`, the owner of every other file, to approve every other
-  pull request, including its own, which GitHub does not allow.
-

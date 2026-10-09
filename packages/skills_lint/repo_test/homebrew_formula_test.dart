@@ -2,14 +2,17 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
 
-import 'src/homebrew_formula.dart';
-import 'src/homebrew_targets.dart';
+import 'src/homebrew/archive_violations.dart';
+import 'src/homebrew/homebrew_formula.dart';
+import 'src/homebrew/macos_violations.dart';
+import 'src/homebrew/version_violations.dart';
 import 'src/repo_paths.dart';
 import 'src/source_conventions.dart';
 
@@ -23,18 +26,19 @@ final RegExp _macosMinimumVersionDeclaration = RegExp(
 /// Checks `Formula/skills_lint.rb` against the release targets, the package
 /// version, the minimum macOS version and the package README.
 ///
-/// `src/homebrew_formula.dart` says why. `checkers/homebrew_formula_test.dart`
-/// pins what each check reports on small formulas. RELEASING.md says how to
-/// update the formula.
+/// `brew audit` accepts a formula whose `on_arm` block names the x64 archive,
+/// whose archives share a `sha256`, or whose `version` is not a release. Each
+/// of these breaks `brew install` on some platform.
+/// `checkers/homebrew_formula_test.dart` tests each check on small formulas.
 void main() {
   const formulaPath = 'Formula/skills_lint.rb';
   const machoPath = 'release/lib/src/macho.dart';
   final String content = _read(formulaPath);
-  final HomebrewFormula formula = parseFormula(content);
+  final formula = HomebrewFormula.parse(content);
 
   late List<String> targets;
   setUpAll(() async {
-    targets = await readHomebrewTargets();
+    targets = await _homebrewTargets();
   });
 
   test('has one block with the release url and a sha256 for each target', () {
@@ -98,6 +102,30 @@ void main() {
     expect(readmeLines, contains('brew tap $tap https://github.com/google/skills_lint.dart'));
     expect(readmeLines, contains('brew install $tap/$name'));
   });
+}
+
+/// Returns the name of each target that the formula needs a block for, such
+/// as `macos-arm64`.
+///
+/// They come from `releaseTargets` in `release/lib/src/archive.dart`, the one
+/// list of targets. The `release` package is not a dependency of
+/// `skills_lint`, so this runs its `homebrew-matrix` command, which also gives
+/// `homebrew.yaml` its install matrix.
+Future<List<String>> _homebrewTargets() async {
+  const prefix = 'matrix=';
+  final ProcessResult result = await Process.run(Platform.resolvedExecutable, [
+    'run',
+    'bin/release.dart',
+    'homebrew-matrix',
+  ], workingDirectory: p.join(repoRoot, 'release'));
+  final output = result.stdout as String;
+  expect(result.exitCode, 0, reason: 'stdout: $output\nstderr: ${result.stderr}');
+  expect(output, startsWith(prefix));
+  final matrix = jsonDecode(output.substring(prefix.length)) as Map<String, Object?>;
+  return [
+    for (final entry in matrix['include']! as List<Object?>)
+      (entry! as Map<String, Object?>)['target']! as String,
+  ];
 }
 
 String _read(String path) => File(p.joinAll([repoRoot, ...p.posix.split(path)])).readAsStringSync();

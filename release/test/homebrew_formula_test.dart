@@ -7,7 +7,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint_release/src/archive.dart';
 import 'package:skills_lint_release/src/homebrew_formula.dart';
-import 'package:skills_lint_release/src/homebrew_targets.dart';
 import 'package:skills_lint_release/src/paths.dart';
 import 'package:skills_lint_release/src/release_exception.dart';
 import 'package:test/test.dart';
@@ -198,7 +197,7 @@ void main() {
     () {
       final String formula = File(p.join(repoRoot, 'Formula', 'skills_lint.rb')).readAsStringSync();
       final Map<String, String> checksums = {};
-      final List<ReleaseTarget> targets = homebrewTargets();
+      final List<ReleaseTarget> targets = homebrewTargets;
       for (final (int index, ReleaseTarget target) in targets.indexed) {
         checksums[archiveName(target.name)] = (index + 1).toRadixString(16).padLeft(64, 'f');
       }
