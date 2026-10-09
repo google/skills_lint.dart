@@ -113,34 +113,9 @@ The macOS binaries need macOS 14 or later. On macOS, replace
 
 ### 4. Homebrew — Linux + macOS, no Dart required
 
-The formula lives in this repository, in
-[`Formula/`](https://github.com/google/skills_lint.dart/tree/main/Formula).
-It installs the latest release that has prebuilt executables, and fails
-until the formula is updated for the first one.
-
 ```bash
 brew tap google/skills-lint https://github.com/google/skills_lint.dart
 brew install google/skills-lint/skills_lint
-```
-
-The `brew tap` command grants no trust. The fully qualified install command
-trusts only this formula, not the whole tap. See
-[Tap Trust](https://docs.brew.sh/Tap-Trust).
-
-Homebrew has no prebuilt bottle for this formula, so it treats the install as
-a build from source, though it only copies the release executable. On macOS
-it needs the Xcode Command Line Tools. On a Linux system whose glibc or
-libstdc++ is older than Homebrew's, such as Ubuntu 22.04, it also installs
-Homebrew's `gcc`.
-
-To check the build provenance attestation of the archive that Homebrew
-downloaded, run:
-
-```bash
-gh attestation verify "$(brew --cache google/skills-lint/skills_lint)" \
-  --repo google/skills_lint.dart \
-  --signer-workflow google/skills_lint.dart/.github/workflows/release.yaml \
-  --source-ref refs/heads/main
 ```
 
 ## Usage
