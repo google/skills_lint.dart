@@ -50,16 +50,11 @@ class RelativePathsRule extends SkillRule {
         continue;
       }
 
-      var effectivePath = path;
-      try {
-        final Uri uri = Uri.parse(path);
-        if (uri.hasScheme || path.startsWith('#')) {
-          continue; // Ignore web URLs, email links, anchors, etc.
-        }
-        effectivePath = uri.path;
-      } on FormatException {
-        // If Uri parsing fails, treat it as a potential filepath.
+      if (_isUrlOrAnchor(path)) {
+        continue; // Ignore web URLs, email links, anchors, etc.
       }
+
+      final String effectivePath = _filePathOf(path);
 
       final String resolvedPath = absolute(normalize(join(context.directory.path, effectivePath)));
       final linkedFile = File(resolvedPath);
@@ -94,6 +89,40 @@ class RelativePathsRule extends SkillRule {
     }
 
     return errors;
+  }
+
+  /// Whether the link target [path] is a URL with a scheme, such as
+  /// `https:` or `mailto:`, or an anchor in this file.
+  static bool _isUrlOrAnchor(String path) {
+    final Uri? uri = Uri.tryParse(path);
+    return uri != null && (uri.hasScheme || path.startsWith('#'));
+  }
+
+  /// Returns the file path that the link target [path] points to, with
+  /// percent escapes decoded.
+  ///
+  /// A [path] that is not a valid URI, whose escapes are not valid UTF-8,
+  /// such as `%E9`, or that decodes to an absolute path or to one with a NUL,
+  /// is returned as written.
+  static String _filePathOf(String path) {
+    final Uri? uri = Uri.tryParse(path);
+    if (uri == null) {
+      return path;
+    }
+    final String decoded;
+    try {
+      decoded = Uri.decodeComponent(uri.path);
+    } on FormatException {
+      // Uri.tryParse turns a % that starts no escape into %25, so only invalid
+      // UTF-8, such as %E9, makes decoding fail.
+      return path;
+    }
+    // join would ignore the skill directory for an absolute path, and
+    // File.existsSync ignores everything after a NUL.
+    if (isAbsolute(decoded) || decoded.contains('\u0000')) {
+      return path;
+    }
+    return decoded;
   }
 }
 
