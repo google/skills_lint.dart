@@ -50,6 +50,20 @@ final RegExp _homebrewVersion = RegExp(r'^\d+\.\d+\.\d+(\+\d+)?$');
 /// prerelease, and the formula's livecheck regex reads only numeric builds.
 bool isHomebrewVersion(String version) => _homebrewVersion.hasMatch(version);
 
+/// The release that [pubspecVersion] works toward: [pubspecVersion] without
+/// `-wip`.
+String pendingRelease(String pubspecVersion) => pubspecVersion.replaceFirst('-wip', '');
+
+/// The version that the Homebrew formula names for a run of [version], or
+/// null for a prerelease, which the formula skips.
+///
+/// A dry run of a `-wip` version gives the release it works toward, so the
+/// run can check that the formula template renders it.
+String? formulaVersion(String version) {
+  final String pending = pendingRelease(version);
+  return isHomebrewVersion(pending) ? pending : null;
+}
+
 /// Returns the `version` from the [pubspec] YAML text.
 ///
 /// Throws a [ReleaseException] if there is no version, or if it holds a
@@ -130,4 +144,5 @@ String outputLines(ReleaseInfo info) =>
     'version=${info.version}\n'
     'tag=${info.tag}\n'
     'prerelease=${info.prerelease}\n'
-    'mode=${info.mode.name}\n';
+    'mode=${info.mode.name}\n'
+    'formula-version=${formulaVersion(info.version) ?? ''}\n';

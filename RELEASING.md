@@ -199,6 +199,9 @@ Only the version and each target's `url` and `sha256` are generated.
   is the pending release, and `brew install` fails.
 - After that, the version is a released version, and the checksums come from
   that release's `SHA256SUMS`.
+- Every dry run, and the run on `main` before it creates the tag, fails if
+  the template can't give a readable formula for the version and the
+  archives it built. Prereleases skip this, as they skip the formula.
 - After a release that isn't a prerelease, `release.yaml` pushes
   `homebrew/skills_lint-v<version>` with the formula for that release and
   links its compare page in the job summary. A maintainer opens the pull

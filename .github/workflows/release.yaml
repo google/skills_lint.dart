@@ -4,9 +4,9 @@
 # - A pull request that changes the release files runs a dry run.
 # - A manual run (workflow_dispatch) on a branch without the `release` input
 #   runs a dry run. A dry run tests the release scripts, builds every target,
-#   checks the package with `dart pub publish --dry-run` and uploads the
-#   release assets as workflow artifacts. It creates no tag, release or
-#   pub.dev version.
+#   checks the package with `dart pub publish --dry-run` and the Homebrew
+#   formula template against the assets, and uploads the release assets as
+#   workflow artifacts. It creates no tag, release or pub.dev version.
 # - A manual run on main with `release` does the same, then creates the tag
 #   skills_lint-v<version> and a draft GitHub Release, and starts this
 #   workflow on the tag with `release`.
@@ -60,6 +60,7 @@ jobs:
       tag: ${{ steps.prepare.outputs.tag }}
       prerelease: ${{ steps.prepare.outputs.prerelease }}
       mode: ${{ steps.prepare.outputs.mode }}
+      formula-version: ${{ steps.prepare.outputs.formula-version }}
       matrix: ${{ steps.prepare.outputs.matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -198,6 +199,15 @@ jobs:
           sha256sum pubspec.lock > pubspec.lock.sha256
       - name: Check the checksums and write SHA256SUMS
         run: dart run bin/release.dart checksums "$RUNNER_TEMP/dist"
+      # Stops stage from creating a tag whose template can't give the formula
+      # for this version and these archives.
+      - name: Check the Homebrew formula template
+        if: needs.prepare.outputs.formula-version != ''
+        env:
+          VERSION: ${{ needs.prepare.outputs.formula-version }}
+        run: >-
+          dart run bin/release.dart homebrew-formula --version "$VERSION"
+          --sha256sums "$RUNNER_TEMP/dist/SHA256SUMS" --output "$RUNNER_TEMP/skills_lint.rb"
       - name: Write install.sh for the version
         run: dart run bin/release.dart install-script --output "$RUNNER_TEMP/dist/install.sh"
       - name: Check the package for pub.dev
@@ -431,7 +441,7 @@ jobs:
   homebrew-formula:
     name: Update the Homebrew formula
     needs: [prepare, publish]
-    if: needs.prepare.outputs.prerelease != 'true'
+    if: needs.prepare.outputs.formula-version != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
