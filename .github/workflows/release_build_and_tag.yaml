@@ -47,6 +47,7 @@ jobs:
     name: 'Plan: read the version and check it is ready to release'
     permissions:
       contents: read
+      pull-requests: read # Find the pull request that merged this commit.
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.prepare.outputs.version }}
@@ -77,6 +78,17 @@ jobs:
           dart run bin/release.dart prepare --event "$EVENT" --ref-type "$REF_TYPE"
           --ref-name "$REF_NAME" --release-version "$RELEASE_VERSION"
           --notes-output "$RUNNER_TEMP/notes.md" >> "$GITHUB_OUTPUT"
+      - name: Check that a pull request merged this commit into main
+        if: steps.prepare.outputs.mode == 'stage'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          merged="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq '[.[] | select(.merged_at != null and .base.ref == "main")] | length')"
+          if [ "$merged" = 0 ]; then
+            echo "::error::No merged pull request holds $GITHUB_SHA. Release only commits that a pull request merged into main."
+            exit 1
+          fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-notes
@@ -116,6 +128,15 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed .
       - run: dart analyze --fatal-infos
       - run: dart test
+
+  # A pull request runs these checks on its own.
+  check-skills-lint:
+    name: 'Check: skills_lint tests at this commit'
+    needs: plan
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/skills_lint_workflow.yaml
 
   build-executable:
     name: 'Build: skills_lint executable for ${{ matrix.target }}'
@@ -186,7 +207,7 @@ jobs:
         run: dart run bin/release.dart checksums "$RUNNER_TEMP/dist"
       # Fails if the template can't give a formula that reads back for this
       # version and these archives.
-      - name: Check the Homebrew formula template
+      - name: Write the Homebrew formula
         if: needs.plan.outputs.formula-version != ''
         env:
           VERSION: ${{ needs.plan.outputs.formula-version }}
@@ -204,6 +225,13 @@ jobs:
           path: ${{ runner.temp }}/dist/
           if-no-files-found: error
           retention-days: 30 # As long as GitHub lets a job be re-run.
+      - if: needs.plan.outputs.formula-version != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: homebrew-formula
+          path: ${{ runner.temp }}/skills_lint.rb
+          if-no-files-found: error
+          retention-days: 7
       - name: Write the job summary
         env:
           MODE: ${{ needs.plan.outputs.mode }}
@@ -212,10 +240,50 @@ jobs:
           echo "Built the assets for $TAG (mode: $MODE). They are in the release-assets
           artifact of this run." >> "$GITHUB_STEP_SUMMARY"
 
+  check-homebrew-formula:
+    name: 'Check: Homebrew formula with brew style and audit'
+    needs: [plan, build-assets]
+    if: needs.plan.outputs.formula-version != ''
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: .
+    env:
+      TAP: google/skills-lint
+      FORMULA: google/skills-lint/skills_lint
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: homebrew-formula
+          path: ${{ runner.temp }}/formula
+      - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
+      # Homebrew loads no formula from an untrusted non-official tap. The
+      # tap is a clone of this checkout, so the release's formula replaces
+      # the clone's copy.
+      - name: Tap and trust this checkout, with the release's formula
+        run: |
+          brew tap "$TAP" "$GITHUB_WORKSPACE"
+          brew trust "$TAP"
+          cp "$RUNNER_TEMP/formula/skills_lint.rb" "$(brew --repo "$TAP")/Formula/skills_lint.rb"
+      - run: brew style "$FORMULA"
+      - run: brew audit --strict --formula "$FORMULA"
+
   stage-tag-and-draft:
     name: 'Stage: create the tag and the draft release, then start publishing'
-    needs: [plan, check-release-tool, build-assets]
-    if: needs.plan.outputs.mode == 'stage'
+    needs: [plan, check-release-tool, check-skills-lint, build-assets, check-homebrew-formula]
+    # Runs only if every check passed. A prerelease has no Homebrew formula,
+    # so its formula check skips.
+    if: >-
+      !cancelled() && needs.plan.outputs.mode == 'stage' &&
+      needs.check-release-tool.result == 'success' &&
+      needs.check-skills-lint.result == 'success' &&
+      needs.build-assets.result == 'success' &&
+      (needs.check-homebrew-formula.result == 'success' || needs.plan.outputs.formula-version == '')
     runs-on: ubuntu-latest
     permissions:
       contents: write # Push the tag, and create the draft release and its assets.
