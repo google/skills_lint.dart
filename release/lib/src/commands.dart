@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 /// The `release` command and its subcommands, which the steps of
-/// `.github/workflows/release.yaml` run.
+/// `.github/workflows/release_build_and_tag.yaml` run.
 library;
 
 import 'dart:io';
@@ -173,10 +173,9 @@ class _PrepareCommand extends _ReleaseCommand {
       ..addOption('ref-type', mandatory: true, help: 'The type of the ref of the run.')
       ..addOption('ref-name', mandatory: true, help: 'The branch or tag of the run.')
       ..addOption(
-        'release',
+        'release-version',
         mandatory: true,
-        allowed: ['true', 'false'],
-        help: 'The release input of the run.',
+        help: 'The version input of the run: the version to release, or empty for a dry run.',
       )
       ..addOption('notes-output', mandatory: true, help: 'The file to write release notes to.');
   }
@@ -198,7 +197,7 @@ class _PrepareCommand extends _ReleaseCommand {
       event: option('event'),
       refType: option('ref-type'),
       refName: option('ref-name'),
-      release: option('release') == 'true',
+      releaseVersion: option('release-version'),
     );
     final String section = changelogSection(
       File(p.join(skillsLintPackageDir, 'CHANGELOG.md')).readAsStringSync(),

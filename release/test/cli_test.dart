@@ -44,8 +44,8 @@ void main() {
       'branch',
       '--ref-name',
       'main',
-      '--release',
-      'false',
+      '--release-version',
+      '',
       '--notes-output',
       notes,
     ]);
@@ -126,17 +126,17 @@ void main() {
       '--event',
       'workflow_dispatch',
       '--ref-type',
-      'tag',
+      'branch',
       '--ref-name',
-      'skills_lint-v0.0.0-not-the-version',
-      '--release',
-      'true',
+      'main',
+      '--release-version',
+      '0.0.0-not-the-version',
       '--notes-output',
       p.join(Directory.systemTemp.path, 'unused-notes.md'),
     ]);
     expect(result.exitCode, 1, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
     expect(result.stderr, contains('release: error: '));
-    expect(result.stderr, contains('skills_lint-v0.0.0-not-the-version'));
+    expect(result.stderr, contains('0.0.0-not-the-version'));
   });
 
   test('a usage error exits with code 64', () async {
