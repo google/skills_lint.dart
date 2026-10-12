@@ -18,6 +18,7 @@
 | If this fails | Do this |
 |---|---|
 | **Plan**, a **Check** or a **Build** job | Fix it on `main`, then run the build workflow again. For a flaky failure, **Re-run failed jobs**. |
+| **Check: skills_lint tests at this commit / pana_score** | The pana score is below 160. Raise it on `main` with a pull request, then run the build workflow again. |
 | **Stage** | Do what the error says, then **Re-run failed jobs**. |
 | **Verify**, or **Publish 2 of 2** before publishing | Re-run the job once. If it fails again, delete the draft (`gh release delete skills_lint-v<version> -R google/skills_lint.dart`) and re-run **Stage**. The new publish run needs approval again, and skips pub.dev if it has the version. |
 | **Publish 1 of 2** | Fix what the error names, then **Re-run failed jobs**. To give up on the version, delete the draft and release the next one. |
