@@ -1,5 +1,5 @@
 # Dependabot version updates for the actions and reusable workflows that
-# .github/workflows/ uses. One group matches every action, so each update is
+# .github/workflows/ and the composite actions in .github/actions/ use. One group matches every action, so each update is
 # one pull request that changes every workflow at once.
 # packages/skills_lint/repo_test/action_pins_test.dart fails if two uses of an
 # action have different pins.
@@ -10,7 +10,9 @@ version: 2
 updates:
   - package-ecosystem: github-actions
     # For GitHub Actions, "/" means .github/workflows/.
-    directory: /
+    directories:
+      - /
+      - /.github/actions/*
     schedule:
       interval: monthly
     # Dependabot proposes a version only after it has been out this many

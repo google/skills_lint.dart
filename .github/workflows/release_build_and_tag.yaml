@@ -250,12 +250,6 @@ jobs:
     runs-on: macos-latest
     permissions:
       contents: read
-    defaults:
-      run:
-        working-directory: .
-    env:
-      TAP: google/skills-lint
-      FORMULA: google/skills-lint/skills_lint
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -264,17 +258,16 @@ jobs:
         with:
           artifact-ids: ${{ needs.build-assets.outputs.release-assets }}
           path: ${{ runner.temp }}/dist
-      - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
-      # Homebrew loads no formula from an untrusted non-official tap. The
-      # tap is a clone of this checkout, so the release's formula replaces
-      # the clone's copy.
-      - name: Tap and trust this checkout, with the release's formula
-        run: |
-          brew tap "$TAP" "$GITHUB_WORKSPACE"
-          brew trust "$TAP"
-          cp "$RUNNER_TEMP/dist/skills_lint.rb" "$(brew --repo "$TAP")/Formula/skills_lint.rb"
+      - id: tap
+        uses: ./.github/actions/tap-skills-lint
+        with:
+          formula: ${{ runner.temp }}/dist/skills_lint.rb
       - run: brew style "$FORMULA"
+        env:
+          FORMULA: ${{ steps.tap.outputs.formula }}
       - run: brew audit --strict --formula "$FORMULA"
+        env:
+          FORMULA: ${{ steps.tap.outputs.formula }}
 
   stage-tag-and-draft:
     name: 'Stage: create the tag and the draft release, then start publishing'
