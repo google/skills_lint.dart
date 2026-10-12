@@ -29,6 +29,12 @@ Map<String, String> _checksums(List<ReleaseTarget> targets) => {
     archiveName(target.name): '${i + 1}' * 64,
 };
 
+/// The entries of [checksums] for the archives that Homebrew installs.
+Map<String, String> _homebrewOnly(Map<String, String> checksums) => {
+  for (final ReleaseTarget target in homebrewTargets())
+    archiveName(target.name): checksums[archiveName(target.name)]!,
+};
+
 String _render(
   String version, {
   required List<ReleaseTarget> targets,
@@ -114,16 +120,18 @@ end
   });
 
   group('releaseFormula', () {
-    final Map<String, String> checksums = _checksums(releaseTargets);
+    // A Windows archive stands in for any archive that Homebrew doesn't
+    // install.
+    final Map<String, String> checksums = _checksums([...releaseTargets, _windows]);
     final String sums = [
       for (final String archive in checksums.keys) '${checksums[archive]}  $archive',
       '${'b' * 64}  pubspec.lock',
     ].join('\n');
 
-    test('takes the checksum of each archive from SHA256SUMS', () {
+    test('takes the checksum of each archive that Homebrew installs from SHA256SUMS', () {
       final String formula = releaseFormula(_template, version: '1.2.0+1', sha256Sums: sums);
       expect(formula, startsWith('version "1.2.0+1"\n'));
-      expect(readFormula(formula).checksums, checksums);
+      expect(readFormula(formula).checksums, _homebrewOnly(checksums));
     });
 
     test('rejects a template whose formula does not read back', () {
@@ -160,7 +168,7 @@ end
     test('reads back the version and checksums that renderFormula wrote', () {
       final FormulaValues release = readFormula(_release('1.2.0'));
       expect(release.version, '1.2.0');
-      expect(release.checksums, _checksums(releaseTargets));
+      expect(release.checksums, _homebrewOnly(_checksums(releaseTargets)));
     });
 
     test('reads placeholder checksums as no checksums', () {
