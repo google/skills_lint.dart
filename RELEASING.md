@@ -136,9 +136,7 @@ see, until the last job.
   `gh workflow run release.yaml -R google/skills_lint.dart --ref skills_lint-v<version> -f release=true`.
   If pub.dev has the version already, the run skips it and publishes the
   draft.
-- **A Homebrew job fails.** Re-run the failed jobs. If the branch
-  `homebrew/skills_lint-v<version>` already exists, open the pull request
-  from it instead.
+- **A Homebrew job fails.** Re-run the failed jobs.
 - **To abandon a release** before pub.dev has it, delete the draft and the
   tag with
   `gh release delete skills_lint-v<version> --cleanup-tag -R google/skills_lint.dart`.
@@ -201,7 +199,8 @@ Only the version and each target's `url` and `sha256` are generated.
   that release's `SHA256SUMS`.
 - Every dry run, and the run on `main` before it creates the tag, fails if
   the template can't give a readable formula for the version and the
-  archives it built. Prereleases skip this, as they skip the formula.
+  archives it built. A `-wip` version checks the release it works toward.
+  Versions that the formula skips, such as `1.0.0-dev.1`, skip this.
 - After a release that isn't a prerelease, `release.yaml` pushes
   `homebrew/skills_lint-v<version>` with the formula for that release and
   links its compare page in the job summary. A maintainer opens the pull

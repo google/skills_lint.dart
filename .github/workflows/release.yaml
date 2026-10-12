@@ -199,8 +199,8 @@ jobs:
           sha256sum pubspec.lock > pubspec.lock.sha256
       - name: Check the checksums and write SHA256SUMS
         run: dart run bin/release.dart checksums "$RUNNER_TEMP/dist"
-      # Stops stage from creating a tag whose template can't give the formula
-      # for this version and these archives.
+      # Fails if the template can't give a formula that reads back for this
+      # version and these archives.
       - name: Check the Homebrew formula template
         if: needs.prepare.outputs.formula-version != ''
         env:
