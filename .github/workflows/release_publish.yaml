@@ -38,6 +38,11 @@ jobs:
       # name can't replace what this job verified.
       verified-release: ${{ steps.upload.outputs.artifact-id }}
     steps:
+      # Checks out .github/actions only, for the release-asset-digests action.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions
       # Anyone with push access can change a draft, so every asset must carry
       # an attestation from the build of this commit, and the files that
       # SHA256SUMS lists must match it. Without --source-digest, the assets
@@ -58,7 +63,7 @@ jobs:
             exit 1
           fi
           changed() {
-            echo "::error::The draft of $TAG is not what the build of this commit made. Delete the draft, then re-run the Stage job of that build."
+            echo "::error::The draft of $TAG doesn't match the build of this commit, or GitHub couldn't be reached. Re-run this job once. If it fails again, delete the draft, then re-run the Stage job of the build."
             exit 1
           }
           version="${TAG#skills_lint-v}"
@@ -75,13 +80,17 @@ jobs:
               --source-ref refs/heads/main --source-digest "$GITHUB_SHA" || changed
           done
           mkdir "$RUNNER_TEMP/verified"
-          sha256sum -- * | LC_ALL=C sort -k2 > "$RUNNER_TEMP/verified/assets.sha256"
           cp pubspec.lock "$RUNNER_TEMP/verified/"
           if [ "$homebrew" = true ]; then cp skills_lint.rb "$RUNNER_TEMP/verified/"; fi
           {
             echo "version=$version"
             echo "homebrew=$homebrew"
           } >> "$GITHUB_OUTPUT"
+      - name: List the verified asset digests
+        uses: ./.github/actions/release-asset-digests
+        with:
+          directory: ${{ runner.temp }}/assets
+          output: ${{ runner.temp }}/verified/assets.sha256
       # assets.sha256 is what the GitHub release job compares the release
       # with, the pub.dev job installs the dependencies in pubspec.lock, and
       # the Homebrew job pushes skills_lint.rb.
@@ -145,6 +154,11 @@ jobs:
     permissions:
       contents: write # Read and publish the draft; reading a draft needs push access.
     steps:
+      # Checks out .github/actions only, for the release-asset-digests action.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           artifact-ids: ${{ needs.verify-draft.outputs.verified-release }}
@@ -153,34 +167,52 @@ jobs:
       # waits for approval. So its asset digests are compared with what the
       # verify job checked before publishing, and again after, when immutable
       # releases have frozen them.
+      - name: List the draft's asset digests
+        uses: ./.github/actions/release-asset-digests
+        with:
+          release: ${{ github.ref_name }}
+          output: ${{ runner.temp }}/draft.sha256
       - name: Publish the draft release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          # Prints "<sha256>  <name>" for each asset, as sha256sum does.
-          asset_digests() {
-            gh release view "$TAG" --json assets \
-              --jq '.assets[] | "\(.digest | ltrimstr("sha256:"))  \(.name)"' | LC_ALL=C sort -k2
-          }
-          if ! diff "$RUNNER_TEMP/verified/assets.sha256" <(asset_digests); then
+          if ! diff "$RUNNER_TEMP/verified/assets.sha256" "$RUNNER_TEMP/draft.sha256"; then
             echo "::error::The draft of $TAG changed after the verify job checked it. Delete the draft, then re-run the Stage job of the build that made it."
             exit 1
           fi
-          gh release edit "$TAG" --draft=false
-          if ! diff "$RUNNER_TEMP/verified/assets.sha256" <(asset_digests); then
-            echo "::error::The published release $TAG differs from the build. Delete it, tell the maintainers, and release the next version."
+          if ! is_draft="$(gh release view "$TAG" --json isDraft --jq .isDraft)"; then
+            echo "::error::Couldn't read $TAG from GitHub. Re-run this job."
             exit 1
           fi
-          # A read of the release can lag behind the publish.
+          # A re-run of this job finds the release published already.
+          if [ "$is_draft" = true ]; then
+            gh release edit "$TAG" --draft=false
+          fi
+      - name: List the published release's asset digests
+        uses: ./.github/actions/release-asset-digests
+        with:
+          release: ${{ github.ref_name }}
+          output: ${{ runner.temp }}/published.sha256
+      - name: Check that the release is the verified build, and locked
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! diff "$RUNNER_TEMP/verified/assets.sha256" "$RUNNER_TEMP/published.sha256"; then
+            echo "::error::The published release $TAG differs from the verified build. Re-run this job once. If it fails again, delete the release, tell the maintainers, and release the next version."
+            exit 1
+          fi
+          # A read of the release can lag behind the publish, or fail.
           for attempt in 1 2 3; do
-            immutable="$(gh release view "$TAG" --json isImmutable --jq .isImmutable)"
+            immutable="$(gh release view "$TAG" --json isImmutable --jq .isImmutable || true)"
             [ "$immutable" = true ] && break
             sleep 5
           done
           if [ "$immutable" != true ]; then
-            echo "::error::$TAG is published but not immutable. Turn on immutable releases, delete the release, and release the next version."
+            echo "::error::$TAG is published, but GitHub doesn't report it as immutable. Re-run this job once. If it fails again, turn on immutable releases, delete the release, and release the next version."
             exit 1
           fi
           echo "Published $TAG to pub.dev and [GitHub]($(gh release view "$TAG" --json url --jq .url))." >> "$GITHUB_STEP_SUMMARY"

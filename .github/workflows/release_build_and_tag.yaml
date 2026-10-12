@@ -19,6 +19,7 @@ run-name: >-
 on:
   pull_request:
     paths:
+      - '.github/actions/**'
       - '.github/workflows/release_build_and_tag.yaml'
       - 'packages/skills_lint/pubspec.yaml'
       - 'packages/skills_lint/scripts/install.sh'
@@ -333,8 +334,8 @@ jobs:
           fi
       # The release starts as a draft so that every asset is attached before
       # it is published. Published releases can be immutable, which blocks
-      # later uploads. A re-run of this job reuses the draft that it made.
-      - name: Create the draft release, or reuse it
+      # later uploads.
+      - name: Create the draft release, unless this version has one
         env:
           VERSION: ${{ needs.plan.outputs.version }}
           PRERELEASE: ${{ needs.plan.outputs.prerelease }}
@@ -345,9 +346,26 @@ jobs:
           elif [ "$is_draft" != true ]; then
             echo "::error::$TAG is published already. Release the next version."
             exit 1
-          elif ! diff <(cd "$RUNNER_TEMP/dist" && sha256sum -- * | LC_ALL=C sort -k2) \
-            <(gh release view "$TAG" --json assets \
-              --jq '.assets[] | "\(.digest | ltrimstr("sha256:"))  \(.name)"' | LC_ALL=C sort -k2); then
+          fi
+      # Checks out .github/actions only, for the release-asset-digests action.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions
+      - name: List this build's asset digests
+        uses: ./.github/actions/release-asset-digests
+        with:
+          directory: ${{ runner.temp }}/dist
+          output: ${{ runner.temp }}/build.sha256
+      - name: List the draft's asset digests
+        uses: ./.github/actions/release-asset-digests
+        with:
+          release: ${{ needs.plan.outputs.tag }}
+          output: ${{ runner.temp }}/draft.sha256
+      # A re-run of this job reuses the draft that it made.
+      - name: Check that the draft holds this build's assets
+        run: |
+          if ! diff "$RUNNER_TEMP/build.sha256" "$RUNNER_TEMP/draft.sha256"; then
             echo "::error::The draft of $TAG holds assets from another build. Delete it with \`gh release delete $TAG -R $GH_REPO\`, then re-run this job."
             exit 1
           fi
