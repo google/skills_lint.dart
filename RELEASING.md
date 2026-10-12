@@ -204,6 +204,9 @@ Only the version and each target's `url` and `sha256` are generated.
   links its compare page in the job summary. A maintainer opens the pull
   request; "Allow GitHub Actions to create and approve pull requests" stays
   off.
+- That formula comes from the tag's template, so if the template changed on
+  `main` after the tag, the pull request's checks fail until the formula is
+  regenerated.
 - The repo tests fail when the formula isn't what the template gives, and the
   `Homebrew` check fails when brew rejects the formula or can't install it.
 - Require the `Homebrew` status check on `main` (ruleset 21051370).
