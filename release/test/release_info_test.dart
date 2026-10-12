@@ -126,6 +126,20 @@ void main() {
     });
   });
 
+  group('outputLines', () {
+    test('names the formula version that the Homebrew steps use, or none', () {
+      expect(
+        outputLines(_resolve(version: '0.6.0+1', release: true)),
+        contains('formula-version=0.6.0+1\n'),
+      );
+      expect(outputLines(_resolve(version: '0.6.0-wip')), contains('formula-version=0.6.0\n'));
+      expect(
+        outputLines(_resolve(version: '1.0.0-dev.1', release: true)),
+        contains('formula-version=\n'),
+      );
+    });
+  });
+
   group('formulaVersion', () {
     test('is the version of a release, and the pending release of a -wip version', () {
       expect(formulaVersion('0.6.0'), '0.6.0');
