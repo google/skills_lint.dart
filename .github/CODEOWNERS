@@ -4,3 +4,7 @@
 # Requests a review from reidbaker on every change to the Homebrew formula, which installs on users' machines, and its template. The last matching line wins, so these files do not request reidbaker-agent.
 /Formula/ @reidbaker
 /release/templates/ @reidbaker
+
+# Requests a review from reidbaker on every change to the release workflows, which publish what users install.
+/.github/workflows/release_build_and_tag.yaml @reidbaker
+/.github/workflows/release_publish.yaml @reidbaker
