@@ -28,7 +28,6 @@ on:
       - '.github/workflows/**'
   schedule:
     - cron: '0 0 * * 0' # weekly
-  # release_build_and_tag.yaml runs these checks on the commit it releases.
   workflow_call:
 
 defaults:

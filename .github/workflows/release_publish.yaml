@@ -1,8 +1,7 @@
-# Publishes a release that release_build_and_tag.yaml staged: the package to
-# pub.dev, then the draft GitHub release, then a branch that updates the
-# Homebrew formula. release_build_and_tag.yaml starts this workflow on the
-# release's tag, and pub.dev accepts a publish only from a run on that tag.
-# See RELEASING.md.
+# Publishes a staged release from its tag: the package to pub.dev, then the
+# draft GitHub release, then a branch that updates the Homebrew formula.
+# pub.dev accepts a publish only from a run on the release's tag. See
+# RELEASING.md.
 #
 # Only the pub.dev job runs Dart code from pub, with the pubspec.lock that
 # the verify job checked.
@@ -34,8 +33,8 @@ jobs:
       # Whether the release has a Homebrew formula: every release that isn't
       # a prerelease does.
       homebrew: ${{ steps.check.outputs.homebrew }}
-      # Later jobs download by ID, so an artifact uploaded again under the same
-      # name can't replace what this job verified.
+      # The ID of the verified files. An artifact uploaded again under the same
+      # name gets a new ID, so a download by ID can't get it.
       verified-release: ${{ steps.upload.outputs.artifact-id }}
     steps:
       # Checks out .github/actions only, for the release-asset-digests action.
@@ -91,9 +90,6 @@ jobs:
         with:
           directory: ${{ runner.temp }}/assets
           output: ${{ runner.temp }}/verified/assets.sha256
-      # assets.sha256 is what the GitHub release job compares the release
-      # with, the pub.dev job installs the dependencies in pubspec.lock, and
-      # the Homebrew job pushes skills_lint.rb.
       - id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -110,8 +106,7 @@ jobs:
     #   workflow_dispatch runs on tags matching skills_lint-v{{version}}, not
     #   from push runs, and requires the GitHub Actions environment pub.dev.
     # - The repository's pub.dev environment allows only skills_lint-v* tags
-    #   and has a required reviewer, so this job waits for approval. The
-    #   build workflow's Stage job checks this.
+    #   and has a required reviewer, so this job waits for approval.
     environment: pub.dev
     runs-on: ubuntu-latest
     permissions:
@@ -131,9 +126,8 @@ jobs:
           path: ${{ runner.temp }}/verified
       - name: Get the release's dependencies
         run: cp "$RUNNER_TEMP/verified/pubspec.lock" . && dart pub get --enforce-lockfile
-      # Skips the upload when pub.dev has the version, so that a run started
-      # again after a failed GitHub release job only publishes the GitHub
-      # release.
+      # Skips the upload when pub.dev has the version, so this job can run
+      # again for a version that it published.
       - name: Publish the package
         working-directory: packages/skills_lint
         env:
@@ -163,10 +157,10 @@ jobs:
         with:
           artifact-ids: ${{ needs.verify-draft.outputs.verified-release }}
           path: ${{ runner.temp }}/verified
-      # The draft can change until it is published, and while the pub.dev job
-      # waits for approval. So its asset digests are compared with what the
-      # verify job checked before publishing, and again after, when immutable
-      # releases have frozen them.
+      # The draft can change until it is published, even while this run waits
+      # for approval. So its asset digests are compared with the verified ones
+      # before publishing, and again after, when immutable releases have
+      # frozen them.
       - name: List the draft's asset digests
         uses: ./.github/actions/release-asset-digests
         with:

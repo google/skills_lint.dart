@@ -79,7 +79,7 @@ void main() {
       File(p.join(bin.path, name)).writeAsStringSync(script);
       Process.runSync('chmod', ['+x', p.join(bin.path, name)]);
     }
-    // The archives of every target, built as the release workflow builds
+    // The archives of every target, built as the build workflow builds
     // them, but holding a script instead of a compiled executable.
     for (final String target in supportedTargets) {
       final stage = Directory(p.join(temp.path, 'stage-$target'))..createSync();

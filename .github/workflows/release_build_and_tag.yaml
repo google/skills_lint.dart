@@ -57,8 +57,8 @@ jobs:
       mode: ${{ steps.prepare.outputs.mode }}
       formula-version: ${{ steps.prepare.outputs.formula-version }}
       matrix: ${{ steps.prepare.outputs.matrix }}
-      # Jobs download these artifacts by ID, so an artifact uploaded again
-      # under the same name doesn't replace them.
+      # The IDs of this job's artifacts. An artifact uploaded again under the
+      # same name gets a new ID, so a download by ID can't get it.
       release-notes: ${{ steps.notes.outputs.artifact-id }}
       pubspec-lock: ${{ steps.lock.outputs.artifact-id }}
     steps:
@@ -68,8 +68,8 @@ jobs:
       - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
         with:
           sdk: stable
-      # Later jobs install the same versions from this pubspec.lock, and the
-      # release ships it.
+      # The one resolution of this run. This job uploads its pubspec.lock,
+      # which the release ships.
       - name: Resolve the dependencies
         run: dart pub get
       - name: Work out the release
@@ -136,7 +136,6 @@ jobs:
       - run: dart analyze --fatal-infos
       - run: dart test
 
-  # A pull request runs these checks on its own.
   check-skills-lint:
     name: 'Check: skills_lint tests at this commit'
     needs: plan
@@ -317,7 +316,6 @@ jobs:
         with:
           artifact-ids: ${{ needs.plan.outputs.release-notes }}
           path: ${{ runner.temp }}
-      # The publish workflow checks every release asset against these.
       - name: Attest build provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:

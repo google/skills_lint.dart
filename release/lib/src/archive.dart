@@ -70,7 +70,7 @@ final class ReleaseTarget {
 
 /// The targets that each release has an archive for.
 ///
-/// The build matrix of the release workflow comes from [buildMatrix], and
+/// The build matrix of the build workflow comes from [buildMatrix], and
 /// `scripts/install.sh` reads the targets from a release's `SHA256SUMS`.
 const List<ReleaseTarget> releaseTargets = [
   ReleaseTarget(os: TargetOs.macos, arch: TargetArch.arm64, runner: 'macos-latest'),
@@ -116,7 +116,8 @@ List<ReleaseTarget> homebrewTargets([List<ReleaseTarget> targets = releaseTarget
 /// Returns a GitHub Actions `strategy.matrix` as JSON: an `include` entry for
 /// each of [targets], with the `target` and the runner (`os`) that builds it.
 ///
-/// The release workflow's `build` job uses it for all of [releaseTargets].
+/// The build workflow's `build-executable` job uses it for all of
+/// [releaseTargets].
 String buildMatrix([List<ReleaseTarget> targets = releaseTargets]) => jsonEncode({
   'include': [
     for (final ReleaseTarget target in targets) {'os': target.runner, 'target': target.name},

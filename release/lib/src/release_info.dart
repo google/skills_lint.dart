@@ -124,7 +124,7 @@ ReleaseInfo resolveRelease({
   final ReleaseMode mode = switch (event) {
     'pull_request' => ReleaseMode.dryRun,
     'workflow_dispatch' => releaseVersion.isEmpty ? ReleaseMode.dryRun : ReleaseMode.stage,
-    _ => throw ReleaseException('The release workflow does not run for "$event" events.'),
+    _ => throw ReleaseException('The build workflow does not run for "$event" events.'),
   };
   if (mode == ReleaseMode.stage) {
     _checkStage(
