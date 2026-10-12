@@ -205,15 +205,15 @@ jobs:
           sha256sum pubspec.lock > pubspec.lock.sha256
       - name: Check the checksums and write SHA256SUMS
         run: dart run bin/release.dart checksums "$RUNNER_TEMP/dist"
-      # Fails if the template can't give a formula that reads back for this
-      # version and these archives.
+      # The release ships this formula. The step fails if the template can't
+      # give a formula that reads back for this version and these archives.
       - name: Write the Homebrew formula
         if: needs.plan.outputs.formula-version != ''
         env:
           VERSION: ${{ needs.plan.outputs.formula-version }}
         run: >-
           dart run bin/release.dart homebrew-formula --version "$VERSION"
-          --sha256sums "$RUNNER_TEMP/dist/SHA256SUMS" --output "$RUNNER_TEMP/skills_lint.rb"
+          --sha256sums "$RUNNER_TEMP/dist/SHA256SUMS" --output "$RUNNER_TEMP/dist/skills_lint.rb"
       - name: Write install.sh for the version
         run: dart run bin/release.dart install-script --output "$RUNNER_TEMP/dist/install.sh"
       - name: Check the package for pub.dev
@@ -225,13 +225,6 @@ jobs:
           path: ${{ runner.temp }}/dist/
           if-no-files-found: error
           retention-days: 30 # As long as GitHub lets a job be re-run.
-      - if: needs.plan.outputs.formula-version != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: homebrew-formula
-          path: ${{ runner.temp }}/skills_lint.rb
-          if-no-files-found: error
-          retention-days: 7
       - name: Write the job summary
         env:
           MODE: ${{ needs.plan.outputs.mode }}
@@ -259,8 +252,8 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: homebrew-formula
-          path: ${{ runner.temp }}/formula
+          name: release-assets
+          path: ${{ runner.temp }}/dist
       - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
       # Homebrew loads no formula from an untrusted non-official tap. The
       # tap is a clone of this checkout, so the release's formula replaces
@@ -269,7 +262,7 @@ jobs:
         run: |
           brew tap "$TAP" "$GITHUB_WORKSPACE"
           brew trust "$TAP"
-          cp "$RUNNER_TEMP/formula/skills_lint.rb" "$(brew --repo "$TAP")/Formula/skills_lint.rb"
+          cp "$RUNNER_TEMP/dist/skills_lint.rb" "$(brew --repo "$TAP")/Formula/skills_lint.rb"
       - run: brew style "$FORMULA"
       - run: brew audit --strict --formula "$FORMULA"
 
@@ -325,11 +318,7 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: |
-            ${{ runner.temp }}/dist/*.tar.gz
-            ${{ runner.temp }}/dist/SHA256SUMS
-            ${{ runner.temp }}/dist/install.sh
-            ${{ runner.temp }}/dist/pubspec.lock
+          subject-path: ${{ runner.temp }}/dist/*
       # A tag left by an earlier run is reused only if it points at this
       # commit.
       - name: Create the tag, or reuse it

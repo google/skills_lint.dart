@@ -31,15 +31,16 @@ jobs:
       attestations: read # gh attestation verify fetches them from this repository's API.
     outputs:
       version: ${{ steps.check.outputs.version }}
-      prerelease: ${{ steps.check.outputs.prerelease }}
+      # Whether the release has a Homebrew formula. A prerelease has none.
+      homebrew: ${{ steps.check.outputs.homebrew }}
       # Later jobs download by ID, so an artifact uploaded again under the same
       # name can't replace what this job verified.
       verified-release: ${{ steps.upload.outputs.artifact-id }}
     steps:
-      # Anyone with push access can change a draft's assets, so each one must
-      # match SHA256SUMS and carry an attestation from the build of this
-      # commit. Without --source-digest, the assets of an earlier release
-      # would pass too.
+      # Anyone with push access can change a draft, so every asset must carry
+      # an attestation from the build of this commit, and the files that
+      # SHA256SUMS lists must match it. Without --source-digest, the assets
+      # of an earlier release would pass too.
       - name: Check the draft and its assets
         id: check
         env:
@@ -71,12 +72,14 @@ jobs:
           mkdir "$RUNNER_TEMP/verified"
           sha256sum -- * | LC_ALL=C sort -k2 > "$RUNNER_TEMP/verified/assets.sha256"
           cp pubspec.lock "$RUNNER_TEMP/verified/"
-          {
-            echo "version=${TAG#skills_lint-v}"
-            echo "prerelease=$(gh release view "$TAG" --json isPrerelease --jq .isPrerelease)"
-          } >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#skills_lint-v}" >> "$GITHUB_OUTPUT"
+          if [ -f skills_lint.rb ]; then
+            cp skills_lint.rb "$RUNNER_TEMP/verified/"
+            echo "homebrew=true" >> "$GITHUB_OUTPUT"
+          fi
       # assets.sha256 is what the GitHub release job compares the release
-      # with, and the pub.dev job installs the dependencies in pubspec.lock.
+      # with, the pub.dev job installs the dependencies in pubspec.lock, and
+      # the Homebrew job pushes skills_lint.rb.
       - id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -177,58 +180,10 @@ jobs:
           fi
           echo "Published $TAG to pub.dev and [GitHub]($(gh release view "$TAG" --json url --jq .url))." >> "$GITHUB_STEP_SUMMARY"
 
-  render-homebrew-formula:
-    name: 'Homebrew: write the formula for the published release'
-    needs: [verify-draft, publish-github-release]
-    if: needs.verify-draft.outputs.prerelease == 'false'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      attestations: read # gh attestation verify fetches them from this repository's API.
-    defaults:
-      run:
-        working-directory: release
-    steps:
-      # Renders with the tag's template, release tool and pubspec.lock: the
-      # tree that the release's executables were built from.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
-        with:
-          sdk: stable
-      - name: Check the published assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          gh release download "$TAG" -R "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/assets"
-          cd "$RUNNER_TEMP/assets"
-          sha256sum --check --strict SHA256SUMS
-          for asset in *; do
-            gh attestation verify "$asset" -R "$GITHUB_REPOSITORY" \
-              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release_build_and_tag.yaml" \
-              --source-ref refs/heads/main --source-digest "$GITHUB_SHA"
-          done
-      - name: Update the formula
-        env:
-          VERSION: ${{ needs.verify-draft.outputs.version }}
-        run: |
-          cp "$RUNNER_TEMP/assets/pubspec.lock" ..
-          dart pub get --enforce-lockfile
-          dart run bin/release.dart homebrew-formula --version "$VERSION" \
-            --sha256sums "$RUNNER_TEMP/assets/SHA256SUMS"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: homebrew-formula
-          path: Formula/skills_lint.rb
-          if-no-files-found: error
-          retention-days: 7
-
-  # Runs no Dart code, so that no code from pub runs with write permissions.
   push-homebrew-update:
     name: 'Homebrew: push the formula update and link its pull request'
-    needs: [verify-draft, render-homebrew-formula]
+    needs: [verify-draft, publish-github-release]
+    if: needs.verify-draft.outputs.homebrew == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write # Push the formula branch.
@@ -239,8 +194,8 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: homebrew-formula
-          path: Formula
+          artifact-ids: ${{ needs.verify-draft.outputs.verified-release }}
+          path: ${{ runner.temp }}/verified
       - name: Push the branch
         env:
           GH_TOKEN: ${{ github.token }}
@@ -249,6 +204,7 @@ jobs:
         run: |
           branch="homebrew/$TAG"
           git switch -c "$branch"
+          cp "$RUNNER_TEMP/verified/skills_lint.rb" Formula/skills_lint.rb
           git add Formula/skills_lint.rb
           # 41898282 is the user ID of github-actions[bot].
           git -c user.name='github-actions[bot]' \
