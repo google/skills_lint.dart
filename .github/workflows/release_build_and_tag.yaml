@@ -313,21 +313,6 @@ jobs:
             echo "::error::The pub.dev environment needs a required reviewer and only the skills_lint-v* tag rule (rules: $rules; policies: $policies). An admin must fix it in Settings > Environments, then re-run this job."
             exit 1
           fi
-      # The run never deletes a release: a draft can belong to a publish run
-      # that waits for approval, and that run publishes whatever draft the
-      # tag has. A tag left by a failed run is reused only if it points at
-      # this commit.
-      - name: Check the tag and the release
-        run: |
-          if gh release view "$TAG" --json isDraft > /dev/null 2>&1; then
-            echo "::error::$TAG already has a release. See \"Order and recovery\" in RELEASING.md."
-            exit 1
-          fi
-          if existing="$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null)" \
-            && [ "$existing" != "$SHA" ]; then
-            echo "::error::The tag $TAG points at $existing, not $SHA."
-            exit 1
-          fi
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-assets
@@ -345,22 +330,38 @@ jobs:
             ${{ runner.temp }}/dist/SHA256SUMS
             ${{ runner.temp }}/dist/install.sh
             ${{ runner.temp }}/dist/pubspec.lock
-      - name: Create the tag
+      # A tag left by an earlier run is reused only if it points at this
+      # commit.
+      - name: Create the tag, or reuse it
         run: |
-          if ! gh api "repos/$GH_REPO/git/ref/tags/$TAG" > /dev/null 2>&1; then
+          if existing="$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null)"; then
+            if [ "$existing" != "$SHA" ]; then
+              echo "::error::The tag $TAG points at $existing, not at this run's commit $SHA. Release the next version."
+              exit 1
+            fi
+          else
             gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$SHA" > /dev/null
           fi
       # The release starts as a draft so that every asset is attached before
       # it is published. Published releases can be immutable, which blocks
-      # later uploads.
-      - name: Create the draft release
+      # later uploads. A re-run of this job reuses the draft that it made.
+      - name: Create the draft release, or reuse it
         env:
           VERSION: ${{ needs.plan.outputs.version }}
           PRERELEASE: ${{ needs.plan.outputs.prerelease }}
-        run: >-
-          gh release create "$TAG" --draft --verify-tag --prerelease="$PRERELEASE"
-          --title "skills_lint $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
-          "$RUNNER_TEMP"/dist/*
+        run: |
+          if ! is_draft="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            gh release create "$TAG" --draft --verify-tag --prerelease="$PRERELEASE" \
+              --title "skills_lint $VERSION" --notes-file "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP"/dist/*
+          elif [ "$is_draft" != true ]; then
+            echo "::error::$TAG is published already. Release the next version."
+            exit 1
+          elif ! diff <(cd "$RUNNER_TEMP/dist" && sha256sum -- * | LC_ALL=C sort -k2) \
+            <(gh release view "$TAG" --json assets \
+              --jq '.assets[] | "\(.digest | ltrimstr("sha256:"))  \(.name)"' | LC_ALL=C sort -k2); then
+            echo "::error::The draft of $TAG holds assets from another build. Delete it with \`gh release delete $TAG -R $GH_REPO\`, then re-run this job."
+            exit 1
+          fi
       - name: Start the publish workflow on the tag
         run: gh workflow run release_publish.yaml --ref "$TAG"
       - name: Write the job summary
