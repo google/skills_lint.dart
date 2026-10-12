@@ -2,8 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Directories that the release steps read from, found from the location of
-/// this package so that the steps work from any working directory.
+/// The directories and files that the release steps use, found from the
+/// location of this package so that the steps work from any working
+/// directory.
 library;
 
 import 'dart:io';
@@ -19,6 +20,12 @@ final String releasePackageDir = p.dirname(
 
 /// The root directory of the repository.
 final String repoRoot = p.dirname(releasePackageDir);
+
+/// The Homebrew formula, which `release homebrew-formula` generates.
+final String homebrewFormulaPath = p.join(repoRoot, 'Formula', 'skills_lint.rb');
+
+/// The template that `release homebrew-formula` generates the formula from.
+final String homebrewTemplatePath = p.join(releasePackageDir, 'templates', 'skills_lint.rb.tmpl');
 
 /// The root directory of the `skills_lint` package that the release ships.
 final String skillsLintPackageDir = p.join(repoRoot, 'packages', 'skills_lint');

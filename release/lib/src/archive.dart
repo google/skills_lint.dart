@@ -18,27 +18,69 @@ import 'macho.dart';
 import 'paths.dart';
 import 'release_exception.dart';
 
-/// A platform that each release has an archive for.
-///
-/// `name` is the platform in the archive's name, `abi` is the ABI that runs
-/// the executable, and `runner` is the GitHub-hosted runner image that builds
-/// it. `dart compile exe` builds for the host only, so each target builds on
-/// a runner of its own platform.
-typedef ReleaseTarget = ({String name, Abi abi, String runner});
+/// An operating system that a release can have an executable for, named as
+/// in Dart's [Abi] and in the archive names.
+enum TargetOs {
+  macos(homebrewBlock: 'on_macos'),
+  linux(homebrewBlock: 'on_linux'),
+  windows(homebrewBlock: null);
+
+  const TargetOs({required this.homebrewBlock});
+
+  /// The Homebrew formula block that selects this system, or null if
+  /// Homebrew doesn't run on it.
+  final String? homebrewBlock;
+}
+
+/// A CPU architecture that a release can have an executable for, named as
+/// in Dart's [Abi] and in the archive names.
+enum TargetArch {
+  arm64(homebrewBlock: 'on_arm'),
+  x64(homebrewBlock: 'on_intel'),
+  riscv64(homebrewBlock: null);
+
+  const TargetArch({required this.homebrewBlock});
+
+  /// The Homebrew formula block that selects this architecture, or null if
+  /// a formula can't select it.
+  final String? homebrewBlock;
+}
+
+/// A platform that each release has an archive for, and the GitHub-hosted
+/// runner image that builds it.
+final class ReleaseTarget {
+  const ReleaseTarget({required this.os, required this.arch, required this.runner});
+
+  final TargetOs os;
+
+  final TargetArch arch;
+
+  /// The runner image that builds this target's executable. `dart compile
+  /// exe` builds for the host only, so it runs on this target's platform.
+  final String runner;
+
+  /// The platform in the archive's name, such as `macos-arm64`.
+  String get name => '${os.name}-${arch.name}';
+
+  /// The ABI that runs the executable.
+  // Abi.toString() is documented as `<os>_<arch>`, the names TargetOs and
+  // TargetArch use.
+  Abi get abi => Abi.values.singleWhere((Abi abi) => '$abi' == '${os.name}_${arch.name}');
+}
 
 /// The targets that each release has an archive for.
 ///
 /// The build matrix of the release workflow comes from [buildMatrix], and
 /// `scripts/install.sh` reads the targets from a release's `SHA256SUMS`.
 const List<ReleaseTarget> releaseTargets = [
-  (name: 'macos-arm64', abi: Abi.macosArm64, runner: 'macos-latest'),
+  ReleaseTarget(os: TargetOs.macos, arch: TargetArch.arm64, runner: 'macos-latest'),
   // GitHub has no standard `macos-latest` label for Intel, so this names the
   // newest standard Intel macOS image.
-  (name: 'macos-x64', abi: Abi.macosX64, runner: 'macos-26-intel'),
-  (name: 'linux-x64', abi: Abi.linuxX64, runner: 'ubuntu-latest'),
+  ReleaseTarget(os: TargetOs.macos, arch: TargetArch.x64, runner: 'macos-26-intel'),
+  ReleaseTarget(os: TargetOs.linux, arch: TargetArch.x64, runner: 'ubuntu-latest'),
   // GitHub has no `ubuntu-latest` label for arm64, so this names the arm64
   // image of the Ubuntu version that `ubuntu-latest` runs.
-  (name: 'linux-arm64', abi: Abi.linuxArm64, runner: 'ubuntu-24.04-arm'),
+  ReleaseTarget(os: TargetOs.linux, arch: TargetArch.arm64, runner: 'ubuntu-24.04-arm'),
 ];
 
 /// The names of [releaseTargets].
@@ -64,12 +106,20 @@ String? hostTarget(Abi abi) => releaseTargets
     .map((ReleaseTarget target) => target.name)
     .firstOrNull;
 
-/// Returns the `strategy.matrix` of the release workflow's `build` job as
-/// JSON: an `include` entry for each of [releaseTargets], with the `target`
-/// and the runner (`os`) that builds it.
-String buildMatrix() => jsonEncode({
+/// The targets of [targets] that the Homebrew formula installs: those whose
+/// system and architecture each have a formula block.
+List<ReleaseTarget> homebrewTargets([List<ReleaseTarget> targets = releaseTargets]) => [
+  for (final ReleaseTarget target in targets)
+    if (target.os.homebrewBlock != null && target.arch.homebrewBlock != null) target,
+];
+
+/// Returns a GitHub Actions `strategy.matrix` as JSON: an `include` entry for
+/// each of [targets], with the `target` and the runner (`os`) that builds it.
+///
+/// The release workflow's `build` job uses it for all of [releaseTargets].
+String buildMatrix([List<ReleaseTarget> targets = releaseTargets]) => jsonEncode({
   'include': [
-    for (final ReleaseTarget target in releaseTargets) {'os': target.runner, 'target': target.name},
+    for (final ReleaseTarget target in targets) {'os': target.runner, 'target': target.name},
   ],
 });
 

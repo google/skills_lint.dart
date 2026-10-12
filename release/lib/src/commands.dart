@@ -13,6 +13,8 @@ import 'package:path/path.dart' as p;
 
 import 'archive.dart';
 import 'checksums.dart';
+import 'homebrew_formula.dart';
+import 'homebrew_formula_check.dart';
 import 'install_script.dart';
 import 'licenses.dart';
 import 'paths.dart';
@@ -33,7 +35,9 @@ Future<int> runRelease(List<String> arguments) async {
     ..addCommand(_LicensesCommand())
     ..addCommand(_ChecksumsCommand())
     ..addCommand(_InstallScriptCommand())
-    ..addCommand(_PrepareCommand());
+    ..addCommand(_PrepareCommand())
+    ..addCommand(_HomebrewMatrixCommand())
+    ..addCommand(_HomebrewFormulaCommand());
   try {
     await runner.run(arguments);
     return 0;
@@ -204,6 +208,69 @@ class _PrepareCommand extends _ReleaseCommand {
     stdout
       ..write(outputLines(info))
       ..writeln('matrix=${buildMatrix()}');
+  }
+}
+
+class _HomebrewMatrixCommand extends _ReleaseCommand {
+  @override
+  String get name => 'homebrew-matrix';
+
+  @override
+  String get description =>
+      'Prints the targets that the Homebrew formula installs, with the runner of each, as a '
+      r'matrix=<json> line for $GITHUB_OUTPUT.';
+
+  @override
+  void run() {
+    noRest();
+    stdout.writeln('matrix=${buildMatrix(homebrewTargets())}');
+  }
+}
+
+class _HomebrewFormulaCommand extends _ReleaseCommand {
+  _HomebrewFormulaCommand() {
+    argParser.addFlag(
+      'check',
+      negatable: false,
+      help:
+          'Write nothing. Fail if the formula differs from what the template gives, or if its '
+          'version breaks the release rules.',
+    );
+  }
+
+  @override
+  String get name => 'homebrew-formula';
+
+  @override
+  String get description =>
+      'Writes Formula/skills_lint.rb from release/templates/skills_lint.rb.tmpl, keeping its '
+      'version and checksums.';
+
+  @override
+  void run() {
+    noRest();
+    final formula = File(homebrewFormulaPath);
+    // A Windows checkout can give these files CRLF line endings.
+    final String template = File(homebrewTemplatePath).readAsStringSync().replaceAll('\r\n', '\n');
+    final String current = formula.readAsStringSync().replaceAll('\r\n', '\n');
+    if (argResults!.flag('check')) {
+      final List<String> problems = formulaProblems(
+        current,
+        template: template,
+        pubspecVersion: _pubspecVersion(),
+        changelog: File(p.join(skillsLintPackageDir, 'CHANGELOG.md')).readAsStringSync(),
+      );
+      if (problems.isNotEmpty) {
+        throw ReleaseException(
+          '${formula.path}:\n${problems.join('\n')}\n'
+          'To regenerate it, run `dart run bin/release.dart homebrew-formula` in release/.',
+        );
+      }
+      stdout.writeln('${formula.path} matches its template.');
+      return;
+    }
+    formula.writeAsStringSync(renderFormula(template, readFormula(current)));
+    stdout.writeln('Wrote ${formula.path}.');
   }
 }
 

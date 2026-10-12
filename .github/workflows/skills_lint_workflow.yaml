@@ -5,6 +5,8 @@ permissions:
 on:
   pull_request:
     paths:
+      # Formula/, because repo_test/homebrew_formula_test.dart checks it.
+      - 'Formula/**'
       - '.agents/**'
       - 'skills_lint.yaml'
       - 'skills/**'
@@ -15,6 +17,8 @@ on:
   push:
     branches: [ main ]
     paths:
+      # Formula/, because repo_test/homebrew_formula_test.dart checks it.
+      - 'Formula/**'
       - '.agents/**'
       - 'skills_lint.yaml'
       - 'skills/**'

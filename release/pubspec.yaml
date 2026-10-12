@@ -12,6 +12,7 @@ dependencies:
   args: ^2.7.0
   crypto: ^3.0.7
   path: ^1.9.1
+  pub_semver: ^2.1.4
   yaml: ^3.1.4
 
 dev_dependencies:

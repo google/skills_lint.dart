@@ -1,0 +1,139 @@
+# Checks the Homebrew formula in Formula/: brew style and audit, then brew
+# install and test on each target.
+
+name: Homebrew
+
+on:
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1' # weekly, to catch Homebrew changes that break the formula
+
+permissions: {}
+
+concurrency:
+  group: homebrew-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TAP: google/skills-lint
+  FORMULA: google/skills-lint/skills_lint
+
+jobs:
+  # Skips the brew jobs on pull requests that change none of their inputs.
+  changes:
+    name: Find formula changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      formula: ${{ steps.diff.outputs.formula }}
+    steps:
+      # Depth 2 holds the pull request's merge commit and its first parent, the
+      # base branch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Check the changed files
+        id: diff
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
+            git diff --quiet HEAD^1 HEAD -- Formula release .github/workflows/homebrew.yaml; then
+            echo "formula=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "formula=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  style:
+    name: brew style and audit
+    needs: changes
+    if: needs.changes.outputs.formula == 'true'
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    outputs:
+      released: ${{ steps.placeholders.outputs.released }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
+      # Homebrew loads no formula from an untrusted non-official tap.
+      - name: Tap and trust this checkout
+        run: |
+          brew tap "$TAP" "$GITHUB_WORKSPACE"
+          brew trust "$TAP"
+      - run: brew style "$FORMULA"
+      - run: brew audit --strict --formula "$FORMULA"
+      - name: Check for placeholder values
+        id: placeholders
+        run: |
+          if grep -q PLACEHOLDER Formula/skills_lint.rb; then
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  targets:
+    name: List the targets
+    needs: changes
+    if: needs.changes.outputs.formula == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    defaults:
+      run:
+        working-directory: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - id: matrix
+        run: dart run bin/release.dart homebrew-matrix >> "$GITHUB_OUTPUT"
+
+  install:
+    name: brew install and test
+    needs: [style, targets]
+    if: needs.style.outputs.released == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
+      # Homebrew loads no formula from an untrusted non-official tap.
+      - name: Tap and trust this checkout
+        run: |
+          brew tap "$TAP" "$GITHUB_WORKSPACE"
+          brew trust "$TAP"
+      - run: brew install "$FORMULA"
+      - run: brew test "$FORMULA"
+      - run: brew audit --strict --online --formula "$FORMULA"
+
+  # Always runs, so it reports one result to require on main even when the
+  # other jobs skip.
+  homebrew:
+    name: Homebrew
+    needs: [changes, style, targets, install]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if a job failed or was cancelled
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          case " $RESULTS " in
+            *" failure "* | *" cancelled "*) exit 1 ;;
+          esac

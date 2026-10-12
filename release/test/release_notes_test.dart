@@ -55,4 +55,16 @@ void main() {
       );
     });
   });
+
+  group('hasChangelogHeading', () {
+    test('finds the heading that changelogSection reads', () {
+      expect(hasChangelogHeading(_changelog, '0.6.0'), isTrue);
+      expect(hasChangelogHeading(_changelog.replaceAll('\n', '\r\n'), '0.6.0'), isTrue);
+    });
+
+    test('ignores a version without a heading of its own', () {
+      expect(hasChangelogHeading(_changelog, '0.6'), isFalse);
+      expect(hasChangelogHeading('  ## 0.6.0\n', '0.6.0'), isFalse);
+    });
+  });
 }
