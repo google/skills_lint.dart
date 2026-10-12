@@ -238,7 +238,8 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
             'version breaks the release rules.',
       )
       ..addOption('version', help: 'Write the formula for this release. Needs --sha256sums.')
-      ..addOption('sha256sums', help: "The release's $sha256SumsName file. Needs --version.");
+      ..addOption('sha256sums', help: "The release's $sha256SumsName file. Needs --version.")
+      ..addOption('output', help: 'Write the formula here instead of Formula/skills_lint.rb.');
   }
 
   @override
@@ -277,7 +278,8 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
     if ((version == null) != (sha256Sums == null)) {
       usageException('Give both --version and --sha256sums, or neither.');
     }
-    formula.writeAsStringSync(
+    final output = File(argResults!.option('output') ?? homebrewFormulaPath);
+    output.writeAsStringSync(
       version == null
           ? renderFormula(template, readFormula(current))
           : releaseFormula(
@@ -286,7 +288,7 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
               sha256Sums: File(sha256Sums!).readAsStringSync(),
             ),
     );
-    stdout.writeln('Wrote ${formula.path}.');
+    stdout.writeln('Wrote ${output.path}.');
   }
 }
 

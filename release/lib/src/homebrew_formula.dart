@@ -88,7 +88,9 @@ String renderFormula(
 /// checksums from [sha256Sums], the text of the release's `SHA256SUMS`.
 ///
 /// Throws a [ReleaseException] if Homebrew can't install [version] (see
-/// [isHomebrewVersion]), or for any reason [renderFormula] does.
+/// [isHomebrewVersion]), if [readFormula] can't read [version] and each
+/// archive's checksum back from the result, or for any reason
+/// [renderFormula] does.
 String releaseFormula(String template, {required String version, required String sha256Sums}) {
   if (!isHomebrewVersion(version)) {
     throw ReleaseException(
@@ -96,10 +98,24 @@ String releaseFormula(String template, {required String version, required String
       'optional numeric build.',
     );
   }
-  return renderFormula(
+  final Map<String, String> checksums = parseSha256Sums(sha256Sums);
+  final String formula = renderFormula(
     template,
-    FormulaValues(version: version, checksums: parseSha256Sums(sha256Sums)),
+    FormulaValues(version: version, checksums: checksums),
   );
+  // --check and the next release read the formula back, so a template that
+  // hides a value from readFormula is broken even though it renders.
+  final FormulaValues readBack = readFormula(formula);
+  if (readBack.version != version) {
+    throw ReleaseException('The formula template gives version ${readBack.version}, not $version.');
+  }
+  for (final ReleaseTarget target in homebrewTargets()) {
+    final String archive = archiveName(target.name);
+    if (readBack.checksums?[archive] != checksums[archive]) {
+      throw ReleaseException('The formula template does not give the checksum of $archive.');
+    }
+  }
+  return formula;
 }
 
 /// The `on_<os>` block for [os], with an `on_<arch>` block for each of

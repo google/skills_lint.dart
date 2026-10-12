@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint_release/src/archive.dart';
 import 'package:skills_lint_release/src/checksums.dart';
+import 'package:skills_lint_release/src/homebrew_formula.dart';
 import 'package:skills_lint_release/src/paths.dart';
 import 'package:skills_lint_release/src/release_info.dart';
 import 'package:skills_lint_release/src/release_notes.dart';
@@ -69,6 +70,32 @@ void main() {
       [for (final entry in matrix['include']! as List<Object?>) (entry! as Map)['target']],
       [for (final ReleaseTarget target in homebrewTargets()) target.name],
     );
+  });
+
+  test('homebrew-formula --output writes the release formula there', () async {
+    final Directory temp = Directory.systemTemp.createTempSync('cli_test.');
+    addTearDown(() => temp.deleteSync(recursive: true));
+    final sums = File(p.join(temp.path, sha256SumsName))
+      ..writeAsStringSync(
+        [
+          for (final ReleaseTarget target in homebrewTargets())
+            '${'a' * 64}  ${archiveName(target.name)}',
+        ].join('\n'),
+      );
+    final String output = p.join(temp.path, 'skills_lint.rb');
+    final String committed = File(homebrewFormulaPath).readAsStringSync();
+    final ProcessResult result = await _release([
+      'homebrew-formula',
+      '--version',
+      '1.2.3',
+      '--sha256sums',
+      sums.path,
+      '--output',
+      output,
+    ]);
+    expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+    expect(readFormula(File(output).readAsStringSync()).version, '1.2.3');
+    expect(File(homebrewFormulaPath).readAsStringSync(), committed);
   });
 
   test('a release error exits with code 1 and names the problem', () async {

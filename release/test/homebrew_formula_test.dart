@@ -114,15 +114,35 @@ end
   });
 
   group('releaseFormula', () {
+    final Map<String, String> checksums = _checksums(releaseTargets);
+    final String sums = [
+      for (final String archive in checksums.keys) '${checksums[archive]}  $archive',
+      '${'b' * 64}  pubspec.lock',
+    ].join('\n');
+
     test('takes the checksum of each archive from SHA256SUMS', () {
-      final Map<String, String> checksums = _checksums(releaseTargets);
-      final String sums = [
-        for (final String archive in checksums.keys) '${checksums[archive]}  $archive',
-        '${'b' * 64}  pubspec.lock',
-      ].join('\n');
       final String formula = releaseFormula(_template, version: '1.2.0+1', sha256Sums: sums);
       expect(formula, startsWith('version "1.2.0+1"\n'));
       expect(readFormula(formula).checksums, checksums);
+    });
+
+    test('rejects a template whose formula does not read back', () {
+      final templates = {
+        'a version line that readFormula does not match':
+            'version "{{version}}" # x\n{{platforms}}\n',
+        'a fixed version': 'version "1.0.0"\n# {{version}}\n{{platforms}}\n',
+        'a fixed checksum after the generated one':
+            '$_template\n'
+            'url "$_url/skills_lint-linux-x64.tar.gz"\n'
+            'sha256 "${'f' * 64}"\n',
+      };
+      for (final String reason in templates.keys) {
+        expect(
+          () => releaseFormula(templates[reason]!, version: '1.2.0', sha256Sums: sums),
+          throwsA(isA<ReleaseException>()),
+          reason: reason,
+        );
+      }
     });
 
     test('rejects a version that Homebrew cannot install', () {
