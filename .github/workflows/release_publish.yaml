@@ -31,7 +31,8 @@ jobs:
       attestations: read # gh attestation verify fetches them from this repository's API.
     outputs:
       version: ${{ steps.check.outputs.version }}
-      # Whether the release has a Homebrew formula. A prerelease has none.
+      # Whether the release has a Homebrew formula: every release that isn't
+      # a prerelease does.
       homebrew: ${{ steps.check.outputs.homebrew }}
       # Later jobs download by ID, so an artifact uploaded again under the same
       # name can't replace what this job verified.
@@ -60,10 +61,14 @@ jobs:
             echo "::error::The draft of $TAG is not what the build of this commit made. Delete the draft, then re-run the Stage job of that build."
             exit 1
           }
+          version="${TAG#skills_lint-v}"
+          # A version with a `-` suffix is a prerelease, which has no formula.
+          if [[ "$version" == *-* ]]; then homebrew=false; else homebrew=true; fi
           gh release download "$TAG" --dir "$RUNNER_TEMP/assets"
           cd "$RUNNER_TEMP/assets"
           sha256sum --check --strict SHA256SUMS || changed
           test -f install.sh || changed
+          [ "$homebrew" = false ] || test -f skills_lint.rb || changed
           for asset in *; do
             gh attestation verify "$asset" -R "$GH_REPO" \
               --signer-workflow "$GH_REPO/.github/workflows/release_build_and_tag.yaml" \
@@ -72,11 +77,11 @@ jobs:
           mkdir "$RUNNER_TEMP/verified"
           sha256sum -- * | LC_ALL=C sort -k2 > "$RUNNER_TEMP/verified/assets.sha256"
           cp pubspec.lock "$RUNNER_TEMP/verified/"
-          echo "version=${TAG#skills_lint-v}" >> "$GITHUB_OUTPUT"
-          if [ -f skills_lint.rb ]; then
-            cp skills_lint.rb "$RUNNER_TEMP/verified/"
-            echo "homebrew=true" >> "$GITHUB_OUTPUT"
-          fi
+          if [ "$homebrew" = true ]; then cp skills_lint.rb "$RUNNER_TEMP/verified/"; fi
+          {
+            echo "version=$version"
+            echo "homebrew=$homebrew"
+          } >> "$GITHUB_OUTPUT"
       # assets.sha256 is what the GitHub release job compares the release
       # with, the pub.dev job installs the dependencies in pubspec.lock, and
       # the Homebrew job pushes skills_lint.rb.
