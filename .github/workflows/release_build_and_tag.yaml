@@ -57,6 +57,10 @@ jobs:
       mode: ${{ steps.prepare.outputs.mode }}
       formula-version: ${{ steps.prepare.outputs.formula-version }}
       matrix: ${{ steps.prepare.outputs.matrix }}
+      # Jobs download these artifacts by ID, so an artifact uploaded again
+      # under the same name doesn't replace them.
+      release-notes: ${{ steps.notes.outputs.artifact-id }}
+      pubspec-lock: ${{ steps.lock.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,18 +94,20 @@ jobs:
             echo "::error::No merged pull request holds $GITHUB_SHA. Release only commits that a pull request merged into main."
             exit 1
           fi
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - id: notes
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-notes
           path: ${{ runner.temp }}/notes.md
           if-no-files-found: error
           retention-days: 30 # As long as GitHub lets a job be re-run.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - id: lock
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pubspec-lock
           path: pubspec.lock
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30 # As long as GitHub lets a job be re-run.
 
   check-release-tool:
     name: 'Check: release tool tests on ${{ matrix.os }}'
@@ -122,7 +128,7 @@ jobs:
           sdk: stable
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: pubspec-lock
+          artifact-ids: ${{ needs.plan.outputs.pubspec-lock }}
           path: .
       - name: Get the release's dependencies
         run: dart pub get --enforce-lockfile
@@ -159,7 +165,7 @@ jobs:
           sdk: stable
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: pubspec-lock
+          artifact-ids: ${{ needs.plan.outputs.pubspec-lock }}
           path: .
       - name: Get the release's dependencies
         run: dart pub get --enforce-lockfile
@@ -172,7 +178,7 @@ jobs:
           name: skills_lint-${{ matrix.target }}
           path: ${{ runner.temp }}/dist/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30 # As long as GitHub lets a job be re-run.
 
   build-assets:
     name: 'Build: release assets and pub.dev dry run'
@@ -180,6 +186,8 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    outputs:
+      release-assets: ${{ steps.assets.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -189,7 +197,7 @@ jobs:
           sdk: stable
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: pubspec-lock
+          artifact-ids: ${{ needs.plan.outputs.pubspec-lock }}
           path: .
       - name: Get the release's dependencies
         run: dart pub get --enforce-lockfile
@@ -220,7 +228,8 @@ jobs:
       - name: Check the package for pub.dev
         working-directory: packages/skills_lint
         run: dart pub publish --dry-run
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - id: assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-assets
           path: ${{ runner.temp }}/dist/
@@ -253,7 +262,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-assets
+          artifact-ids: ${{ needs.build-assets.outputs.release-assets }}
           path: ${{ runner.temp }}/dist
       - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
       # Homebrew loads no formula from an untrusted non-official tap. The
@@ -309,11 +318,11 @@ jobs:
           fi
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-assets
+          artifact-ids: ${{ needs.build-assets.outputs.release-assets }}
           path: ${{ runner.temp }}/dist
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-notes
+          artifact-ids: ${{ needs.plan.outputs.release-notes }}
           path: ${{ runner.temp }}
       # The publish workflow checks every release asset against these.
       - name: Attest build provenance
