@@ -98,6 +98,28 @@ void main() {
     expect(File(homebrewFormulaPath).readAsStringSync(), committed);
   });
 
+  test('homebrew-formula needs --version and --sha256sums together', () async {
+    for (final List<String> arguments in [
+      ['--version', '1.2.3'],
+      ['--sha256sums', sha256SumsName],
+    ]) {
+      final ProcessResult result = await _release(['homebrew-formula', ...arguments]);
+      expect(result.exitCode, 64, reason: '$arguments\nstderr: ${result.stderr}');
+      expect(result.stderr, contains('Give both --version and --sha256sums'));
+    }
+  });
+
+  test('homebrew-formula --check takes no other options', () async {
+    final ProcessResult result = await _release([
+      'homebrew-formula',
+      '--check',
+      '--output',
+      'skills_lint.rb',
+    ]);
+    expect(result.exitCode, 64, reason: 'stderr: ${result.stderr}');
+    expect(result.stderr, contains('--check takes no other options'));
+  });
+
   test('a release error exits with code 1 and names the problem', () async {
     final ProcessResult result = await _release([
       'prepare',

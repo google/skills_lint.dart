@@ -258,6 +258,9 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
     final String template = File(homebrewTemplatePath).readAsStringSync().replaceAll('\r\n', '\n');
     final String current = formula.readAsStringSync().replaceAll('\r\n', '\n');
     if (argResults!.flag('check')) {
+      if (['version', 'sha256sums', 'output'].any((name) => argResults!.option(name) != null)) {
+        usageException('--check takes no other options.');
+      }
       final List<String> problems = formulaProblems(
         current,
         template: template,
