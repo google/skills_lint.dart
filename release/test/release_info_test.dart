@@ -88,6 +88,13 @@ void main() {
       );
     });
 
+    test('releasing before the version bump merges says to merge it first', () {
+      expect(
+        () => _resolve(version: '0.6.0-wip', releaseVersion: '0.6.0'),
+        _throwsReleaseException('first merge a pull request that sets the version to release'),
+      );
+    });
+
     test('a -wip version is never staged', () {
       expect(
         () => _resolve(version: '0.6.0-wip', releaseVersion: '0.6.0-wip'),
