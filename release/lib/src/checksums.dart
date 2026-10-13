@@ -89,7 +89,9 @@ File mergeChecksums(Directory dir) {
 /// The checksum of each file in [sha256Sums], the text of a release's
 /// [sha256SumsName], keyed by file name.
 ///
-/// Throws a [ReleaseException] on a line that is not a checksum line.
+/// Throws a [ReleaseException] on a line that is not a checksum line, as
+/// `shasum -a 256` writes it in text mode with lowercase hex, and on a file
+/// listed twice.
 Map<String, String> parseSha256Sums(String sha256Sums) {
   final Map<String, String> checksums = {};
   for (final String line in LineSplitter.split(sha256Sums)) {
@@ -100,7 +102,11 @@ Map<String, String> parseSha256Sums(String sha256Sums) {
     if (match == null) {
       throw ReleaseException('$sha256SumsName has a line that is not "<sha256>  <name>": $line');
     }
-    checksums[match.group(2)!] = match.group(1)!;
+    final String name = match.group(2)!;
+    if (checksums.containsKey(name)) {
+      throw ReleaseException('$sha256SumsName lists $name twice.');
+    }
+    checksums[name] = match.group(1)!;
   }
   return checksums;
 }
