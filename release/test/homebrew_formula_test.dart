@@ -135,26 +135,30 @@ end
     });
 
     test('rejects a template whose formula does not read back', () {
+      // Each template, and a part of the error that names the check that
+      // rejects it.
       final templates = {
-        'a version line that readFormula does not match':
-            'version "{{version}}" # x\n{{platforms}}\n',
-        'a fixed version': 'version "1.0.0"\n# {{version}}\n{{platforms}}\n',
-        'a fixed checksum after the generated one':
-            '$_template\n'
-            'url "$_url/skills_lint-linux-x64.tar.gz"\n'
-            'sha256 "${'f' * 64}"\n',
+        // readFormula needs the version line to end at its closing quote.
+        'version "{{version}}" # x\n{{platforms}}\n': '0 version lines',
+        'version "1.0.0"\n# {{version}}\n{{platforms}}\n': 'gives version 1.0.0, not 1.2.0',
+        '$_template\n'
+                'url "$_url/skills_lint-linux-x64.tar.gz"\n'
+                'sha256 "${'f' * 64}"\n':
+            'does not give the checksum of skills_lint-linux-x64.tar.gz',
       };
-      for (final String reason in templates.keys) {
+      for (final MapEntry(key: String template, value: String messagePart) in templates.entries) {
         expect(
-          () => releaseFormula(templates[reason]!, version: '1.2.0', sha256Sums: sums),
-          throwsA(isA<ReleaseException>()),
-          reason: reason,
+          () => releaseFormula(template, version: '1.2.0', sha256Sums: sums),
+          throwsA(
+            isA<ReleaseException>().having((e) => e.message, 'message', contains(messagePart)),
+          ),
+          reason: template,
         );
       }
     });
 
     test('rejects a version that Homebrew cannot install', () {
-      for (final version in ['1.2.0-wip', 'abc', '1.2', '1.2.0+hotfix']) {
+      for (final version in ['1.2.0-wip', 'abc', '1.2', '1.2.0+hotfix', 'v1.2.0']) {
         expect(
           () => releaseFormula(_template, version: version, sha256Sums: ''),
           throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains(version))),

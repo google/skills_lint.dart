@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint_release/src/archive.dart';
 import 'package:skills_lint_release/src/checksums.dart';
@@ -75,15 +76,21 @@ void main() {
   test('homebrew-formula --output writes the release formula there', () async {
     final Directory temp = Directory.systemTemp.createTempSync('cli_test.');
     addTearDown(() => temp.deleteSync(recursive: true));
+    // Restores the committed formula if --output stops working and the
+    // command writes there instead.
+    final String committed = File(homebrewFormulaPath).readAsStringSync();
+    addTearDown(() => File(homebrewFormulaPath).writeAsStringSync(committed));
+    // A different checksum for each archive, so a checksum written for the
+    // wrong archive fails the test.
+    final Map<String, String> checksums = {
+      for (final ReleaseTarget target in homebrewTargets())
+        archiveName(target.name): '${sha256.convert(utf8.encode(target.name))}',
+    };
     final sums = File(p.join(temp.path, sha256SumsName))
       ..writeAsStringSync(
-        [
-          for (final ReleaseTarget target in homebrewTargets())
-            '${'a' * 64}  ${archiveName(target.name)}',
-        ].join('\n'),
+        [for (final MapEntry(:key, :value) in checksums.entries) '$value  $key'].join('\n'),
       );
     final String output = p.join(temp.path, 'skills_lint.rb');
-    final String committed = File(homebrewFormulaPath).readAsStringSync();
     final ProcessResult result = await _release([
       'homebrew-formula',
       '--version',
@@ -94,7 +101,9 @@ void main() {
       output,
     ]);
     expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
-    expect(readFormula(File(output).readAsStringSync()).version, '1.2.3');
+    final FormulaValues written = readFormula(File(output).readAsStringSync());
+    expect(written.version, '1.2.3');
+    expect(written.checksums, checksums);
     expect(File(homebrewFormulaPath).readAsStringSync(), committed);
   });
 
@@ -109,15 +118,16 @@ void main() {
     }
   });
 
-  test('homebrew-formula --check takes no other options', () async {
-    final ProcessResult result = await _release([
-      'homebrew-formula',
-      '--check',
-      '--output',
-      'skills_lint.rb',
-    ]);
-    expect(result.exitCode, 64, reason: 'stderr: ${result.stderr}');
-    expect(result.stderr, contains('--check takes no other options'));
+  test('homebrew-formula --check rejects each option that writes a formula', () async {
+    for (final List<String> option in [
+      ['--version', '1.2.3'],
+      ['--sha256sums', sha256SumsName],
+      ['--output', 'skills_lint.rb'],
+    ]) {
+      final ProcessResult result = await _release(['homebrew-formula', '--check', ...option]);
+      expect(result.exitCode, 64, reason: '$option\nstderr: ${result.stderr}');
+      expect(result.stderr, contains('--check takes no other options'), reason: '$option');
+    }
   });
 
   test('a release error exits with code 1 and names the problem', () async {
