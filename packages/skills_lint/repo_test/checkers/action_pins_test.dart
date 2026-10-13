@@ -89,6 +89,20 @@ jobs:
       expect(pins, isEmpty);
     });
 
+    test("reads a composite action's step uses", () {
+      final List<ActionPin> pins = findActionPins('.github/actions/tap/action.yml', '''
+name: Tap
+runs:
+  using: composite
+  steps:
+    - uses: $_checkout@$_sha # v7.0.1
+    - shell: bash
+      run: echo hi
+    - uses: ./.github/actions/other
+''');
+      expect(_describe(pins), ['.github/actions/tap/action.yml:5 $_checkout @$_sha v7.0.1']);
+    });
+
     test('returns nothing for a file without jobs', () {
       expect(findActionPins('ci.yaml', 'name: empty\n'), isEmpty);
     });

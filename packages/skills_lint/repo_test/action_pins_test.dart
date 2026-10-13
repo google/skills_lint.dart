@@ -11,15 +11,16 @@ import 'src/action_pins.dart';
 import 'src/repo_paths.dart';
 import 'src/source_conventions.dart';
 
-/// Checks that the workflows in `.github/workflows/` pin each action,
-/// reusable workflow and Docker image the same way.
+/// Checks that the workflows in `.github/workflows/` and the composite actions
+/// in `.github/actions/` pin each action, reusable workflow and Docker image
+/// the same way.
 ///
 /// `src/action_pins.dart` says why. `checkers/action_pins_test.dart` pins
 /// what the detectors report on small snippets.
 void main() {
-  test('each action and reusable workflow has one pin across .github/workflows/', () {
+  test('each action and reusable workflow has one pin across workflows and actions', () {
     final List<ActionPin> pins = [
-      for (final File file in _workflowFiles())
+      for (final File file in [..._workflowFiles(), ..._actionFiles()])
         ...findActionPins(
           p.posix.joinAll(p.split(p.relative(file.path, from: repoRoot))),
           file.readAsStringSync(),
@@ -30,7 +31,7 @@ void main() {
       isNotEmpty,
       reason:
           'Found no `uses:` in ${_workflowDirectory.path}. The scan reads '
-          'jobs.<id>.uses and jobs.<id>.steps[*].uses.',
+          'jobs.<id>.uses, jobs.<id>.steps[*].uses and runs.steps[*].uses.',
     );
     expectNoViolations(findInconsistentPins(pins), fix: _fix);
   });
@@ -47,7 +48,24 @@ List<File> _workflowFiles() =>
         .toList()
       ..sort((a, b) => a.path.compareTo(b.path));
 
+final Directory _actionDirectory = Directory(p.join(repoRoot, '.github', 'actions'));
+
+/// The `action.yml` or `action.yaml` file of each composite action, sorted by
+/// path.
+List<File> _actionFiles() {
+  if (!_actionDirectory.existsSync()) {
+    return [];
+  }
+  return _actionDirectory
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((file) => const {'action.yaml', 'action.yml'}.contains(p.basename(file.path)))
+      .toList()
+    ..sort((a, b) => a.path.compareTo(b.path));
+}
+
 const String _fix =
     'Pin every use of an action, reusable workflow or Docker image to the same '
-    'ref and version comment in every file under .github/workflows/. When you '
+    'ref and version comment in every file under .github/workflows/ and '
+    '.github/actions/. When you '
     'update a pin by hand, update every use of it in the same change.';

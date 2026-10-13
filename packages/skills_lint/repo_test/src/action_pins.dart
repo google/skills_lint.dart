@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Detectors for GitHub Actions workflows that pin one action, reusable
-/// workflow or Docker image in more than one way.
+/// Detectors for GitHub Actions workflows and composite actions that pin one
+/// action, reusable workflow or Docker image in more than one way.
 ///
 /// Every use of an action should name the same ref and version comment.
 /// Dependabot (`.github/dependabot.yml`) updates every use in one pull
@@ -24,7 +24,8 @@ import 'models/convention_violation.dart';
 final class ActionPin {
   ActionPin(this.path, this.line, this.name, this.ref, this.comment);
 
-  /// Repository-relative path of the workflow file, with `/` separators.
+  /// Repository-relative path of the workflow or action file, with `/`
+  /// separators.
   final String path;
 
   /// 1-based line of the `uses:` value.
@@ -46,10 +47,11 @@ final class ActionPin {
   String get pin => comment == null ? ref : '$ref # $comment';
 }
 
-/// Returns the `jobs.<id>.uses` and `jobs.<id>.steps[*].uses` references in
-/// the workflow [content], in file order.
+/// Returns the `uses:` references in [content], in file order: a workflow's
+/// `jobs.<id>.uses` and `jobs.<id>.steps[*].uses`, or a composite action's
+/// `runs.steps[*].uses`.
 ///
-/// [path] is the workflow's repository-relative path, used in each
+/// [path] is the file's repository-relative path, used in each
 /// [ActionPin]. Local references (`./...`) are skipped: they name code in
 /// this repository at the same commit, so they have no pin.
 List<ActionPin> findActionPins(String path, String content) => [
@@ -73,9 +75,17 @@ List<ConventionViolation> findInconsistentPins(Iterable<ActionPin> pins) {
   ]..sort((a, b) => a.path == b.path ? a.line.compareTo(b.line) : a.path.compareTo(b.path));
 }
 
-/// The `uses:` scalars of every job and step in a workflow document.
+/// The `uses:` scalars of every job and step in a workflow document, and of
+/// every step in a composite action's `runs`.
 Iterable<YamlScalar> _usesNodes(YamlNode root) sync* {
-  final YamlNode? jobs = root is YamlMap ? root.nodes['jobs'] : null;
+  if (root is! YamlMap) {
+    return;
+  }
+  final YamlNode? runs = root.nodes['runs'];
+  if (runs is YamlMap) {
+    yield* _stepUses(runs.nodes['steps']);
+  }
+  final YamlNode? jobs = root.nodes['jobs'];
   if (jobs is! YamlMap) {
     return;
   }
@@ -83,14 +93,25 @@ Iterable<YamlScalar> _usesNodes(YamlNode root) sync* {
     if (job is! YamlMap) {
       continue;
     }
-    final YamlNode? steps = job.nodes['steps'];
-    final List<YamlNode?> candidates = [
-      job.nodes['uses'],
-      if (steps is YamlList)
-        for (final YamlNode step in steps.nodes)
-          if (step is YamlMap) step.nodes['uses'],
-    ];
-    yield* candidates.whereType<YamlScalar>();
+    if (job.nodes['uses'] case final YamlScalar uses) {
+      yield uses;
+    }
+    yield* _stepUses(job.nodes['steps']);
+  }
+}
+
+/// The `uses:` scalars of the steps in [steps], a YAML list of steps.
+Iterable<YamlScalar> _stepUses(YamlNode? steps) sync* {
+  if (steps is! YamlList) {
+    return;
+  }
+  for (final YamlNode step in steps.nodes) {
+    if (step is! YamlMap) {
+      continue;
+    }
+    if (step.nodes['uses'] case final YamlScalar uses) {
+      yield uses;
+    }
   }
 }
 
