@@ -10,8 +10,8 @@
    It checks and builds everything, tags `skills_lint-v<version>`, creates a
    draft release and starts **Publish a tagged release** on the tag.
 3. In that run, approve **Publish 1 of 2: package to pub.dev** once the
-   run's name shows your version. pub.dev, then the GitHub release, are
-   published.
+   **Verify** job's summary shows your version, its build run and the pull
+   request that merged it. pub.dev, then the GitHub release, are published.
 4. Follow the link in the **Homebrew** job's summary to open the formula's
    pull request, and merge it once its `Homebrew` check passes.
 

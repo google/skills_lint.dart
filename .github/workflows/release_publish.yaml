@@ -28,6 +28,7 @@ jobs:
     permissions:
       contents: write # Read draft releases, which needs push access.
       attestations: read # gh attestation verify fetches them from this repository's API.
+      pull-requests: read # Link the pull request that merged this commit.
     outputs:
       version: ${{ steps.check.outputs.version }}
       # Whether the release has a Homebrew formula: every release that isn't
@@ -66,17 +67,21 @@ jobs:
             exit 1
           }
           version="${TAG#skills_lint-v}"
-          # A version with a `-` suffix is a prerelease, which has no formula.
+          # A version with a `-` suffix is a prerelease, which has no formula:
+          # the rule for `prerelease` in release/lib/src/release_info.dart.
           if [[ "$version" == *-* ]]; then homebrew=false; else homebrew=true; fi
           gh release download "$TAG" --dir "$RUNNER_TEMP/assets"
           cd "$RUNNER_TEMP/assets"
           sha256sum --check --strict SHA256SUMS || changed
           test -f install.sh || changed
           [ "$homebrew" = false ] || test -f skills_lint.rb || changed
+          # Keeps the build run that made each attestation, for the summary.
           for asset in *; do
             gh attestation verify "$asset" -R "$GH_REPO" \
               --signer-workflow "$GH_REPO/.github/workflows/release_build_and_tag.yaml" \
-              --source-ref refs/heads/main --source-digest "$GITHUB_SHA" || changed
+              --source-ref refs/heads/main --source-digest "$GITHUB_SHA" \
+              --format json --jq '.[].verificationResult.signature.certificate.runInvocationURI' \
+              >> "$RUNNER_TEMP/build-runs" || changed
           done
           mkdir "$RUNNER_TEMP/verified"
           cp pubspec.lock "$RUNNER_TEMP/verified/"
@@ -85,6 +90,20 @@ jobs:
             echo "version=$version"
             echo "homebrew=$homebrew"
           } >> "$GITHUB_OUTPUT"
+      # What the approver of the pub.dev job checks.
+      - name: Link the build run and the pull request in the summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          {
+            echo "### Before you approve the pub.dev job, check:"
+            echo "- Version: $VERSION"
+            sort -u "$RUNNER_TEMP/build-runs" | sed 's/^/- Build run: /'
+            gh api "repos/$GH_REPO/commits/$GITHUB_SHA/pulls" \
+              --jq '.[] | select(.merged_at) | "- Pull request: \(.html_url)"'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: List the verified asset digests
         uses: ./.github/actions/release-asset-digests
         with:
