@@ -149,6 +149,21 @@ void main() {
     expect(result.stderr, contains('0.0.0-not-the-version'));
   });
 
+  test('check-merged fails for a commit that no pull request merged', () async {
+    final Directory temp = Directory.systemTemp.createTempSync('cli_test.');
+    addTearDown(() => temp.deleteSync(recursive: true));
+    final pulls = File(p.join(temp.path, 'pulls.json'))..writeAsStringSync('[]');
+    final ProcessResult result = await _release([
+      'check-merged',
+      '--pulls',
+      pulls.path,
+      '--sha',
+      'abc123',
+    ]);
+    expect(result.exitCode, 1, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+    expect(result.stderr, contains('No merged pull request into $releaseBranch holds abc123'));
+  });
+
   test('a usage error exits with code 64', () async {
     final ProcessResult result = await _release(['prepare']);
     expect(result.exitCode, 64, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
