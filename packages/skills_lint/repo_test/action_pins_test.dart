@@ -40,5 +40,5 @@ void main() {
 const String _fix =
     'Pin every use of an action, reusable workflow or Docker image to the same '
     'ref and version comment in every file under .github/workflows/ and '
-    '.github/actions/. When you '
-    'update a pin by hand, update every use of it in the same change.';
+    '.github/actions/. '
+    'When you update a pin by hand, update every use of it in the same change.';

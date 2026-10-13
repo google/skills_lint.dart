@@ -10,8 +10,8 @@ import 'dart:convert';
 import 'release_exception.dart';
 import 'release_info.dart';
 
-/// The keys of a pull request in GitHub's REST API that [checkMergedPullRequest]
-/// reads.
+// The keys of a pull request in GitHub's REST API that checkMergedPullRequest
+// reads.
 const String _mergedAtKey = 'merged_at';
 const String _baseKey = 'base';
 const String _refKey = 'ref';

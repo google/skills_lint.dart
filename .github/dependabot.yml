@@ -1,6 +1,7 @@
 # Dependabot version updates for the actions and reusable workflows that
-# .github/workflows/ and the composite actions in .github/actions/ use. One group matches every action, so each update is
-# one pull request that changes every workflow at once.
+# .github/workflows/ and the composite actions in .github/actions/ use. One
+# group matches every action, so each update is one pull request that changes
+# every workflow at once.
 # packages/skills_lint/repo_test/action_pins_test.dart fails if two uses of an
 # action have different pins.
 #

@@ -48,6 +48,7 @@ final class ReleaseInfo {
   /// doesn't offer a prerelease as the latest release.
   final bool prerelease;
 
+  /// What this run does: a dry run, or staging the tag and draft release.
   final ReleaseMode mode;
 }
 
