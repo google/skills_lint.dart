@@ -41,7 +41,7 @@ the tag is public.
 
 ## Expectations
 
-- The tag exists only if every check in the build workflow passed at its
+- The build workflow creates the tag only after every check passed at its
   commit. The version and `CHANGELOG.md` rules are in
   [`release_info.dart`](release/lib/src/release_info.dart) and
   [`release_notes.dart`](release/lib/src/release_notes.dart).
