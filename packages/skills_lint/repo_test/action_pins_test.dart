@@ -20,7 +20,7 @@ import 'src/source_conventions.dart';
 void main() {
   test('each action and reusable workflow has one pin across workflows and actions', () {
     final List<ActionPin> pins = [
-      for (final File file in [..._workflowFiles(), ..._actionFiles()])
+      for (final File file in actionPinFiles(repoRoot))
         ...findActionPins(
           p.posix.joinAll(p.split(p.relative(file.path, from: repoRoot))),
           file.readAsStringSync(),
@@ -30,38 +30,11 @@ void main() {
       pins,
       isNotEmpty,
       reason:
-          'Found no `uses:` in ${_workflowDirectory.path}. The scan reads '
+          'Found no `uses:` under ${p.join(repoRoot, '.github')}. The scan reads '
           'jobs.<id>.uses, jobs.<id>.steps[*].uses and runs.steps[*].uses.',
     );
     expectNoViolations(findInconsistentPins(pins), fix: _fix);
   });
-}
-
-final Directory _workflowDirectory = Directory(p.join(repoRoot, '.github', 'workflows'));
-
-/// The workflow files, sorted by path. GitHub reads both extensions.
-List<File> _workflowFiles() =>
-    _workflowDirectory
-        .listSync()
-        .whereType<File>()
-        .where((file) => const {'.yaml', '.yml'}.contains(p.extension(file.path)))
-        .toList()
-      ..sort((a, b) => a.path.compareTo(b.path));
-
-final Directory _actionDirectory = Directory(p.join(repoRoot, '.github', 'actions'));
-
-/// The `action.yml` or `action.yaml` file of each composite action, sorted by
-/// path.
-List<File> _actionFiles() {
-  if (!_actionDirectory.existsSync()) {
-    return [];
-  }
-  return _actionDirectory
-      .listSync(recursive: true)
-      .whereType<File>()
-      .where((file) => const {'action.yaml', 'action.yml'}.contains(p.basename(file.path)))
-      .toList()
-    ..sort((a, b) => a.path.compareTo(b.path));
 }
 
 const String _fix =

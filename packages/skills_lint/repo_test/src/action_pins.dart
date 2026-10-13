@@ -15,6 +15,9 @@
 /// purpose, for example to test against an older release.
 library;
 
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import 'models/convention_violation.dart';
@@ -45,6 +48,31 @@ final class ActionPin {
 
   /// The ref and version comment, as written after [name].
   String get pin => comment == null ? ref : '$ref # $comment';
+}
+
+/// The files under [repoRoot] whose `uses:` pins must agree, sorted by path:
+/// every workflow in `.github/workflows/` and every composite action's
+/// `action.yml` or `action.yaml` under `.github/actions/`.
+///
+/// Throws a [StateError] if either directory is missing, so a moved
+/// directory fails the scan instead of leaving its files unchecked.
+List<File> actionPinFiles(String repoRoot) {
+  final workflows = Directory(p.join(repoRoot, '.github', 'workflows'));
+  final actions = Directory(p.join(repoRoot, '.github', 'actions'));
+  for (final directory in [workflows, actions]) {
+    if (!directory.existsSync()) {
+      throw StateError('${directory.path} does not exist, so its action pins are not checked.');
+    }
+  }
+  // GitHub reads both extensions for workflows, and both file names for
+  // actions.
+  final List<File> files = [
+    for (final File file in workflows.listSync().whereType<File>())
+      if (const {'.yaml', '.yml'}.contains(p.extension(file.path))) file,
+    for (final File file in actions.listSync(recursive: true).whereType<File>())
+      if (const {'action.yaml', 'action.yml'}.contains(p.basename(file.path))) file,
+  ];
+  return files..sort((a, b) => a.path.compareTo(b.path));
 }
 
 /// Returns the `uses:` references in [content], in file order: a workflow's
