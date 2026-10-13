@@ -5,6 +5,7 @@
 /Formula/ @reidbaker
 /release/templates/ @reidbaker
 
-# Requests a review from reidbaker on every change to the release workflows, which publish what users install.
+# Requests a review from reidbaker on every change to the release workflows and the composite actions they use, which publish what users install.
 /.github/workflows/release_build_and_tag.yaml @reidbaker
 /.github/workflows/release_publish.yaml @reidbaker
+/.github/actions/ @reidbaker
