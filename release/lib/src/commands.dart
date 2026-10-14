@@ -19,6 +19,7 @@ import 'homebrew_formula_check.dart';
 import 'install_script.dart';
 import 'licenses.dart';
 import 'paths.dart';
+import 'pub_dev_environment.dart';
 import 'release_exception.dart';
 import 'release_info.dart';
 import 'release_notes.dart';
@@ -37,6 +38,7 @@ Future<int> runRelease(List<String> arguments) async {
     ..addCommand(_ChecksumsCommand())
     ..addCommand(_InstallScriptCommand())
     ..addCommand(_PrepareCommand())
+    ..addCommand(_CheckPubDevEnvironmentCommand())
     ..addCommand(_VerifyDraftCommand())
     ..addCommand(_HomebrewMatrixCommand())
     ..addCommand(_HomebrewFormulaCommand());
@@ -210,6 +212,40 @@ class _PrepareCommand extends _ReleaseCommand {
     stdout
       ..write(outputLines(info))
       ..writeln('matrix=${buildMatrix()}');
+  }
+}
+
+class _CheckPubDevEnvironmentCommand extends _ReleaseCommand {
+  _CheckPubDevEnvironmentCommand() {
+    argParser
+      ..addOption(
+        'environment',
+        mandatory: true,
+        help: "A file with GitHub's JSON for the $pubDevEnvironment environment.",
+      )
+      ..addOption(
+        'branch-policies',
+        mandatory: true,
+        help: "A file with GitHub's JSON for the environment's deployment branch policies.",
+      );
+  }
+
+  @override
+  String get name => 'check-pub-dev-environment';
+
+  @override
+  String get description =>
+      'Fails unless the $pubDevEnvironment environment has a required reviewer and allows only '
+      '$tagPrefix* tags.';
+
+  @override
+  void run() {
+    noRest();
+    checkPubDevEnvironment(
+      environment: File(option('environment')).readAsStringSync(),
+      branchPolicies: File(option('branch-policies')).readAsStringSync(),
+    );
+    stdout.writeln('The $pubDevEnvironment environment guards publishing.');
   }
 }
 
