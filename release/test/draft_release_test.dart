@@ -50,6 +50,61 @@ final class _FakeGh {
   }
 }
 
+/// Writes the assets that the build makes to [assets], with their
+/// SHA256SUMS. Each file holds its own name, so no two have the same
+/// checksum.
+void _writeBuild(Directory assets, {required bool homebrew}) {
+  final List<String> listed = [
+    for (final ReleaseTarget target in releaseTargets) archiveName(target.name),
+    lockfileAsset,
+  ];
+  for (final String name in [...listed, installScriptAsset, if (homebrew) formulaAsset]) {
+    File(p.join(assets.path, name)).writeAsStringSync(name);
+  }
+  File(p.join(assets.path, sha256SumsName)).writeAsStringSync(
+    [for (final name in listed) '${fileSha256(File(p.join(assets.path, name)))}  $name\n'].join(),
+  );
+}
+
+/// Deletes the asset [name] from [assets] and its line from SHA256SUMS.
+void _removeAsset(Directory assets, String name) {
+  final sums = File(p.join(assets.path, sha256SumsName));
+  sums.writeAsStringSync(
+    [
+      for (final line in sums.readAsLinesSync())
+        if (!line.endsWith('  $name')) '$line\n',
+    ].join(),
+  );
+  File(p.join(assets.path, name)).deleteSync();
+}
+
+/// Calls [verifyDraft] on [assets] for a run on a tag, with [_FakeGh] unless
+/// [gh] is given.
+Future<VerifiedDraft> _verify(
+  Directory assets, {
+  required String tag,
+  required String releaseJson,
+  _FakeGh? gh,
+  String refType = 'tag',
+}) => verifyDraft(
+  refType: refType,
+  tag: tag,
+  repository: _repository,
+  commit: _commit,
+  releaseJson: releaseJson,
+  assets: assets,
+  runProcess: (gh ?? _FakeGh()).call,
+);
+
+/// Expects [verify] to throw a [ReleaseException] whose message contains
+/// every one of [parts].
+Future<void> _expectProblems(Future<VerifiedDraft> verify, List<String> parts) => expectLater(
+  verify,
+  throwsA(
+    isA<ReleaseException>().having((e) => e.message, 'message', allOf([...parts.map(contains)])),
+  ),
+);
+
 void main() {
   late Directory assets;
 
@@ -61,48 +116,10 @@ void main() {
     assets.deleteSync(recursive: true);
   });
 
-  /// Writes the assets that the build makes, with their SHA256SUMS. Each
-  /// file holds its own name, so no two have the same checksum.
-  void writeBuild({required bool homebrew}) {
-    final List<String> listed = [
-      for (final ReleaseTarget target in releaseTargets) archiveName(target.name),
-      lockfileAsset,
-    ];
-    for (final String name in [...listed, installScriptAsset, if (homebrew) formulaAsset]) {
-      File(p.join(assets.path, name)).writeAsStringSync(name);
-    }
-    File(p.join(assets.path, sha256SumsName)).writeAsStringSync(
-      [for (final name in listed) '${fileSha256(File(p.join(assets.path, name)))}  $name\n'].join(),
-    );
-  }
-
-  Future<VerifiedDraft> verify({
-    required String tag,
-    required String releaseJson,
-    _FakeGh? gh,
-    String refType = 'tag',
-  }) => verifyDraft(
-    refType: refType,
-    tag: tag,
-    repository: _repository,
-    commit: _commit,
-    releaseJson: releaseJson,
-    assets: assets,
-    runProcess: (gh ?? _FakeGh()).call,
-  );
-
-  /// Expects [verify] to throw a [ReleaseException] whose message contains
-  /// every one of [parts].
-  Future<void> expectProblems(Future<VerifiedDraft> verify, List<String> parts) => expectLater(
-    verify,
-    throwsA(
-      isA<ReleaseException>().having((e) => e.message, 'message', allOf([...parts.map(contains)])),
-    ),
-  );
-
   test('a release draft that the build made gives its version, formula and build runs', () async {
-    writeBuild(homebrew: true);
-    final VerifiedDraft draft = await verify(
+    _writeBuild(assets, homebrew: true);
+    final VerifiedDraft draft = await _verify(
+      assets,
       tag: '${tagPrefix}0.6.0',
       releaseJson: _releaseJson(prerelease: false),
     );
@@ -115,33 +132,39 @@ void main() {
   });
 
   test('every asset is checked against an attestation from the build of the commit', () async {
-    writeBuild(homebrew: true);
+    _writeBuild(assets, homebrew: true);
     final gh = _FakeGh();
-    await verify(tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false), gh: gh);
+    await _verify(
+      assets,
+      tag: '${tagPrefix}0.6.0',
+      releaseJson: _releaseJson(prerelease: false),
+      gh: gh,
+    );
+    const List<String> flags = [
+      '--repo',
+      _repository,
+      '--signer-workflow',
+      '$_repository/$buildWorkflowPath',
+      '--source-ref',
+      'refs/heads/$releaseBranch',
+      '--source-digest',
+      _commit,
+      '--format',
+      'json',
+    ];
     expect(
-      [for (final List<String> call in gh.calls) p.basename(call[2])],
+      gh.calls,
       unorderedEquals([
-        for (final FileSystemEntity file in assets.listSync()) p.basename(file.path),
+        for (final FileSystemEntity file in assets.listSync())
+          ['attestation', 'verify', file.path, ...flags],
       ]),
     );
-    for (final List<String> call in gh.calls) {
-      expect(call.take(2), ['attestation', 'verify']);
-      expect(
-        call.skip(3).join(' '),
-        [
-          '--repo $_repository',
-          '--signer-workflow $_repository/$buildWorkflowPath',
-          '--source-ref refs/heads/$releaseBranch',
-          '--source-digest $_commit',
-          '--format json',
-        ].join(' '),
-      );
-    }
   });
 
   test('a prerelease draft has no formula', () async {
-    writeBuild(homebrew: false);
-    final VerifiedDraft draft = await verify(
+    _writeBuild(assets, homebrew: false);
+    final VerifiedDraft draft = await _verify(
+      assets,
       tag: '${tagPrefix}1.0.0-dev.1',
       releaseJson: _releaseJson(prerelease: true),
     );
@@ -150,36 +173,36 @@ void main() {
   });
 
   test('a release draft without the formula fails and names it', () async {
-    writeBuild(homebrew: false);
-    await expectProblems(
-      verify(tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
+    _writeBuild(assets, homebrew: false);
+    await _expectProblems(
+      _verify(assets, tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
       ['$formulaAsset is missing', 'delete the draft'],
     );
   });
 
   test('a prerelease draft with a formula fails and names it', () async {
-    writeBuild(homebrew: true);
-    await expectProblems(
-      verify(tag: '${tagPrefix}1.0.0-dev.1', releaseJson: _releaseJson(prerelease: true)),
+    _writeBuild(assets, homebrew: true);
+    await _expectProblems(
+      _verify(assets, tag: '${tagPrefix}1.0.0-dev.1', releaseJson: _releaseJson(prerelease: true)),
       ['$formulaAsset is not an asset of the build'],
     );
   });
 
   test('a file that the build did not make fails and is named', () async {
-    writeBuild(homebrew: true);
+    _writeBuild(assets, homebrew: true);
     File(p.join(assets.path, 'extra.txt')).writeAsStringSync('extra');
-    await expectProblems(
-      verify(tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
+    await _expectProblems(
+      _verify(assets, tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
       ['extra.txt is not an asset of the build'],
     );
   });
 
   test('a changed file fails and is named, and the unchanged ones are not', () async {
-    writeBuild(homebrew: true);
+    _writeBuild(assets, homebrew: true);
     final String changed = archiveName(releaseTargets.first.name);
     File(p.join(assets.path, changed)).writeAsStringSync('changed');
     await expectLater(
-      verify(tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
+      _verify(assets, tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
       throwsA(
         isA<ReleaseException>().having(
           (e) => e.message,
@@ -197,17 +220,10 @@ void main() {
     'a SHA256SUMS that leaves out a target archive or pubspec.lock fails and names it',
     () async {
       for (final String name in [archiveName(releaseTargets.last.name), lockfileAsset]) {
-        writeBuild(homebrew: true);
-        final sums = File(p.join(assets.path, sha256SumsName));
-        sums.writeAsStringSync(
-          [
-            for (final line in sums.readAsLinesSync())
-              if (!line.endsWith(name)) '$line\n',
-          ].join(),
-        );
-        File(p.join(assets.path, name)).deleteSync();
-        await expectProblems(
-          verify(tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
+        _writeBuild(assets, homebrew: true);
+        _removeAsset(assets, name);
+        await _expectProblems(
+          _verify(assets, tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
           ['$sha256SumsName does not list $name'],
         );
       }
@@ -215,28 +231,33 @@ void main() {
   );
 
   test('a missing or unreadable SHA256SUMS fails', () async {
-    writeBuild(homebrew: true);
+    _writeBuild(assets, homebrew: true);
     final sums = File(p.join(assets.path, sha256SumsName))..writeAsStringSync('not a checksum\n');
-    await expectProblems(
-      verify(tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
+    await _expectProblems(
+      _verify(assets, tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
       ['not a checksum'],
     );
     sums.deleteSync();
-    await expectProblems(
-      verify(tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
+    await _expectProblems(
+      _verify(assets, tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
       ['$sha256SumsName is missing'],
     );
   });
 
   test('an asset without an attestation from the build fails and is the only one named', () async {
-    writeBuild(homebrew: true);
+    _writeBuild(assets, homebrew: true);
     final gh = _FakeGh(
       answer: (name) => name == lockfileAsset
           ? ProcessResult(0, 1, '', 'no matching attestations')
           : ProcessResult(0, 0, _attestation(_buildRun), ''),
     );
     await expectLater(
-      verify(tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false), gh: gh),
+      _verify(
+        assets,
+        tag: '${tagPrefix}0.6.0',
+        releaseJson: _releaseJson(prerelease: false),
+        gh: gh,
+      ),
       throwsA(
         isA<ReleaseException>().having(
           (e) => e.message,
@@ -252,18 +273,23 @@ void main() {
   });
 
   test('attestation output that is not the expected JSON fails', () async {
-    writeBuild(homebrew: true);
+    _writeBuild(assets, homebrew: true);
     for (final stdout in ['not json', '[]', '[{"verificationResult": {}}]']) {
       final gh = _FakeGh(answer: (_) => ProcessResult(0, 0, stdout, ''));
-      await expectProblems(
-        verify(tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false), gh: gh),
+      await _expectProblems(
+        _verify(
+          assets,
+          tag: '${tagPrefix}0.6.0',
+          releaseJson: _releaseJson(prerelease: false),
+          gh: gh,
+        ),
         ["can't read"],
       );
     }
   });
 
   test('the build runs of all attestations are listed once each, sorted', () async {
-    writeBuild(homebrew: true);
+    _writeBuild(assets, homebrew: true);
     // The archives are attested before pubspec.lock, so their run comes
     // first unless the runs are sorted.
     const rerun = 'https://github.com/google/skills_lint.dart/actions/runs/1/attempts/2';
@@ -271,7 +297,8 @@ void main() {
       answer: (name) =>
           ProcessResult(0, 0, _attestation(name == lockfileAsset ? _buildRun : rerun), ''),
     );
-    final VerifiedDraft draft = await verify(
+    final VerifiedDraft draft = await _verify(
+      assets,
       tag: '${tagPrefix}0.6.0',
       releaseJson: _releaseJson(prerelease: false),
       gh: gh,
@@ -287,8 +314,14 @@ void main() {
       ('tag', tagPrefix),
       ('branch', '${tagPrefix}0.6.0'),
     ]) {
-      await expectProblems(
-        verify(refType: refType, tag: tag, releaseJson: _releaseJson(prerelease: false), gh: gh),
+      await _expectProblems(
+        _verify(
+          assets,
+          refType: refType,
+          tag: tag,
+          releaseJson: _releaseJson(prerelease: false),
+          gh: gh,
+        ),
         ['Run this workflow on a $tagPrefix<version> tag'],
       );
     }
@@ -296,37 +329,45 @@ void main() {
   });
 
   test('a tag whose version holds shell syntax fails', () async {
-    await expectProblems(
-      verify(tag: '${tagPrefix}0.6.0\$(id)', releaseJson: _releaseJson(prerelease: false)),
+    await _expectProblems(
+      _verify(assets, tag: '${tagPrefix}0.6.0\$(id)', releaseJson: _releaseJson(prerelease: false)),
       [r'0.6.0$(id)'],
     );
   });
 
   test('a version that is neither a prerelease nor one Homebrew can name fails', () async {
-    writeBuild(homebrew: true);
-    await expectProblems(
-      verify(tag: '${tagPrefix}0.6.0+hotfix', releaseJson: _releaseJson(prerelease: false)),
+    _writeBuild(assets, homebrew: true);
+    await _expectProblems(
+      _verify(
+        assets,
+        tag: '${tagPrefix}0.6.0+hotfix',
+        releaseJson: _releaseJson(prerelease: false),
+      ),
       ['0.6.0+hotfix'],
     );
   });
 
   test('a release that is published already fails and says to stage it', () async {
-    writeBuild(homebrew: true);
-    await expectProblems(
-      verify(tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false, draft: false)),
+    _writeBuild(assets, homebrew: true);
+    await _expectProblems(
+      _verify(
+        assets,
+        tag: '${tagPrefix}0.6.0',
+        releaseJson: _releaseJson(prerelease: false, draft: false),
+      ),
       ['has no draft release', 'Build and tag a release'],
     );
   });
 
   test("a draft whose prerelease setting doesn't match its version fails", () async {
-    writeBuild(homebrew: true);
-    await expectProblems(
-      verify(tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: true)),
+    _writeBuild(assets, homebrew: true);
+    await _expectProblems(
+      _verify(assets, tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: true)),
       ['is marked as one'],
     );
-    writeBuild(homebrew: false);
-    await expectProblems(
-      verify(tag: '${tagPrefix}1.0.0-dev.1', releaseJson: _releaseJson(prerelease: false)),
+    _writeBuild(assets, homebrew: false);
+    await _expectProblems(
+      _verify(assets, tag: '${tagPrefix}1.0.0-dev.1', releaseJson: _releaseJson(prerelease: false)),
       ['is not marked as one'],
     );
   });

@@ -75,7 +75,9 @@ List<File> actionPinFiles(String repoRoot) {
       if (p.basename(file.path) == 'action.yml') file.path,
   ];
   if (ymlFiles.isNotEmpty) {
-    throw StateError('Rename these files to end in .yaml, as the others do: ${ymlFiles.join(', ')}');
+    throw StateError(
+      'Rename these files to end in .yaml, as the others do: ${ymlFiles.join(', ')}',
+    );
   }
   final List<File> files = [
     for (final File file in workflowFiles)
