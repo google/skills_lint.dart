@@ -174,6 +174,33 @@ void main() {
     expect(result.stderr, contains('0.0.0-not-the-version'));
   });
 
+  test('verify-draft fails on a run that is not on a release tag', () async {
+    final Directory temp = Directory.systemTemp.createTempSync('cli_test.');
+    addTearDown(() => temp.deleteSync(recursive: true));
+    final release = File(p.join(temp.path, 'release.json'))
+      ..writeAsStringSync('{"isDraft": true, "isPrerelease": false}');
+    final ProcessResult result = await _release([
+      'verify-draft',
+      '--ref-type',
+      'branch',
+      '--tag',
+      'main',
+      '--repository',
+      'google/skills_lint.dart',
+      '--commit',
+      '0123456789abcdef0123456789abcdef01234567',
+      '--release-json',
+      release.path,
+      '--assets',
+      temp.path,
+      '--summary',
+      p.join(temp.path, 'summary.md'),
+    ]);
+    expect(result.exitCode, 1, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+    expect(result.stderr, contains('Run this workflow on a $tagPrefix<version> tag, not main'));
+    expect(File(p.join(temp.path, 'summary.md')).existsSync(), isFalse);
+  });
+
   test('a usage error exits with code 64', () async {
     final ProcessResult result = await _release(['prepare']);
     expect(result.exitCode, 64, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');

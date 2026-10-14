@@ -3,8 +3,9 @@
 # pub.dev accepts a publish only from a run on the release's tag. See
 # RELEASING.md.
 #
-# Only the pub.dev job runs Dart code from pub, with the pubspec.lock that
-# the verify job checked.
+# Only the verify and pub.dev jobs run Dart code from pub, with the draft's
+# pubspec.lock once its attestation is checked. Neither has write
+# permission, apart from the pub.dev job's OIDC token.
 
 name: Publish a tagged release
 run-name: Publish ${{ github.ref_name }}
@@ -22,104 +23,96 @@ defaults:
     shell: bash
 
 jobs:
-  verify-draft:
-    name: "Verify: the draft release is what this commit's build made"
+  download-draft:
+    name: "Download: the draft release, for the verify job"
     runs-on: ubuntu-latest
     permissions:
       contents: write # Read draft releases, which needs push access.
-      attestations: read # gh attestation verify fetches them from this repository's API.
-      pull-requests: read # Link the pull request that merged this commit.
     outputs:
-      version: ${{ steps.check.outputs.version }}
-      # Whether the release has a Homebrew formula: every release that isn't
-      # a prerelease does.
-      homebrew: ${{ steps.check.outputs.homebrew }}
-      # The ID of the verified files. An artifact uploaded again under the same
-      # name gets a new ID, so a download by ID can't get it.
-      verified-release: ${{ steps.upload.outputs.artifact-id }}
+      # The ID of the downloaded draft. An artifact uploaded again under the
+      # same name gets a new ID, so a download by ID can't get it.
+      draft-release: ${{ steps.upload.outputs.artifact-id }}
     steps:
-      # Checks out .github/actions only, for the release-asset-digests action.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          sparse-checkout: .github/actions
-      # Anyone with push access can change a draft, so every asset must carry
-      # an attestation from the build of this commit, and the files that
-      # SHA256SUMS lists must match it. Without --source-digest, the assets
-      # of an earlier release would pass too.
-      - name: Check the draft and its assets
-        id: check
+      - name: Download the draft release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          if [ "$GITHUB_REF_TYPE" != tag ] || [[ "$TAG" != skills_lint-v* ]]; then
-            echo "::error::Run this workflow on a skills_lint-v<version> tag. Build and tag a release starts it."
+          mkdir "$RUNNER_TEMP/draft"
+          if ! gh release view "$TAG" --json isDraft,isPrerelease > "$RUNNER_TEMP/draft/release.json" ||
+            ! gh release download "$TAG" --dir "$RUNNER_TEMP/draft/assets"; then
+            echo "::error::Couldn't download the release of $TAG. Run this workflow on a skills_lint-v<version> tag that Build and tag a release staged, or re-run this job."
             exit 1
           fi
-          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != true ]; then
-            echo "::error::$TAG has no draft release. Run Build and tag a release on main to stage it."
-            exit 1
-          fi
-          changed() {
-            echo "::error::The draft of $TAG doesn't match the build of this commit, or GitHub couldn't be reached. Re-run this job once. If it fails again, delete the draft, then re-run the Stage job of the build."
-            exit 1
-          }
-          version="${TAG#skills_lint-v}"
-          # A version with a `-` suffix is a prerelease, which has no formula:
-          # the rule for `prerelease` in release/lib/src/release_info.dart.
-          if [[ "$version" == *-* ]]; then homebrew=false; else homebrew=true; fi
-          gh release download "$TAG" --dir "$RUNNER_TEMP/assets"
-          cd "$RUNNER_TEMP/assets"
-          sha256sum --check --strict SHA256SUMS || changed
-          test -f install.sh || changed
-          [ "$homebrew" = false ] || test -f skills_lint.rb || changed
-          # Keeps the build run that made each attestation, for the summary.
-          for asset in *; do
-            gh attestation verify "$asset" -R "$GH_REPO" \
-              --signer-workflow "$GH_REPO/.github/workflows/release_build_and_tag.yaml" \
-              --source-ref refs/heads/main --source-digest "$GITHUB_SHA" \
-              --format json --jq '.[].verificationResult.signature.certificate.runInvocationURI' \
-              >> "$RUNNER_TEMP/build-runs" || changed
-          done
-          mkdir "$RUNNER_TEMP/verified"
-          cp pubspec.lock "$RUNNER_TEMP/verified/"
-          if [ "$homebrew" = true ]; then cp skills_lint.rb "$RUNNER_TEMP/verified/"; fi
-          {
-            echo "version=$version"
-            echo "homebrew=$homebrew"
-          } >> "$GITHUB_OUTPUT"
-      # What the approver of the pub.dev job checks.
-      - name: Link the build run and the pull request in the summary
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          VERSION: ${{ steps.check.outputs.version }}
-        run: |
-          {
-            echo "### Before you approve the pub.dev job, check:"
-            echo "- Version: $VERSION"
-            sort -u "$RUNNER_TEMP/build-runs" | sed 's/^/- Build run: /'
-            gh api "repos/$GH_REPO/commits/$GITHUB_SHA/pulls" \
-              --jq '.[] | select(.merged_at) | "- Pull request: \(.html_url)"'
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: List the verified asset digests
-        uses: ./.github/actions/release-asset-digests
-        with:
-          directory: ${{ runner.temp }}/assets
-          output: ${{ runner.temp }}/verified/assets.sha256
       - id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: verified-release
-          path: ${{ runner.temp }}/verified/
+          name: draft-release
+          path: ${{ runner.temp }}/draft/
           if-no-files-found: error
           retention-days: 30 # As long as GitHub lets a job be re-run.
 
+  verify-draft:
+    name: "Verify: the draft release is what this commit's build made"
+    needs: download-draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      attestations: read # gh attestation verify fetches them from this repository's API.
+      pull-requests: read # Link the pull request that merged this commit.
+    outputs:
+      version: ${{ steps.verify.outputs.version }}
+      # Whether the release has a Homebrew formula: every release that isn't
+      # a prerelease does.
+      homebrew: ${{ steps.verify.outputs.homebrew }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.download-draft.outputs.draft-release }}
+          path: ${{ runner.temp }}/draft
+      # The verify step runs Dart with the draft's pubspec.lock, so the
+      # lockfile must first be shown to come from the build of this commit.
+      - name: Check that the draft's pubspec.lock is from this commit's build
+        run: |
+          if ! gh attestation verify "$RUNNER_TEMP/draft/assets/pubspec.lock" -R "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release_build_and_tag.yaml" \
+            --source-ref refs/heads/main --source-digest "$GITHUB_SHA"; then
+            echo "::error::The draft's pubspec.lock is missing or isn't from the build of this commit. Re-run this job once. If it fails again, delete the draft, then re-run the Stage job of the build."
+            exit 1
+          fi
+      - name: Get the release's dependencies
+        run: cp "$RUNNER_TEMP/draft/assets/pubspec.lock" . && dart pub get --enforce-lockfile
+      # Anyone with push access can change a draft, so this checks every
+      # asset against SHA256SUMS and the build's attestations. See
+      # release/lib/src/draft_release.dart.
+      - name: Check the draft and its assets
+        id: verify
+        working-directory: release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: >-
+          dart run bin/release.dart verify-draft --ref-type "$GITHUB_REF_TYPE" --tag "$TAG"
+          --repository "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA"
+          --release-json "$RUNNER_TEMP/draft/release.json" --assets "$RUNNER_TEMP/draft/assets"
+          --summary "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
+      # For the approver of the pub.dev job, below the build runs.
+      - name: Link the pull request in the summary
+        run: >-
+          gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls"
+          --jq '.[] | select(.merged_at) | "- Pull request: \(.html_url)"' >> "$GITHUB_STEP_SUMMARY"
+
   publish-to-pub-dev:
     name: 'Publish 1 of 2: package to pub.dev (needs approval)'
-    needs: verify-draft
+    needs: [download-draft, verify-draft]
     # Assumes these settings:
     # - https://pub.dev/packages/skills_lint/admin publishes from
     #   workflow_dispatch runs on tags matching skills_lint-v{{version}}, not
@@ -141,10 +134,10 @@ jobs:
           sdk: stable
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          artifact-ids: ${{ needs.verify-draft.outputs.verified-release }}
+          artifact-ids: ${{ needs.download-draft.outputs.draft-release }}
           path: ${{ runner.temp }}/verified
       - name: Get the release's dependencies
-        run: cp "$RUNNER_TEMP/verified/pubspec.lock" . && dart pub get --enforce-lockfile
+        run: cp "$RUNNER_TEMP/verified/assets/pubspec.lock" . && dart pub get --enforce-lockfile
       # Skips the upload when pub.dev has the version, so this job can run
       # again for a version that it published.
       - name: Publish the package
@@ -162,36 +155,29 @@ jobs:
 
   publish-github-release:
     name: 'Publish 2 of 2: GitHub release, then confirm it is locked'
-    needs: [verify-draft, publish-to-pub-dev]
+    needs: [download-draft, verify-draft, publish-to-pub-dev]
     runs-on: ubuntu-latest
     permissions:
       contents: write # Read and publish the draft; reading a draft needs push access.
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
     steps:
-      # Checks out .github/actions only, for the release-asset-digests action.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          sparse-checkout: .github/actions
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          artifact-ids: ${{ needs.verify-draft.outputs.verified-release }}
+          artifact-ids: ${{ needs.download-draft.outputs.draft-release }}
           path: ${{ runner.temp }}/verified
       # The draft can change until it is published, even while this run waits
-      # for approval. So its asset digests are compared with the verified ones
-      # before publishing, and again after, when immutable releases have
-      # frozen them.
-      - name: List the draft's asset digests
-        uses: ./.github/actions/release-asset-digests
-        with:
-          release: ${{ github.ref_name }}
-          output: ${{ runner.temp }}/draft.sha256
-      - name: Publish the draft release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
+      # for approval. So its files are compared with the verified ones before
+      # publishing, and again after, when immutable releases have frozen them.
+      - name: Publish the draft release, if it is still the verified build
         run: |
-          if ! diff "$RUNNER_TEMP/verified/assets.sha256" "$RUNNER_TEMP/draft.sha256"; then
+          if ! gh release download "$TAG" --dir "$RUNNER_TEMP/draft"; then
+            echo "::error::Couldn't download $TAG from GitHub. Re-run this job."
+            exit 1
+          fi
+          if ! diff --recursive "$RUNNER_TEMP/verified/assets" "$RUNNER_TEMP/draft"; then
             echo "::error::The draft of $TAG changed after the verify job checked it. Delete the draft, then re-run the Stage job of the build that made it."
             exit 1
           fi
@@ -203,18 +189,13 @@ jobs:
           if [ "$is_draft" = true ]; then
             gh release edit "$TAG" --draft=false
           fi
-      - name: List the published release's asset digests
-        uses: ./.github/actions/release-asset-digests
-        with:
-          release: ${{ github.ref_name }}
-          output: ${{ runner.temp }}/published.sha256
       - name: Check that the release is the verified build, and locked
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
         run: |
-          if ! diff "$RUNNER_TEMP/verified/assets.sha256" "$RUNNER_TEMP/published.sha256"; then
+          if ! gh release download "$TAG" --dir "$RUNNER_TEMP/published"; then
+            echo "::error::Couldn't download $TAG from GitHub. Re-run this job."
+            exit 1
+          fi
+          if ! diff --recursive "$RUNNER_TEMP/verified/assets" "$RUNNER_TEMP/published"; then
             echo "::error::The published release $TAG differs from the verified build. Re-run this job once. If it fails again, delete the release, tell the maintainers, and release the next version."
             exit 1
           fi
@@ -232,7 +213,7 @@ jobs:
 
   push-homebrew-update:
     name: 'Homebrew: push the formula update and link its pull request'
-    needs: [verify-draft, publish-github-release]
+    needs: [download-draft, verify-draft, publish-github-release]
     if: needs.verify-draft.outputs.homebrew == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -244,7 +225,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          artifact-ids: ${{ needs.verify-draft.outputs.verified-release }}
+          artifact-ids: ${{ needs.download-draft.outputs.draft-release }}
           path: ${{ runner.temp }}/verified
       - name: Push the branch
         env:
@@ -254,7 +235,7 @@ jobs:
         run: |
           branch="homebrew/$TAG"
           git switch -c "$branch"
-          cp "$RUNNER_TEMP/verified/skills_lint.rb" Formula/skills_lint.rb
+          cp "$RUNNER_TEMP/verified/assets/skills_lint.rb" Formula/skills_lint.rb
           git add Formula/skills_lint.rb
           # 41898282 is the user ID of github-actions[bot].
           git -c user.name='github-actions[bot]' \

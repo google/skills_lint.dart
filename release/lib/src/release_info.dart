@@ -44,8 +44,7 @@ final class ReleaseInfo {
   /// The tag that releases [version]: [tagPrefix] followed by [version].
   final String tag;
 
-  /// Whether [version] has a `-` suffix, such as `1.0.0-dev.1`. GitHub
-  /// doesn't offer a prerelease as the latest release.
+  /// Whether [version] is a prerelease; see [isPrerelease].
   final bool prerelease;
 
   /// What this run does: a dry run, or staging the tag and draft release.
@@ -82,6 +81,22 @@ String? formulaVersion(String version) {
   return isHomebrewVersion(pending) ? pending : null;
 }
 
+/// Whether [version] is a prerelease: it has a `-` suffix, such as
+/// `1.0.0-dev.1`. A prerelease has no Homebrew formula, and GitHub doesn't
+/// offer it as the latest release.
+bool isPrerelease(String version) => version.contains('-');
+
+/// Throws a [ReleaseException] if [version] holds a character other than a
+/// letter, digit, `.`, `+` or `-`. [source] names where it came from, such
+/// as `The pubspec.yaml version`.
+void checkVersionCharacters(String version, {required String source}) {
+  if (!_versionCharacters.hasMatch(version)) {
+    throw ReleaseException(
+      '$source "$version" holds a character other than a letter, digit, ".", "+" or "-".',
+    );
+  }
+}
+
 /// Returns the `version` from the [pubspec] YAML text.
 ///
 /// Throws a [ReleaseException] if there is no version, or if it holds a
@@ -92,12 +107,7 @@ String readPubspecVersion(String pubspec) {
   if (version is! String || version.isEmpty) {
     throw ReleaseException('pubspec.yaml has no version string.');
   }
-  if (!_versionCharacters.hasMatch(version)) {
-    throw ReleaseException(
-      'The pubspec.yaml version "$version" holds a character other than a letter, digit, '
-      '".", "+" or "-".',
-    );
-  }
+  checkVersionCharacters(version, source: 'The pubspec.yaml version');
   return version;
 }
 
@@ -139,7 +149,7 @@ ReleaseInfo resolveRelease({
   return ReleaseInfo(
     version: version,
     tag: '$tagPrefix$version',
-    prerelease: version.contains('-'),
+    prerelease: isPrerelease(version),
     mode: mode,
   );
 }
@@ -169,7 +179,7 @@ void _checkStage({
       'CHANGELOG.md first.',
     );
   }
-  if (!version.contains('-') && !isHomebrewVersion(version)) {
+  if (!isPrerelease(version) && !isHomebrewVersion(version)) {
     throw ReleaseException(
       'The Homebrew formula cannot name $version: it takes <major>.<minor>.<patch> with an '
       'optional numeric build, such as 0.5.4+1.',

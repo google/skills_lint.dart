@@ -31,8 +31,10 @@ const String _separator = '  ';
 /// Group 1 is the checksum and group 2 the file name.
 final RegExp _checksumLine = RegExp('^([0-9a-f]{64})$_separator(\\S+)\$');
 
-String _line(File file) =>
-    '${sha256.convert(file.readAsBytesSync())}$_separator${p.basename(file.path)}';
+/// The SHA-256 of [file], in lowercase hex as `sha256sum` prints it.
+String fileSha256(File file) => '${sha256.convert(file.readAsBytesSync())}';
+
+String _line(File file) => '${fileSha256(file)}$_separator${p.basename(file.path)}';
 
 /// Writes `<file>.sha256`, which holds the line `<hash>  <name>` for [file],
 /// and returns it.

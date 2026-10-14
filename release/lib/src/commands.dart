@@ -13,6 +13,7 @@ import 'package:path/path.dart' as p;
 
 import 'archive.dart';
 import 'checksums.dart';
+import 'draft_release.dart';
 import 'homebrew_formula.dart';
 import 'homebrew_formula_check.dart';
 import 'install_script.dart';
@@ -36,6 +37,7 @@ Future<int> runRelease(List<String> arguments) async {
     ..addCommand(_ChecksumsCommand())
     ..addCommand(_InstallScriptCommand())
     ..addCommand(_PrepareCommand())
+    ..addCommand(_VerifyDraftCommand())
     ..addCommand(_HomebrewMatrixCommand())
     ..addCommand(_HomebrewFormulaCommand());
   try {
@@ -208,6 +210,47 @@ class _PrepareCommand extends _ReleaseCommand {
     stdout
       ..write(outputLines(info))
       ..writeln('matrix=${buildMatrix()}');
+  }
+}
+
+class _VerifyDraftCommand extends _ReleaseCommand {
+  _VerifyDraftCommand() {
+    argParser
+      ..addOption('ref-type', mandatory: true, help: 'The type of the ref of the run.')
+      ..addOption('tag', mandatory: true, help: 'The tag of the run, which names the release.')
+      ..addOption('repository', mandatory: true, help: 'The repository, as <owner>/<name>.')
+      ..addOption('commit', mandatory: true, help: 'The commit that the tag points at.')
+      ..addOption(
+        'release-json',
+        mandatory: true,
+        help: 'A file with what `gh release view <tag> --json isDraft,isPrerelease` printed.',
+      )
+      ..addOption('assets', mandatory: true, help: 'A directory with every asset of the draft.')
+      ..addOption('summary', mandatory: true, help: 'The file to add the job summary to.');
+  }
+
+  @override
+  String get name => 'verify-draft';
+
+  @override
+  String get description =>
+      'Checks that the draft release holds exactly the files the build of the commit made, that '
+      'they match SHA256SUMS and that each has an attestation from that build, then prints '
+      r'version and homebrew as name=value lines for $GITHUB_OUTPUT.';
+
+  @override
+  Future<void> run() async {
+    noRest();
+    final VerifiedDraft draft = await verifyDraft(
+      refType: option('ref-type'),
+      tag: option('tag'),
+      repository: option('repository'),
+      commit: option('commit'),
+      releaseJson: File(option('release-json')).readAsStringSync(),
+      assets: Directory(option('assets')),
+    );
+    File(option('summary')).writeAsStringSync(draft.summary, mode: FileMode.append);
+    stdout.write(draft.outputLines);
   }
 }
 
