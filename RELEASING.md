@@ -15,26 +15,45 @@
 4. Follow the link in the **Homebrew** job's summary to open the formula's
    pull request, and merge it once its `Homebrew` check passes.
 
-| If this fails | Do this |
-|---|---|
-| **Plan**, a **Check** or a **Build** job | Fix it on `main`, then run the build workflow again. For a flaky failure, **Re-run failed jobs**. |
-| **Check: skills_lint tests at this commit / pana_score** | The pana score is below 160. Raise it on `main` with a pull request, then run the build workflow again. |
-| **Stage** | Do what the error says, then **Re-run failed jobs**. |
-| **Verify**, or **Publish 2 of 2** before publishing | Re-run the job once. If it fails again, delete the draft (`gh release delete skills_lint-v<version> -R google/skills_lint.dart`) and re-run **Stage**. The new publish run needs approval again, and skips pub.dev if it has the version. |
-| **Publish 1 of 2** | Fix what the error names, then **Re-run failed jobs**. To give up on the version, delete the draft and release the next one. |
-| **Publish 2 of 2** after publishing | Re-run the job once. If it fails again, stop: delete the release, tell the maintainers, and release the next version. |
-| **Homebrew** | **Re-run failed jobs**. |
-| The formula pull request's `Homebrew` check | In `release/`, run `dart run bin/release.dart homebrew-formula --version <version> --sha256sums <the release's SHA256SUMS>` on the branch and push. This happens when the template changed on `main` after the tag. |
+## If a job fails
+
+- **Plan**, a **Check** or a **Build** job: fix the problem on `main`, then
+  run the build workflow again. For a flaky failure, use **Re-run failed
+  jobs**.
+- **Check: skills_lint tests at this commit / pana_score**: the pana score is
+  below 160. Raise it on `main` with a pull request, then run the build
+  workflow again.
+- **Stage**: do what the error says, then **Re-run failed jobs**.
+- **Download**, **Verify**, or **Publish 2 of 2** before it publishes:
+  re-run the job once. If it fails again, delete the draft
+  (`gh release delete skills_lint-v<version> -R google/skills_lint.dart`)
+  and re-run **Stage**. The new publish run needs approval again, and skips
+  pub.dev if pub.dev has the version.
+- **Publish 1 of 2**: fix what the error names, then **Re-run failed jobs**.
+  To give up on the version, delete the draft and release the next version.
+- **Publish 2 of 2** after it publishes: re-run the job once. If it fails
+  again, stop. Delete the release, tell the maintainers, and release the
+  next version.
+- **Homebrew**: **Re-run failed jobs**.
+- The `Homebrew` check of the formula pull request: in `release/`, run
+  `dart run bin/release.dart homebrew-formula --version <version> --sha256sums <the release's SHA256SUMS>`
+  on the branch and push. This happens when the template changed on `main`
+  after the tag.
 
 ## What can be undone
 
-| Step | Undo |
-|---|---|
-| Tag | Only an admin can move or delete it. |
-| Draft release | Delete it at any time. Only people with push access see it. |
-| pub.dev | [Never deleted or uploaded again](https://dart.dev/tools/pub/publishing#remember-publishing-is-forever); [retractable](https://dart.dev/tools/pub/publishing#retract-a-package-version) for 7 days. |
-| GitHub release | [Immutable](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases). It can be deleted, but its tag can't be used again. |
-| Homebrew pull request | Revert it. |
+- The tag: only an admin can move or delete it.
+- The draft release: only people with push access see it, and they can
+  delete it at any time.
+- The pub.dev version: it is
+  [never deleted or uploaded again](https://dart.dev/tools/pub/publishing#remember-publishing-is-forever),
+  and it can be
+  [retracted](https://dart.dev/tools/pub/publishing#retract-a-package-version)
+  for 7 days.
+- The GitHub release:
+  [immutable](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases).
+  It can be deleted, but its tag can't be used again.
+- The Homebrew pull request: revert it.
 
 pub.dev goes first because it fails most often, and until it succeeds only
 the tag is public.
