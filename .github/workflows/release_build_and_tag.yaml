@@ -48,7 +48,6 @@ jobs:
     name: 'Plan: read the version and check it is ready to release'
     permissions:
       contents: read
-      actions: read # Read the protection of the pub.dev environment.
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.prepare.outputs.version }}
