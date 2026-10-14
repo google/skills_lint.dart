@@ -102,8 +102,8 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
               ? '$posixRelativePath$titlePart'
               : posixRelativePath;
           final String fullMatch = match.group(0)!;
-          final int lastParen = fullMatch.lastIndexOf('(');
-          return '${fullMatch.substring(0, lastParen + 1)}$targetWithTitle)';
+          final int targetStart = fullMatch.length - rawTarget.length - 1;
+          return '${fullMatch.substring(0, targetStart)}$targetWithTitle)';
         }
       }
 
