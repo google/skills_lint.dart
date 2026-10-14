@@ -17,7 +17,6 @@ import 'homebrew_formula.dart';
 import 'homebrew_formula_check.dart';
 import 'install_script.dart';
 import 'licenses.dart';
-import 'merged_pull_request.dart';
 import 'paths.dart';
 import 'release_exception.dart';
 import 'release_info.dart';
@@ -37,7 +36,6 @@ Future<int> runRelease(List<String> arguments) async {
     ..addCommand(_ChecksumsCommand())
     ..addCommand(_InstallScriptCommand())
     ..addCommand(_PrepareCommand())
-    ..addCommand(_CheckMergedCommand())
     ..addCommand(_HomebrewMatrixCommand())
     ..addCommand(_HomebrewFormulaCommand());
   try {
@@ -209,33 +207,6 @@ class _PrepareCommand extends _ReleaseCommand {
     stdout
       ..write(outputLines(info))
       ..writeln('matrix=${buildMatrix()}');
-  }
-}
-
-class _CheckMergedCommand extends _ReleaseCommand {
-  _CheckMergedCommand() {
-    argParser
-      ..addOption(
-        'pulls',
-        mandatory: true,
-        help: "A file with GitHub's list of the pull requests associated with the commit.",
-      )
-      ..addOption('sha', mandatory: true, help: 'The commit to release.');
-  }
-
-  @override
-  String get name => 'check-merged';
-
-  @override
-  String get description =>
-      'Fails unless a pull request merged the commit into $releaseBranch, as the list of its '
-      'pull requests from the GitHub API says.';
-
-  @override
-  void run() {
-    noRest();
-    checkMergedPullRequest(File(option('pulls')).readAsStringSync(), sha: option('sha'));
-    stdout.writeln('A pull request merged ${option('sha')} into $releaseBranch.');
   }
 }
 

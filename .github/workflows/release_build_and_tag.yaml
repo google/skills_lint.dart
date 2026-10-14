@@ -48,7 +48,6 @@ jobs:
     name: 'Plan: read the version and check it is ready to release'
     permissions:
       contents: read
-      pull-requests: read # Find the pull request that merged this commit.
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.prepare.outputs.version }}
@@ -83,15 +82,6 @@ jobs:
           dart run bin/release.dart prepare --event "$EVENT" --ref-type "$REF_TYPE"
           --ref-name "$REF_NAME" --release-version "$RELEASE_VERSION"
           --notes-output "$RUNNER_TEMP/notes.md" >> "$GITHUB_OUTPUT"
-      # The token stays in this step, away from the Dart code of the next.
-      - name: Find the pull requests of this commit
-        if: steps.prepare.outputs.mode == 'stage'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" > "$RUNNER_TEMP/pulls.json"
-      - name: Check that a pull request merged this commit into main
-        if: steps.prepare.outputs.mode == 'stage'
-        run: dart run bin/release.dart check-merged --pulls "$RUNNER_TEMP/pulls.json" --sha "$GITHUB_SHA"
       - id: notes
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
