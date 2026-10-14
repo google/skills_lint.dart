@@ -51,11 +51,13 @@ final class ActionPin {
 }
 
 /// The files under [repoRoot] whose `uses:` pins must agree, sorted by path:
-/// every workflow in `.github/workflows/` and every composite action's
-/// `action.yml` or `action.yaml` under `.github/actions/`.
+/// every `.yaml` workflow in `.github/workflows/` and every composite
+/// action's `action.yaml` under `.github/actions/`.
 ///
 /// Throws a [StateError] if either directory is missing, so a moved
-/// directory fails the scan instead of leaving its files unchecked.
+/// directory fails the scan instead of leaving its files unchecked. Also
+/// throws if a file there uses the `.yml` extension, which GitHub accepts
+/// too, so that no workflow or action goes unchecked.
 List<File> actionPinFiles(String repoRoot) {
   final workflows = Directory(p.join(repoRoot, '.github', 'workflows'));
   final actions = Directory(p.join(repoRoot, '.github', 'actions'));
@@ -64,13 +66,22 @@ List<File> actionPinFiles(String repoRoot) {
       throw StateError('${directory.path} does not exist, so its action pins are not checked.');
     }
   }
-  // GitHub reads both extensions for workflows, and both file names for
-  // actions.
+  final List<File> workflowFiles = workflows.listSync().whereType<File>().toList();
+  final List<File> actionFiles = actions.listSync(recursive: true).whereType<File>().toList();
+  final List<String> ymlFiles = [
+    for (final File file in workflowFiles)
+      if (p.extension(file.path) == '.yml') file.path,
+    for (final File file in actionFiles)
+      if (p.basename(file.path) == 'action.yml') file.path,
+  ];
+  if (ymlFiles.isNotEmpty) {
+    throw StateError('Rename these files to end in .yaml, as the others do: ${ymlFiles.join(', ')}');
+  }
   final List<File> files = [
-    for (final File file in workflows.listSync().whereType<File>())
-      if (const {'.yaml', '.yml'}.contains(p.extension(file.path))) file,
-    for (final File file in actions.listSync(recursive: true).whereType<File>())
-      if (const {'action.yaml', 'action.yml'}.contains(p.basename(file.path))) file,
+    for (final File file in workflowFiles)
+      if (p.extension(file.path) == '.yaml') file,
+    for (final File file in actionFiles)
+      if (p.basename(file.path) == 'action.yaml') file,
   ];
   return files..sort((a, b) => a.path.compareTo(b.path));
 }

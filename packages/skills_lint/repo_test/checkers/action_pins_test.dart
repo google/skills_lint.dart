@@ -37,9 +37,9 @@ void main() {
     test('lists workflows and composite actions, and nothing else under .github', () {
       createFiles([
         '.github/workflows/ci.yaml',
-        '.github/workflows/old.yml',
+        '.github/workflows/release.yaml',
         '.github/workflows/notes.md',
-        '.github/actions/tap/action.yml',
+        '.github/actions/tap/action.yaml',
         '.github/actions/digests/action.yaml',
         '.github/actions/tap/README.md',
         '.github/dependabot.yml',
@@ -51,10 +51,34 @@ void main() {
         ],
         [
           '.github/actions/digests/action.yaml',
-          '.github/actions/tap/action.yml',
+          '.github/actions/tap/action.yaml',
           '.github/workflows/ci.yaml',
-          '.github/workflows/old.yml',
+          '.github/workflows/release.yaml',
         ],
+      );
+    });
+
+    test('fails on a .yml workflow or action.yml, naming each, rather than skipping it', () {
+      createFiles([
+        '.github/workflows/ci.yaml',
+        '.github/workflows/old.yml',
+        '.github/actions/tap/action.yml',
+        '.github/actions/digests/action.yaml',
+      ]);
+      expect(
+        () => actionPinFiles(root.path),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains(p.join('workflows', 'old.yml')),
+              contains(p.join('tap', 'action.yml')),
+              isNot(contains('ci.yaml')),
+              isNot(contains('digests')),
+            ),
+          ),
+        ),
       );
     });
 
@@ -143,7 +167,7 @@ jobs:
     });
 
     test("reads a composite action's step uses", () {
-      final List<ActionPin> pins = findActionPins('.github/actions/tap/action.yml', '''
+      final List<ActionPin> pins = findActionPins('.github/actions/tap/action.yaml', '''
 name: Tap
 runs:
   using: composite
@@ -153,7 +177,7 @@ runs:
       run: echo hi
     - uses: ./.github/actions/other
 ''');
-      expect(_describe(pins), ['.github/actions/tap/action.yml:5 $_checkout @$_sha v7.0.1']);
+      expect(_describe(pins), ['.github/actions/tap/action.yaml:5 $_checkout @$_sha v7.0.1']);
     });
 
     test('returns nothing for a file without jobs or runs', () {
