@@ -248,7 +248,7 @@ jobs:
       - id: tap
         uses: ./.github/actions/tap-skills-lint
         with:
-          formula: ${{ runner.temp }}/dist/skills_lint.rb
+          release-formula: ${{ runner.temp }}/dist/skills_lint.rb
       - run: brew style "$FORMULA"
         env:
           FORMULA: ${{ steps.tap.outputs.formula }}
