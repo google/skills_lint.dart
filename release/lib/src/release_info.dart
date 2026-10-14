@@ -104,7 +104,7 @@ String readPubspecVersion(String pubspec) {
 /// Returns the release for a run of the build workflow for [event] on the
 /// ref [refName] of type [refType] (`branch` or `tag`), for the package
 /// [version]. [releaseVersion] is the run's `version` input: the version to
-/// release, or empty.
+/// release, or null for a dry run.
 ///
 /// - A `pull_request` run, or a `workflow_dispatch` run without a
 ///   [releaseVersion], is a [ReleaseMode.dryRun].
@@ -120,11 +120,11 @@ ReleaseInfo resolveRelease({
   required String event,
   required String refType,
   required String refName,
-  required String releaseVersion,
+  required String? releaseVersion,
 }) {
   final ReleaseMode mode = switch (event) {
     'pull_request' => ReleaseMode.dryRun,
-    'workflow_dispatch' => releaseVersion.isEmpty ? ReleaseMode.dryRun : ReleaseMode.stage,
+    'workflow_dispatch' => releaseVersion == null ? ReleaseMode.dryRun : ReleaseMode.stage,
     _ => throw ReleaseException('The build workflow does not run for "$event" events.'),
   };
   if (mode == ReleaseMode.stage) {
@@ -132,7 +132,8 @@ ReleaseInfo resolveRelease({
       version: version,
       refType: refType,
       refName: refName,
-      releaseVersion: releaseVersion,
+      // A stage run always has a version to release.
+      releaseVersion: releaseVersion!,
     );
   }
   return ReleaseInfo(

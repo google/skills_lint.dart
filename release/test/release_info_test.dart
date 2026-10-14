@@ -16,7 +16,7 @@ ReleaseInfo _resolve({
   String event = 'workflow_dispatch',
   String refType = 'branch',
   String refName = 'main',
-  String releaseVersion = '',
+  String? releaseVersion,
 }) => resolveRelease(
   version: version,
   event: event,

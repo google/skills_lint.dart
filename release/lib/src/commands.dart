@@ -174,8 +174,9 @@ class _PrepareCommand extends _ReleaseCommand {
       ..addOption('ref-name', mandatory: true, help: 'The branch or tag of the run.')
       ..addOption(
         'release-version',
-        mandatory: true,
-        help: 'The version input of the run: the version to release, or empty for a dry run.',
+        help:
+            'The version input of the run: the version to release. Omit it, or give an empty '
+            'value as a dry run does, for a dry run.',
       )
       ..addOption('notes-output', mandatory: true, help: 'The file to write release notes to.');
   }
@@ -197,7 +198,7 @@ class _PrepareCommand extends _ReleaseCommand {
       event: option('event'),
       refType: option('ref-type'),
       refName: option('ref-name'),
-      releaseVersion: option('release-version'),
+      releaseVersion: _nonEmpty(argResults!.option('release-version')),
     );
     final String section = changelogSection(
       File(p.join(skillsLintPackageDir, 'CHANGELOG.md')).readAsStringSync(),
@@ -293,6 +294,10 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
     stdout.writeln('Wrote ${output.path}.');
   }
 }
+
+/// Returns [value], or null if it is null or empty. A workflow passes an
+/// input that wasn't given as an empty value.
+String? _nonEmpty(String? value) => value == null || value.isEmpty ? null : value;
 
 /// Returns the version in the skills_lint `pubspec.yaml`.
 String _pubspecVersion() =>

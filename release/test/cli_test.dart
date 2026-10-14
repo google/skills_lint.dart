@@ -33,10 +33,42 @@ void main() {
     expect(File(output).readAsStringSync(), allOf(contains('skills_lint'), contains('Dart SDK')));
   });
 
-  test("prepare prints a dry run and writes the version's CHANGELOG.md section", () async {
+  test(
+    "prepare without --release-version prints a dry run and writes the version's CHANGELOG.md section",
+    () async {
+      final Directory temp = Directory.systemTemp.createTempSync('cli_test.');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final String notes = p.join(temp.path, 'notes.md');
+      final ProcessResult result = await _release([
+        'prepare',
+        '--event',
+        'workflow_dispatch',
+        '--ref-type',
+        'branch',
+        '--ref-name',
+        'main',
+        '--notes-output',
+        notes,
+      ]);
+      expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
+      expect(result.stdout, contains('mode=${ReleaseMode.dryRun.name}\n'));
+      expect(result.stdout, contains('matrix=${buildMatrix()}\n'));
+      final String version = readPubspecVersion(
+        File(p.join(skillsLintPackageDir, 'pubspec.yaml')).readAsStringSync(),
+      );
+      final String changelog = File(
+        p.join(skillsLintPackageDir, 'CHANGELOG.md'),
+      ).readAsStringSync();
+      expect(changelog, contains(File(notes).readAsStringSync().trim()));
+      expect(changelogSection(changelog, version), File(notes).readAsStringSync().trim());
+    },
+  );
+
+  // The build workflow passes its version input to --release-version, and
+  // that input is empty in a dry run.
+  test('prepare reads an empty --release-version as a dry run', () async {
     final Directory temp = Directory.systemTemp.createTempSync('cli_test.');
     addTearDown(() => temp.deleteSync(recursive: true));
-    final String notes = p.join(temp.path, 'notes.md');
     final ProcessResult result = await _release([
       'prepare',
       '--event',
@@ -48,17 +80,10 @@ void main() {
       '--release-version',
       '',
       '--notes-output',
-      notes,
+      p.join(temp.path, 'notes.md'),
     ]);
     expect(result.exitCode, 0, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
     expect(result.stdout, contains('mode=${ReleaseMode.dryRun.name}\n'));
-    expect(result.stdout, contains('matrix=${buildMatrix()}\n'));
-    final String version = readPubspecVersion(
-      File(p.join(skillsLintPackageDir, 'pubspec.yaml')).readAsStringSync(),
-    );
-    final String changelog = File(p.join(skillsLintPackageDir, 'CHANGELOG.md')).readAsStringSync();
-    expect(changelog, contains(File(notes).readAsStringSync().trim()));
-    expect(changelogSection(changelog, version), File(notes).readAsStringSync().trim());
   });
 
   test('homebrew-matrix prints a matrix entry for each target that Homebrew installs', () async {
