@@ -344,5 +344,5 @@ jobs:
       - name: Write the job summary
         run: >-
           echo "Created the tag $TAG and its draft release. To publish them, open
-          [Publish a tagged release]($GITHUB_SERVER_URL/$GH_REPO/actions/workflows/release_publish.yaml?query=branch%3A$TAG)."
+          [Publish a tagged release]($GITHUB_SERVER_URL/$GH_REPO/actions/workflows/release_publish.yaml?query=branch%3A${TAG//+/%2B})."
           >> "$GITHUB_STEP_SUMMARY"
