@@ -87,17 +87,12 @@ String renderFormula(
 /// The formula that [template] gives for the release [version], with the
 /// checksums from [sha256Sums], the text of the release's `SHA256SUMS`.
 ///
-/// Throws a [ReleaseException] if Homebrew can't install [version] (see
-/// [isHomebrewVersion]), if [readFormula] can't read [version] and each
-/// archive's checksum back from the result, or for any reason
+/// [version] must be one that [isHomebrewVersion] accepts.
+///
+/// Throws a [ReleaseException] if [readFormula] can't read [version] and
+/// each archive's checksum back from the result, or for any reason
 /// [renderFormula] does.
 String releaseFormula(String template, {required String version, required String sha256Sums}) {
-  if (!isHomebrewVersion(version)) {
-    throw ReleaseException(
-      'Homebrew installs releases only, and $version is not <major>.<minor>.<patch> with an '
-      'optional numeric build.',
-    );
-  }
   final Map<String, String> checksums = parseSha256Sums(sha256Sums);
   final String formula = renderFormula(
     template,

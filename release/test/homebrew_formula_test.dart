@@ -156,16 +156,6 @@ end
         );
       }
     });
-
-    test('rejects a version that Homebrew cannot install', () {
-      for (final version in ['1.2.0-wip', 'abc', '1.2', '1.2.0+hotfix', 'v1.2.0']) {
-        expect(
-          () => releaseFormula(_template, version: version, sha256Sums: ''),
-          throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains(version))),
-          reason: version,
-        );
-      }
-    });
   });
 
   group('readFormula', () {

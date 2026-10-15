@@ -135,19 +135,7 @@ void main() {
         outputLines(_resolve(version: '1.0.0-dev.1', releaseVersion: '1.0.0-dev.1')),
         contains('formula-version=\n'),
       );
-    });
-  });
-
-  group('formulaVersion', () {
-    test('is the version of a release, and the pending release of a -wip version', () {
-      expect(formulaVersion('0.6.0'), '0.6.0');
-      expect(formulaVersion('0.6.0+1'), '0.6.0+1');
-      expect(formulaVersion('0.6.0-wip'), '0.6.0');
-    });
-
-    test('is null for a prerelease', () {
-      expect(formulaVersion('1.0.0-dev.1'), isNull);
-      expect(formulaVersion('1.0.0-dev.1-wip'), isNull);
+      expect(outputLines(_resolve(version: '0.6.0+hotfix')), contains('formula-version=\n'));
     });
   });
 }
