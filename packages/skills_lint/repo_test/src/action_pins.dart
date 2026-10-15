@@ -71,14 +71,13 @@ List<File> actionPinFiles(String repoRoot) {
   }
   final List<File> workflowFiles = workflows.listSync().whereType<File>().toList();
   final List<File> actionFiles = actions.listSync(recursive: true).whereType<File>().toList();
+  final dependabot = File(p.join(repoRoot, '.github', 'dependabot.yml'));
   final List<String> ymlFiles = [
     for (final File file in workflowFiles)
       if (p.extension(file.path) == '.yml') file.path,
     for (final File file in actionFiles)
       if (p.basename(file.path) == 'action.yml') file.path,
-    if (File(p.join(repoRoot, '.github', 'dependabot.yml')) case final dependabot
-        when dependabot.existsSync())
-      dependabot.path,
+    if (dependabot.existsSync()) dependabot.path,
   ];
   if (ymlFiles.isNotEmpty) {
     throw StateError(
