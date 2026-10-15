@@ -163,15 +163,15 @@ void main() {
       '--ref-type',
       'branch',
       '--ref-name',
-      'main',
+      'not-the-release-branch',
       '--release-version',
-      '0.0.0-not-the-version',
+      '0.0.0',
       '--notes-output',
       p.join(Directory.systemTemp.path, 'unused-notes.md'),
     ]);
     expect(result.exitCode, 1, reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}');
     expect(result.stderr, contains('release: error: '));
-    expect(result.stderr, contains('0.0.0-not-the-version'));
+    expect(result.stderr, contains('not-the-release-branch'));
   });
 
   test('verify-draft fails on a run that is not on a release tag', () async {
