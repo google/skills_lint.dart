@@ -93,4 +93,48 @@ void main() {
       expect(() => mergeChecksums(dir), throwsA(isA<ReleaseException>()));
     });
   });
+
+  group('parseSha256Sums', () {
+    final String first = 'a' * 64;
+    final String second = 'b' * 64;
+
+    test('reads "<sha256>  <name>" lines and skips blank lines', () {
+      expect(parseSha256Sums('$first  skills_lint-macos-arm64.tar.gz\n\n$second  pubspec.lock\n'), {
+        'skills_lint-macos-arm64.tar.gz': first,
+        'pubspec.lock': second,
+      });
+    });
+
+    test('rejects a line that is not exactly a lowercase checksum, two spaces and a name', () {
+      final linesByProblem = {
+        'one space': '$first skills_lint-macos-arm64.tar.gz',
+        'a short checksum': '${'a' * 63}  skills_lint-macos-arm64.tar.gz',
+        'an uppercase checksum': '${'A' * 64}  skills_lint-macos-arm64.tar.gz',
+        'text after the name': '$first  skills_lint-macos-arm64.tar.gz extra',
+        'a binary-mode marker': '$first *skills_lint-macos-arm64.tar.gz',
+      };
+      for (final MapEntry(key: String problem, value: String line) in linesByProblem.entries) {
+        expect(
+          () => parseSha256Sums('$line\n'),
+          throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains(line))),
+          reason: problem,
+        );
+      }
+    });
+
+    test('rejects a file listed twice', () {
+      expect(
+        () => parseSha256Sums(
+          '$first  skills_lint-macos-arm64.tar.gz\n$second  skills_lint-macos-arm64.tar.gz\n',
+        ),
+        throwsA(
+          isA<ReleaseException>().having(
+            (e) => e.message,
+            'message',
+            contains('lists skills_lint-macos-arm64.tar.gz twice'),
+          ),
+        ),
+      );
+    });
+  });
 }

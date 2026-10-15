@@ -7,6 +7,7 @@
 library;
 
 import 'archive.dart';
+import 'checksums.dart';
 import 'macho.dart';
 import 'release_exception.dart';
 import 'release_info.dart';
@@ -81,6 +82,35 @@ String renderFormula(
   return template
       .replaceAll(_versionPlaceholder, values.version)
       .replaceFirst(_platformsPlaceholder, osBlocks.join('\n\n'));
+}
+
+/// The formula that [template] gives for the release [version], with the
+/// checksums from [sha256Sums], the text of the release's `SHA256SUMS`.
+///
+/// [version] must be one that [isHomebrewVersion] accepts.
+///
+/// Throws a [ReleaseException] if [readFormula] can't read [version] and
+/// each archive's checksum back from the result, or for any reason
+/// [renderFormula] does.
+String releaseFormula(String template, {required String version, required String sha256Sums}) {
+  final Map<String, String> checksums = parseSha256Sums(sha256Sums);
+  final String formula = renderFormula(
+    template,
+    FormulaValues(version: version, checksums: checksums),
+  );
+  // --check and the next release read the formula back, so a template that
+  // hides a value from readFormula is broken even though it renders.
+  final FormulaValues readBack = readFormula(formula);
+  if (readBack.version != version) {
+    throw ReleaseException('The formula template gives version ${readBack.version}, not $version.');
+  }
+  for (final ReleaseTarget target in homebrewTargets()) {
+    final String archive = archiveName(target.name);
+    if (readBack.checksums?[archive] != checksums[archive]) {
+      throw ReleaseException('The formula template does not give the checksum of $archive.');
+    }
+  }
+  return formula;
 }
 
 /// The `on_<os>` block for [os], with an `on_<arch>` block for each of

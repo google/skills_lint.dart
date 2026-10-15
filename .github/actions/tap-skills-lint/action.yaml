@@ -1,0 +1,38 @@
+name: Tap skills_lint
+description: >-
+  Sets up Homebrew and taps this checkout as google/skills-lint, the tap
+  name that the README's install commands use.
+
+inputs:
+  release-formula:
+    description: >-
+      The skills_lint.rb that the release build rendered for the version it
+      builds, which the checkout's Formula/skills_lint.rb doesn't have yet.
+      The tap uses it in place of the checkout's formula. Without it, the
+      tap uses the checkout's formula.
+    required: false
+
+outputs:
+  formula:
+    description: The formula's full name, for brew commands.
+    value: ${{ steps.tap.outputs.formula }}
+
+runs:
+  using: composite
+  steps:
+    - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
+    # Homebrew loads no formula from an untrusted non-official tap. The tap
+    # is a clone of the checkout, so the release formula goes into the
+    # clone.
+    - id: tap
+      shell: bash
+      env:
+        TAP: google/skills-lint
+        RELEASE_FORMULA: ${{ inputs.release-formula }}
+      run: |
+        brew tap "$TAP" "$GITHUB_WORKSPACE"
+        brew trust "$TAP"
+        if [ -n "$RELEASE_FORMULA" ]; then
+          cp "$RELEASE_FORMULA" "$(brew --repo "$TAP")/Formula/skills_lint.rb"
+        fi
+        echo "formula=$TAP/skills_lint" >> "$GITHUB_OUTPUT"

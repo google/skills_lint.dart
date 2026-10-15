@@ -29,6 +29,12 @@ Map<String, String> _checksums(List<ReleaseTarget> targets) => {
     archiveName(target.name): '${i + 1}' * 64,
 };
 
+/// The entries of [checksums] for the archives that Homebrew installs.
+Map<String, String> _homebrewOnly(Map<String, String> checksums) => {
+  for (final ReleaseTarget target in homebrewTargets())
+    archiveName(target.name): checksums[archiveName(target.name)]!,
+};
+
 String _render(
   String version, {
   required List<ReleaseTarget> targets,
@@ -113,11 +119,50 @@ end
     });
   });
 
+  group('releaseFormula', () {
+    // A Windows archive stands in for any archive that Homebrew doesn't
+    // install.
+    final Map<String, String> checksums = _checksums([...releaseTargets, _windows]);
+    final String sums = [
+      for (final String archive in checksums.keys) '${checksums[archive]}  $archive',
+      '${'b' * 64}  pubspec.lock',
+    ].join('\n');
+
+    test('takes the checksum of each archive that Homebrew installs from SHA256SUMS', () {
+      final String formula = releaseFormula(_template, version: '1.2.0+1', sha256Sums: sums);
+      expect(formula, startsWith('version "1.2.0+1"\n'));
+      expect(readFormula(formula).checksums, _homebrewOnly(checksums));
+    });
+
+    test('rejects a template whose formula does not read back', () {
+      // Each template, and a part of the error that names the check that
+      // rejects it.
+      final templates = {
+        // readFormula needs the version line to end at its closing quote.
+        'version "{{version}}" # x\n{{platforms}}\n': '0 version lines',
+        'version "1.0.0"\n# {{version}}\n{{platforms}}\n': 'gives version 1.0.0, not 1.2.0',
+        '$_template\n'
+                'url "$_url/skills_lint-linux-x64.tar.gz"\n'
+                'sha256 "${'f' * 64}"\n':
+            'does not give the checksum of skills_lint-linux-x64.tar.gz',
+      };
+      for (final MapEntry(key: String template, value: String messagePart) in templates.entries) {
+        expect(
+          () => releaseFormula(template, version: '1.2.0', sha256Sums: sums),
+          throwsA(
+            isA<ReleaseException>().having((e) => e.message, 'message', contains(messagePart)),
+          ),
+          reason: template,
+        );
+      }
+    });
+  });
+
   group('readFormula', () {
     test('reads back the version and checksums that renderFormula wrote', () {
       final FormulaValues release = readFormula(_release('1.2.0'));
       expect(release.version, '1.2.0');
-      expect(release.checksums, _checksums(releaseTargets));
+      expect(release.checksums, _homebrewOnly(_checksums(releaseTargets)));
     });
 
     test('reads placeholder checksums as no checksums', () {

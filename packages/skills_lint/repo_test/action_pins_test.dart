@@ -11,15 +11,16 @@ import 'src/action_pins.dart';
 import 'src/repo_paths.dart';
 import 'src/source_conventions.dart';
 
-/// Checks that the workflows in `.github/workflows/` pin each action,
-/// reusable workflow and Docker image the same way.
+/// Checks that the workflows in `.github/workflows/` and the composite actions
+/// in `.github/actions/` pin each action, reusable workflow and Docker image
+/// the same way.
 ///
 /// `src/action_pins.dart` says why. `checkers/action_pins_test.dart` pins
 /// what the detectors report on small snippets.
 void main() {
-  test('each action and reusable workflow has one pin across .github/workflows/', () {
+  test('each action and reusable workflow has one pin across workflows and actions', () {
     final List<ActionPin> pins = [
-      for (final File file in _workflowFiles())
+      for (final File file in actionPinFiles(repoRoot))
         ...findActionPins(
           p.posix.joinAll(p.split(p.relative(file.path, from: repoRoot))),
           file.readAsStringSync(),
@@ -29,25 +30,15 @@ void main() {
       pins,
       isNotEmpty,
       reason:
-          'Found no `uses:` in ${_workflowDirectory.path}. The scan reads '
-          'jobs.<id>.uses and jobs.<id>.steps[*].uses.',
+          'Found no `uses:` under ${p.join(repoRoot, '.github')}. The scan reads '
+          'jobs.<id>.uses, jobs.<id>.steps[*].uses and runs.steps[*].uses.',
     );
     expectNoViolations(findInconsistentPins(pins), fix: _fix);
   });
 }
 
-final Directory _workflowDirectory = Directory(p.join(repoRoot, '.github', 'workflows'));
-
-/// The workflow files, sorted by path. GitHub reads both extensions.
-List<File> _workflowFiles() =>
-    _workflowDirectory
-        .listSync()
-        .whereType<File>()
-        .where((file) => const {'.yaml', '.yml'}.contains(p.extension(file.path)))
-        .toList()
-      ..sort((a, b) => a.path.compareTo(b.path));
-
 const String _fix =
     'Pin every use of an action, reusable workflow or Docker image to the same '
-    'ref and version comment in every file under .github/workflows/. When you '
-    'update a pin by hand, update every use of it in the same change.';
+    'ref and version comment in every file under .github/workflows/ and '
+    '.github/actions/. '
+    'When you update a pin by hand, update every use of it in the same change.';

@@ -79,7 +79,7 @@ void main() {
       File(p.join(bin.path, name)).writeAsStringSync(script);
       Process.runSync('chmod', ['+x', p.join(bin.path, name)]);
     }
-    // The archives of every target, built as the release workflow builds
+    // The archives of every target, built as the build workflow builds
     // them, but holding a script instead of a compiled executable.
     for (final String target in supportedTargets) {
       final stage = Directory(p.join(temp.path, 'stage-$target'))..createSync();
@@ -112,6 +112,9 @@ void main() {
       [script ?? p.join(skillsLintPackageDir, 'scripts', 'install.sh')],
       environment: {
         'PATH': '${bin.path}:${Platform.environment['PATH']}',
+        // Non-interactive bash sources $BASH_ENV, and the mock uname is a bash
+        // script, so a BASH_ENV that runs uname would recurse forever.
+        'BASH_ENV': '',
         'MOCK_RELEASE_DIR': release.path,
         'MOCK_CURL_LOG': p.join(temp.path, 'curl.log'),
         'MOCK_UNAME_S': unameS,
