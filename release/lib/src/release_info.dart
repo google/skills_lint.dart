@@ -167,16 +167,16 @@ void _checkStage({
       'Releases start from $releaseBranch, not $refName. Run the workflow on $releaseBranch.',
     );
   }
-  if (releaseVersion != version) {
-    throw ReleaseException(
-      'The version input is $releaseVersion, but pubspec.yaml has $version. Run the workflow with '
-      'version $version, or first merge a pull request that sets the version to release.',
-    );
-  }
   if (version.contains('-wip')) {
     throw ReleaseException(
       '$version is a -wip version. Set the version to release in pubspec.yaml and '
       'CHANGELOG.md first.',
+    );
+  }
+  if (releaseVersion != version) {
+    throw ReleaseException(
+      'The version input is $releaseVersion, but pubspec.yaml has $version. Run the workflow with '
+      'version $version, or first merge a pull request that sets the version to release.',
     );
   }
   if (!isPrerelease(version) && !isHomebrewVersion(version)) {

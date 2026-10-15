@@ -88,10 +88,10 @@ void main() {
       );
     });
 
-    test('releasing before the version bump merges says to merge it first', () {
+    test('releasing before the version bump merges says to set the version first', () {
       expect(
         () => _resolve(version: '0.6.0-wip', releaseVersion: '0.6.0'),
-        _throwsReleaseException('first merge a pull request that sets the version to release'),
+        _throwsReleaseException('Set the version to release in pubspec.yaml'),
       );
     });
 
