@@ -12,7 +12,13 @@
    draft release and starts **Publish a tagged release** on the tag.
 3. In that run, approve **Publish 1 of 2: package to pub.dev** once the
    **Verify** job's summary shows your version, its build run and the pull
-   request that merged it. pub.dev, then the GitHub release, are published.
+   request that merged it, and only after checking, outside the run, that
+   the run's commit is on `main`. The workflow at the run's commit writes
+   that summary, so a run on a tag that someone put on another commit can
+   show anything. `<sha>` is the commit the run shows;
+   `gh api repos/google/skills_lint.dart/compare/main...<sha> --jq .status`
+   prints `identical` or `behind` when it is on `main`. pub.dev, then the
+   GitHub release, are published.
 4. Follow the link in the **Homebrew** job's summary to open the formula's
    pull request.
 
