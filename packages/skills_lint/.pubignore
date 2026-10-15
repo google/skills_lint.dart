@@ -1,5 +1,6 @@
 # Development, benchmarking, and internal tooling
-/bench/
+/benchmark/
+/test/benchmark/
 /documentation/
 /evals/
 /scripts/
