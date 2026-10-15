@@ -22,7 +22,7 @@ Pull requests that change the release run this dry run too.
 
 ## After the release
 
-- Merge the formula's pull request once its `Homebrew` check passes.
+- Merge the formula's pull request once all of its checks pass.
 - Then merge a pull request that sets the next `-wip` version in
   `pubspec.yaml` and `version.dart`, adds a `## <version>-wip` section to
   `CHANGELOG.md`, and sets the released version in the `^<version>` and
@@ -68,10 +68,11 @@ Pull requests that change the release run this dry run too.
   next version.
 - **Homebrew**: **Re-run failed jobs**. It reuses the formula branch that an
   earlier attempt pushed, and fails if that branch holds another formula.
-- The `Homebrew` check of the formula pull request: in `release/`, run
+- The skills_lint repo test `homebrew_formula_test.dart` of the formula pull
+  request, with "it is not what the template gives": the template changed on
+  `main` after the tag. In `release/`, run
   `dart run bin/release.dart homebrew-formula --version <version> --sha256sums <the release's SHA256SUMS>`
-  on the branch and push. This happens when the template changed on `main`
-  after the tag.
+  on the branch and push.
 
 ## What can be undone
 
@@ -107,7 +108,7 @@ the tag is public.
   `pubspec.lock` at the repository root and run
   `dart pub get --enforce-lockfile`.
 - Every asset is attested by the build of the tagged commit. To check one:
-  `gh attestation verify <file> -R google/skills_lint.dart --signer-workflow google/skills_lint.dart/.github/workflows/release_build_and_tag.yaml --source-ref refs/heads/main`.
+  `gh attestation verify <file> -R google/skills_lint.dart --signer-workflow google/skills_lint.dart/.github/workflows/release_build_and_tag.yaml --source-ref refs/heads/main --source-digest "$(gh api repos/google/skills_lint.dart/commits/skills_lint-v<version> --jq .sha)"`.
 
 ## Targets
 
