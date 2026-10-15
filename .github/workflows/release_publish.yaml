@@ -234,13 +234,28 @@ jobs:
           VERSION: ${{ needs.verify-draft.outputs.version }}
         run: |
           branch="homebrew/$TAG"
-          git switch -c "$branch"
-          cp "$RUNNER_TEMP/verified/assets/skills_lint.rb" Formula/skills_lint.rb
-          git add Formula/skills_lint.rb
-          # 41898282 is the user ID of github-actions[bot].
-          git -c user.name='github-actions[bot]' \
-            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit -m "Update the Homebrew formula to $VERSION"
+          formula="$RUNNER_TEMP/verified/assets/skills_lint.rb"
           gh auth setup-git
-          git push origin "$branch"
+          # A re-run finds the branch that an earlier attempt pushed.
+          found=0
+          git ls-remote --exit-code --heads origin "$branch" > /dev/null || found=$?
+          if [ "$found" = 0 ]; then
+            git fetch --depth=1 origin "refs/heads/$branch"
+            if ! git show FETCH_HEAD:Formula/skills_lint.rb | cmp -s - "$formula"; then
+              echo "::error::$branch exists with another formula. Check it, delete it with git push origin --delete $branch, then re-run this job."
+              exit 1
+            fi
+          elif [ "$found" = 2 ]; then
+            git switch -c "$branch"
+            cp "$formula" Formula/skills_lint.rb
+            git add Formula/skills_lint.rb
+            # 41898282 is the user ID of github-actions[bot].
+            git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "Update the Homebrew formula to $VERSION"
+            git push origin "$branch"
+          else
+            echo "::error::Couldn't read the branches of origin. Re-run this job."
+            exit 1
+          fi
           echo "Open the pull request: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch?expand=1" >> "$GITHUB_STEP_SUMMARY"
