@@ -53,18 +53,27 @@ final class _FakeGh {
 /// Writes the assets that the build makes to [assets], with their
 /// SHA256SUMS. Each file holds its own name, so no two have the same
 /// checksum.
-void _writeBuild(Directory assets, {required bool homebrew}) {
+void _writeBuild(Directory assets, {required bool homebrew, String version = '0.6.0'}) {
   final List<String> listed = [
     for (final ReleaseTarget target in releaseTargets) archiveName(target.name),
     lockfileAsset,
   ];
-  for (final String name in [...listed, installScriptAsset, if (homebrew) formulaAsset]) {
+  for (final String name in [...listed, installScriptAsset]) {
     File(p.join(assets.path, name)).writeAsStringSync(name);
+  }
+  if (homebrew) {
+    File(p.join(assets.path, formulaAsset)).writeAsStringSync(_formula(version));
   }
   File(p.join(assets.path, sha256SumsName)).writeAsStringSync(
     [for (final name in listed) '${fileSha256(File(p.join(assets.path, name)))}  $name\n'].join(),
   );
 }
+
+/// A formula that installs [version], in the form that `readFormula` reads.
+String _formula(String version) =>
+    'version "$version"\n'
+    'url "https://example.com/${archiveName(releaseTargets.first.name)}"\n'
+    'sha256 "${'0' * 64}"\n';
 
 /// Deletes the asset [name] from [assets] and its line from SHA256SUMS.
 void _removeAsset(Directory assets, String name) {
@@ -79,16 +88,19 @@ void _removeAsset(Directory assets, String name) {
 }
 
 /// Calls [verifyDraft] on [assets] for a run on a tag, with [_FakeGh] unless
-/// [gh] is given.
+/// [gh] is given. The pubspec version is the tag's unless [pubspecVersion]
+/// is given.
 Future<VerifiedDraft> _verify(
   Directory assets, {
   required String tag,
   required String releaseJson,
   _FakeGh? gh,
   String refType = 'tag',
+  String? pubspecVersion,
 }) => verifyDraft(
   refType: refType,
   tag: tag,
+  pubspecVersion: pubspecVersion ?? tag.replaceFirst(tagPrefix, ''),
   repository: _repository,
   commit: _commit,
   releaseJson: releaseJson,
@@ -335,15 +347,35 @@ void main() {
     );
   });
 
-  test('a version that is neither a prerelease nor one Homebrew can name fails', () async {
-    _writeBuild(assets, homebrew: true);
+  test("a tag whose version isn't the pubspec version fails before reading the draft", () async {
+    final gh = _FakeGh();
     await _expectProblems(
       _verify(
         assets,
-        tag: '${tagPrefix}0.6.0+hotfix',
-        releaseJson: _releaseJson(prerelease: false),
+        tag: '${tagPrefix}0.6.0',
+        releaseJson: 'not read',
+        gh: gh,
+        pubspecVersion: '0.6.1',
       ),
-      ['0.6.0+hotfix'],
+      ['${tagPrefix}0.6.0 names 0.6.0', 'pubspec.yaml at $_commit has 0.6.1'],
+    );
+    expect(gh.calls, isEmpty);
+  });
+
+  test('a formula that installs another version fails and names both versions', () async {
+    _writeBuild(assets, homebrew: true, version: '0.5.9');
+    await _expectProblems(
+      _verify(assets, tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
+      ['$formulaAsset installs 0.5.9, not 0.6.0'],
+    );
+  });
+
+  test('a formula that readFormula cannot read fails and names it', () async {
+    _writeBuild(assets, homebrew: true);
+    File(p.join(assets.path, formulaAsset)).writeAsStringSync('class SkillsLint < Formula\nend\n');
+    await _expectProblems(
+      _verify(assets, tag: '${tagPrefix}0.6.0', releaseJson: _releaseJson(prerelease: false)),
+      ['$formulaAsset: The formula has 0 version lines'],
     );
   });
 

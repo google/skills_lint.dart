@@ -13,6 +13,7 @@ import 'package:path/path.dart' as p;
 
 import 'archive.dart';
 import 'checksums.dart';
+import 'homebrew_formula.dart';
 import 'paths.dart';
 import 'release_exception.dart';
 import 'release_info.dart';
@@ -65,22 +66,27 @@ final class VerifiedDraft {
 /// Checks the draft release of [tag] and returns what the publish workflow
 /// needs to know about it.
 ///
-/// [refType] and [tag] are the type and name of the workflow run's ref.
-/// [releaseJson] is what `gh release view <tag> --json isDraft,isPrerelease`
-/// printed, and [assets] holds every asset of the draft. The draft must
-/// hold, for this commit's build in [repository]:
+/// [refType] and [tag] are the type and name of the workflow run's ref, and
+/// [pubspecVersion] is the version in the skills_lint `pubspec.yaml` at
+/// [commit], which `dart pub publish` uploads. [releaseJson] is what
+/// `gh release view <tag> --json isDraft,isPrerelease` printed, and [assets]
+/// holds every asset of the draft. The draft must hold, for this commit's
+/// build in [repository]:
 ///
 /// - each [releaseTargets] archive, `SHA256SUMS`, `install.sh` and
 ///   `pubspec.lock`, plus `skills_lint.rb` unless it is a prerelease, and no
 ///   other file;
 /// - files that match their checksums in `SHA256SUMS`;
+/// - a `skills_lint.rb` that installs the tag's version;
 /// - files that each have an attestation from a run of [buildWorkflowPath]
 ///   on [releaseBranch] at [commit], which `gh attestation verify` checks.
 ///
-/// Throws a [ReleaseException] that says what to do if any of these fail.
+/// Throws a [ReleaseException] that says what to do if any of these fail,
+/// or if the tag's version isn't [pubspecVersion].
 Future<VerifiedDraft> verifyDraft({
   required String refType,
   required String tag,
+  required String pubspecVersion,
   required String repository,
   required String commit,
   required String releaseJson,
@@ -88,16 +94,20 @@ Future<VerifiedDraft> verifyDraft({
   RunProcess runProcess = Process.run,
 }) async {
   final String version = _versionOfTag(refType: refType, tag: tag);
-  final bool prerelease = isPrerelease(version);
-  if (!prerelease && !isHomebrewVersion(version)) {
+  if (version != pubspecVersion) {
     throw ReleaseException(
-      '$version is neither a prerelease nor a version the Homebrew formula can name, so no '
-      'build stages it. Release the next version.',
+      '$tag names $version, but packages/skills_lint/pubspec.yaml at $commit has '
+      '$pubspecVersion, so pub.dev would get the wrong version. Publish nothing from this tag: '
+      'delete its draft, and release the next version with Build and tag a release.',
     );
   }
+  final bool prerelease = isPrerelease(version);
   _checkDraft(releaseJson, tag: tag, prerelease: prerelease);
 
-  final List<String> problems = [..._fileProblems(assets, homebrew: !prerelease)];
+  final List<String> problems = [
+    ..._fileProblems(assets, homebrew: !prerelease),
+    if (!prerelease) ?_formulaProblem(assets, version: version),
+  ];
   final Set<String> buildRuns = {};
   for (final File file in _files(assets)) {
     final ProcessResult result = await runProcess('gh', [
@@ -231,6 +241,23 @@ List<String> _fileProblems(Directory assets, {required bool homebrew}) {
     }
   }
   return problems;
+}
+
+/// What is wrong with the `skills_lint.rb` in [assets], if there is one and
+/// it doesn't install [version], or null.
+String? _formulaProblem(Directory assets, {required String version}) {
+  final formula = File(p.join(assets.path, formulaAsset));
+  if (!formula.existsSync()) {
+    return null;
+  }
+  try {
+    final String installs = readFormula(
+      formula.readAsStringSync().replaceAll('\r\n', '\n'),
+    ).version;
+    return installs == version ? null : '$formulaAsset installs $installs, not $version.';
+  } on ReleaseException catch (e) {
+    return '$formulaAsset: ${e.message}';
+  }
 }
 
 /// The URL of the build run in each verification result that

@@ -280,6 +280,7 @@ class _VerifyDraftCommand extends _ReleaseCommand {
     final VerifiedDraft draft = await verifyDraft(
       refType: option('ref-type'),
       tag: option('tag'),
+      pubspecVersion: _pubspecVersion(),
       repository: option('repository'),
       commit: option('commit'),
       releaseJson: File(option('release-json')).readAsStringSync(),
