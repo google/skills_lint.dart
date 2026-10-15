@@ -112,6 +112,9 @@ void main() {
       [script ?? p.join(skillsLintPackageDir, 'scripts', 'install.sh')],
       environment: {
         'PATH': '${bin.path}:${Platform.environment['PATH']}',
+        // Non-interactive bash sources $BASH_ENV, and the mock uname is a bash
+        // script, so a BASH_ENV that runs uname would recurse forever.
+        'BASH_ENV': '',
         'MOCK_RELEASE_DIR': release.path,
         'MOCK_CURL_LOG': p.join(temp.path, 'curl.log'),
         'MOCK_UNAME_S': unameS,

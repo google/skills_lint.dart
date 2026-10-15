@@ -10,6 +10,11 @@ import 'package:test_process/test_process.dart';
 /// A dummy SHA256 checksum that represents an invalid/corrupted release file hash.
 const _corruptedHash = '0000000000000000000000000000000000000000000000000000000000000000';
 
+/// Environment entries that keep the bash runs below hermetic. Non-interactive
+/// bash sources $BASH_ENV, and the mock uname is a bash script, so a BASH_ENV
+/// that runs uname would recurse forever.
+const _hermeticBashEnv = {'BASH_ENV': ''};
+
 /// A mock implementation of the `curl` command line utility.
 ///
 /// Simulates downloading a release artifact by copying the source file from
@@ -257,6 +262,7 @@ void main() {
         'bash',
         [scriptPath],
         environment: {
+          ..._hermeticBashEnv,
           'PATH': newPath,
           'MOCK_UNAME_S': 'Darwin',
           'MOCK_UNAME_M': 'arm64',
@@ -322,6 +328,7 @@ void main() {
             '/bin/bash',
             [scriptPath],
             environment: {
+              ..._hermeticBashEnv,
               'PATH': testBinDir.path,
               'MOCK_UNAME_S': 'Darwin',
               'MOCK_UNAME_M': 'arm64',
@@ -375,6 +382,7 @@ void main() {
           '/bin/bash',
           [scriptPath],
           environment: {
+            ..._hermeticBashEnv,
             'PATH': testBinDir.path,
             'MOCK_UNAME_S': 'Darwin',
             'MOCK_UNAME_M': 'arm64',
@@ -404,6 +412,7 @@ void main() {
         'bash',
         [scriptPath],
         environment: {
+          ..._hermeticBashEnv,
           'PATH': newPath,
           'MOCK_UNAME_S': 'Linux',
           'MOCK_UNAME_M': 'i386',
@@ -568,6 +577,7 @@ Future<void> _runInstallScriptTest({
     'bash',
     [scriptPath],
     environment: {
+      ..._hermeticBashEnv,
       'PATH': newPath,
       'MOCK_UNAME_S': mockUnameS,
       'MOCK_UNAME_M': mockUnameM,
@@ -612,7 +622,12 @@ Future<List<String>> _runInstallScriptExpectingFailure({
   final TestProcess process = await TestProcess.start(
     'bash',
     [scriptPath],
-    environment: {'PATH': newPath, 'INSTALL_DIR': installDir.path, ...environment},
+    environment: {
+      ..._hermeticBashEnv,
+      'PATH': newPath,
+      'INSTALL_DIR': installDir.path,
+      ...environment,
+    },
   );
   final List<String> stderr = await process.stderr.rest.toList();
   await process.shouldExit(1);
