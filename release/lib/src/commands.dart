@@ -54,7 +54,7 @@ Future<int> runRelease(List<String> arguments) async {
   }
 }
 
-/// A `release` subcommand whose options are all mandatory.
+/// A `release` subcommand, with [option] to read its mandatory options.
 abstract class _ReleaseCommand extends Command<void> {
   /// Returns the value of the mandatory option [name].
   ///
