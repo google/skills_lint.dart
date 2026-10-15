@@ -235,13 +235,6 @@ jobs:
           path: ${{ runner.temp }}/dist/
           if-no-files-found: error
           retention-days: 30 # As long as GitHub lets a job be re-run.
-      - name: Write the job summary
-        env:
-          MODE: ${{ needs.plan.outputs.mode }}
-          TAG: ${{ needs.plan.outputs.tag }}
-        run: >-
-          echo "Built the assets for $TAG (mode: $MODE). They are in the release-assets
-          artifact of this run." >> "$GITHUB_STEP_SUMMARY"
 
   check-homebrew-formula:
     name: 'Check: Homebrew formula with brew style and audit'
