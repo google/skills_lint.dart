@@ -2,9 +2,10 @@
 
 ## How to release
 
-1. Merge a pull request that sets `version` in
-   `packages/skills_lint/pubspec.yaml` to the version to release, without
-   `-wip`, and adds a `## <version>` section to `CHANGELOG.md`.
+1. Merge a pull request that sets the version to release, without `-wip`, in
+   `packages/skills_lint/pubspec.yaml` and
+   `packages/skills_lint/lib/src/version.dart`, and adds a `## <version>`
+   section to `CHANGELOG.md`.
 2. Run **Actions > Build and tag a release** on `main` with that version, or
    `gh workflow run release_build_and_tag.yaml -R google/skills_lint.dart --ref main -f version=<version>`.
    It checks and builds everything, tags `skills_lint-v<version>`, creates a
@@ -13,7 +14,38 @@
    **Verify** job's summary shows your version, its build run and the pull
    request that merged it. pub.dev, then the GitHub release, are published.
 4. Follow the link in the **Homebrew** job's summary to open the formula's
-   pull request, and merge it once its `Homebrew` check passes.
+   pull request.
+
+To try the build without releasing, run it on any branch without a version:
+`gh workflow run release_build_and_tag.yaml -R google/skills_lint.dart --ref <branch>`.
+Pull requests that change the release run this dry run too.
+
+## After the release
+
+- Merge the formula's pull request once its `Homebrew` check passes.
+- Then merge a pull request that sets the next `-wip` version in
+  `pubspec.yaml` and `version.dart`, adds a `## <version>-wip` section to
+  `CHANGELOG.md`, and sets the released version in the `^<version>` and
+  `VERSION="<version>"` lines of `packages/skills_lint/README.md`, which no
+  test checks.
+- Bumping before the formula's pull request merges fails the repo tests: the
+  formula's placeholder version must be the pubspec version without `-wip`.
+
+## One-time setup
+
+- On [pub.dev's admin page](https://pub.dev/packages/skills_lint/admin),
+  automated publishing from GitHub Actions is on for this repository, from
+  `workflow_dispatch` runs only, with the tag pattern
+  `skills_lint-v{{version}}` and the environment `pub.dev`.
+- The repository's `pub.dev` environment has a required reviewer and allows
+  only `skills_lint-v*` tags. The required reviewers are the people who can
+  approve publishing. GitHub re-creates a deleted environment without these
+  rules, and pub.dev checks only its name, so re-add them if it is ever
+  re-created. Until then, the **Plan** job fails.
+- Immutable releases are on in the repository settings. **Publish 2 of 2**
+  fails otherwise.
+- The `main` ruleset (21051370) requires the `Homebrew` status check, so a
+  formula that brew rejects can't merge.
 
 ## If a job fails
 
@@ -34,7 +66,8 @@
 - **Publish 2 of 2** after it publishes: re-run the job once. If it fails
   again, stop. Delete the release, tell the maintainers, and release the
   next version.
-- **Homebrew**: **Re-run failed jobs**.
+- **Homebrew**: **Re-run failed jobs**. It reuses the formula branch that an
+  earlier attempt pushed, and fails if that branch holds another formula.
 - The `Homebrew` check of the formula pull request: in `release/`, run
   `dart run bin/release.dart homebrew-formula --version <version> --sha256sums <the release's SHA256SUMS>`
   on the branch and push. This happens when the template changed on `main`
@@ -93,6 +126,5 @@ no Windows executable yet ([#86](https://github.com/google/skills_lint.dart/issu
 from [`skills_lint.rb.tmpl`](release/templates/skills_lint.rb.tmpl); only the
 version and each target's `url` and `sha256` are generated. Until a release
 has executables, the checksums are placeholders and `brew install` fails. The
-repo tests fail when the formula isn't what the template gives. Require the
-`Homebrew` status check on `main` (ruleset 21051370). Don't rename the tap
+repo tests fail when the formula isn't what the template gives. Don't rename the tap
 `google/skills-lint` or the formula `skills_lint`: published READMEs use them.
