@@ -6,7 +6,7 @@
 /// action, reusable workflow or Docker image in more than one way.
 ///
 /// Every use of an action should name the same ref and version comment.
-/// Dependabot (`.github/dependabot.yml`) updates every use in one pull
+/// Dependabot (`.github/dependabot.yaml`) updates every use in one pull
 /// request, but a hand edit can change one workflow and miss the others. Some
 /// workflows then run an older version than the rest, or a version comment
 /// names a release that its commit isn't.
@@ -57,7 +57,10 @@ final class ActionPin {
 /// Throws a [StateError] if either directory is missing, so a moved
 /// directory fails the scan instead of leaving its files unchecked. Also
 /// throws if a file there uses the `.yml` extension, which GitHub accepts
-/// too, so that no workflow or action goes unchecked.
+/// too, so that no workflow or action goes unchecked. Also throws on a
+/// `.github/dependabot.yml`: Dependabot reads it in preference to
+/// `.github/dependabot.yaml`, so a stray copy would replace the
+/// configuration that groups action updates.
 List<File> actionPinFiles(String repoRoot) {
   final workflows = Directory(p.join(repoRoot, '.github', 'workflows'));
   final actions = Directory(p.join(repoRoot, '.github', 'actions'));
@@ -73,6 +76,9 @@ List<File> actionPinFiles(String repoRoot) {
       if (p.extension(file.path) == '.yml') file.path,
     for (final File file in actionFiles)
       if (p.basename(file.path) == 'action.yml') file.path,
+    if (File(p.join(repoRoot, '.github', 'dependabot.yml')) case final dependabot
+        when dependabot.existsSync())
+      dependabot.path,
   ];
   if (ymlFiles.isNotEmpty) {
     throw StateError(

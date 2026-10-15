@@ -42,7 +42,8 @@ void main() {
         '.github/actions/tap/action.yaml',
         '.github/actions/digests/action.yaml',
         '.github/actions/tap/README.md',
-        '.github/dependabot.yml',
+        '.github/dependabot.yaml',
+        '.github/FUNDING.yml',
       ]);
       expect(
         [
@@ -76,6 +77,28 @@ void main() {
               contains(p.join('tap', 'action.yml')),
               isNot(contains('ci.yaml')),
               isNot(contains('digests')),
+            ),
+          ),
+        ),
+      );
+    });
+
+    test('fails on .github/dependabot.yml, which Dependabot reads before dependabot.yaml', () {
+      createFiles([
+        '.github/workflows/ci.yaml',
+        '.github/actions/tap/action.yaml',
+        '.github/dependabot.yaml',
+        '.github/dependabot.yml',
+      ]);
+      expect(
+        () => actionPinFiles(root.path),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains(p.join('.github', 'dependabot.yml')),
+              isNot(contains('dependabot.yaml')),
             ),
           ),
         ),
