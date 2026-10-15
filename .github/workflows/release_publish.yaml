@@ -200,7 +200,7 @@ jobs:
             exit 1
           fi
           # A read of the release can lag behind the publish, or fail.
-          for attempt in 1 2 3; do
+          for _ in 1 2 3; do
             immutable="$(gh release view "$TAG" --json isImmutable --jq .isImmutable || true)"
             [ "$immutable" = true ] && break
             sleep 5
