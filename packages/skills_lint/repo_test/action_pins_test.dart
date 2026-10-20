@@ -42,4 +42,9 @@ const String _fix =
     'Pin every use of an action, reusable workflow or Docker image to the same '
     'ref and version comment in every file under .github/workflows/ and '
     '.github/actions/. '
-    'When you update a pin by hand, update every use of it in the same change.';
+    'To update an action, have Dependabot do it rather than editing pins by '
+    'hand: on GitHub, open Insights > Dependency graph > Dependabot, click '
+    '"Last checked <time> ago" next to a github-actions manifest, then click '
+    '"Check for updates". Dependabot opens one pull request that updates '
+    'every use of each action, for versions released at least 7 days ago '
+    '(the cooldown in .github/dependabot.yaml).';
