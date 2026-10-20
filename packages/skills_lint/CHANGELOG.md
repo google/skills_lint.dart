@@ -15,6 +15,7 @@
 - **Behavior change:** `invalid-skill-name` reads a `name` that YAML loads as a number or boolean as the text written, so `name: 1e3` matches a `1e3` directory, and `name: 0x1f` no longer matches a `31` directory, nor `name: True` a `true` one.
 - Added a `--version` flag that prints the skills_lint version.
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
+- The published package includes its agent skills, so `dart run skills@ get` installs them.
 
 ## 0.5.2
 
