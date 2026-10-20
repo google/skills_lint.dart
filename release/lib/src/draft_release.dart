@@ -229,10 +229,10 @@ List<String> _fileProblems(Directory assets, {required bool homebrew}) {
     installScriptAsset,
     if (homebrew) formulaAsset,
   };
-  for (final String name in expected.difference(files.keys.toSet()).toList()..sort()) {
+  for (final String name in expected.where((name) => !files.containsKey(name)).toList()..sort()) {
     problems.add('$name is missing.');
   }
-  for (final String name in files.keys.toSet().difference(expected).toList()..sort()) {
+  for (final String name in files.keys.where((name) => !expected.contains(name)).toList()..sort()) {
     problems.add('$name is not an asset of the build.');
   }
   for (final MapEntry(key: name, value: checksum) in checksums.entries) {
@@ -244,15 +244,19 @@ List<String> _fileProblems(Directory assets, {required bool homebrew}) {
   return problems;
 }
 
-/// What is wrong with the `skills_lint.rb` in [assets], if there is one and
-/// it doesn't install [version], or null.
+/// Description of the problem with the `skills_lint.rb` in [assets].
+///
+/// Is `null` if [assets] has no `skills_lint.rb`, or has one that installs
+/// [version].
 String? _formulaProblem(Directory assets, {required String version}) {
   final formula = File(p.join(assets.path, formulaAsset));
   if (!formula.existsSync()) {
     return null;
   }
   try {
-    final String installs = readFormula(formula.readAsStringSync().normalizeLineTerminators()).version;
+    final String installs = readFormula(
+      formula.readAsStringSync().normalizeLineTerminators(),
+    ).version;
     return installs == version ? null : '$formulaAsset installs $installs, not $version.';
   } on ReleaseException catch (e) {
     return '$formulaAsset: ${e.message}';
