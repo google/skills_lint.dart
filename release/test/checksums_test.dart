@@ -117,10 +117,10 @@ void main() {
     final String second = 'b' * 64;
 
     test('reads "<sha256>  <name>" lines and skips whitespace-only lines', () {
-      expect(parseSha256Sums('$first  skills_lint-macos-arm64.tar.gz\n\n \t\n$second  pubspec.lock\n'), {
-        'skills_lint-macos-arm64.tar.gz': first,
-        'pubspec.lock': second,
-      });
+      expect(
+        parseSha256Sums('$first  skills_lint-macos-arm64.tar.gz\n\n \t\n$second  pubspec.lock\n'),
+        {'skills_lint-macos-arm64.tar.gz': first, 'pubspec.lock': second},
+      );
     });
 
     test('rejects a line that is not exactly a lowercase checksum, two spaces and a name', () {
