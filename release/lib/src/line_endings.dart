@@ -2,8 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Line terminators that are not a lone `\n`: `\r\n`, and the lone `\r` of
-/// classic Mac OS.
+/// The line terminators other than `\n`.
+///
+/// These are `\r\n`, and the lone `\r` of classic Mac OS.
 final RegExp _nonLfLineTerminator = RegExp(r'\r\n?');
 
 /// Line-ending normalization for text read from a checkout.

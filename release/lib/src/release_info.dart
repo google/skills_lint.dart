@@ -67,12 +67,14 @@ final RegExp _homebrewVersion = RegExp(r'^\d+\.\d+\.\d+(\+\d+)?$');
 /// prerelease, and the formula's livecheck regex reads only numeric builds.
 bool isHomebrewVersion(String version) => _homebrewVersion.hasMatch(version);
 
-/// The release that [pubspecVersion] works toward: [pubspecVersion] without
-/// `-wip`.
+/// The release that [pubspecVersion] works toward.
+///
+/// This is [pubspecVersion] without `-wip`.
 String pendingRelease(String pubspecVersion) => pubspecVersion.replaceFirst('-wip', '');
 
-/// The version that the Homebrew formula names for a run of [version], or
-/// null for a prerelease, which the formula skips.
+/// The version that the Homebrew formula names for a run of [version].
+///
+/// Is `null` for a prerelease, which the formula skips.
 ///
 /// A dry run of a `-wip` version gives the release it works toward, so the
 /// run can check that the formula template renders it.
@@ -81,14 +83,16 @@ String? formulaVersion(String version) {
   return isHomebrewVersion(pending) ? pending : null;
 }
 
-/// Whether [version] is a prerelease: it has a `-` suffix, such as
-/// `1.0.0-dev.1`. A prerelease has no Homebrew formula, and GitHub doesn't
-/// offer it as the latest release.
+/// Whether [version] is a prerelease.
+///
+/// A prerelease has a `-` suffix, such as `1.0.0-dev.1`. It has no Homebrew
+/// formula, and GitHub doesn't offer it as the latest release.
 bool isPrerelease(String version) => version.contains('-');
 
-/// Throws a [ReleaseException] if [version] holds a character other than a
-/// letter, digit, `.`, `+` or `-`. [source] names where it came from, such
-/// as `The pubspec.yaml version`.
+/// Checks that [version] holds only letters, digits, `.`, `+` and `-`.
+///
+/// Throws a [ReleaseException] otherwise. The [source] names where the
+/// version came from, such as `The pubspec.yaml version`.
 void checkVersionCharacters(String version, {required String source}) {
   if (!_versionCharacters.hasMatch(version)) {
     throw ReleaseException(
@@ -97,7 +101,7 @@ void checkVersionCharacters(String version, {required String source}) {
   }
 }
 
-/// Returns the `version` from the [pubspec] YAML text.
+/// The `version` from the [pubspec] YAML text.
 ///
 /// Throws a [ReleaseException] if there is no version, or if it holds a
 /// character other than a letter, digit, `.`, `+` or `-`.
@@ -111,10 +115,11 @@ String readPubspecVersion(String pubspec) {
   return version;
 }
 
-/// Returns the release for a run of the build workflow for [event] on the
-/// ref [refName] of type [refType] (`branch` or `tag`), for the package
-/// [version]. [releaseVersion] is the run's `version` input: the version to
-/// release, or null for a dry run.
+/// The release that a run of the build workflow works on.
+///
+/// The run is for [event] on the ref [refName] of type [refType] (`branch` or
+/// `tag`), for the package [version]. The [releaseVersion] is the run's
+/// `version` input: the version to release, or null for a dry run.
 ///
 /// - A `pull_request` run, or a `workflow_dispatch` run without a
 ///   [releaseVersion], is a [ReleaseMode.dryRun].

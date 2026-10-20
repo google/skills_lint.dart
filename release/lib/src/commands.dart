@@ -58,7 +58,7 @@ Future<int> runRelease(List<String> arguments) async {
 
 /// A `release` subcommand, with [option] to read its mandatory options.
 abstract class _ReleaseCommand extends Command<void> {
-  /// Returns the value of the mandatory option [name].
+  /// The value of the mandatory option [name].
   ///
   /// Throws a [UsageException] if it wasn't given. `package:args` throws an
   /// [ArgumentError] instead when a mandatory option is read.
@@ -381,10 +381,11 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
   }
 }
 
-/// Returns [value], or null if it is null or empty. A workflow passes an
-/// input that wasn't given as an empty value.
+/// The [value], or null if it is null or empty.
+///
+/// A workflow passes an input that wasn't given as an empty value.
 String? _nonEmpty(String? value) => value == null || value.isEmpty ? null : value;
 
-/// Returns the version in the skills_lint `pubspec.yaml`.
+/// The version in the skills_lint `pubspec.yaml`.
 String _pubspecVersion() =>
     readPubspecVersion(File(p.join(skillsLintPackageDir, 'pubspec.yaml')).readAsStringSync());

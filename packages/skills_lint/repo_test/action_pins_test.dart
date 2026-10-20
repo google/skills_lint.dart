@@ -11,9 +11,10 @@ import 'src/action_pins.dart';
 import 'src/repo_paths.dart';
 import 'src/source_conventions.dart';
 
-/// Checks that the workflows in `.github/workflows/` and the composite actions
-/// in `.github/actions/` pin each action, reusable workflow and Docker image
-/// the same way.
+/// Checks that each action, reusable workflow and Docker image has one pin.
+///
+/// Covers the workflows in `.github/workflows/` and the composite actions in
+/// `.github/actions/`.
 ///
 /// `src/action_pins.dart` says why. `checkers/action_pins_test.dart` pins
 /// what the detectors report on small snippets.

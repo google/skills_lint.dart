@@ -87,7 +87,7 @@ String renderFormula(
 /// The formula that [template] gives for the release [version], with the
 /// checksums from [sha256Sums], the text of the release's `SHA256SUMS`.
 ///
-/// [version] must be one that [isHomebrewVersion] accepts.
+/// The [version] must be one that [isHomebrewVersion] accepts.
 ///
 /// Throws a [ReleaseException] if [readFormula] can't read [version] and
 /// each archive's checksum back from the result, or for any reason
@@ -178,8 +178,5 @@ FormulaValues readFormula(String formula) {
     checksums[archive[1]!] = archive[2]!;
   }
   final bool placeholders = checksums.values.every((String sha) => sha == placeholderSha256);
-  return FormulaValues(
-    version: versions[0][1]!,
-    checksums: placeholders ? null : checksums,
-  );
+  return FormulaValues(version: versions[0][1]!, checksums: placeholders ? null : checksums);
 }

@@ -138,7 +138,7 @@ end
       // Each template, and a part of the error that names the check that
       // rejects it.
       final templates = {
-        // readFormula needs the version line to end at its closing quote.
+        // The readFormula function needs the version line to end at its closing quote.
         'version "{{version}}" # x\n{{platforms}}\n': '0 version lines',
         'version "1.0.0"\n# {{version}}\n{{platforms}}\n': 'gives version 1.0.0, not 1.2.0',
         '$_template\n'

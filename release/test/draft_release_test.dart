@@ -17,12 +17,12 @@ const String _repository = 'google/skills_lint.dart';
 const String _commit = '0123456789abcdef0123456789abcdef01234567';
 const String _buildRun = 'https://github.com/google/skills_lint.dart/actions/runs/1/attempts/1';
 
-/// `gh release view --json isDraft,isPrerelease` output for a draft.
+/// The output of `gh release view --json isDraft,isPrerelease` for a draft.
 String _releaseJson({required bool prerelease, bool draft = true}) =>
     jsonEncode({'isDraft': draft, 'isPrerelease': prerelease});
 
-/// `gh attestation verify --format json` output for one attestation signed
-/// by [run].
+/// The output of `gh attestation verify --format json` for one attestation
+/// signed by [run].
 String _attestation(String run) => jsonEncode([
   {
     'verificationResult': {
@@ -33,8 +33,9 @@ String _attestation(String run) => jsonEncode([
   },
 ]);
 
-/// Stands in for `gh`: records each call, and answers each
-/// `gh attestation verify` with `answer` for the file it names.
+/// A fake `gh` that records each call.
+///
+/// Answers each `gh attestation verify` with `answer` for the file it names.
 final class _FakeGh {
   _FakeGh({ProcessResult Function(String name)? answer})
     : _answer = answer ?? ((_) => ProcessResult(0, 0, _attestation(_buildRun), ''));
@@ -50,9 +51,9 @@ final class _FakeGh {
   }
 }
 
-/// Writes the assets that the build makes to [assets], with their
-/// SHA256SUMS. Each file holds its own name, so no two have the same
-/// checksum.
+/// Writes the assets that the build makes to [assets], with their SHA256SUMS.
+///
+/// Each file holds its own name, so no two have the same checksum.
 void _writeBuild(Directory assets, {required bool homebrew, String version = '0.6.0'}) {
   final List<String> listed = [
     for (final ReleaseTarget target in releaseTargets) archiveName(target.name),
@@ -87,9 +88,10 @@ void _removeAsset(Directory assets, String name) {
   File(p.join(assets.path, name)).deleteSync();
 }
 
-/// Calls [verifyDraft] on [assets] for a run on a tag, with [_FakeGh] unless
-/// [gh] is given. The pubspec version is the tag's unless [pubspecVersion]
-/// is given.
+/// Calls [verifyDraft] on [assets] for a run on a tag.
+///
+/// Uses [_FakeGh] unless [gh] is given. The pubspec version is the tag's
+/// unless [pubspecVersion] is given.
 Future<VerifiedDraft> _verify(
   Directory assets, {
   required String tag,

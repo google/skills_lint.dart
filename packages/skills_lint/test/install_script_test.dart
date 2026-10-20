@@ -10,9 +10,10 @@ import 'package:test_process/test_process.dart';
 /// A dummy SHA256 checksum that represents an invalid/corrupted release file hash.
 const _corruptedHash = '0000000000000000000000000000000000000000000000000000000000000000';
 
-/// Environment entries that keep the bash runs below hermetic. Non-interactive
-/// bash sources $BASH_ENV, and the mock uname is a bash script, so a BASH_ENV
-/// that runs uname would recurse forever.
+/// Environment entries that keep the bash runs below hermetic.
+///
+/// Non-interactive bash sources $BASH_ENV, and the mock uname is a bash
+/// script, so a BASH_ENV that runs uname would recurse forever.
 const _hermeticBashEnv = {'BASH_ENV': ''};
 
 /// A mock implementation of the `curl` command line utility.

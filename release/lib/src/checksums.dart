@@ -54,9 +54,11 @@ String _line(File file) => '${fileSha256(file)}$_shasumSeparator${p.basename(fil
 File writeChecksum(File file) =>
     File('${file.path}$checksumSuffix')..writeAsStringSync('${_line(file)}\n');
 
-/// Checks each `.sha256` file in [dir] against the file it names, then writes
-/// their lines, sorted by file name, to [sha256SumsName] in [dir], deletes
-/// the `.sha256` files and returns the [sha256SumsName] file.
+/// Merges the `.sha256` files in [dir] into one [sha256SumsName] file.
+///
+/// Checks each `.sha256` file against the file it names, then writes their
+/// lines, sorted by file name, to [sha256SumsName] in [dir], deletes the
+/// `.sha256` files and returns the [sha256SumsName] file.
 ///
 /// Throws a [ReleaseException] if [dir] has no `.tar.gz` archive, an archive
 /// has no `.sha256` file, or a `.sha256` file doesn't hold one checksum line

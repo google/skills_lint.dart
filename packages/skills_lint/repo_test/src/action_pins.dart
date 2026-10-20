@@ -50,9 +50,10 @@ final class ActionPin {
   String get pin => comment == null ? ref : '$ref # $comment';
 }
 
-/// The files under [repoRoot] whose `uses:` pins must agree, sorted by path:
-/// every `.yaml` workflow in `.github/workflows/` and every composite
-/// action's `action.yaml` under `.github/actions/`.
+/// The workflow and action files under [repoRoot] whose pins must agree.
+///
+/// These are every `.yaml` workflow in `.github/workflows/` and every
+/// composite action's `action.yaml` under `.github/actions/`, sorted by path.
 ///
 /// Throws a [StateError] if either directory is missing, so a moved
 /// directory fails the scan instead of leaving its files unchecked. Also
@@ -93,11 +94,12 @@ List<File> actionPinFiles(String repoRoot) {
   return files..sort((a, b) => a.path.compareTo(b.path));
 }
 
-/// Returns the `uses:` references in [content], in file order: a workflow's
-/// `jobs.<id>.uses` and `jobs.<id>.steps[*].uses`, or a composite action's
-/// `runs.steps[*].uses`.
+/// Finds the `uses:` references in a workflow or composite action.
 ///
-/// [path] is the file's repository-relative path, used in each
+/// Reads a workflow's `jobs.<id>.uses` and `jobs.<id>.steps[*].uses`, or a
+/// composite action's `runs.steps[*].uses`, from [content], in file order.
+///
+/// The [path] is the file's repository-relative path, used in each
 /// [ActionPin]. Local references (`./...`) are skipped: they name code in
 /// this repository at the same commit, so they have no pin.
 List<ActionPin> findActionPins(String path, String content) => [
@@ -129,7 +131,9 @@ Iterable<YamlScalar> _usesNodes(YamlNode root) sync* {
   }
   // Each `yield*` costs more than a plain loop, so skip it when there are no
   // steps to visit.
-  if (root.nodes['runs'] case YamlMap(nodes: {'steps': final YamlList steps}) when steps.isNotEmpty) {
+  if (root.nodes['runs'] case YamlMap(
+    nodes: {'steps': final YamlList steps},
+  ) when steps.isNotEmpty) {
     yield* _stepUses(steps);
   }
   if (root.nodes['jobs'] case YamlMap(nodes: final jobs)) {

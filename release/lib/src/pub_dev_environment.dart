@@ -13,10 +13,12 @@ import 'release_info.dart';
 /// The GitHub Actions environment that pub.dev requires for publishing.
 const String pubDevEnvironment = 'pub.dev';
 
-/// Throws a [ReleaseException] unless [pubDevEnvironment] has a required
+/// Checks that the [pubDevEnvironment] environment protects publishing.
+///
+/// Throws a [ReleaseException] unless the environment has a required
 /// reviewer and allows deployments only from [tagPrefix] tags.
 ///
-/// [environment] is the JSON that GitHub's
+/// The [environment] is the JSON that GitHub's
 /// [get an environment](https://docs.github.com/en/rest/deployments/environments#get-an-environment)
 /// API returns, and [branchPolicies] the JSON of its
 /// [list deployment branch policies](https://docs.github.com/en/rest/deployments/branch-policies#list-deployment-branch-policies)

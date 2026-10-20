@@ -33,8 +33,9 @@ const String lockfileAsset = 'pubspec.lock';
 /// The release asset that holds the Homebrew formula for the release.
 final String formulaAsset = p.basename(homebrewFormulaPath);
 
-/// Runs [executable] with [arguments]. [verifyDraft] takes one so that tests
-/// can stand in for `gh`.
+/// Runs [executable] with [arguments].
+///
+/// The [verifyDraft] function takes one so that tests can stand in for `gh`.
 typedef RunProcess = Future<ProcessResult> Function(String executable, List<String> arguments);
 
 /// A draft release that matches the build of its commit.
@@ -44,14 +45,16 @@ final class VerifiedDraft {
   /// The version that the release's tag names.
   final String version;
 
-  /// Whether the release has a Homebrew formula: every release that isn't a
-  /// prerelease does.
+  /// Whether the release has a Homebrew formula.
+  ///
+  /// Every release that isn't a prerelease has one.
   final bool homebrew;
 
   /// The URL of each build workflow run that attested the assets, sorted.
   final List<String> buildRuns;
 
-  /// [version] and [homebrew] as `name=value` lines for `$GITHUB_OUTPUT`.
+  /// The [version] and [homebrew] values as `name=value` lines for
+  /// `$GITHUB_OUTPUT`.
   String get outputLines => 'version=$version\nhomebrew=$homebrew\n';
 
   /// Markdown for the job summary, for the person who approves publishing to
@@ -64,12 +67,13 @@ final class VerifiedDraft {
   ].join('\n');
 }
 
-/// Checks the draft release of [tag] and returns what the publish workflow
-/// needs to know about it.
+/// Checks the draft release of [tag] against the build of its commit.
 ///
-/// [refType] and [tag] are the type and name of the workflow run's ref, and
-/// [pubspecVersion] is the version in the skills_lint `pubspec.yaml` at
-/// [commit], which `dart pub publish` uploads. [releaseJson] is what
+/// Returns what the publish workflow needs to know about the release.
+///
+/// The [refType] and [tag] are the type and name of the workflow run's ref,
+/// and [pubspecVersion] is the version in the skills_lint `pubspec.yaml` at
+/// [commit], which `dart pub publish` uploads. The [releaseJson] is what
 /// `gh release view <tag> --json isDraft,isPrerelease` printed, and [assets]
 /// holds every asset of the draft. The draft must hold, for this commit's
 /// build in [repository]:
@@ -198,7 +202,8 @@ List<File> _files(Directory assets) =>
     assets.listSync().whereType<File>().toList()..sort((a, b) => a.path.compareTo(b.path));
 
 /// What is wrong with the set of files in [assets] and their checksums.
-/// [homebrew] says whether the release has a Homebrew formula.
+///
+/// The [homebrew] flag says whether the release has a Homebrew formula.
 List<String> _fileProblems(Directory assets, {required bool homebrew}) {
   final Map<String, File> files = {
     for (final File file in _files(assets)) p.basename(file.path): file,
@@ -263,9 +268,10 @@ String? _formulaProblem(Directory assets, {required String version}) {
   }
 }
 
-/// The URL of the build run in each verification result that
-/// `gh attestation verify --format json` printed as [json], or null if
-/// [json] isn't in that format.
+/// The URL of the build run in each attestation verification result.
+///
+/// The [json] is what `gh attestation verify --format json` printed. Is
+/// `null` if [json] isn't in that format.
 List<String>? _buildRuns(String json) {
   final Object? results;
   try {
