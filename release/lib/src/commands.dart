@@ -8,6 +8,7 @@ library;
 
 import 'dart:io';
 
+import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
 
@@ -62,16 +63,18 @@ abstract class _ReleaseCommand extends Command<void> {
   /// Throws a [UsageException] if it wasn't given. `package:args` throws an
   /// [ArgumentError] instead when a mandatory option is read.
   String option(String name) {
-    if (!argResults!.wasParsed(name)) {
+    final ArgResults argResults = this.argResults!;
+    if (!argResults.wasParsed(name)) {
       usageException('Option $name is mandatory.');
     }
-    return argResults!.option(name)!;
+    return argResults.option(name)!;
   }
 
   /// Throws a [UsageException] if any positional arguments were given.
   void noRest() {
-    if (argResults!.rest.isNotEmpty) {
-      usageException('Unexpected arguments: ${argResults!.rest.join(' ')}');
+    final List<String> rest = argResults!.rest;
+    if (rest.isNotEmpty) {
+      usageException('Unexpected arguments: ${rest.join(' ')}');
     }
   }
 }
@@ -144,7 +147,7 @@ class _ChecksumsCommand extends _ReleaseCommand {
     if (rest.length != 1) {
       usageException('Give one directory.');
     }
-    stdout.write(mergeChecksums(Directory(rest.single)).readAsStringSync());
+    stdout.write(mergeChecksums(Directory(rest[0])).readAsStringSync());
   }
 }
 
@@ -334,11 +337,14 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
   @override
   void run() {
     noRest();
+    final ArgResults argResults = this.argResults!;
     final formula = File(homebrewFormulaPath);
-    final String template = File(homebrewTemplatePath).readAsStringSync().normalizeLineTerminators();
+    final String template = File(
+      homebrewTemplatePath,
+    ).readAsStringSync().normalizeLineTerminators();
     final String current = formula.readAsStringSync().normalizeLineTerminators();
-    if (argResults!.flag('check')) {
-      if (['version', 'sha256sums', 'output'].any((name) => argResults!.option(name) != null)) {
+    if (argResults.flag('check')) {
+      if (['version', 'sha256sums', 'output'].any((name) => argResults.option(name) != null)) {
         usageException('--check takes no other options.');
       }
       final List<String> problems = formulaProblems(
@@ -356,12 +362,12 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
       stdout.writeln('${formula.path} matches its template.');
       return;
     }
-    final String? version = argResults!.option('version');
-    final String? sha256Sums = argResults!.option('sha256sums');
+    final String? version = argResults.option('version');
+    final String? sha256Sums = argResults.option('sha256sums');
     if ((version == null) != (sha256Sums == null)) {
       usageException('Give both --version and --sha256sums, or neither.');
     }
-    final output = File(argResults!.option('output') ?? homebrewFormulaPath);
+    final output = File(argResults.option('output') ?? homebrewFormulaPath);
     output.writeAsStringSync(
       version == null
           ? renderFormula(template, readFormula(current))
