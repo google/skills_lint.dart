@@ -40,7 +40,15 @@ see the [`Recipes` section of the README](../../../../README.md#recipes).
        check-trailing-whitespace: error
      directories:
        - path: ".agents/skills"
+       - path: "skills"
+         rules:
+           check-relative-paths: { severity: error, within-skill: true }
    ```
+
+   Keep the `skills` entry only if the package publishes skills from
+   `skills/`. `within-skill: true` reports links that leave the skill
+   directory, which break once `dart run skills@ get` installs the
+   skill on its own.
 
    Rules enabled by default — `check-absolute-paths`,
    `valid-yaml-metadata`, `invalid-skill-name`,
