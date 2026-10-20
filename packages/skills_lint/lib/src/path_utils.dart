@@ -5,6 +5,15 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
 
+/// Whether the file or directory at path [candidate] is the directory at path
+/// [parent], or sits somewhere under it.
+///
+/// `p.isWithin` answers `false` when the two paths are equal, so callers that
+/// need the directory itself to count use this instead. The comparison is a
+/// pure path operation: it does not resolve symlinks or touch the file system.
+bool isAtOrWithin(String parent, String candidate) =>
+    p.equals(parent, candidate) || p.isWithin(parent, candidate);
+
 /// Expands tildes (`~/`, `~\`, or `~`) to the user's home directory.
 ///
 /// If the path does not start with a tilde prefix, or if the home directory

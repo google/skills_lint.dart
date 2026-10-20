@@ -651,6 +651,19 @@ Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults resu
   return checkOverrides;
 }
 
+/// The spellings of a boolean in the YAML 1.2 core schema
+/// (https://yaml.org/spec/1.2.2/#1032-tag-resolution), which is what
+/// `package:yaml` reads as a `bool` in `skills_lint.yaml`. A boolean parameter
+/// flag accepts the same spellings as the configuration file.
+const Map<String, bool> _yamlBooleans = {
+  'true': true,
+  'True': true,
+  'TRUE': true,
+  'false': false,
+  'False': false,
+  'FALSE': false,
+};
+
 Object? _parseParameterValue(String paramFlag, Object? rawValue, RuleParameterType expectedType) {
   if (rawValue == '') {
     return null;
@@ -667,13 +680,13 @@ Object? _parseParameterValue(String paramFlag, Object? rawValue, RuleParameterTy
   }
 
   if (expectedType == RuleParameterType.boolean) {
-    final String lower = rawValue.toString().toLowerCase();
-    if (lower != 'true' && lower != 'false') {
+    final bool? parsedBool = _yamlBooleans[rawValue.toString()];
+    if (parsedBool == null) {
       throw FormatException(
         'Invalid value "$rawValue" for parameter "$paramFlag". Expected "true" or "false".',
       );
     }
-    return lower == 'true';
+    return parsedBool;
   }
 
   return rawValue;
