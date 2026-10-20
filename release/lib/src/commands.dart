@@ -18,6 +18,7 @@ import 'homebrew_formula.dart';
 import 'homebrew_formula_check.dart';
 import 'install_script.dart';
 import 'licenses.dart';
+import 'line_endings.dart';
 import 'paths.dart';
 import 'pub_dev_environment.dart';
 import 'release_exception.dart';
@@ -334,9 +335,8 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
   void run() {
     noRest();
     final formula = File(homebrewFormulaPath);
-    // A Windows checkout can give these files CRLF line endings.
-    final String template = File(homebrewTemplatePath).readAsStringSync().replaceAll('\r\n', '\n');
-    final String current = formula.readAsStringSync().replaceAll('\r\n', '\n');
+    final String template = File(homebrewTemplatePath).readAsStringSync().normalizeLineTerminators();
+    final String current = formula.readAsStringSync().normalizeLineTerminators();
     if (argResults!.flag('check')) {
       if (['version', 'sha256sums', 'output'].any((name) => argResults!.option(name) != null)) {
         usageException('--check takes no other options.');

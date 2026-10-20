@@ -5,6 +5,7 @@
 /// Builds GitHub release notes from `CHANGELOG.md`.
 library;
 
+import 'line_endings.dart';
 import 'release_exception.dart';
 
 /// Returns the entries under the `## <version>` heading of [changelog], up to
@@ -14,7 +15,7 @@ import 'release_exception.dart';
 /// entries.
 String changelogSection(String changelog, String version) {
   final heading = '## $version';
-  final List<String> lines = changelog.replaceAll('\r\n', '\n').split('\n');
+  final List<String> lines = changelog.normalizeLineTerminators().split('\n');
   final int start = _headingIndex(lines, version);
   if (start == -1) {
     throw ReleaseException('CHANGELOG.md has no "$heading" heading.');

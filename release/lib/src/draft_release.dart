@@ -14,6 +14,7 @@ import 'package:path/path.dart' as p;
 import 'archive.dart';
 import 'checksums.dart';
 import 'homebrew_formula.dart';
+import 'line_endings.dart';
 import 'paths.dart';
 import 'release_exception.dart';
 import 'release_info.dart';
@@ -251,9 +252,7 @@ String? _formulaProblem(Directory assets, {required String version}) {
     return null;
   }
   try {
-    final String installs = readFormula(
-      formula.readAsStringSync().replaceAll('\r\n', '\n'),
-    ).version;
+    final String installs = readFormula(formula.readAsStringSync().normalizeLineTerminators()).version;
     return installs == version ? null : '$formulaAsset installs $installs, not $version.';
   } on ReleaseException catch (e) {
     return '$formulaAsset: ${e.message}';
