@@ -130,7 +130,9 @@ class RuleRegistry {
       case RelativePathsRule.ruleName:
         return RelativePathsRule(
           severity: severity,
-          withinSkill: parameters?.getBool(RelativePathsRule.withinSkillParameter) ?? false,
+          withinSkill:
+              parameters?.getBool(RelativePathsRule.withinSkillParameter) ??
+              RelativePathsRule.defaultWithinSkill,
         );
       case TrailingWhitespaceRule.ruleName:
         return TrailingWhitespaceRule(severity: severity);

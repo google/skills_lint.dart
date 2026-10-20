@@ -68,9 +68,13 @@ governs how changes to these rules ship.
   reported as:
   `Linked file is outside the skill directory: <path> (resolved to <absolute path>). The link breaks when the skill is installed on its own. Link to an absolute URL, or copy the content into the skill directory.`
 - **Parameters:**
-  - `within-skill` (boolean): also report relative links that
-    resolve outside the skill directory, the directory that contains
-    `SKILL.md`. Defaults to `false`. `dart run skills@ get` copies
+  - `within-skill` (boolean): report relative links that resolve
+    outside the skill directory, the directory that contains
+    `SKILL.md`. Such a link gets only this diagnostic; whether its
+    target exists is not checked. Defaults to `false`.
+    **Turn it on for published skills**, such as the skills in a Dart
+    package's `skills/` directory, if they must keep working once
+    installed. `dart run skills@ get` copies
     each selected skill directory into the consumer's
     `.agents/skills/` on its own, so such a link works in the
     author's repository but breaks once installed. Links into a
@@ -80,11 +84,15 @@ governs how changes to these rules ship.
     reported like `../README.md`. Set it in `skills_lint.yaml`
     (`check-relative-paths: { severity: error, within-skill: true }`)
     or with `--check-relative-paths-within-skill=true`. The CLI flag
-    takes precedence over the configuration file.
+    takes precedence over the configuration file. To turn it on for
+    published skills only, set it on their directory, as in
+    [the README example](README.md#2-as-a-command-line-tool-with-a-yaml-configuration-file).
 - **Auto-fix behavior:** none. The author is expected to pick the
   intended target by hand. For a link outside the skill directory,
   only the author can choose between an absolute URL and a copy of
-  the content.
+  the content. `check-absolute-paths --fix` rewrites an absolute
+  link to a file outside the skill as a `../` link, which
+  `within-skill` then reports.
 - **Disable:** `--no-check-relative-paths` (also the default state).
 
 ## check-trailing-whitespace
@@ -208,6 +216,10 @@ governs how changes to these rules ship.
   - `package_name` (string): explicit Dart package name override.
   - `pubspec_path` (string): explicit path to `pubspec.yaml` (absolute path, or relative to the CLI invocation working directory `Directory.current`). When omitted, `pubspec.yaml` is auto-discovered by walking up parent directories starting from the skill directory.
 - **Auto-fix behavior:** updates the frontmatter `name:` in `SKILL.md` to the suggested normalized package skill name and automatically aligns the parent directory name on disk when run via `--fix`.
+- **Related:** published skills are installed one at a time, so
+  links out of the skill directory break. Turn on
+  [`check-relative-paths`](#check-relative-paths) with
+  `within-skill: true` for the same directory.
 - **Disable:** `--no-published-skill-name` (also the default state).
 
 ## valid-yaml-metadata
