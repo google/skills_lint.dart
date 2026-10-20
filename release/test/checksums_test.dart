@@ -89,6 +89,24 @@ void main() {
       expect(() => mergeChecksums(dir), throwsA(isA<ReleaseException>()));
     });
 
+    test('throws when a checksum file is not a single checksum line', () {
+      write('skills_lint-linux-x64.tar.gz', 'abc');
+      // The name after the last separator exists, so only parsing the whole
+      // line rejects it.
+      const line = '$_abcSha256  word here.  skills_lint-linux-x64.tar.gz';
+      write('skills_lint-linux-x64.tar.gz.sha256', '$line\n');
+      expect(
+        () => mergeChecksums(dir),
+        throwsA(
+          isA<ReleaseException>().having(
+            (e) => e.message,
+            'message',
+            'skills_lint-linux-x64.tar.gz.sha256 is not a "<sha256>  <name>" line: $line',
+          ),
+        ),
+      );
+    });
+
     test('throws when there are no archives', () {
       expect(() => mergeChecksums(dir), throwsA(isA<ReleaseException>()));
     });
@@ -98,8 +116,8 @@ void main() {
     final String first = 'a' * 64;
     final String second = 'b' * 64;
 
-    test('reads "<sha256>  <name>" lines and skips blank lines', () {
-      expect(parseSha256Sums('$first  skills_lint-macos-arm64.tar.gz\n\n$second  pubspec.lock\n'), {
+    test('reads "<sha256>  <name>" lines and skips whitespace-only lines', () {
+      expect(parseSha256Sums('$first  skills_lint-macos-arm64.tar.gz\n\n \t\n$second  pubspec.lock\n'), {
         'skills_lint-macos-arm64.tar.gz': first,
         'pubspec.lock': second,
       });

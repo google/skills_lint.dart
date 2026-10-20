@@ -23,18 +23,31 @@ const String sha256SumsName = 'SHA256SUMS';
 
 const String _archiveSuffix = '.tar.gz';
 
-/// What separates the checksum from the file name in a checksum line, as
-/// `shasum -a 256` writes it.
-const String _separator = '  ';
+/// The separator between the checksum and the file name in a line written by
+/// `shasum -a 256` in text mode.
+const String _shasumSeparator = '  ';
 
 /// A checksum line, such as `<64 hex digits>  skills_lint-linux-x64.tar.gz`.
+///
 /// Group 1 is the checksum and group 2 the file name.
-final RegExp _checksumLine = RegExp('^([0-9a-f]{64})$_separator(\\S+)\$');
+final RegExp _checksumLine = RegExp(r'^([0-9a-f]{64})' + _shasumSeparator + r'(\S+)$');
+
+/// The checksum and file name in [line], or `null` if [line] is not a
+/// checksum line.
+///
+/// The only parser of checksum lines, so every reader accepts the same lines.
+({String sha256, String name})? _parseChecksumLine(String line) {
+  final Match? match = _checksumLine.firstMatch(line);
+  if (match == null) {
+    return null;
+  }
+  return (sha256: match[1]!, name: match[2]!);
+}
 
 /// The SHA-256 of [file], in lowercase hex as `sha256sum` prints it.
 String fileSha256(File file) => '${sha256.convert(file.readAsBytesSync())}';
 
-String _line(File file) => '${fileSha256(file)}$_separator${p.basename(file.path)}';
+String _line(File file) => '${fileSha256(file)}$_shasumSeparator${p.basename(file.path)}';
 
 /// Writes `<file>.sha256`, which holds the line `<hash>  <name>` for [file],
 /// and returns it.
@@ -46,7 +59,8 @@ File writeChecksum(File file) =>
 /// the `.sha256` files and returns the [sha256SumsName] file.
 ///
 /// Throws a [ReleaseException] if [dir] has no `.tar.gz` archive, an archive
-/// has no `.sha256` file, or a `.sha256` file doesn't match its file.
+/// has no `.sha256` file, or a `.sha256` file doesn't hold one checksum line
+/// that matches its file.
 File mergeChecksums(Directory dir) {
   final List<File> files = dir.listSync().whereType<File>().toList();
   final List<File> parts = [
@@ -64,7 +78,10 @@ File mergeChecksums(Directory dir) {
   final Map<String, String> linesByName = {};
   for (final part in parts) {
     final String line = part.readAsStringSync().trim();
-    final String name = line.split(_separator).last;
+    final String? name = _parseChecksumLine(line)?.name;
+    if (name == null) {
+      throw ReleaseException('${p.basename(part.path)} is not a "<sha256>  <name>" line: $line');
+    }
     final file = File(p.join(dir.path, name));
     if (!file.existsSync()) {
       throw ReleaseException('${p.basename(part.path)} names $name, which is not in ${dir.path}.');
@@ -91,24 +108,23 @@ File mergeChecksums(Directory dir) {
 /// The checksum of each file in [sha256Sums], the text of a release's
 /// [sha256SumsName], keyed by file name.
 ///
-/// Throws a [ReleaseException] on a line that is not a checksum line, as
-/// `shasum -a 256` writes it in text mode with lowercase hex, and on a file
-/// listed twice.
+/// Skips lines that contain only whitespace. Throws a [ReleaseException] on
+/// any other line that is not a checksum line, as `shasum -a 256` writes it
+/// in text mode with lowercase hex, and on a file listed twice.
 Map<String, String> parseSha256Sums(String sha256Sums) {
   final Map<String, String> checksums = {};
   for (final String line in LineSplitter.split(sha256Sums)) {
-    if (line.trim().isEmpty) {
+    if (line.trimLeft().isEmpty) {
       continue;
     }
-    final RegExpMatch? match = _checksumLine.firstMatch(line);
-    if (match == null) {
+    if (_parseChecksumLine(line) case (:final String sha256, :final String name)) {
+      if (checksums.containsKey(name)) {
+        throw ReleaseException('$sha256SumsName lists $name twice.');
+      }
+      checksums[name] = sha256;
+    } else {
       throw ReleaseException('$sha256SumsName has a line that is not "<sha256>  <name>": $line');
     }
-    final String name = match.group(2)!;
-    if (checksums.containsKey(name)) {
-      throw ReleaseException('$sha256SumsName lists $name twice.');
-    }
-    checksums[name] = match.group(1)!;
   }
   return checksums;
 }
