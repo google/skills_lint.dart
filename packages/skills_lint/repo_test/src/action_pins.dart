@@ -69,14 +69,14 @@ List<File> actionPinFiles(String repoRoot) {
       throw StateError('${directory.path} does not exist, so its action pins are not checked.');
     }
   }
-  final List<File> workflowFiles = workflows.listSync().whereType<File>().toList();
-  final List<File> actionFiles = actions.listSync(recursive: true).whereType<File>().toList();
+  final Iterable<File> workflowFiles = workflows.listSync().whereType<File>();
+  final Iterable<File> actionFiles = actions.listSync(recursive: true).whereType<File>();
   final dependabot = File(p.join(repoRoot, '.github', 'dependabot.yml'));
   final List<String> ymlFiles = [
-    for (final File file in workflowFiles)
-      if (p.extension(file.path) == '.yml') file.path,
-    for (final File file in actionFiles)
-      if (p.basename(file.path) == 'action.yml') file.path,
+    for (final File(:path) in workflowFiles)
+      if (p.extension(path) == '.yml') path,
+    for (final File(:path) in actionFiles)
+      if (p.basename(path) == 'action.yml') path,
     if (dependabot.existsSync()) dependabot.path,
   ];
   if (ymlFiles.isNotEmpty) {
@@ -127,35 +127,27 @@ Iterable<YamlScalar> _usesNodes(YamlNode root) sync* {
   if (root is! YamlMap) {
     return;
   }
-  final YamlNode? runs = root.nodes['runs'];
-  if (runs is YamlMap) {
-    yield* _stepUses(runs.nodes['steps']);
+  // Each `yield*` costs more than a plain loop, so skip it when there are no
+  // steps to visit.
+  if (root.nodes['runs'] case YamlMap(nodes: {'steps': final YamlList steps}) when steps.isNotEmpty) {
+    yield* _stepUses(steps);
   }
-  final YamlNode? jobs = root.nodes['jobs'];
-  if (jobs is! YamlMap) {
-    return;
-  }
-  for (final YamlNode job in jobs.nodes.values) {
-    if (job is! YamlMap) {
-      continue;
+  if (root.nodes['jobs'] case YamlMap(nodes: final jobs)) {
+    for (final YamlMap(nodes: job) in jobs.values.whereType<YamlMap>()) {
+      if (job['uses'] case final YamlScalar uses) {
+        yield uses;
+      }
+      if (job['steps'] case final YamlList steps when steps.isNotEmpty) {
+        yield* _stepUses(steps);
+      }
     }
-    if (job.nodes['uses'] case final YamlScalar uses) {
-      yield uses;
-    }
-    yield* _stepUses(job.nodes['steps']);
   }
 }
 
-/// The `uses:` scalars of the steps in [steps], a YAML list of steps.
-Iterable<YamlScalar> _stepUses(YamlNode? steps) sync* {
-  if (steps is! YamlList) {
-    return;
-  }
-  for (final YamlNode step in steps.nodes) {
-    if (step is! YamlMap) {
-      continue;
-    }
-    if (step.nodes['uses'] case final YamlScalar uses) {
+/// The `uses:` scalars of the steps in [steps].
+Iterable<YamlScalar> _stepUses(YamlList steps) sync* {
+  for (final YamlMap(nodes: step) in steps.nodes.whereType<YamlMap>()) {
+    if (step['uses'] case final YamlScalar uses) {
       yield uses;
     }
   }
@@ -167,7 +159,7 @@ final RegExp _versionComment = RegExp(r'[ \t]+#[ \t]*([^\s#]+)');
 
 ActionPin _parsePin(String path, String content, YamlScalar node, String value) {
   final (String name, String ref) = _splitRef(value);
-  final String? comment = _versionComment.matchAsPrefix(content, node.span.end.offset)?.group(1);
+  final String? comment = _versionComment.matchAsPrefix(content, node.span.end.offset)?[1];
   return ActionPin(path, node.span.start.line + 1, name, ref, comment);
 }
 
