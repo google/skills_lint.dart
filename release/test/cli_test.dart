@@ -78,7 +78,7 @@ void main() {
       '--ref-name',
       'main',
       '--release-version',
-      '',
+      '', // An empty release version means a dry run.
       '--notes-output',
       p.join(temp.path, 'notes.md'),
     ]);
