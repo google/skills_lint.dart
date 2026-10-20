@@ -79,7 +79,7 @@ void main() {
       File(p.join(bin.path, name)).writeAsStringSync(script);
       Process.runSync('chmod', ['+x', p.join(bin.path, name)]);
     }
-    // The archives of every target, built as the build workflow builds
+    // The archives of every target, built as the release workflow builds
     // them, but holding a script instead of a compiled executable.
     for (final String target in supportedTargets) {
       final stage = Directory(p.join(temp.path, 'stage-$target'))..createSync();
@@ -159,7 +159,7 @@ void main() {
         "no published binary for platform '$missing'.*Published platforms: (.+)\\.\$",
         multiLine: true,
       ).firstMatch(result.stderr as String);
-      expect(published?[1]?.split(', '), unorderedEquals(supportedTargets.skip(1)));
+      expect(published?.group(1)?.split(', '), unorderedEquals(supportedTargets.skip(1)));
     },
   );
 
