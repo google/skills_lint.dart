@@ -23,7 +23,7 @@ skills_lint:
     - path: "skills"
       rules:
         published-skill-name: error
-        check-relative-paths: error
+        check-relative-paths: { severity: error, within-skill: true }
 ```
 
 - `published-skill-name` checks that each skill name is the package name with
@@ -31,6 +31,8 @@ skills_lint:
   `my_pkg`, that's `my-pkg` or `my-pkg-<anything>`. Published package skills
   need this name.
 - `check-relative-paths` checks that every relative link resolves.
+  `within-skill: true` also reports links that leave the skill's own folder,
+  because an installed skill is copied without the files around it.
 
 Change `skills` if the skills live somewhere else.
 
