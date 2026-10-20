@@ -23,14 +23,11 @@ const String sha256SumsName = 'SHA256SUMS';
 
 const String _archiveSuffix = '.tar.gz';
 
-/// The separator between the checksum and the file name in a line written by
-/// `shasum -a 256` in text mode.
-const String _shasumSeparator = '  ';
-
 /// A checksum line, such as `<64 hex digits>  skills_lint-linux-x64.tar.gz`.
 ///
-/// Group 1 is the checksum and group 2 the file name.
-final RegExp _checksumLine = RegExp(r'^([0-9a-f]{64})' + _shasumSeparator + r'(\S+)$');
+/// Group 1 is the checksum and group 2 the file name. Two spaces separate
+/// them, as in the lines that `shasum -a 256` writes in text mode.
+final RegExp _checksumLine = RegExp(r'^([0-9a-f]{64})  (\S+)$');
 
 /// The checksum and file name in [line], or `null` if [line] is not a
 /// checksum line.
@@ -47,7 +44,7 @@ final RegExp _checksumLine = RegExp(r'^([0-9a-f]{64})' + _shasumSeparator + r'(\
 /// The SHA-256 of [file], in lowercase hex as `sha256sum` prints it.
 String fileSha256(File file) => '${sha256.convert(file.readAsBytesSync())}';
 
-String _line(File file) => '${fileSha256(file)}$_shasumSeparator${p.basename(file.path)}';
+String _line(File file) => '${fileSha256(file)}  ${p.basename(file.path)}';
 
 /// Writes `<file>.sha256`, which holds the line `<hash>  <name>` for [file],
 /// and returns it.
