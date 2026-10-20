@@ -35,6 +35,9 @@ Pick one:
   dart install skills_lint
   ```
 
+Homebrew and the install script download a binary from a GitHub release. If
+that download fails, use `dart install skills_lint`.
+
 Check the install with `skills_lint --version`.
 
 ## 2. Create skills_lint.yaml
