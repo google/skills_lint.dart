@@ -13,11 +13,24 @@ import '../models/validation_error.dart';
 import '../suggestions/sibling_suggestion.dart';
 
 /// Enforces that relative links in SKILL.md point to existing files.
+///
+/// When [withinSkill] is true, it also reports relative links that resolve
+/// outside the skill directory, the directory that contains SKILL.md. Such a
+/// link breaks when the skill directory is copied somewhere else, as
+/// `dart run skills@ get` does.
 class RelativePathsRule extends SkillRule {
-  RelativePathsRule({this.severity = defaultSeverity});
+  RelativePathsRule({this.severity = defaultSeverity, this.withinSkill = false});
 
   static const String ruleName = 'check-relative-paths';
   static const AnalysisSeverity defaultSeverity = AnalysisSeverity.disabled;
+
+  /// The rule parameter that turns on [withinSkill].
+  static const String withinSkillParameter = 'within-skill';
+
+  /// Whether to report relative links that resolve outside the skill
+  /// directory, including links into sibling skills.
+  @visibleForTesting
+  final bool withinSkill;
 
   @override
   String get name => ruleName;
@@ -56,11 +69,14 @@ class RelativePathsRule extends SkillRule {
 
       final String effectivePath = _filePathOf(path);
 
-      final String resolvedPath = absolute(normalize(join(context.directory.path, effectivePath)));
+      final String skillPath = absolute(normalize(context.directory.path));
+      final String resolvedPath = absolute(normalize(join(skillPath, effectivePath)));
+      final int line = context.offsetToLine(frontmatterEnd + linkMatch.start);
+      if (withinSkill && !_isInSkill(skillPath, resolvedPath)) {
+        errors.add(_outsideSkillError(path: path, resolvedPath: resolvedPath, line: line));
+      }
       final linkedFile = File(resolvedPath);
       if (!linkedFile.existsSync()) {
-        final int linkOffsetInFile = frontmatterEnd + linkMatch.start;
-        final int line = context.offsetToLine(linkOffsetInFile);
         final String? suggestion = findSiblingSuggestion(
           originalLink: path,
           resolvedPath: resolvedPath,
@@ -89,6 +105,37 @@ class RelativePathsRule extends SkillRule {
     }
 
     return errors;
+  }
+
+  /// Whether [resolvedPath] is the skill directory [skillPath] or inside it.
+  static bool _isInSkill(String skillPath, String resolvedPath) {
+    return equals(skillPath, resolvedPath) || isWithin(skillPath, resolvedPath);
+  }
+
+  /// Reports that the link target [path], found on [line], resolves to
+  /// [resolvedPath], outside the skill directory.
+  ValidationError _outsideSkillError({
+    required String path,
+    required String resolvedPath,
+    required int line,
+  }) {
+    return ValidationError(
+      ruleId: name,
+      severity: severity,
+      file: _skillFileName,
+      message:
+          'Linked file is outside the skill directory: $path (resolved to $resolvedPath). '
+          'The link breaks when the skill is installed on its own. Link to an absolute URL, '
+          'or copy the content into the skill directory.',
+      markdownMessage:
+          '**Linked file is outside the skill directory:** `$path`\n\n'
+          'The link breaks when the skill is installed on its own, for example with '
+          '`dart run skills@ get`.\n\n'
+          '**How to fix:**\n'
+          '- Link to an absolute URL, such as the file on GitHub or pub.dev.\n'
+          '- Or copy the content into the skill directory and link to the copy.',
+      region: SourceRegion(startLine: line),
+    );
   }
 
   /// Whether the link target [path] is a URL with a scheme, such as

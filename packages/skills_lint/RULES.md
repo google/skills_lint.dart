@@ -64,8 +64,27 @@ governs how changes to these rules ship.
   is found in the same directory; it's scored by string similarity
   against the missing basename. The suggestion preserves the link's
   original directory prefix, normalized to forward slashes.
+  With `within-skill: true`, a link outside the skill directory is
+  reported as:
+  `Linked file is outside the skill directory: <path> (resolved to <absolute path>). The link breaks when the skill is installed on its own. Link to an absolute URL, or copy the content into the skill directory.`
+- **Parameters:**
+  - `within-skill` (boolean): also report relative links that
+    resolve outside the skill directory, the directory that contains
+    `SKILL.md`. Defaults to `false`. `dart run skills@ get` copies
+    each selected skill directory into the consumer's
+    `.agents/skills/` on its own, so such a link works in the
+    author's repository but breaks once installed. Links into a
+    sibling skill (`../other-skill/SKILL.md`) are reported too,
+    because the consumer can install one skill without the other.
+    The check uses the decoded path, so `%2E%2E%2FREADME.md` is
+    reported like `../README.md`. Set it in `skills_lint.yaml`
+    (`check-relative-paths: { severity: error, within-skill: true }`)
+    or with `--check-relative-paths-within-skill=true`. The CLI flag
+    takes precedence over the configuration file.
 - **Auto-fix behavior:** none. The author is expected to pick the
-  intended target by hand.
+  intended target by hand. For a link outside the skill directory,
+  only the author can choose between an absolute URL and a copy of
+  the content.
 - **Disable:** `--no-check-relative-paths` (also the default state).
 
 ## check-trailing-whitespace
