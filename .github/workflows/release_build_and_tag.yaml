@@ -21,6 +21,7 @@ on:
     paths:
       - '.github/actions/**'
       - '.github/workflows/release_build_and_tag.yaml'
+      - '.github/workflows/release_tool_workflow.yaml'
       - 'packages/skills_lint/pubspec.yaml'
       - 'packages/skills_lint/scripts/install.sh'
       - 'release/**'
