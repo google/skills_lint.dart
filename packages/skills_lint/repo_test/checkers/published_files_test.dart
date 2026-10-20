@@ -34,7 +34,15 @@ Total compressed archive size: 151 KB.
     });
 
     test('accepts Windows line endings', () {
-      expect(parsePublishedFiles('├── lib\r\n│   └── a.dart (1 KB)\r\n'), {'lib/a.dart'});
+      const output =
+          'Publishing skills_lint 0.5.3-wip to https://pub.dev:\r\n'
+          '├── lib\r\n'
+          '│   └── a.dart (1 KB)\r\n'
+          '├── skills\r\n'
+          '│   └── one\r\n'
+          '│       └── SKILL.md (2 KB)\r\n'
+          '└── pubspec.yaml (1 KB)\r\n';
+      expect(parsePublishedFiles(output), {'lib/a.dart', 'skills/one/SKILL.md', 'pubspec.yaml'});
     });
 
     test('returns nothing for output without a tree', () {

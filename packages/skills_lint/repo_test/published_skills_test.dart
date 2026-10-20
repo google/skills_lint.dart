@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -21,11 +22,14 @@ void main() {
   late Set<String> published;
 
   setUpAll(() async {
-    final ProcessResult result = await Process.run(Platform.resolvedExecutable, [
-      'pub',
-      'publish',
-      '--dry-run',
-    ]);
+    // pub writes UTF-8. The default, systemEncoding, garbles the tree glyphs
+    // on Windows.
+    final ProcessResult result = await Process.run(
+      Platform.resolvedExecutable,
+      ['pub', 'publish', '--dry-run'],
+      stdoutEncoding: utf8,
+      stderrEncoding: utf8,
+    );
     published = parsePublishedFiles(result.stdout as String);
     expect(
       published,
