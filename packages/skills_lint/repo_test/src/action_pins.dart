@@ -70,8 +70,14 @@ List<File> actionPinFiles(String repoRoot) {
       throw StateError('${directory.path} does not exist, so its action pins are not checked.');
     }
   }
-  final Iterable<File> workflowFiles = workflows.listSync().whereType<File>();
-  final Iterable<File> actionFiles = actions.listSync(recursive: true).whereType<File>();
+  final List<File> workflowFiles = [
+    for (final entry in workflows.listSync())
+      if (entry is File) entry,
+  ];
+  final List<File> actionFiles = [
+    for (final entry in actions.listSync(recursive: true))
+      if (entry is File) entry,
+  ];
   final dependabot = File(p.join(repoRoot, '.github', 'dependabot.yml'));
   final List<String> ymlFiles = [
     for (final File(:path) in workflowFiles)
