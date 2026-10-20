@@ -42,7 +42,7 @@ void checkPubDevEnvironment({required String environment, required String branch
     }
   }
   final bool hasReviewer = rules.contains('required_reviewers');
-  final bool onlyReleaseTags = policies.length == 1 && policies.single == 'tag:$tagPrefix*';
+  final bool onlyReleaseTags = policies.length == 1 && policies[0] == 'tag:$tagPrefix*';
   if (!hasReviewer || !onlyReleaseTags) {
     throw ReleaseException(
       'The $pubDevEnvironment environment needs a required reviewer and only the $tagPrefix* tag '
