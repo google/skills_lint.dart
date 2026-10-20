@@ -70,14 +70,8 @@ List<File> actionPinFiles(String repoRoot) {
       throw StateError('${directory.path} does not exist, so its action pins are not checked.');
     }
   }
-  final List<File> workflowFiles = [
-    for (final entry in workflows.listSync())
-      if (entry is File) entry,
-  ];
-  final List<File> actionFiles = [
-    for (final entry in actions.listSync(recursive: true))
-      if (entry is File) entry,
-  ];
+  final List<File> workflowFiles = _filesIn(workflows);
+  final List<File> actionFiles = _filesIn(actions, recursive: true);
   final dependabot = File(p.join(repoRoot, '.github', 'dependabot.yml'));
   final List<String> ymlFiles = [
     for (final File(:path) in workflowFiles)
@@ -99,6 +93,12 @@ List<File> actionPinFiles(String repoRoot) {
   ];
   return files..sort((a, b) => a.path.compareTo(b.path));
 }
+
+/// The files in [directory], and in its subdirectories if [recursive].
+List<File> _filesIn(Directory directory, {bool recursive = false}) => [
+  for (final entry in directory.listSync(recursive: recursive))
+    if (entry is File) entry,
+];
 
 /// Finds the `uses:` references in a workflow or composite action.
 ///
