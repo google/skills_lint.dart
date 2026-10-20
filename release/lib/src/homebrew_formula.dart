@@ -175,11 +175,11 @@ FormulaValues readFormula(String formula) {
   }
   final checksums = <String, String>{};
   for (final archive in archives) {
-    checksums[archive.group(1)!] = archive.group(2)!;
+    checksums[archive[1]!] = archive[2]!;
   }
   final bool placeholders = checksums.values.every((String sha) => sha == placeholderSha256);
   return FormulaValues(
-    version: versions.single.group(1)!,
+    version: versions[0][1]!,
     checksums: placeholders ? null : checksums,
   );
 }

@@ -159,7 +159,7 @@ void main() {
         "no published binary for platform '$missing'.*Published platforms: (.+)\\.\$",
         multiLine: true,
       ).firstMatch(result.stderr as String);
-      expect(published?.group(1)?.split(', '), unorderedEquals(supportedTargets.skip(1)));
+      expect(published?[1]?.split(', '), unorderedEquals(supportedTargets.skip(1)));
     },
   );
 
