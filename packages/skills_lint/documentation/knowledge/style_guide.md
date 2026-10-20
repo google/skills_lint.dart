@@ -87,6 +87,57 @@ return errors;
 
 ---
 
+## Doc Comments
+
+A doc comment says what the thing is or does. It answers the reader's questions; it never asks one. If you don't know the answer, find it out before you write the doc.
+
+- Document a noun-named member (a getter, field, constant, or function named for its result) with a noun phrase that says what the value is.
+- Never start a doc comment with "Returns". If the result matters most, give the function a noun name and describe the result. If the operation matters most, start with a verb that says what it does. "Returns" may start a later paragraph that describes the result.
+- The first paragraph is one short sentence. Put conditions, `null` cases and details in later paragraphs.
+
+The vendored [`dart-long-lines`](../../../../.agents/skills/dart-long-lines/SKILL.md) skill allows wrapping the first sentence across lines. In this repo, keep it short enough that you rarely need to.
+
+Bad:
+
+```dart
+/// Returns a string describing the problems with the formula, or null
+/// if there are none? Should this also check the version?
+String? get formulaProblems => ...;
+```
+
+Good:
+
+```dart
+/// Description of the problems with the formula in [assets].
+///
+/// Is `null` if the formula has no problems, or if there is no formula.
+String? get formulaProblems => ...;
+```
+
+---
+
+## Regular Expressions
+
+Keep every piece of `RegExp` syntax in a raw string (`r'...'`). Regular expressions are hard to read already, and escapes in a non-raw string are easy to get wrong.
+
+To include a value in a pattern, put the value between raw-string pieces with `+` or adjacent strings. Don't interpolate it into a non-raw string. Use `RegExp.escape` if the value may contain regex syntax.
+
+The [`use_raw_strings`](https://dart.dev/tools/linter-rules/use_raw_strings) lint doesn't catch interpolated strings, so this rule covers them.
+
+Bad:
+
+```dart
+final RegExp line = RegExp('^([0-9a-f]{64})$separator(\\S+)\$');
+```
+
+Good:
+
+```dart
+final RegExp line = RegExp(r'^([0-9a-f]{64})' + separator + r'(\S+)$');
+```
+
+---
+
 ## 🔑 Class Constants for Schema and Property Keys
 
 All JSON schema property keys, serialization map keys, YAML frontmatter keys, and CLI option names must be declared as `static const String` constants co-located on their owning model classes (e.g., `keyRuleId`, `keyStartLine`, `keyName`).
