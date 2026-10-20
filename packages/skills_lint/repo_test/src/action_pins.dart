@@ -87,11 +87,27 @@ List<File> actionPinFiles(String repoRoot) {
     for (final File file in workflowFiles)
       if (p.extension(file.path) == '.yaml') p.normalize(file.path): file,
   };
+  final List<String> missing = _addLocalActions(repoRoot, found, ymlFiles);
+  _throwIfYml(ymlFiles);
+  if (missing.isNotEmpty) {
+    throw StateError('These local actions have no action file: ${missing.join('; ')}');
+  }
+  return found.values.toList()..sort((a, b) => a.path.compareTo(b.path));
+}
+
+/// Adds to [found] the `action.yaml` of every composite action that a file
+/// in [found] names in a local `uses:`, and of every action those name in
+/// turn.
+///
+/// [found] maps each normalized path to its file, which also stops a cycle
+/// of actions that use each other. Adds each used `action.yml` to
+/// [ymlFiles]. The result describes each local `uses:` that names a
+/// directory with no action file.
+List<String> _addLocalActions(String repoRoot, Map<String, File> found, List<String> ymlFiles) {
   final List<File> pending = [...found.values];
   final List<String> missing = [];
   while (pending.isNotEmpty) {
-    final File file = pending.removeLast();
-    for (final _LocalAction action in _localActions(repoRoot, file)) {
+    for (final _LocalAction action in _localActions(repoRoot, pending.removeLast())) {
       final yaml = File(p.join(action.directory, 'action.yaml'));
       final yml = File(p.join(action.directory, 'action.yml'));
       if (yml.existsSync()) {
@@ -107,11 +123,7 @@ List<File> actionPinFiles(String repoRoot) {
       }
     }
   }
-  _throwIfYml(ymlFiles);
-  if (missing.isNotEmpty) {
-    throw StateError('These local actions have no action file: ${missing.join('; ')}');
-  }
-  return found.values.toList()..sort((a, b) => a.path.compareTo(b.path));
+  return missing;
 }
 
 /// Throws a [StateError] naming [ymlFiles] unless it is empty.
