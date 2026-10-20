@@ -86,7 +86,7 @@ jobs:
           if ! gh attestation verify "$RUNNER_TEMP/draft/assets/pubspec.lock" -R "$GITHUB_REPOSITORY" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release_build_and_tag.yaml" \
             --source-ref refs/heads/main --source-digest "$GITHUB_SHA"; then
-            echo "::error::The draft's pubspec.lock is missing or isn't from the build of this commit. Re-run this job once. If it fails again, delete the draft, then re-run the Stage job of the build."
+            echo "::error::The draft's pubspec.lock is missing or isn't from the build of this commit. Re-run this job once. If it fails again, delete the draft (https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#deleting-a-release), then re-run the Stage job of the build."
             exit 1
           fi
       - name: Get the release's dependencies
@@ -199,13 +199,7 @@ jobs:
             echo "::error::The published release $TAG differs from the verified build. Re-run this job once. If it fails again, delete the release, tell the maintainers, and release the next version."
             exit 1
           fi
-          # A read of the release can lag behind the publish, or fail.
-          for _ in 1 2 3; do
-            immutable="$(gh release view "$TAG" --json isImmutable --jq .isImmutable || true)"
-            [ "$immutable" = true ] && break
-            sleep 5
-          done
-          if [ "$immutable" != true ]; then
+          if [ "$(gh release view "$TAG" --json isImmutable --jq .isImmutable)" != true ]; then
             echo "::error::$TAG is published, but GitHub doesn't report it as immutable. Re-run this job once. If it fails again, turn on immutable releases, delete the release, and release the next version."
             exit 1
           fi
