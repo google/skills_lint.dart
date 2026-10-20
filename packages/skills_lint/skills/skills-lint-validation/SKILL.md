@@ -10,10 +10,9 @@ description: |-
 This skill covers **day-to-day use**: running the linter, walking
 through a failing run, and writing a custom rule when defaults
 aren't enough. For first-time wiring (adding the dep, creating the
-config file, generating a baseline) see
-[`skills-lint-setup`](../skills-lint-setup/SKILL.md). The
-full rule reference (default severities, diagnostic shapes,
-fixability) lives in [`RULES.md`](../../RULES.md).
+config file, generating a baseline) use the
+skills-lint-setup skill. For the full list of rules and their
+defaults, run `skills_lint --help` (or `dart run skills_lint --help`).
 
 ## Running the linter
 
@@ -107,8 +106,7 @@ void main() {
 
 ## Related
 
-- [`skills-lint-setup`](../skills-lint-setup/SKILL.md) —
-  first-time wiring.
-- [`RULES.md`](../../RULES.md) — canonical rule reference.
-- [`README.md`](../../../../README.md) — installation, configuration,
-  integration recipes.
+- The skills-lint-setup skill — first-time wiring.
+- `skills_lint --help` — every rule and option of the installed version.
+- [The skills_lint README](https://pub.dev/packages/skills_lint) —
+  installation, configuration, integration recipes.
