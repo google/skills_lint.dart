@@ -6,26 +6,25 @@ description: >-
 inputs:
   release-formula:
     description: >-
-      The skills_lint.rb that the release build rendered for the version it
-      builds, which the checkout's Formula/skills_lint.rb doesn't have yet.
-      The tap uses it in place of the checkout's formula. Without it, the
-      tap uses the checkout's formula.
+      Path to a skills_lint.rb rendered by the release build for the version
+      being released. When set, this file replaces Formula/skills_lint.rb in
+      the tap. When unset, the tap uses Formula/skills_lint.rb from the
+      checkout.
     required: false
 
 outputs:
   formula:
     description: The formula's full name, for brew commands.
-    value: ${{ steps.tap.outputs.formula }}
+    value: google/skills-lint/skills_lint
 
 runs:
   using: composite
   steps:
     - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
-    # Homebrew loads no formula from an untrusted non-official tap. The tap
-    # is a clone of the checkout, so the release formula goes into the
-    # clone.
-    - id: tap
-      shell: bash
+    # Homebrew loads no formula from an untrusted non-official tap.
+    # `brew tap` clones the checkout into Homebrew's tap directory, so the
+    # release formula is copied into that clone, not into the checkout.
+    - shell: bash
       env:
         TAP: google/skills-lint
         RELEASE_FORMULA: ${{ inputs.release-formula }}
@@ -35,4 +34,3 @@ runs:
         if [ -n "$RELEASE_FORMULA" ]; then
           cp "$RELEASE_FORMULA" "$(brew --repo "$TAP")/Formula/skills_lint.rb"
         fi
-        echo "formula=$TAP/skills_lint" >> "$GITHUB_OUTPUT"
