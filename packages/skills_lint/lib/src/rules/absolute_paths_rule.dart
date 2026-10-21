@@ -87,7 +87,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     final String fixedMarkdown = markdownContent.replaceAllMapped(SkillContext.markdownLinkRegex, (
       match,
     ) {
-      final String rawTarget = match.group(1)!;
+      final String rawTarget = match[1]!;
       final String trimmed = rawTarget.trim();
       final List<String> parts = trimmed.split(RegExp(r'\s+'));
       final String pathOnly = parts.first;
@@ -101,13 +101,13 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
           final targetWithTitle = titlePart != null
               ? '$posixRelativePath$titlePart'
               : posixRelativePath;
-          final String fullMatch = match.group(0)!;
-          final int lastParen = fullMatch.lastIndexOf('(');
-          return '${fullMatch.substring(0, lastParen + 1)}$targetWithTitle)';
+          final String fullMatch = match[0]!;
+          final int targetStart = fullMatch.length - rawTarget.length - 1;
+          return '${fullMatch.substring(0, targetStart)}$targetWithTitle)';
         }
       }
 
-      return match.group(0)!;
+      return match[0]!;
     });
 
     return '$frontmatter$fixedMarkdown';
