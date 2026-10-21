@@ -36,7 +36,7 @@ const String _outside = 'Linked file is outside the skill directory';
 ///   skills/
 ///     README.md
 ///     my-skill/
-///       SKILL.md        (written by each test)
+///       SKILL.md        (frontmatter, then [mySkillBody])
 ///       references/DETAILS.md
 ///     other-skill/
 ///       SKILL.md
@@ -44,15 +44,20 @@ const String _outside = 'Linked file is outside the skill directory';
 ///
 /// Returns the `my-skill` directory. Every linked file exists, so a
 /// diagnostic about an outside link is never caused by a missing file.
-Future<Directory> _createPackage(Directory root) async {
+Future<Directory> _createPackage(Directory root, {String mySkillBody = ''}) async {
   final Directory skills = await Directory(p.join(root.path, 'skills')).create();
-  final Directory mySkill = await Directory(p.join(skills.path, 'my-skill')).create();
+  final Directory mySkill = await createDummySkill(
+    skills,
+    name: 'my-skill',
+    skillContent: '${buildFrontmatter(name: 'my-skill')}$mySkillBody',
+  );
   await Directory(p.join(mySkill.path, 'references')).create();
   await File(p.join(mySkill.path, 'references', 'DETAILS.md')).writeAsString('Details');
-  final Directory otherSkill = await Directory(p.join(skills.path, 'other-skill')).create();
-  await File(
-    p.join(otherSkill.path, 'SKILL.md'),
-  ).writeAsString('${buildFrontmatter(name: 'other-skill')}Body\n');
+  await createDummySkill(
+    skills,
+    name: 'other-skill',
+    skillContent: '${buildFrontmatter(name: 'other-skill')}Body\n',
+  );
   await File(p.join(skills.path, 'README.md')).writeAsString('Readme');
   await File(p.join(root.path, 'RULES.md')).writeAsString('Rules');
   return mySkill;
@@ -605,12 +610,11 @@ void defineCliTests() {
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('within_skill_cli_test.');
-      final Directory skillDir = await _createPackage(tempDir);
-      skillsPath = p.dirname(skillDir.path);
-      await File(p.join(skillDir.path, 'SKILL.md')).writeAsString(
-        '${buildFrontmatter(name: 'my-skill')}'
-        'See [rules](../../RULES.md) and [details](references/DETAILS.md).\n',
+      final Directory skillDir = await _createPackage(
+        tempDir,
+        mySkillBody: 'See [rules](../../RULES.md) and [details](references/DETAILS.md).\n',
       );
+      skillsPath = p.dirname(skillDir.path);
     });
 
     tearDown(() async {
