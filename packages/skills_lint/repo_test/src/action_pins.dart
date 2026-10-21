@@ -2,11 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Detectors for GitHub Actions workflows that pin one action, reusable
-/// workflow or Docker image in more than one way.
+/// Detectors for GitHub Actions workflows and composite actions that pin one
+/// action, reusable workflow or Docker image in more than one way.
 ///
 /// Every use of an action should name the same ref and version comment.
-/// Dependabot (`.github/dependabot.yml`) updates every use in one pull
+/// Dependabot (`.github/dependabot.yaml`) updates every use in one pull
 /// request, but a hand edit can change one workflow and miss the others. Some
 /// workflows then run an older version than the rest, or a version comment
 /// names a release that its commit isn't.
@@ -15,6 +15,9 @@
 /// purpose, for example to test against an older release.
 library;
 
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import 'models/convention_violation.dart';
@@ -24,7 +27,8 @@ import 'models/convention_violation.dart';
 final class ActionPin {
   ActionPin(this.path, this.line, this.name, this.ref, this.comment);
 
-  /// Repository-relative path of the workflow file, with `/` separators.
+  /// Repository-relative path of the workflow or action file, with `/`
+  /// separators.
   final String path;
 
   /// 1-based line of the `uses:` value.
@@ -46,10 +50,62 @@ final class ActionPin {
   String get pin => comment == null ? ref : '$ref # $comment';
 }
 
-/// Returns the `jobs.<id>.uses` and `jobs.<id>.steps[*].uses` references in
-/// the workflow [content], in file order.
+/// The workflow and action files under [repoRoot] whose pins must agree.
 ///
-/// [path] is the workflow's repository-relative path, used in each
+/// These are every `.yaml` workflow in `.github/workflows/` and every
+/// composite action's `action.yaml` under `.github/actions/`, sorted by path.
+///
+/// Throws a [StateError] if either directory is missing, so a moved
+/// directory fails the scan instead of leaving its files unchecked. Also
+/// throws if a file there uses the `.yml` extension, which GitHub accepts
+/// too, so that no workflow or action goes unchecked. Also throws on a
+/// `.github/dependabot.yml`: Dependabot reads it in preference to
+/// `.github/dependabot.yaml`, so a stray copy would replace the
+/// configuration that groups action updates.
+List<File> actionPinFiles(String repoRoot) {
+  final workflows = Directory(p.join(repoRoot, '.github', 'workflows'));
+  final actions = Directory(p.join(repoRoot, '.github', 'actions'));
+  for (final directory in [workflows, actions]) {
+    if (!directory.existsSync()) {
+      throw StateError('${directory.path} does not exist, so its action pins are not checked.');
+    }
+  }
+  final List<File> workflowFiles = _filesIn(workflows);
+  final List<File> actionFiles = _filesIn(actions, recursive: true);
+  final dependabot = File(p.join(repoRoot, '.github', 'dependabot.yml'));
+  final List<String> ymlFiles = [
+    for (final File(:path) in workflowFiles)
+      if (p.extension(path) == '.yml') path,
+    for (final File(:path) in actionFiles)
+      if (p.basename(path) == 'action.yml') path,
+    if (dependabot.existsSync()) dependabot.path,
+  ];
+  if (ymlFiles.isNotEmpty) {
+    throw StateError(
+      'Rename these files to end in .yaml, as the others do: ${ymlFiles.join(', ')}',
+    );
+  }
+  final List<File> files = [
+    for (final File file in workflowFiles)
+      if (p.extension(file.path) == '.yaml') file,
+    for (final File file in actionFiles)
+      if (p.basename(file.path) == 'action.yaml') file,
+  ];
+  return files..sort((a, b) => a.path.compareTo(b.path));
+}
+
+/// The files in [directory], and in its subdirectories if [recursive].
+List<File> _filesIn(Directory directory, {bool recursive = false}) => [
+  for (final entry in directory.listSync(recursive: recursive))
+    if (entry is File) entry,
+];
+
+/// Finds the `uses:` references in a workflow or composite action.
+///
+/// Reads a workflow's `jobs.<id>.uses` and `jobs.<id>.steps[*].uses`, or a
+/// composite action's `runs.steps[*].uses`, from [content], in file order.
+///
+/// The [path] is the file's repository-relative path, used in each
 /// [ActionPin]. Local references (`./...`) are skipped: they name code in
 /// this repository at the same commit, so they have no pin.
 List<ActionPin> findActionPins(String path, String content) => [
@@ -73,24 +129,37 @@ List<ConventionViolation> findInconsistentPins(Iterable<ActionPin> pins) {
   ]..sort((a, b) => a.path == b.path ? a.line.compareTo(b.line) : a.path.compareTo(b.path));
 }
 
-/// The `uses:` scalars of every job and step in a workflow document.
+/// The `uses:` scalars of every job and step in a workflow document, and of
+/// every step in a composite action's `runs`.
 Iterable<YamlScalar> _usesNodes(YamlNode root) sync* {
-  final YamlNode? jobs = root is YamlMap ? root.nodes['jobs'] : null;
-  if (jobs is! YamlMap) {
+  if (root is! YamlMap) {
     return;
   }
-  for (final YamlNode job in jobs.nodes.values) {
-    if (job is! YamlMap) {
-      continue;
+  // Each `yield*` costs more than a plain loop, so skip it when there are no
+  // steps to visit.
+  if (root.nodes['runs'] case YamlMap(
+    nodes: {'steps': final YamlList steps},
+  ) when steps.isNotEmpty) {
+    yield* _stepUses(steps);
+  }
+  if (root.nodes['jobs'] case YamlMap(nodes: final jobs)) {
+    for (final YamlMap(nodes: job) in jobs.values.whereType<YamlMap>()) {
+      if (job['uses'] case final YamlScalar uses) {
+        yield uses;
+      }
+      if (job['steps'] case final YamlList steps when steps.isNotEmpty) {
+        yield* _stepUses(steps);
+      }
     }
-    final YamlNode? steps = job.nodes['steps'];
-    final List<YamlNode?> candidates = [
-      job.nodes['uses'],
-      if (steps is YamlList)
-        for (final YamlNode step in steps.nodes)
-          if (step is YamlMap) step.nodes['uses'],
-    ];
-    yield* candidates.whereType<YamlScalar>();
+  }
+}
+
+/// The `uses:` scalars of the steps in [steps].
+Iterable<YamlScalar> _stepUses(YamlList steps) sync* {
+  for (final YamlMap(nodes: step) in steps.nodes.whereType<YamlMap>()) {
+    if (step['uses'] case final YamlScalar uses) {
+      yield uses;
+    }
   }
 }
 
@@ -100,7 +169,7 @@ final RegExp _versionComment = RegExp(r'[ \t]+#[ \t]*([^\s#]+)');
 
 ActionPin _parsePin(String path, String content, YamlScalar node, String value) {
   final (String name, String ref) = _splitRef(value);
-  final String? comment = _versionComment.matchAsPrefix(content, node.span.end.offset)?.group(1);
+  final String? comment = _versionComment.matchAsPrefix(content, node.span.end.offset)?[1];
   return ActionPin(path, node.span.start.line + 1, name, ref, comment);
 }
 

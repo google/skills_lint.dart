@@ -14,10 +14,6 @@ concurrency:
   group: homebrew-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  TAP: google/skills-lint
-  FORMULA: google/skills-lint/skills_lint
-
 jobs:
   # Skips the brew jobs on pull requests that change none of their inputs.
   changes:
@@ -38,7 +34,7 @@ jobs:
         id: diff
         run: |
           if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
-            git diff --quiet HEAD^1 HEAD -- Formula release .github/workflows/homebrew.yaml; then
+            git diff --quiet HEAD^1 HEAD -- Formula release .github/workflows/homebrew.yaml .github/actions/tap-skills-lint; then
             echo "formula=false" >> "$GITHUB_OUTPUT"
           else
             echo "formula=true" >> "$GITHUB_OUTPUT"
@@ -57,14 +53,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
-      # Homebrew loads no formula from an untrusted non-official tap.
-      - name: Tap and trust this checkout
-        run: |
-          brew tap "$TAP" "$GITHUB_WORKSPACE"
-          brew trust "$TAP"
+      - id: tap
+        uses: ./.github/actions/tap-skills-lint
       - run: brew style "$FORMULA"
+        env:
+          FORMULA: ${{ steps.tap.outputs.formula }}
       - run: brew audit --strict --formula "$FORMULA"
+        env:
+          FORMULA: ${{ steps.tap.outputs.formula }}
       - name: Check for placeholder values
         id: placeholders
         run: |
@@ -111,15 +107,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
-      # Homebrew loads no formula from an untrusted non-official tap.
-      - name: Tap and trust this checkout
-        run: |
-          brew tap "$TAP" "$GITHUB_WORKSPACE"
-          brew trust "$TAP"
+      - id: tap
+        uses: ./.github/actions/tap-skills-lint
       - run: brew install "$FORMULA"
+        env:
+          FORMULA: ${{ steps.tap.outputs.formula }}
       - run: brew test "$FORMULA"
+        env:
+          FORMULA: ${{ steps.tap.outputs.formula }}
       - run: brew audit --strict --online --formula "$FORMULA"
+        env:
+          FORMULA: ${{ steps.tap.outputs.formula }}
 
   # Always runs, so it reports one result to require on main even when the
   # other jobs skip.

@@ -159,6 +159,20 @@ void main() {
       );
     });
 
+    test('throws FormatException when int parameter is passed a value that is not YAML', () {
+      final ArgResults results = createParser().parse(['--$mockCheckName-max=[']);
+      expect(
+        () => resolveRuleConfigsFromCli(results),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            'Invalid value "[" for parameter "$mockCheckName-max". Expected an integer.',
+          ),
+        ),
+      );
+    });
+
     test('throws FormatException when bool parameter is passed a non-boolean string', () {
       final ArgResults results = createParser().parse(['--$mockCheckName-strict=yes']);
       expect(

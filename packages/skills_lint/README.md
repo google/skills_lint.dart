@@ -186,6 +186,11 @@ skills_lint:
   directories:
     - path: "~/.agents/skills"
       ignore_file: "~/.agents/skills/ignore.json"
+    - path: "skills"
+      rules:
+        check-relative-paths:
+          severity: error
+          within-skill: true
   individual_skills:
     - path: "my_custom_standalone_skill"
       rules:

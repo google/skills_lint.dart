@@ -40,6 +40,13 @@ see the [`Recipes` section of the README](../../../../README.md#recipes).
        check-trailing-whitespace: error
      directories:
        - path: ".agents/skills"
+       # A package publishes its skills from skills/.
+       - path: "skills"
+         rules:
+           published-skill-name: error
+           check-relative-paths:
+             severity: error
+             within-skill: true
    ```
 
    Rules enabled by default — `check-absolute-paths`,
