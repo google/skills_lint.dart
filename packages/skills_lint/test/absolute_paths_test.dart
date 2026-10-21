@@ -224,9 +224,13 @@ void main() {
       expect(errors.first.region?.startLine, equals(7));
     });
   });
+
   defineCliTests();
 }
 
+/// Defines the tests that start the CLI. [main] calls this, and
+/// `compiled_test/cli_test.dart` calls it again to run the same tests
+/// against the compiled binary.
 void defineCliTests() {
   test('--fix preserves a parenthesized link title on repeated runs', () async {
     await withTempDir((tempDir) async {
