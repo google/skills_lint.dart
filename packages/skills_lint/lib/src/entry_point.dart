@@ -652,6 +652,14 @@ Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults resu
   return checkOverrides;
 }
 
+/// Converts the value [rawValue] of the CLI flag [paramFlag] to the
+/// [expectedType] of its rule parameter.
+///
+/// Integer and boolean values are read as YAML, so a flag accepts what
+/// `skills_lint.yaml` accepts. Values of other types are kept as given, and an
+/// empty [rawValue] gives `null`.
+///
+/// Throws a [FormatException] if an integer or boolean value has another type.
 Object? _parseParameterValue(String paramFlag, Object? rawValue, RuleParameterType expectedType) {
   if (rawValue == '') {
     return null;
@@ -666,7 +674,6 @@ Object? _parseParameterValue(String paramFlag, Object? rawValue, RuleParameterTy
     return rawValue;
   }
 
-  // Read the value as YAML, so a flag accepts what skills_lint.yaml accepts.
   final invalid = FormatException(
     'Invalid value "$rawValue" for parameter "$paramFlag". Expected $expected.',
   );
