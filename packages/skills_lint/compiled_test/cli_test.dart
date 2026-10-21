@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../test/absolute_paths_test.dart' as absolute_paths;
 import '../test/benchmark/fixture_test.dart' as benchmark_fixture;
 import '../test/cli_integration_test.dart' as cli_integration;
 import '../test/config_file_test.dart' as config_file;
@@ -51,6 +52,7 @@ void main() {
       await outputDir.delete(recursive: true);
     });
 
+    absolute_paths.defineCliTests();
     cli_integration.main();
     example_fixtures.main();
     config_file.defineCliTests();
