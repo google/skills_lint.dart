@@ -2,6 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../src/action_pins.dart';
@@ -14,6 +17,103 @@ const String _otherSha = '0000000000000000000000000000000000000000';
 /// Runs the action pin detectors over small inline workflows, which pins what
 /// each one reports independently of the repository's workflows.
 void main() {
+  group('actionPinFiles', () {
+    late Directory root;
+
+    setUp(() {
+      root = Directory.systemTemp.createTempSync('action_pins_test.');
+    });
+
+    tearDown(() {
+      root.deleteSync(recursive: true);
+    });
+
+    void createFiles(List<String> paths) {
+      for (final path in paths) {
+        File(p.joinAll([root.path, ...path.split('/')])).createSync(recursive: true);
+      }
+    }
+
+    test('lists workflows and composite actions, and nothing else under .github', () {
+      createFiles([
+        '.github/workflows/ci.yaml',
+        '.github/workflows/release.yaml',
+        '.github/workflows/notes.md',
+        '.github/actions/tap/action.yaml',
+        '.github/actions/digests/action.yaml',
+        '.github/actions/tap/README.md',
+        '.github/dependabot.yaml',
+        '.github/FUNDING.yml',
+      ]);
+      expect(
+        [
+          for (final File file in actionPinFiles(root.path))
+            p.posix.joinAll(p.split(p.relative(file.path, from: root.path))),
+        ],
+        [
+          '.github/actions/digests/action.yaml',
+          '.github/actions/tap/action.yaml',
+          '.github/workflows/ci.yaml',
+          '.github/workflows/release.yaml',
+        ],
+      );
+    });
+
+    test('fails on a .yml workflow or action.yml, naming each, rather than skipping it', () {
+      createFiles([
+        '.github/workflows/ci.yaml',
+        '.github/workflows/old.yml',
+        '.github/actions/tap/action.yml',
+        '.github/actions/digests/action.yaml',
+      ]);
+      expect(
+        () => actionPinFiles(root.path),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains(p.join('workflows', 'old.yml')),
+              contains(p.join('tap', 'action.yml')),
+              isNot(contains('ci.yaml')),
+              isNot(contains('digests')),
+            ),
+          ),
+        ),
+      );
+    });
+
+    test('fails on .github/dependabot.yml, which Dependabot reads before dependabot.yaml', () {
+      createFiles([
+        '.github/workflows/ci.yaml',
+        '.github/actions/tap/action.yaml',
+        '.github/dependabot.yaml',
+        '.github/dependabot.yml',
+      ]);
+      expect(
+        () => actionPinFiles(root.path),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains(p.join('.github', 'dependabot.yml')),
+              isNot(contains('dependabot.yaml')),
+            ),
+          ),
+        ),
+      );
+    });
+
+    test('fails when .github/actions is missing, rather than checking nothing there', () {
+      createFiles(['.github/workflows/ci.yaml']);
+      expect(
+        () => actionPinFiles(root.path),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('actions'))),
+      );
+    });
+  });
+
   group('findActionPins', () {
     test('reads step and job uses with their line, ref and version comment', () {
       final List<ActionPin> pins = findActionPins('ci.yaml', '''
@@ -89,7 +189,21 @@ jobs:
       expect(pins, isEmpty);
     });
 
-    test('returns nothing for a file without jobs', () {
+    test("reads a composite action's step uses", () {
+      final List<ActionPin> pins = findActionPins('.github/actions/tap/action.yaml', '''
+name: Tap
+runs:
+  using: composite
+  steps:
+    - uses: $_checkout@$_sha # v7.0.1
+    - shell: bash
+      run: echo hi
+    - uses: ./.github/actions/other
+''');
+      expect(_describe(pins), ['.github/actions/tap/action.yaml:5 $_checkout @$_sha v7.0.1']);
+    });
+
+    test('returns nothing for a file without jobs or runs', () {
       expect(findActionPins('ci.yaml', 'name: empty\n'), isEmpty);
     });
   });

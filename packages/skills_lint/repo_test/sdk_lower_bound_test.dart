@@ -19,7 +19,7 @@ import 'src/repo_paths.dart';
 /// Workspace members whose lower bound CI doesn't test.
 const Set<String> _untestedMembers = {
   // The release scripts, which build the executables only with the SDK that
-  // .github/workflows/release.yaml sets.
+  // .github/workflows/release_build_and_tag.yaml sets.
   'release',
 };
 

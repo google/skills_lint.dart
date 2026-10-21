@@ -17,6 +17,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'line_endings.dart';
 import 'release_exception.dart';
 
 /// The package whose executable the notices are for.
@@ -189,7 +190,7 @@ File? findLicenseFile(String dir) {
 String formatNotices(List<LicenseNotice> notices) {
   final Map<String, List<String>> componentsByText = {};
   for (final notice in notices) {
-    final String text = notice.text.replaceAll('\r\n', '\n').trimRight();
+    final String text = notice.text.normalizeLineTerminators().trimRight();
     componentsByText.putIfAbsent(text, () => []).add(notice.component);
   }
   final List<String> sections = [

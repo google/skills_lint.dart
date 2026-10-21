@@ -3,21 +3,25 @@
 // BSD-style license that can be found in the LICENSE file.
 
 /// The `release` command and its subcommands, which the steps of
-/// `.github/workflows/release.yaml` run.
+/// `.github/workflows/release_build_and_tag.yaml` run.
 library;
 
 import 'dart:io';
 
+import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
 
 import 'archive.dart';
 import 'checksums.dart';
+import 'draft_release.dart';
 import 'homebrew_formula.dart';
 import 'homebrew_formula_check.dart';
 import 'install_script.dart';
 import 'licenses.dart';
+import 'line_endings.dart';
 import 'paths.dart';
+import 'pub_dev_environment.dart';
 import 'release_exception.dart';
 import 'release_info.dart';
 import 'release_notes.dart';
@@ -36,6 +40,8 @@ Future<int> runRelease(List<String> arguments) async {
     ..addCommand(_ChecksumsCommand())
     ..addCommand(_InstallScriptCommand())
     ..addCommand(_PrepareCommand())
+    ..addCommand(_CheckPubDevEnvironmentCommand())
+    ..addCommand(_VerifyDraftCommand())
     ..addCommand(_HomebrewMatrixCommand())
     ..addCommand(_HomebrewFormulaCommand());
   try {
@@ -50,23 +56,25 @@ Future<int> runRelease(List<String> arguments) async {
   }
 }
 
-/// A `release` subcommand whose options are all mandatory.
+/// A `release` subcommand, with [option] to read its mandatory options.
 abstract class _ReleaseCommand extends Command<void> {
-  /// Returns the value of the mandatory option [name].
+  /// The value of the mandatory option [name].
   ///
   /// Throws a [UsageException] if it wasn't given. `package:args` throws an
   /// [ArgumentError] instead when a mandatory option is read.
   String option(String name) {
-    if (!argResults!.wasParsed(name)) {
+    final ArgResults argResults = this.argResults!;
+    if (!argResults.wasParsed(name)) {
       usageException('Option $name is mandatory.');
     }
-    return argResults!.option(name)!;
+    return argResults.option(name)!;
   }
 
   /// Throws a [UsageException] if any positional arguments were given.
   void noRest() {
-    if (argResults!.rest.isNotEmpty) {
-      usageException('Unexpected arguments: ${argResults!.rest.join(' ')}');
+    final List<String> rest = argResults!.rest;
+    if (rest.isNotEmpty) {
+      usageException('Unexpected arguments: ${rest.join(' ')}');
     }
   }
 }
@@ -139,7 +147,7 @@ class _ChecksumsCommand extends _ReleaseCommand {
     if (rest.length != 1) {
       usageException('Give one directory.');
     }
-    stdout.write(mergeChecksums(Directory(rest.single)).readAsStringSync());
+    stdout.write(mergeChecksums(Directory(rest[0])).readAsStringSync());
   }
 }
 
@@ -173,10 +181,10 @@ class _PrepareCommand extends _ReleaseCommand {
       ..addOption('ref-type', mandatory: true, help: 'The type of the ref of the run.')
       ..addOption('ref-name', mandatory: true, help: 'The branch or tag of the run.')
       ..addOption(
-        'release',
-        mandatory: true,
-        allowed: ['true', 'false'],
-        help: 'The release input of the run.',
+        'release-version',
+        help:
+            'The version input of the run: the version to release. Omit it, or give an empty '
+            'value as a dry run does, for a dry run.',
       )
       ..addOption('notes-output', mandatory: true, help: 'The file to write release notes to.');
   }
@@ -198,7 +206,7 @@ class _PrepareCommand extends _ReleaseCommand {
       event: option('event'),
       refType: option('ref-type'),
       refName: option('ref-name'),
-      release: option('release') == 'true',
+      releaseVersion: _nonEmpty(argResults!.option('release-version')),
     );
     final String section = changelogSection(
       File(p.join(skillsLintPackageDir, 'CHANGELOG.md')).readAsStringSync(),
@@ -208,6 +216,82 @@ class _PrepareCommand extends _ReleaseCommand {
     stdout
       ..write(outputLines(info))
       ..writeln('matrix=${buildMatrix()}');
+  }
+}
+
+class _CheckPubDevEnvironmentCommand extends _ReleaseCommand {
+  _CheckPubDevEnvironmentCommand() {
+    argParser
+      ..addOption(
+        'environment',
+        mandatory: true,
+        help: "A file with GitHub's JSON for the $pubDevEnvironment environment.",
+      )
+      ..addOption(
+        'branch-policies',
+        mandatory: true,
+        help: "A file with GitHub's JSON for the environment's deployment branch policies.",
+      );
+  }
+
+  @override
+  String get name => 'check-pub-dev-environment';
+
+  @override
+  String get description =>
+      'Fails unless the $pubDevEnvironment environment has a required reviewer and allows only '
+      '$tagPrefix* tags.';
+
+  @override
+  void run() {
+    noRest();
+    checkPubDevEnvironment(
+      environment: File(option('environment')).readAsStringSync(),
+      branchPolicies: File(option('branch-policies')).readAsStringSync(),
+    );
+    stdout.writeln('The $pubDevEnvironment environment guards publishing.');
+  }
+}
+
+class _VerifyDraftCommand extends _ReleaseCommand {
+  _VerifyDraftCommand() {
+    argParser
+      ..addOption('ref-type', mandatory: true, help: 'The type of the ref of the run.')
+      ..addOption('tag', mandatory: true, help: 'The tag of the run, which names the release.')
+      ..addOption('repository', mandatory: true, help: 'The repository, as <owner>/<name>.')
+      ..addOption('commit', mandatory: true, help: 'The commit that the tag points at.')
+      ..addOption(
+        'release-json',
+        mandatory: true,
+        help: 'A file with what `gh release view <tag> --json isDraft,isPrerelease` printed.',
+      )
+      ..addOption('assets', mandatory: true, help: 'A directory with every asset of the draft.')
+      ..addOption('summary', mandatory: true, help: 'The file to add the job summary to.');
+  }
+
+  @override
+  String get name => 'verify-draft';
+
+  @override
+  String get description =>
+      'Checks that the draft release holds exactly the files the build of the commit made, that '
+      'they match SHA256SUMS and that each has an attestation from that build, then prints '
+      r'version and homebrew as name=value lines for $GITHUB_OUTPUT.';
+
+  @override
+  Future<void> run() async {
+    noRest();
+    final VerifiedDraft draft = await verifyDraft(
+      refType: option('ref-type'),
+      tag: option('tag'),
+      pubspecVersion: _pubspecVersion(),
+      repository: option('repository'),
+      commit: option('commit'),
+      releaseJson: File(option('release-json')).readAsStringSync(),
+      assets: Directory(option('assets')),
+    );
+    File(option('summary')).writeAsStringSync(draft.summary, mode: FileMode.append);
+    stdout.write(draft.outputLines);
   }
 }
 
@@ -229,13 +313,17 @@ class _HomebrewMatrixCommand extends _ReleaseCommand {
 
 class _HomebrewFormulaCommand extends _ReleaseCommand {
   _HomebrewFormulaCommand() {
-    argParser.addFlag(
-      'check',
-      negatable: false,
-      help:
-          'Write nothing. Fail if the formula differs from what the template gives, or if its '
-          'version breaks the release rules.',
-    );
+    argParser
+      ..addFlag(
+        'check',
+        negatable: false,
+        help:
+            'Write nothing. Fail if the formula differs from what the template gives, or if its '
+            'version breaks the release rules.',
+      )
+      ..addOption('version', help: 'Write the formula for this release. Needs --sha256sums.')
+      ..addOption('sha256sums', help: "The release's $sha256SumsName file. Needs --version.")
+      ..addOption('output', help: 'Write the formula here instead of Formula/skills_lint.rb.');
   }
 
   @override
@@ -243,17 +331,22 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
 
   @override
   String get description =>
-      'Writes Formula/skills_lint.rb from release/templates/skills_lint.rb.tmpl, keeping its '
-      'version and checksums.';
+      'Writes Formula/skills_lint.rb from release/templates/skills_lint.rb.tmpl, with the version '
+      'and checksums it has, or with those of the release that --version and --sha256sums give.';
 
   @override
   void run() {
     noRest();
+    final ArgResults argResults = this.argResults!;
     final formula = File(homebrewFormulaPath);
-    // A Windows checkout can give these files CRLF line endings.
-    final String template = File(homebrewTemplatePath).readAsStringSync().replaceAll('\r\n', '\n');
-    final String current = formula.readAsStringSync().replaceAll('\r\n', '\n');
-    if (argResults!.flag('check')) {
+    final String template = File(
+      homebrewTemplatePath,
+    ).readAsStringSync().normalizeLineTerminators();
+    final String current = formula.readAsStringSync().normalizeLineTerminators();
+    if (argResults.flag('check')) {
+      if (['version', 'sha256sums', 'output'].any((name) => argResults.option(name) != null)) {
+        usageException('--check takes no other options.');
+      }
       final List<String> problems = formulaProblems(
         current,
         template: template,
@@ -269,11 +362,30 @@ class _HomebrewFormulaCommand extends _ReleaseCommand {
       stdout.writeln('${formula.path} matches its template.');
       return;
     }
-    formula.writeAsStringSync(renderFormula(template, readFormula(current)));
-    stdout.writeln('Wrote ${formula.path}.');
+    final String? version = argResults.option('version');
+    final String? sha256Sums = argResults.option('sha256sums');
+    if ((version == null) != (sha256Sums == null)) {
+      usageException('Give both --version and --sha256sums, or neither.');
+    }
+    final output = File(argResults.option('output') ?? homebrewFormulaPath);
+    output.writeAsStringSync(
+      version == null
+          ? renderFormula(template, readFormula(current))
+          : releaseFormula(
+              template,
+              version: version,
+              sha256Sums: File(sha256Sums!).readAsStringSync(),
+            ),
+    );
+    stdout.writeln('Wrote ${output.path}.');
   }
 }
 
-/// Returns the version in the skills_lint `pubspec.yaml`.
+/// The [value], or null if it is null or empty.
+///
+/// A workflow passes an input that wasn't given as an empty value.
+String? _nonEmpty(String? value) => value == null || value.isEmpty ? null : value;
+
+/// The version in the skills_lint `pubspec.yaml`.
 String _pubspecVersion() =>
     readPubspecVersion(File(p.join(skillsLintPackageDir, 'pubspec.yaml')).readAsStringSync());

@@ -12,8 +12,9 @@ on:
       - 'skills/**'
       - 'packages/skills_lint/**'
       - 'release/**'
-      # All workflows, because repo_test/action_pins_test.dart checks the pins in each.
+      # All workflows and actions, because repo_test/action_pins_test.dart checks the pins in each.
       - '.github/workflows/**'
+      - '.github/actions/**'
   push:
     branches: [ main ]
     paths:
@@ -24,10 +25,20 @@ on:
       - 'skills/**'
       - 'packages/skills_lint/**'
       - 'release/**'
-      # All workflows, because repo_test/action_pins_test.dart checks the pins in each.
+      # All workflows and actions, because repo_test/action_pins_test.dart checks the pins in each.
       - '.github/workflows/**'
+      - '.github/actions/**'
   schedule:
     - cron: '0 0 * * 0' # weekly
+  workflow_call:
+    inputs:
+      pubspec-lock:
+        description: >-
+          ID of an artifact holding the pubspec.lock that a release ships. The
+          release tool is tested with it. Empty resolves the dependencies with
+          `dart pub get`.
+        type: string
+        default: ''
 
 defaults:
   run:
@@ -99,6 +110,38 @@ jobs:
       - name: Analyze with the lowest allowed dependency versions
         if: matrix.lower_bound
         run: dart analyze --fatal-infos
+
+  # The release scripts in release/, on the SDK and OSes that
+  # release_build_and_tag.yaml builds with. They only need to work there, so
+  # they have no lower-bound entry; see repo_test/sdk_lower_bound_test.dart.
+  release_tool:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - if: inputs.pubspec-lock != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ inputs.pubspec-lock }}
+          path: .
+      - name: Get the dependencies from the given pubspec.lock
+        if: inputs.pubspec-lock != ''
+        run: dart pub get --enforce-lockfile
+      - name: Get the dependencies
+        if: inputs.pubspec-lock == ''
+        run: dart pub get
+
+      - run: dart format --output=none --set-exit-if-changed ../../release
+      - run: dart analyze --fatal-infos ../../release
+      - run: dart test ../../release/test
 
   coverage:
     runs-on: ubuntu-latest

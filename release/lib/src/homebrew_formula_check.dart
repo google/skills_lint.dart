@@ -43,11 +43,9 @@ List<String> _versionProblems(FormulaValues values, String pubspecVersion, Strin
     return ['version "$version" is not a release that Homebrew can install'];
   }
   if (values.checksums == null) {
-    final String pendingRelease = pubspecVersion.replaceFirst('-wip', '');
-    if (version != pendingRelease) {
-      return [
-        'placeholder version "$version" must be $pendingRelease, the pubspec version without -wip',
-      ];
+    final String pending = pendingRelease(pubspecVersion);
+    if (version != pending) {
+      return ['placeholder version "$version" must be $pending, the pubspec version without -wip'];
     }
     return [];
   }
