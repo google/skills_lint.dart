@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../path_utils.dart';
 import '../../rule_registry.dart';
 import '../analysis_severity.dart';
 import '../check_type.dart';
@@ -204,7 +205,7 @@ class SarifSerializer {
       final String dirPath = context.directory.path;
       if (error.file == SkillContext.skillFileName) {
         rawPath = p.join(dirPath, error.file);
-      } else if (p.equals(dirPath, error.file) || p.isWithin(dirPath, error.file)) {
+      } else if (isAtOrWithin(dirPath, error.file)) {
         rawPath = error.file;
       } else if (p.isAbsolute(error.file)) {
         rawPath = error.file;
@@ -218,7 +219,7 @@ class SarifSerializer {
     final String absolutePath = p.normalize(p.absolute(rawPath));
     final String normalizedRoot = p.normalize(p.absolute(rootDirectory));
 
-    if (p.equals(normalizedRoot, absolutePath) || p.isWithin(normalizedRoot, absolutePath)) {
+    if (isAtOrWithin(normalizedRoot, absolutePath)) {
       final String relative = p.relative(absolutePath, from: normalizedRoot);
       return (uri: p.toUri(relative).toString(), uriBaseId: _srcRootBaseId);
     }

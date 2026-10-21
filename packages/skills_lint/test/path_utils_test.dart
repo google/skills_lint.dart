@@ -9,6 +9,21 @@ import 'package:skills_lint/src/path_utils.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('isAtOrWithin', () {
+    final String root = p.join(p.separator, 'pkg', 'skills', 'my-skill');
+
+    test('is true for the directory itself and for paths under it', () {
+      expect(isAtOrWithin(root, root), isTrue);
+      expect(isAtOrWithin(root, p.join(root, 'references', 'a.md')), isTrue);
+    });
+
+    test('is false for a parent, a sibling and a name that only shares a prefix', () {
+      expect(isAtOrWithin(root, p.dirname(root)), isFalse);
+      expect(isAtOrWithin(root, p.join(p.dirname(root), 'other-skill')), isFalse);
+      expect(isAtOrWithin(root, '$root-old'), isFalse);
+    });
+  });
+
   group('expandPath', () {
     test('expands tilde at start of path when HOME environment is available', () {
       final String? home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];

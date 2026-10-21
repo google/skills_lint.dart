@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
+import 'package:yaml/yaml.dart';
 
 import 'config_parser.dart';
 import 'missing_defaults_exception.dart';
@@ -651,32 +652,41 @@ Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults resu
   return checkOverrides;
 }
 
+/// Converts the value [rawValue] of the CLI flag [paramFlag] to the
+/// [expectedType] of its rule parameter.
+///
+/// Integer and boolean values are read as YAML, so a flag accepts what
+/// `skills_lint.yaml` accepts. Values of other types are kept as given, and an
+/// empty [rawValue] gives `null`.
+///
+/// Throws a [FormatException] if an integer or boolean value has another type.
 Object? _parseParameterValue(String paramFlag, Object? rawValue, RuleParameterType expectedType) {
   if (rawValue == '') {
     return null;
   }
 
-  if (expectedType == RuleParameterType.integer) {
-    final int? parsedInt = int.tryParse(rawValue.toString());
-    if (parsedInt == null) {
-      throw FormatException(
-        'Invalid value "$rawValue" for parameter "$paramFlag". Expected an integer.',
-      );
-    }
-    return parsedInt;
+  final String? expected = switch (expectedType) {
+    RuleParameterType.integer => 'an integer',
+    RuleParameterType.boolean => '"true" or "false"',
+    _ => null,
+  };
+  if (expected == null) {
+    return rawValue;
   }
 
-  if (expectedType == RuleParameterType.boolean) {
-    final String lower = rawValue.toString().toLowerCase();
-    if (lower != 'true' && lower != 'false') {
-      throw FormatException(
-        'Invalid value "$rawValue" for parameter "$paramFlag". Expected "true" or "false".',
-      );
-    }
-    return lower == 'true';
+  final invalid = FormatException(
+    'Invalid value "$rawValue" for parameter "$paramFlag". Expected $expected.',
+  );
+  final Object? value;
+  try {
+    value = loadYaml(rawValue.toString());
+  } on YamlException {
+    throw invalid;
   }
-
-  return rawValue;
+  if (!expectedType.isValid(value)) {
+    throw invalid;
+  }
+  return value;
 }
 
 void _printUsage(ArgParser parser, [String? error]) {
