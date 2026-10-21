@@ -19,16 +19,14 @@ import '../suggestions/sibling_suggestion.dart';
 /// that leave the skill directory, which break when `dart run skills@ get`
 /// installs the skill on its own.
 class RelativePathsRule extends SkillRule {
-  RelativePathsRule({this.severity = defaultSeverity, this.withinSkill = defaultWithinSkill});
+  RelativePathsRule({this.severity = defaultSeverity, bool? withinSkill})
+    : withinSkill = withinSkill ?? false;
 
   static const String ruleName = 'check-relative-paths';
   static const AnalysisSeverity defaultSeverity = AnalysisSeverity.disabled;
 
   /// The rule parameter that turns on [withinSkill].
   static const String withinSkillParameter = 'within-skill';
-
-  /// The value of [withinSkill] when [withinSkillParameter] is not set.
-  static const defaultWithinSkill = false;
 
   /// Whether to report relative links that resolve outside the skill
   /// directory, including links into sibling skills.
