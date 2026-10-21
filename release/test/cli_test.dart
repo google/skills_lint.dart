@@ -11,7 +11,6 @@ import 'package:path/path.dart' as p;
 import 'package:skills_lint_release/src/archive.dart';
 import 'package:skills_lint_release/src/checksums.dart';
 import 'package:skills_lint_release/src/homebrew_formula.dart';
-import 'package:skills_lint_release/src/line_endings.dart';
 import 'package:skills_lint_release/src/paths.dart';
 import 'package:skills_lint_release/src/release_info.dart';
 import 'package:skills_lint_release/src/release_notes.dart';
@@ -60,7 +59,7 @@ void main() {
       final String changelog = File(
         p.join(skillsLintPackageDir, 'CHANGELOG.md'),
       ).readAsStringSync();
-      expect(changelog.normalizeLineTerminators(), contains(File(notes).readAsStringSync().trim()));
+      expect(changelog, contains(File(notes).readAsStringSync().trim()));
       expect(changelogSection(changelog, version), File(notes).readAsStringSync().trim());
     },
   );
