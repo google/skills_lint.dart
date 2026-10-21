@@ -20,10 +20,13 @@ Create `skills_lint.yaml` at the package root, next to `pubspec.yaml`:
 ```yaml
 skills_lint:
   directories:
+    # A package publishes its skills from skills/.
     - path: "skills"
       rules:
         published-skill-name: error
-        check-relative-paths: { severity: error, within-skill: true }
+        check-relative-paths:
+          severity: error
+          within-skill: true
 ```
 
 - `published-skill-name` checks that each skill name is the package name with
@@ -33,8 +36,6 @@ skills_lint:
 - `check-relative-paths` checks that every relative link resolves.
   `within-skill: true` also reports links that leave the skill's own folder,
   because an installed skill is copied without the files around it.
-
-Change `skills` if the skills live somewhere else.
 
 ## 3. Add the test
 
