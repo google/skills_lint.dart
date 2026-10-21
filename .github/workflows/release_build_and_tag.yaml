@@ -117,6 +117,8 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/skills_lint_workflow.yaml
+    with:
+      pubspec-lock: ${{ needs.plan.outputs.pubspec-lock }}
 
   build-executable:
     name: 'Build: skills_lint executable for ${{ matrix.target }}'
