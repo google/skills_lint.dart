@@ -2,10 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Writes and checks SHA-256 checksums in the format of `shasum -a 256`,
+/// Writes, reads and checks SHA-256 checksums in the format of `shasum -a 256`,
 /// which `scripts/install.sh` reads.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -22,19 +23,43 @@ const String sha256SumsName = 'SHA256SUMS';
 
 const String _archiveSuffix = '.tar.gz';
 
-String _line(File file) => '${sha256.convert(file.readAsBytesSync())}  ${p.basename(file.path)}';
+/// A checksum line, such as `<64 hex digits>  skills_lint-linux-x64.tar.gz`.
+///
+/// Group 1 is the checksum and group 2 the file name. Two spaces separate
+/// them, as in the lines that `shasum -a 256` writes in text mode.
+final RegExp _checksumLine = RegExp(r'^([0-9a-f]{64})  (\S+)$');
+
+/// The checksum and file name in [line], or `null` if [line] is not a
+/// checksum line.
+///
+/// The only parser of checksum lines, so every reader accepts the same lines.
+({String sha256, String name})? _parseChecksumLine(String line) {
+  final Match? match = _checksumLine.firstMatch(line);
+  if (match == null) {
+    return null;
+  }
+  return (sha256: match[1]!, name: match[2]!);
+}
+
+/// The SHA-256 of [file], in lowercase hex as `sha256sum` prints it.
+String fileSha256(File file) => '${sha256.convert(file.readAsBytesSync())}';
+
+String _line(File file) => '${fileSha256(file)}  ${p.basename(file.path)}';
 
 /// Writes `<file>.sha256`, which holds the line `<hash>  <name>` for [file],
 /// and returns it.
 File writeChecksum(File file) =>
     File('${file.path}$checksumSuffix')..writeAsStringSync('${_line(file)}\n');
 
-/// Checks each `.sha256` file in [dir] against the file it names, then writes
-/// their lines, sorted by file name, to [sha256SumsName] in [dir], deletes
-/// the `.sha256` files and returns the [sha256SumsName] file.
+/// Merges the `.sha256` files in [dir] into one [sha256SumsName] file.
+///
+/// Checks each `.sha256` file against the file it names, then writes their
+/// lines, sorted by file name, to [sha256SumsName] in [dir], deletes the
+/// `.sha256` files and returns the [sha256SumsName] file.
 ///
 /// Throws a [ReleaseException] if [dir] has no `.tar.gz` archive, an archive
-/// has no `.sha256` file, or a `.sha256` file doesn't match its file.
+/// has no `.sha256` file, or a `.sha256` file doesn't hold one checksum line
+/// that matches its file.
 File mergeChecksums(Directory dir) {
   final List<File> files = dir.listSync().whereType<File>().toList();
   final List<File> parts = [
@@ -52,7 +77,10 @@ File mergeChecksums(Directory dir) {
   final Map<String, String> linesByName = {};
   for (final part in parts) {
     final String line = part.readAsStringSync().trim();
-    final String name = line.split('  ').last;
+    final String? name = _parseChecksumLine(line)?.name;
+    if (name == null) {
+      throw ReleaseException('${p.basename(part.path)} is not a "<sha256>  <name>" line: $line');
+    }
     final file = File(p.join(dir.path, name));
     if (!file.existsSync()) {
       throw ReleaseException('${p.basename(part.path)} names $name, which is not in ${dir.path}.');
@@ -74,4 +102,28 @@ File mergeChecksums(Directory dir) {
     part.deleteSync();
   }
   return sums;
+}
+
+/// The checksum of each file in [sha256Sums], the text of a release's
+/// [sha256SumsName], keyed by file name.
+///
+/// Skips lines that contain only whitespace. Throws a [ReleaseException] on
+/// any other line that is not a checksum line, as `shasum -a 256` writes it
+/// in text mode with lowercase hex, and on a file listed twice.
+Map<String, String> parseSha256Sums(String sha256Sums) {
+  final Map<String, String> checksums = {};
+  for (final String line in LineSplitter.split(sha256Sums)) {
+    if (line.trimLeft().isEmpty) {
+      continue;
+    }
+    if (_parseChecksumLine(line) case (:final String sha256, :final String name)) {
+      if (checksums.containsKey(name)) {
+        throw ReleaseException('$sha256SumsName lists $name twice.');
+      }
+      checksums[name] = sha256;
+    } else {
+      throw ReleaseException('$sha256SumsName has a line that is not "<sha256>  <name>": $line');
+    }
+  }
+  return checksums;
 }
