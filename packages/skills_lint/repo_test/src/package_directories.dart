@@ -11,7 +11,7 @@ library;
 
 /// The test roots. CI runs `dart test` once per root, so a test file outside
 /// them never runs in CI.
-const List<String> testDirectories = ['test', 'repo_test', 'compiled_test'];
+const List<String> testDirectories = ['test', 'repo_test', 'compiled_test', '../../release/test'];
 
 /// The directories whose code ships in the published package.
 ///
@@ -33,6 +33,8 @@ const List<String> dartSourceDirectories = [
   'benchmark',
   ...shippedDirectories,
   'example',
-  ...testDirectories,
+  'test',
+  'repo_test',
+  'compiled_test',
   ...otherPackageDirectories,
 ];
