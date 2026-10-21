@@ -637,8 +637,6 @@ class ValidationSession {
   static String baselineFileName(String errorFile, Directory skillDir) {
     final String normalized = p.normalize(errorFile);
     final String skillPath = p.normalize(skillDir.path);
-    // An error reported against the skill directory itself counts too, so that
-    // it reaches `p.relative` and records `.` rather than an absolute path.
     if (p.isAbsolute(normalized) && isAtOrWithin(skillPath, normalized)) {
       return p.relative(normalized, from: skillPath);
     }
