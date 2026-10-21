@@ -10,6 +10,8 @@ import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/output_format.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
+import 'package:skills_lint/src/pub_archive_loader.dart';
+import 'package:skills_lint/src/rules/pub_archive_includes_skill_rule.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/validation_session.dart';
 import 'package:test/test.dart';
@@ -28,6 +30,7 @@ ValidationSession createTestSession({
   bool fix = false,
   bool fixApply = false,
   OutputFormat format = OutputFormat.text,
+  PubArchiveLoader? pubArchiveLoader,
 }) => ValidationSession(
   config: config ?? const Configuration(),
   resolvedRuleConfigs: resolvedRuleConfigs,
@@ -40,6 +43,7 @@ ValidationSession createTestSession({
   fix: fix,
   fixApply: fixApply,
   format: format,
+  pubArchiveLoader: pubArchiveLoader,
 );
 
 void main() {
@@ -253,6 +257,55 @@ void main() {
       // command (see `_chmod`), which Windows does not provide, and NTFS access
       // is controlled by ACLs rather than mode bits.
     }, testOn: '!windows');
+  });
+
+  group('pub archive', () {
+    late Directory skillsDir;
+
+    setUp(() async {
+      final Directory packageDir = await Directory.systemTemp.createTemp('session_pub_archive.');
+      addTearDown(() => packageDir.delete(recursive: true));
+      await File(p.join(packageDir.path, 'pubspec.yaml')).writeAsString('name: my_pkg\n');
+      skillsDir = Directory(p.join(packageDir.path, 'skills'));
+      for (final name in ['my-pkg-a', 'my-pkg-b']) {
+        await createDummySkill(
+          skillsDir,
+          name: name,
+          skillContent: buildFrontmatter(name: name),
+        );
+      }
+    });
+
+    test('is not built when pub-archive-includes-skill is disabled', () async {
+      final pub = FakePub();
+      final ValidationSession session = createTestSession(
+        pubArchiveLoader: PubArchiveLoader(runProcess: pub.run),
+      );
+
+      await session.processSkillRoot(skillsDir.path);
+
+      expect(session.anyFailed, isFalse);
+      expect(pub.workingDirectories, isEmpty);
+    });
+
+    test('is built once for all skills in a package and reaches the rule', () async {
+      final pub = FakePub(archiveFiles: ['skills/my-pkg-a/SKILL.md']);
+      final ValidationSession session = createTestSession(
+        resolvedRuleConfigs: {
+          PubArchiveIncludesSkillRule.ruleName: const RuleConfigPatch(
+            severity: AnalysisSeverity.error,
+          ),
+        },
+        pubArchiveLoader: PubArchiveLoader(runProcess: pub.run),
+      );
+
+      await session.processSkillRoot(skillsDir.path);
+
+      expect(pub.workingDirectories, hasLength(1));
+      expect(session.results.expand((r) => r.validationErrors).map((e) => e.message), [
+        startsWith('skills/my-pkg-b/SKILL.md is not in the package pub publishes'),
+      ]);
+    });
   });
 }
 

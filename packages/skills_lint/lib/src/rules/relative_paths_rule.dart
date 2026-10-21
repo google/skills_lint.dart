@@ -10,6 +10,7 @@ import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
+import '../skill_links.dart';
 import '../suggestions/sibling_suggestion.dart';
 
 /// Enforces that relative links in SKILL.md point to existing files.
@@ -43,18 +44,18 @@ class RelativePathsRule extends SkillRule {
     )) {
       final String fullPath = linkMatch.group(1)!;
       // Markdown links can have a title after the URL, separated by spaces.
-      final String path = fullPath.trim().split(RegExp(r'\s+')).first;
+      final String path = linkTargetOf(fullPath);
 
       // Skip absolute paths (handled by AbsolutePathsRule)
-      if (isAbsolute(path) || windows.isAbsolute(path)) {
+      if (isAbsoluteLink(path)) {
         continue;
       }
 
-      if (_isUrlOrAnchor(path)) {
+      if (isUrlOrAnchor(path)) {
         continue; // Ignore web URLs, email links, anchors, etc.
       }
 
-      final String effectivePath = _filePathOf(path);
+      final String effectivePath = linkFilePath(path);
 
       final String resolvedPath = absolute(normalize(join(context.directory.path, effectivePath)));
       final linkedFile = File(resolvedPath);
@@ -89,40 +90,6 @@ class RelativePathsRule extends SkillRule {
     }
 
     return errors;
-  }
-
-  /// Whether the link target [path] is a URL with a scheme, such as
-  /// `https:` or `mailto:`, or an anchor in this file.
-  static bool _isUrlOrAnchor(String path) {
-    final Uri? uri = Uri.tryParse(path);
-    return uri != null && (uri.hasScheme || path.startsWith('#'));
-  }
-
-  /// Returns the file path that the link target [path] points to, with
-  /// percent escapes decoded.
-  ///
-  /// A [path] that is not a valid URI, whose escapes are not valid UTF-8,
-  /// such as `%E9`, or that decodes to an absolute path or to one with a NUL,
-  /// is returned as written.
-  static String _filePathOf(String path) {
-    final Uri? uri = Uri.tryParse(path);
-    if (uri == null) {
-      return path;
-    }
-    final String decoded;
-    try {
-      decoded = Uri.decodeComponent(uri.path);
-    } on FormatException {
-      // Uri.tryParse turns a % that starts no escape into %25, so only invalid
-      // UTF-8, such as %E9, makes decoding fail.
-      return path;
-    }
-    // join would ignore the skill directory for an absolute path, and
-    // File.existsSync ignores everything after a NUL.
-    if (isAbsolute(decoded) || decoded.contains('\u0000')) {
-      return path;
-    }
-    return decoded;
   }
 }
 

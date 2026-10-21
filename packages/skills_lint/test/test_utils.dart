@@ -6,10 +6,12 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/skill_context.dart';
+import 'package:tar/tar.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 import 'package:yaml/yaml.dart';
@@ -143,4 +145,43 @@ SkillContext createTestSkillContext({
     rawContent: effectiveRawContent,
     parsedYaml: effectiveParsedYaml,
   );
+}
+
+/// A stand-in for `dart pub publish --to-archive` that tests give to
+/// `PubArchiveLoader` in place of [Process.run].
+///
+/// When [exitCode] is 0, [run] writes an archive that holds [archiveFiles].
+class FakePub {
+  FakePub({this.archiveFiles = const [], this.exitCode = 0, this.stderr = ''});
+
+  static const String _toArchiveOption = '--to-archive=';
+
+  final List<String> archiveFiles;
+  final int exitCode;
+  final String stderr;
+
+  /// The working directory of each call to [run], in order.
+  final List<String> workingDirectories = [];
+
+  Future<ProcessResult> run(
+    String executable,
+    List<String> arguments, {
+    String? workingDirectory,
+  }) async {
+    workingDirectories.add(workingDirectory!);
+    if (exitCode == 0) {
+      final String archivePath = arguments
+          .firstWhere((String argument) => argument.startsWith(_toArchiveOption))
+          .substring(_toArchiveOption.length);
+      final Stream<TarEntry> entries = Stream.fromIterable([
+        for (final String file in archiveFiles)
+          TarEntry.data(TarHeader(name: file, mode: 420), utf8.encode(file)),
+      ]);
+      await entries
+          .transform(tarWriter)
+          .transform(gzip.encoder)
+          .pipe(File(archivePath).openWrite());
+    }
+    return ProcessResult(0, exitCode, '', stderr);
+  }
 }

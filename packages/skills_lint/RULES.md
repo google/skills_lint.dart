@@ -176,6 +176,32 @@ governs how changes to these rules ship.
   and the author may want a different name entirely.
 - **Disable:** `--no-invalid-skill-name`.
 
+## pub-archive-includes-skill
+
+- **Default severity:** disabled
+- **Fixable:** no
+- **What it checks:** for a skill in `skills/<name>/` of a Dart package,
+  `dart pub publish` uploads `skills/<name>/SKILL.md` and every file inside
+  the package that `SKILL.md` links to. `dart run skills@ get` installs
+  skills from the published package, so a `.pubignore` or `.gitignore`
+  pattern that drops a file breaks the skill for every consumer. A path
+  dependency ignores `.pubignore`, so local testing doesn't show it. The
+  package is the nearest directory with a `pubspec.yaml`. Skills outside
+  its `skills/` directory pass, as do links to files that don't exist
+  (`check-relative-paths` reports those) and links that leave the package.
+- **How it works:** when the rule is enabled for a skill, skills_lint runs
+  `dart pub publish --skip-validation --to-archive=<temp file>` once per
+  package and reads the file names from that archive. This needs `dart` on
+  `PATH`. `--to-archive` is a hidden pub option; if pub stops accepting it,
+  the rule reports pub's error instead of passing.
+- **Diagnostic shape:**
+  `` skills/<name>/SKILL.md is not in the package pub publishes, so `dart run skills@ get` won't install <name>. Check .pubignore and .gitignore. ``
+  `<file>, linked from skills/<name>/SKILL.md, is not in the package pub publishes, so the link is broken in installed copies of <name>. Check .pubignore and .gitignore.`
+  When the file list can't be built, the diagnostic says why: no
+  `pubspec.yaml`, `publish_to: none`, `dart` not found, or pub failed.
+- **Auto-fix behavior:** none. Fix `.pubignore` or `.gitignore` by hand.
+- **Disable:** `--no-pub-archive-includes-skill` (also the default state).
+
 ## published-skill-name
 
 - **Default severity:** disabled
