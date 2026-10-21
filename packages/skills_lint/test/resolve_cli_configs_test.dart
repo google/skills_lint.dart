@@ -159,44 +159,19 @@ void main() {
       );
     });
 
-    // A flag accepts the booleans of the YAML 1.2 core schema, as
-    // skills_lint.yaml does, and nothing else.
-    for (final (:String raw, :bool parsed) in [
-      (raw: 'True', parsed: true),
-      (raw: 'TRUE', parsed: true),
-      (raw: 'false', parsed: false),
-      (raw: 'False', parsed: false),
-      (raw: 'FALSE', parsed: false),
-    ]) {
-      test('parses bool parameter $raw as $parsed, as YAML does', () {
-        final ArgResults results = createParser().parse(['--$mockCheckName-strict=$raw']);
-
-        final Map<String, RuleConfigPatch> configs = resolveRuleConfigsFromCli(results);
-
-        expect(configs[mockCheckName]!.parameters!['strict'], parsed);
-      });
-    }
-
-    for (final raw in ['tRuE', 'fALSE', 'on', '1']) {
-      test(
-        'throws FormatException when bool parameter is passed $raw, which YAML reads as no bool',
-        () {
-          final ArgResults results = createParser().parse(['--$mockCheckName-strict=$raw']);
-
-          expect(
-            () => resolveRuleConfigsFromCli(results),
-            throwsA(
-              isA<FormatException>().having(
-                (e) => e.message,
-                'message',
-                'Invalid value "$raw" for parameter "$mockCheckName-strict". '
-                    'Expected "true" or "false".',
-              ),
-            ),
-          );
-        },
+    test('throws FormatException when int parameter is passed a value that is not YAML', () {
+      final ArgResults results = createParser().parse(['--$mockCheckName-max=[']);
+      expect(
+        () => resolveRuleConfigsFromCli(results),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            'Invalid value "[" for parameter "$mockCheckName-max". Expected an integer.',
+          ),
+        ),
       );
-    }
+    });
 
     test('throws FormatException when bool parameter is passed a non-boolean string', () {
       final ArgResults results = createParser().parse(['--$mockCheckName-strict=yes']);

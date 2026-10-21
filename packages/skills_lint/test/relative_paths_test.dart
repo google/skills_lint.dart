@@ -510,8 +510,7 @@ void _defineWithinSkillTests() {
     });
 
     test('is false by default', () {
-      expect(RelativePathsRule().withinSkill, RelativePathsRule.defaultWithinSkill);
-      expect(RelativePathsRule.defaultWithinSkill, isFalse);
+      expect(RelativePathsRule().withinSkill, isFalse);
       final SkillRule? rule = RuleRegistry.createRule(
         RelativePathsRule.ruleName,
         AnalysisSeverity.error,

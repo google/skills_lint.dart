@@ -15,23 +15,18 @@ import '../suggestions/sibling_suggestion.dart';
 
 /// Enforces that relative links in SKILL.md point to existing files.
 ///
-/// When [withinSkill] is true, it reports relative links that resolve outside
-/// the skill directory, the directory that contains SKILL.md, and does not
-/// check whether their targets exist. Turn it on when the skill's maintainer
-/// needs the skill to be portable: such a link breaks when the skill directory
-/// is copied somewhere else, as `dart run skills@ get` does when it installs a
-/// published skill.
+/// Turn on [withinSkill] for skills that must be portable. It reports links
+/// that leave the skill directory, which break when `dart run skills@ get`
+/// installs the skill on its own.
 class RelativePathsRule extends SkillRule {
-  RelativePathsRule({this.severity = defaultSeverity, this.withinSkill = defaultWithinSkill});
+  RelativePathsRule({this.severity = defaultSeverity, bool? withinSkill})
+    : withinSkill = withinSkill ?? false;
 
   static const String ruleName = 'check-relative-paths';
   static const AnalysisSeverity defaultSeverity = AnalysisSeverity.disabled;
 
   /// The rule parameter that turns on [withinSkill].
   static const String withinSkillParameter = 'within-skill';
-
-  /// The value of [withinSkill] when [withinSkillParameter] is not set.
-  static const defaultWithinSkill = false;
 
   /// Whether to report relative links that resolve outside the skill
   /// directory, including links into sibling skills.
@@ -79,8 +74,8 @@ class RelativePathsRule extends SkillRule {
       final String resolvedPath = absolute(normalize(join(skillPath, effectivePath)));
       final int line = context.offsetToLine(frontmatterEnd + linkMatch.start);
       if (withinSkill && !isAtOrWithin(skillPath, resolvedPath)) {
-        // Only the location is reported. The target is not checked, so no file
-        // outside the skill is probed.
+        // The link is wrong wherever it points, so skip the existence check
+        // and the sibling suggestion below.
         errors.add(_outsideSkillError(path: path, resolvedPath: resolvedPath, line: line));
         continue;
       }

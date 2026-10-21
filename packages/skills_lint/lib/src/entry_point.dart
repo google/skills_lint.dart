@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
+import 'package:yaml/yaml.dart';
 
 import 'config_parser.dart';
 import 'missing_defaults_exception.dart';
@@ -651,45 +652,34 @@ Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults resu
   return checkOverrides;
 }
 
-/// The spellings of a boolean in the YAML 1.2 core schema
-/// (https://yaml.org/spec/1.2.2/#1032-tag-resolution), which is what
-/// `package:yaml` reads as a `bool` in `skills_lint.yaml`. A boolean parameter
-/// flag accepts the same spellings as the configuration file.
-const Map<String, bool> _yamlBooleans = {
-  'true': true,
-  'True': true,
-  'TRUE': true,
-  'false': false,
-  'False': false,
-  'FALSE': false,
-};
-
 Object? _parseParameterValue(String paramFlag, Object? rawValue, RuleParameterType expectedType) {
   if (rawValue == '') {
     return null;
   }
 
-  if (expectedType == RuleParameterType.integer) {
-    final int? parsedInt = int.tryParse(rawValue.toString());
-    if (parsedInt == null) {
-      throw FormatException(
-        'Invalid value "$rawValue" for parameter "$paramFlag". Expected an integer.',
-      );
-    }
-    return parsedInt;
+  final String? expected = switch (expectedType) {
+    RuleParameterType.integer => 'an integer',
+    RuleParameterType.boolean => '"true" or "false"',
+    _ => null,
+  };
+  if (expected == null) {
+    return rawValue;
   }
 
-  if (expectedType == RuleParameterType.boolean) {
-    final bool? parsedBool = _yamlBooleans[rawValue.toString()];
-    if (parsedBool == null) {
-      throw FormatException(
-        'Invalid value "$rawValue" for parameter "$paramFlag". Expected "true" or "false".',
-      );
-    }
-    return parsedBool;
+  // Read the value as YAML, so a flag accepts what skills_lint.yaml accepts.
+  final invalid = FormatException(
+    'Invalid value "$rawValue" for parameter "$paramFlag". Expected $expected.',
+  );
+  final Object? value;
+  try {
+    value = loadYaml(rawValue.toString());
+  } on YamlException {
+    throw invalid;
   }
-
-  return rawValue;
+  if (!expectedType.isValid(value)) {
+    throw invalid;
+  }
+  return value;
 }
 
 void _printUsage(ArgParser parser, [String? error]) {
