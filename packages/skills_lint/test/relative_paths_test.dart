@@ -27,6 +27,7 @@ import 'test_utils.dart';
 const String _param = RelativePathsRule.withinSkillParameter;
 const String _flag = '--${RelativePathsRule.ruleName}-$_param';
 const String _outside = 'Linked file is outside the skill directory';
+const String _missing = 'Linked file does not exist';
 
 /// Creates a package with two published skills and a file next to them:
 ///
@@ -36,7 +37,7 @@ const String _outside = 'Linked file is outside the skill directory';
 ///   skills/
 ///     README.md
 ///     my-skill/
-///       SKILL.md        (written by each test)
+///       SKILL.md        (frontmatter, then [mySkillBody])
 ///       references/DETAILS.md
 ///     other-skill/
 ///       SKILL.md
@@ -44,15 +45,20 @@ const String _outside = 'Linked file is outside the skill directory';
 ///
 /// Returns the `my-skill` directory. Every linked file exists, so a
 /// diagnostic about an outside link is never caused by a missing file.
-Future<Directory> _createPackage(Directory root) async {
+Future<Directory> _createPackage(Directory root, {String mySkillBody = ''}) async {
   final Directory skills = await Directory(p.join(root.path, 'skills')).create();
-  final Directory mySkill = await Directory(p.join(skills.path, 'my-skill')).create();
+  final Directory mySkill = await createDummySkill(
+    skills,
+    name: 'my-skill',
+    skillContent: '${buildFrontmatter(name: 'my-skill')}$mySkillBody',
+  );
   await Directory(p.join(mySkill.path, 'references')).create();
   await File(p.join(mySkill.path, 'references', 'DETAILS.md')).writeAsString('Details');
-  final Directory otherSkill = await Directory(p.join(skills.path, 'other-skill')).create();
-  await File(
-    p.join(otherSkill.path, 'SKILL.md'),
-  ).writeAsString('${buildFrontmatter(name: 'other-skill')}Body\n');
+  await createDummySkill(
+    skills,
+    name: 'other-skill',
+    skillContent: '${buildFrontmatter(name: 'other-skill')}Body\n',
+  );
   await File(p.join(skills.path, 'README.md')).writeAsString('Readme');
   await File(p.join(root.path, 'RULES.md')).writeAsString('Rules');
   return mySkill;
@@ -430,83 +436,59 @@ void _defineWithinSkillTests() {
       return rule.validate(SkillContext(directory: skillDir, rawContent: content));
     }
 
-    group('when true, reports links that leave the skill directory', () {
-      for (final (:String link, :String why) in [
-        (link: '../README.md', why: 'one ../ leaves the skill'),
-        (link: '../../RULES.md', why: 'a nested ../../ leaves the skill'),
-        (link: '../other-skill/SKILL.md', why: 'a sibling skill may not be installed'),
-        (link: 'references/../../README.md', why: 'a ../ after a subdirectory leaves the skill'),
-        (link: '%2E%2E%2F%2E%2E%2FRULES.md', why: 'percent escapes decode to ../../'),
-        (link: '..%2FREADME.md', why: 'an encoded slash decodes to ../'),
-        (link: '../../RULES.md#rules', why: 'a fragment does not hide the path'),
-        (link: '../README.md "Title"', why: 'a title does not hide the path'),
-      ]) {
-        test('reports $link because $why', () async {
-          final List<ValidationError> errors = await lint(link, withinSkill: true);
-
-          final ValidationError error = errors.single;
-          expect(error.ruleId, RelativePathsRule.ruleName);
-          expect(error.severity, AnalysisSeverity.error);
-          expect(error.file, 'SKILL.md');
-          expect(error.region?.startLine, linkLine);
-          expect(error.message, startsWith('$_outside: ${link.split(' ').first} (resolved to '));
-          expect(error.message, endsWith('or copy the content into the skill directory.'));
-          expect(error.markdownMessage, contains('Link to an absolute URL'));
-        });
-      }
-
-      test('reports a missing file outside the skill once, as outside the skill', () async {
-        final List<ValidationError> errors = await lint('../MISSING.md', withinSkill: true);
+    // Each case: the link, the within-skill value, and the start of the
+    // single expected message, or null for no message. An outside message
+    // ends with its fix, so it carries no "Did you mean" suggestion.
+    for (final (String link, bool withinSkill, String? reported) in [
+      ('../README.md', true, _outside),
+      ('../../RULES.md', true, _outside),
+      ('../other-skill/SKILL.md', true, _outside), // A sibling may not be installed.
+      ('references/../../README.md', true, _outside),
+      ('%2E%2E%2F%2E%2E%2FRULES.md', true, _outside), // Decodes to ../../RULES.md.
+      ('..%2FREADME.md', true, _outside),
+      ('../../RULES.md#rules', true, _outside),
+      ('../README.md "Title"', true, _outside),
+      ('../MISSING.md', true, _outside), // Not also reported as missing.
+      ('../READM.md', true, _outside), // No suggestion of ../README.md.
+      ('references/DETAILS.md', true, null),
+      ('./references/DETAILS.md', true, null),
+      ('../my-skill/references/DETAILS.md', true, null), // Leaves and comes back.
+      ('.', true, _missing), // A link to a directory is reported as missing.
+      ('references/', true, _missing),
+      ('../README.md', false, null),
+      ('../../RULES.md', false, null),
+      ('../other-skill/SKILL.md', false, null),
+      ('../MISSING.md', false, _missing),
+    ]) {
+      final String target = link.split(' ').first;
+      final String outcome = switch (reported) {
+        null => 'allows $link',
+        _outside => 'reports $link as outside the skill',
+        _ => 'reports $link as missing',
+      };
+      test('when $withinSkill, $outcome', () async {
+        final List<ValidationError> errors = await lint(link, withinSkill: withinSkill);
 
         expect(errors.map((ValidationError e) => e.message), [
-          startsWith('$_outside: ../MISSING.md'),
+          if (reported == _outside)
+            allOf(
+              startsWith('$_outside: $target (resolved to '),
+              endsWith('into the skill directory.'),
+            )
+          else if (reported != null)
+            startsWith('$reported: $target (resolved to '),
         ]);
       });
+    }
 
-      test('does not suggest a similar file outside the skill', () async {
-        final List<ValidationError> errors = await lint('../READM.md', withinSkill: true);
+    test('reports an outside link with the rule, severity, file and line', () async {
+      final ValidationError error = (await lint('../README.md', withinSkill: true)).single;
 
-        expect(errors.single.message, isNot(contains('Did you mean')));
-      });
-    });
-
-    group('when true, allows links that stay in the skill directory', () {
-      for (final (:String link, :String why) in [
-        (link: 'references/DETAILS.md', why: 'it stays in the skill'),
-        (link: './references/DETAILS.md', why: 'it stays in the skill'),
-        (link: '../my-skill/references/DETAILS.md', why: 'it leaves and comes back into the skill'),
-      ]) {
-        test('allows $link because $why', () async {
-          expect(await lint(link, withinSkill: true), isEmpty);
-        });
-      }
-
-      // The rule reports a link to a directory as a missing file, so only
-      // check that these links are not reported as outside the skill.
-      for (final link in ['.', 'references/']) {
-        test('does not report $link as outside the skill', () async {
-          final List<ValidationError> errors = await lint(link, withinSkill: true);
-
-          expect(
-            errors.map((ValidationError e) => e.message),
-            everyElement(isNot(startsWith(_outside))),
-          );
-        });
-      }
-    });
-
-    group('when false, allows links that leave the skill directory', () {
-      for (final link in ['../README.md', '../../RULES.md', '../other-skill/SKILL.md']) {
-        test('allows $link because the file exists', () async {
-          expect(await lint(link, withinSkill: false), isEmpty);
-        });
-      }
-
-      test('reports a missing file outside the skill as missing', () async {
-        final List<ValidationError> errors = await lint('../MISSING.md', withinSkill: false);
-
-        expect(errors.single.message, startsWith('Linked file does not exist: ../MISSING.md'));
-      });
+      expect(error.ruleId, RelativePathsRule.ruleName);
+      expect(error.severity, AnalysisSeverity.error);
+      expect(error.file, 'SKILL.md');
+      expect(error.region?.startLine, linkLine);
+      expect(error.markdownMessage, contains('Link to an absolute URL'));
     });
 
     test('is false by default', () {
@@ -605,12 +587,11 @@ void defineCliTests() {
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('within_skill_cli_test.');
-      final Directory skillDir = await _createPackage(tempDir);
-      skillsPath = p.dirname(skillDir.path);
-      await File(p.join(skillDir.path, 'SKILL.md')).writeAsString(
-        '${buildFrontmatter(name: 'my-skill')}'
-        'See [rules](../../RULES.md) and [details](references/DETAILS.md).\n',
+      final Directory skillDir = await _createPackage(
+        tempDir,
+        mySkillBody: 'See [rules](../../RULES.md) and [details](references/DETAILS.md).\n',
       );
+      skillsPath = p.dirname(skillDir.path);
     });
 
     tearDown(() async {

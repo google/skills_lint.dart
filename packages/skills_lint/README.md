@@ -186,37 +186,17 @@ skills_lint:
   directories:
     - path: "~/.agents/skills"
       ignore_file: "~/.agents/skills/ignore.json"
+    - path: "skills"
+      rules:
+        check-relative-paths:
+          severity: error
+          within-skill: true
   individual_skills:
     - path: "my_custom_standalone_skill"
       rules:
         missing_install_script: warning
       ignore_file: "my_ignores.json"
 ```
-
-If your package publishes skills from `skills/`, also set
-`within-skill: true` on that directory. `dart run skills@ get` installs
-each skill on its own, so a link out of the skill directory, such as
-`../../README.md`, breaks once installed. Contributor skills in
-`.agents/skills` keep the global settings:
-
-```yaml
-# skills_lint.yaml
-skills_lint:
-  rules:
-    check-relative-paths: error
-  directories:
-    - path: "skills"
-      rules:
-        published-skill-name: error
-        check-relative-paths:
-          severity: error
-          within-skill: true
-    - path: ".agents/skills"
-```
-
-A rule set as a map under a directory replaces the global parameters
-for that rule in that directory only. See
-[Rule Precedence](#rule-precedence).
 
 Then you can simply run:
 ```bash

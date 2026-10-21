@@ -16,8 +16,8 @@ import '../suggestions/sibling_suggestion.dart';
 /// Enforces that relative links in SKILL.md point to existing files.
 ///
 /// Turn on [withinSkill] for skills that must be portable. It reports links
-/// that leave the skill directory, which break when `dart run skills@ get`
-/// installs the skill on its own.
+/// that leave the skill directory, which break when the skill is copied
+/// somewhere else on its own.
 class RelativePathsRule extends SkillRule {
   RelativePathsRule({this.severity = defaultSeverity, bool? withinSkill})
     : withinSkill = withinSkill ?? false;
@@ -128,8 +128,7 @@ class RelativePathsRule extends SkillRule {
           'or copy the content into the skill directory.',
       markdownMessage:
           '**Linked file is outside the skill directory:** `$path`\n\n'
-          'The link breaks when the skill is installed on its own, for example with '
-          '`dart run skills@ get`.\n\n'
+          'The link breaks when the skill is installed on its own.\n\n'
           '**How to fix:**\n'
           '- Link to an absolute URL, such as the file on GitHub or pub.dev.\n'
           '- Or copy the content into the skill directory and link to the copy.',
