@@ -74,10 +74,9 @@ governs how changes to these rules ship.
     target exists is not checked. Defaults to `false`.
     **Turn it on for published skills**, such as the skills in a Dart
     package's `skills/` directory, if they must keep working once
-    installed. `dart run skills@ get` copies
-    each selected skill directory into the consumer's
-    `.agents/skills/` on its own, so such a link works in the
-    author's repository but breaks once installed. Links into a
+    installed. However a skill is installed, it is copied somewhere
+    else on its own, so such a link works in the author's repository
+    but breaks once installed. Links into a
     sibling skill (`../other-skill/SKILL.md`) are reported too,
     because the consumer can install one skill without the other.
     The check uses the decoded path, so `%2E%2E%2FREADME.md` is
