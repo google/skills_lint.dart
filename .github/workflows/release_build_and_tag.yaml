@@ -110,15 +110,6 @@ jobs:
           if-no-files-found: error
           retention-days: 30 # As long as GitHub lets a job be re-run.
 
-  check-release-tool:
-    name: 'Check: release tool tests'
-    needs: plan
-    permissions:
-      contents: read
-    uses: ./.github/workflows/release_tool_workflow.yaml
-    with:
-      pubspec-lock: ${{ needs.plan.outputs.pubspec-lock }}
-
   check-skills-lint:
     name: 'Check: skills_lint tests at this commit'
     needs: plan
@@ -246,12 +237,11 @@ jobs:
 
   stage-tag-and-draft:
     name: 'Stage: create the tag and the draft release, then start publishing'
-    needs: [plan, check-release-tool, check-skills-lint, build-assets, check-homebrew-formula]
+    needs: [plan, check-skills-lint, build-assets, check-homebrew-formula]
     # Runs only if every check passed. A prerelease has no Homebrew formula,
     # so its formula check skips.
     if: >-
       !cancelled() && needs.plan.outputs.mode == 'stage' &&
-      needs.check-release-tool.result == 'success' &&
       needs.check-skills-lint.result == 'success' &&
       needs.build-assets.result == 'success' &&
       (needs.check-homebrew-formula.result == 'success' || needs.plan.outputs.formula-version == '')

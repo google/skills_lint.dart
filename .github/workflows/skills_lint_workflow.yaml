@@ -60,7 +60,7 @@ jobs:
 
       - run: dart pub get
 
-      - run: dart analyze --fatal-infos
+      - run: dart analyze --fatal-infos . ../../release
 
       - name: Run cognitive complexity check
         run: dart run cognitive_complexity --fail-threshold 20 --exclude 'third_party/**' --exclude 'packages/skills_lint/evals/test_data/**' --exclude '.worktrees/**' --exclude '.claude/**' .
@@ -82,8 +82,13 @@ jobs:
       # Compiles the CLI the way a release does and runs the CLI tests from
       # test/ against the binary.
       - name: Run compiled CLI tests
+        id: compiled_tests
         if: success() || steps.product_tests.conclusion == 'failure' || steps.repo_tests.conclusion == 'failure'
         run: dart test compiled_test
+
+      - name: Run release tool tests
+        if: success() || steps.product_tests.conclusion == 'failure' || steps.repo_tests.conclusion == 'failure' || steps.compiled_tests.conclusion == 'failure'
+        run: dart test ../../release/test
 
       - name: Verify example
         run: dart run example/main.dart
@@ -101,7 +106,7 @@ jobs:
 
       - name: Analyze with the lowest allowed dependency versions
         if: matrix.lower_bound
-        run: dart analyze --fatal-infos
+        run: dart analyze --fatal-infos . ../../release
 
   coverage:
     runs-on: ubuntu-latest
@@ -142,7 +147,7 @@ jobs:
 
       - run: dart pub get
 
-      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart format --output=none --set-exit-if-changed . ../../release
 
   pana_score:
     runs-on: ubuntu-latest

@@ -30,22 +30,23 @@ void main() {
   });
 }
 
-/// Returns every `*_test.dart` file in the package, relative to the package
-/// root with `/` separators.
+/// Returns every `*_test.dart` file in this package and in
+/// [otherPackageDirectories], relative to the package root with `/` separators.
 ///
 /// Skips hidden directories such as `.dart_tool/`, and `evals/test_data/`,
 /// whose Dart files are fixtures.
 List<String> _testFilesInPackage() =>
     [
-          for (final File file in Directory(
-            packageRoot,
-          ).listSync(recursive: true).whereType<File>())
-            if (file.path.endsWith('_test.dart'))
-              p.split(p.relative(file.path, from: packageRoot)).join('/'),
+          for (final String root in ['.', ...otherPackageDirectories])
+            for (final File file in Directory(
+              p.join(packageRoot, root),
+            ).listSync(recursive: true).whereType<File>())
+              if (file.path.endsWith('_test.dart'))
+                p.split(p.relative(file.path, from: packageRoot)).join('/'),
         ]
         .where(
           (path) =>
-              !path.split('/').any((s) => s.startsWith('.')) &&
+              !path.split('/').any((s) => s != '..' && s.startsWith('.')) &&
               !path.startsWith('evals/test_data/'),
         )
         .toList();

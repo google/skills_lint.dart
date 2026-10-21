@@ -16,13 +16,6 @@ import 'package:yaml/yaml.dart';
 
 import 'src/repo_paths.dart';
 
-/// Workspace members whose lower bound CI doesn't test.
-const Set<String> _untestedMembers = {
-  // The release scripts, which build the executables only with the SDK that
-  // .github/workflows/release_build_and_tag.yaml sets.
-  'release',
-};
-
 void main() {
   // A pubspec whose lower bound is above the tested SDK already fails
   // `dart pub get` in that CI entry, so only the lowest bound needs checking.
@@ -30,7 +23,7 @@ void main() {
     final List<String> pubspecs = [
       'pubspec.yaml',
       for (final String member in _pubspec('pubspec.yaml').workspace ?? const <String>[])
-        if (!_untestedMembers.contains(member)) '$member/pubspec.yaml',
+        '$member/pubspec.yaml',
     ];
     final Map<String, Version> bounds = {
       for (final String path in pubspecs) path: _lowerBound(path),
