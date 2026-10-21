@@ -72,6 +72,7 @@ class RuleRegistry {
       name: RelativePathsRule.ruleName,
       defaultSeverity: RelativePathsRule.defaultSeverity,
       help: 'Check if relative paths exist.',
+      parameterSchema: {RelativePathsRule.withinSkillParameter: RuleParameterType.boolean},
     ),
     const CheckType(
       name: TrailingWhitespaceRule.ruleName,
@@ -127,7 +128,10 @@ class RuleRegistry {
           pubspecPath: parameters?.getString(PublishedSkillNameRule.pubspecPathParameter),
         );
       case RelativePathsRule.ruleName:
-        return RelativePathsRule(severity: severity);
+        return RelativePathsRule(
+          severity: severity,
+          withinSkill: parameters?.getBool(RelativePathsRule.withinSkillParameter),
+        );
       case TrailingWhitespaceRule.ruleName:
         return TrailingWhitespaceRule(severity: severity);
       case ValidYamlMetadataRule.ruleName:

@@ -559,7 +559,7 @@ class ValidationSession {
   /// Both arguments are absolute, so the comparison is a pure path operation
   /// that never consults the working directory.
   static bool _targetCovers(String targetPath, String skillPath) =>
-      p.equals(targetPath, skillPath) || p.isWithin(targetPath, skillPath);
+      isAtOrWithin(targetPath, skillPath);
 
   String _resolveIgnorePath(String? localIgnoreFile, Directory rootDir) {
     // [localIgnoreFile] arrives anchored from [resolveIgnoreFile] or from
@@ -637,21 +637,11 @@ class ValidationSession {
   static String baselineFileName(String errorFile, Directory skillDir) {
     final String normalized = p.normalize(errorFile);
     final String skillPath = p.normalize(skillDir.path);
-    if (p.isAbsolute(normalized) && _isAtOrWithin(skillPath, normalized)) {
+    if (p.isAbsolute(normalized) && isAtOrWithin(skillPath, normalized)) {
       return p.relative(normalized, from: skillPath);
     }
     return normalized;
   }
-
-  /// Whether the file or directory at path [candidate] is the directory at path
-  /// [parent], or sits somewhere under it.
-  ///
-  /// `p.isWithin` answers `false` when the two paths are equal. An error
-  /// reported against the skill directory itself needs the equal case to count,
-  /// so that [baselineFileName] reaches `p.relative` and records `.` rather
-  /// than an absolute path.
-  static bool _isAtOrWithin(String parent, String candidate) =>
-      p.equals(parent, candidate) || p.isWithin(parent, candidate);
 
   /// Where an error reported on [errorFile] sits on disk.
   static String _absoluteErrorFile(String errorFile, Directory skillDir) {
