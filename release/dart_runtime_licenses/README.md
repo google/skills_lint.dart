@@ -42,7 +42,7 @@ distribution must carry:
 
 ## Updating
 
-Check these files when the release workflow moves to a new Dart SDK:
+Check these files when the release workflows move to a new Dart SDK:
 
 1. Find the SDK's revision in the `revision` file of the SDK, or in
    `https://storage.googleapis.com/dart-archive/channels/stable/release/<version>/VERSION`.
