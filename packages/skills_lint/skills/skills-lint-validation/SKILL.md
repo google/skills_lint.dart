@@ -110,5 +110,5 @@ void main() {
 - [`skills-lint-setup`](../skills-lint-setup/SKILL.md) —
   first-time wiring.
 - [`RULES.md`](../../RULES.md) — canonical rule reference.
-- [`README.md`](../../../../README.md) — installation, configuration,
+- [`README.md`](../../README.md) — installation, configuration,
   integration recipes.

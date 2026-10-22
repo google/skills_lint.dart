@@ -30,6 +30,10 @@ final String sampleSkillsDirectory = p.join('benchmark', 'sample_skills');
 /// Package name that the fixture passes to `published-skill-name`.
 const String fixturePackageName = 'skill';
 
+/// Contents of the `pubspec.yaml` written at the fixture root, so the
+/// fixture is a package that `pub-archive-includes-skill` can check.
+const String fixturePubspec = 'name: $fixturePackageName\n';
+
 /// Contents of the `skills_lint.yaml` written at the fixture root. It turns
 /// on every built-in rule.
 const String fixtureConfig =
@@ -41,6 +45,7 @@ skills_lint:
     check-trailing-whitespace: error
     disallowed-field: error
     prevent-skills-sh-publishing: error
+    pub-archive-includes-skill: error
     published-skill-name:
       severity: error
       # Without package_name, the rule looks for a pubspec.yaml above each
@@ -81,6 +86,7 @@ final Map<String, SkillEdit> violations = {
       s.relativeLinks.add(s.sample.firstReference.replaceFirst('.md', 's.md')),
   'check-absolute-paths': (s) => s.absoluteLinks.add(s.sample.firstReference),
   'path-does-not-exist': (s) => s.omitSkillMd = true,
+  'pub-archive-includes-skill': (s) => s.excludeFromArchive = true,
 };
 
 /// The rule IDs whose [violations] each invalid skill gets. Invalid skills
@@ -96,6 +102,7 @@ const List<List<String>> plantedViolations = [
   ['prevent-skills-sh-publishing', 'published-skill-name'],
   ['valid-yaml-metadata', 'check-relative-paths'],
   ['path-does-not-exist'],
+  ['pub-archive-includes-skill', 'disallowed-field'],
 ];
 
 /// A checked-in sample skill that the fixture copies.
@@ -200,6 +207,9 @@ final class FixtureSkill {
 
   /// Whether to leave out `SKILL.md`.
   bool omitSkillMd = false;
+
+  /// Whether `.pubignore` drops this skill's `SKILL.md` from the package.
+  bool excludeFromArchive = false;
 }
 
 /// Returns the skill at [index], with its violations applied.
@@ -250,8 +260,13 @@ String renderSkillMd(FixtureSkill skill, String skillDirectory) {
 void writeFixture(String root, int skillCount, {List<SampleSkill>? samples}) {
   final List<SampleSkill> sources = samples ?? readSampleSkills();
   _write(p.join(root, 'skills_lint.yaml'), fixtureConfig);
+  _write(p.join(root, 'pubspec.yaml'), fixturePubspec);
+  final pubignore = StringBuffer();
   for (var i = 0; i < skillCount; i++) {
     final FixtureSkill skill = fixtureSkill(i, sources);
+    if (skill.excludeFromArchive) {
+      pubignore.writeln('/$skillsDirectoryName/${skill.directoryName}/SKILL.md');
+    }
     final String dir = p.join(root, skillsDirectoryName, skill.directoryName);
     for (final MapEntry(key: path, value: contents) in skill.sample.files.entries) {
       _write(p.join(dir, p.joinAll(p.url.split(path))), contents);
@@ -260,6 +275,7 @@ void writeFixture(String root, int skillCount, {List<SampleSkill>? samples}) {
       _write(p.join(dir, 'SKILL.md'), renderSkillMd(skill, dir));
     }
   }
+  _write(p.join(root, '.pubignore'), pubignore.toString());
 }
 
 void _write(String path, String contents) {

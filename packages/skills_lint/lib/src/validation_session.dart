@@ -17,6 +17,7 @@ import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/ignore_entry.dart';
 import 'models/output_format.dart';
+import 'models/pub_archive.dart';
 import 'models/rule_config.dart';
 import 'models/sarif/sarif.dart';
 import 'models/skill_context.dart';
@@ -24,9 +25,11 @@ import 'models/skill_rule.dart';
 import 'models/skills_ignores.dart';
 import 'models/validation_error.dart';
 import 'path_utils.dart';
+import 'pub_archive_loader.dart';
 import 'reporters/reporters.dart';
 import 'rule_registry.dart';
 import 'rules/name_format_rule.dart';
+import 'rules/pub_archive_includes_skill_rule.dart';
 import 'skills_ignores_storage.dart';
 import 'validator.dart';
 
@@ -69,6 +72,8 @@ class ValidationSession {
   /// * [fixApply] is the deprecated flag indicating if fixes should be automatically applied.
   // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
   /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
+  /// * [pubArchiveLoader] lists the files pub publishes. Tests pass one with a
+  ///   fake process runner.
   ValidationSession({
     required this.config,
     // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
@@ -85,7 +90,9 @@ class ValidationSession {
     // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
     required this.fixApply,
     this.format = OutputFormat.text,
-  }) : _reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
+    @visibleForTesting PubArchiveLoader? pubArchiveLoader,
+  }) : _pubArchiveLoader = pubArchiveLoader ?? PubArchiveLoader(),
+       _reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
        resolvedRuleConfigs = mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
        ignoreFileOverride = _ingestOptionalPath(ignoreFileOverride),
        _normalizedDirectoryConfigs = [
@@ -148,6 +155,7 @@ class ValidationSession {
   final bool fixApply;
   final OutputFormat format;
   final Reporter _reporter;
+  final PubArchiveLoader _pubArchiveLoader;
 
   final List<ValidationResult> _results = [];
 
@@ -727,10 +735,28 @@ class ValidationSession {
   }) async {
     final String skillName = p.basename(skillDir.path);
     _reporter.onSkillEvaluating(skillName);
-    final ValidationResult result = await validator.validate(skillDir);
+    final ValidationResult result = await validator.validate(
+      skillDir,
+      pubArchive: await _pubArchiveFor(skillDir, validator),
+    );
     _applyIgnores(result, skillIgnores, skillDir);
     _reporter.onSkillValidationComplete(result);
     return result;
+  }
+
+  /// The files pub publishes for the package that holds [skillDir], or
+  /// `null` when no rule in [validator] needs them.
+  ///
+  /// Building the archive runs `dart pub publish`, so the session does it
+  /// only for skills that enable [PubArchiveIncludesSkillRule].
+  Future<PubArchive?> _pubArchiveFor(Directory skillDir, Validator validator) async {
+    final bool needsArchive = validator.rules.any(
+      (SkillRule rule) => rule.name == PubArchiveIncludesSkillRule.ruleName,
+    );
+    if (!needsArchive) {
+      return null;
+    }
+    return _pubArchiveLoader.archiveFor(skillDir);
   }
 
   Future<ValidationResult> _applyFixesIfNeeded({
@@ -841,7 +867,12 @@ class ValidationSession {
             )
           : skillDir;
 
-      final ValidationResult newResult = await validator.validate(effectiveSkillDir);
+      // The fix wrote to disk, so an archive built earlier may be stale.
+      _pubArchiveLoader.clear();
+      final ValidationResult newResult = await validator.validate(
+        effectiveSkillDir,
+        pubArchive: await _pubArchiveFor(effectiveSkillDir, validator),
+      );
       _applyIgnores(newResult, skillIgnores, effectiveSkillDir);
       return newResult;
     }
@@ -933,19 +964,22 @@ class ValidationSession {
     Directory skillDir,
   ) {
     final List<IgnoreEntry> currentSkillIgnores = ignores.skills[skillName] ?? [];
-    final currentSkillSeen = <String>{};
-    for (final ignore in currentSkillIgnores) {
-      currentSkillSeen.add('${ignore.ruleId}:${ignore.fileName}:${ignore.target ?? ''}');
-    }
+    final Set<(String, String, String?)> currentSkillSeen = {
+      for (final ignore in currentSkillIgnores)
+        _baselineEntryKey(ruleId: ignore.ruleId, fileName: ignore.fileName, target: ignore.target),
+    };
 
     for (final ValidationError error in result.validationErrors) {
       if (!error.isIgnored) {
         final String fileName = baselineFileName(error.file, skillDir);
-        final key = '${error.ruleId}:$fileName:${error.target ?? ''}';
-        if (currentSkillSeen.contains(key)) {
+        final (String, String, String?) key = _baselineEntryKey(
+          ruleId: error.ruleId,
+          fileName: fileName,
+          target: error.target,
+        );
+        if (!currentSkillSeen.add(key)) {
           continue;
         }
-        currentSkillSeen.add(key);
 
         currentSkillIgnores.add(
           IgnoreEntry(ruleId: error.ruleId, fileName: fileName, target: error.target),
@@ -959,6 +993,13 @@ class ValidationSession {
       ignores.skills.remove(skillName);
     }
   }
+
+  /// Deduplication key for a baseline ignore entry.
+  static (String, String, String?) _baselineEntryKey({
+    required String ruleId,
+    required String fileName,
+    required String? target,
+  }) => (ruleId, fileName, target);
 
   /// Writes [ignores] to [ignorePath]. Write failures are logged at warning
   /// level and otherwise swallowed so a single I/O error does not abort the

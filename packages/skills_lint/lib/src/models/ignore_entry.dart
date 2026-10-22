@@ -4,6 +4,8 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
+import 'validation_error.dart';
+
 part 'ignore_entry.g.dart';
 
 /// Represents a single ignored rule entry for a specific file.
@@ -29,8 +31,24 @@ class IgnoreEntry {
   /// Specific finding target within [fileName] (such as a link path) to
   /// restrict this suppression to.
   ///
-  /// When `null`, the entry suppresses every finding of [ruleId] in
-  /// [fileName].
+  /// When `null`, the entry acts as a wildcard for `(ruleId, fileName)` and
+  /// suppresses every finding of [ruleId] in [fileName], regardless of whether
+  /// [ValidationError.target] is set.
+  ///
+  /// When non-null, the entry matches only a [ValidationError] with the same
+  /// [ruleId], [fileName], and an equal [ValidationError.target]. If a rule
+  /// does not populate [ValidationError.target], an entry with a non-null
+  /// [target] for that rule never matches and is reported as a stale ignore.
+  ///
+  /// If a skill lists both a whole-file entry (`target == null`) and a
+  /// targeted entry (`target != null`) for the same rule and file, the first
+  /// matching entry in the list marks the finding ignored and marks itself
+  /// [used]. Any later entry that never matches a remaining un-ignored
+  /// finding stays unused and is reported as stale.
+  ///
+  /// Values must identify the offending construct itself rather than a line
+  /// number, because baseline entries persist across edits and a line number
+  /// would go stale whenever lines above the finding are added or removed.
   @JsonKey(name: targetKey, includeIfNull: false)
   final String? target;
 

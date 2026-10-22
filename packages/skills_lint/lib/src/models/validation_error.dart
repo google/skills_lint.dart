@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'analysis_severity.dart';
+import 'ignore_entry.dart';
 import 'source_region.dart';
 
 /// Represents a single validation error found during analysis.
@@ -71,8 +72,22 @@ class ValidationError {
   /// Specific target within [file] that triggered the error, such as the raw
   /// path of a broken link.
   ///
-  /// When non-null, a baseline entry with a matching `target` suppresses only
-  /// findings for that target instead of every finding of [ruleId] in [file].
+  /// When non-null, `--generate-baseline` writes this value to
+  /// [IgnoreEntry.target] so the generated baseline entry suppresses only
+  /// findings with the same [target] rather than every finding of [ruleId] in
+  /// [file]. Rules that emit at most one finding per file, or whose findings
+  /// have no location-independent identifier, leave [target] `null`.
+  ///
+  /// Do not use line numbers or other position-dependent text as [target]:
+  /// inserting or deleting lines above the finding would cause the baseline
+  /// entry to stop matching and be reported as stale.
+  ///
+  /// Any [String] value is valid—including spaces, colons, quotes, Unicode, or
+  /// malformed paths—because [IgnoreEntry] serializes via `jsonEncode` /
+  /// `jsonDecode` and baseline deduplication compares `(ruleId, fileName,
+  /// target)` tuples directly without string splitting. The rule must produce
+  /// the exact same [String] when generating the baseline and on subsequent
+  /// validation runs.
   final String? target;
 
   /// Whether this error has been ignored via configuration.

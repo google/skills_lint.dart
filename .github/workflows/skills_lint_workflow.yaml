@@ -12,7 +12,7 @@ on:
       - 'skills/**'
       - 'packages/skills_lint/**'
       - 'release/**'
-      # All workflows and actions, because repo_test/action_pins_test.dart checks the pins in each.
+      # All workflows and actions, because repo_test/action_pin_convention_test.dart checks the pins in each.
       - '.github/workflows/**'
       - '.github/actions/**'
   push:
@@ -25,7 +25,7 @@ on:
       - 'skills/**'
       - 'packages/skills_lint/**'
       - 'release/**'
-      # All workflows and actions, because repo_test/action_pins_test.dart checks the pins in each.
+      # All workflows and actions, because repo_test/action_pin_convention_test.dart checks the pins in each.
       - '.github/workflows/**'
       - '.github/actions/**'
   schedule:
