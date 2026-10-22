@@ -14,6 +14,7 @@ import 'rules/disallowed_field_rule.dart';
 import 'rules/name_format_rule.dart';
 import 'rules/path_does_not_exist_rule.dart';
 import 'rules/prevent_skills_sh_publishing_rule.dart';
+import 'rules/pub_archive_includes_skill_rule.dart';
 import 'rules/published_skill_name_rule.dart';
 import 'rules/relative_paths_rule.dart';
 import 'rules/trailing_whitespace_rule.dart';
@@ -67,6 +68,11 @@ class RuleRegistry {
         PublishedSkillNameRule.packageNameParameter: RuleParameterType.string,
         PublishedSkillNameRule.pubspecPathParameter: RuleParameterType.string,
       },
+    ),
+    const CheckType(
+      name: PubArchiveIncludesSkillRule.ruleName,
+      defaultSeverity: PubArchiveIncludesSkillRule.defaultSeverity,
+      help: 'Check that dart pub publish includes each skill in skills/ and the files it links to.',
     ),
     const CheckType(
       name: RelativePathsRule.ruleName,
@@ -127,6 +133,8 @@ class RuleRegistry {
           packageName: parameters?.getString(PublishedSkillNameRule.packageNameParameter),
           pubspecPath: parameters?.getString(PublishedSkillNameRule.pubspecPathParameter),
         );
+      case PubArchiveIncludesSkillRule.ruleName:
+        return PubArchiveIncludesSkillRule(severity: severity);
       case RelativePathsRule.ruleName:
         return RelativePathsRule(
           severity: severity,
