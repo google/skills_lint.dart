@@ -2,6 +2,7 @@
 
 - Fixed `--fix` printing only the diagnostics from before the fix. It now also prints the result after the fix under `After fixes:`, which is the result that decides the exit code. Before, a run could print `Skill is valid.` and exit 1.
 - `--fix` keeps a fix only if it lowers the skill's errors, then warnings, across all enabled rules, and repeats until no fix helps. Fixes that would add a problem or rename onto an existing directory are skipped and named in the output.
+- When `--fix` renames a skill directory, it re-validates all validated skills in the run so cross-skill links broken by the rename are reported, and moves the skill's baseline ignore entries to the new directory name.
 - `--fix --dry-run` prints the result the fixes would leave under `After fixes, the skill would be:`.
 - Added `SkillContext.directoryName`, the skill directory's name once `--fix` renames it.
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.

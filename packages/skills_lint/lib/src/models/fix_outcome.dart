@@ -13,6 +13,7 @@ class FixOutcome {
     required this.appliedRuleNames,
     required this.skippedFixes,
     required this.settled,
+    required this.passes,
   });
 
   /// The validation result of the fixed content.
@@ -31,6 +32,9 @@ class FixOutcome {
   /// False when the pass limit ended the loop, which only a fix that changes
   /// between identical calls can cause.
   final bool settled;
+
+  /// How many passes over the rules kept at least one fix.
+  final int passes;
 
   SkillContext get _context => result.context!;
 

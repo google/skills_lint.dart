@@ -538,6 +538,7 @@ Future<bool> validateSkillsInternal({
     }
   }
 
+  await session.revalidateAfterRenames();
   session.reportNoSkillsValidated([for (final root in effectiveSkillDirs) root.path]);
 
   if (format != OutputFormat.text) {

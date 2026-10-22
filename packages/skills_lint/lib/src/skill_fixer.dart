@@ -76,10 +76,10 @@ class SkillFixer {
         }
       }
       if (!keptAFix) {
-        return _outcome(current, appliedRuleNames, skippedFixes, settled: true);
+        return _outcome(current, appliedRuleNames, skippedFixes, settled: true, passes: pass - 1);
       }
     }
-    return _outcome(current, appliedRuleNames, skippedFixes, settled: false);
+    return _outcome(current, appliedRuleNames, skippedFixes, settled: false, passes: maxPasses);
   }
 
   /// Runs [rule]'s fix on the content of [current] and validates the result,
@@ -174,6 +174,7 @@ class SkillFixer {
     List<String> appliedRuleNames,
     Map<String, SkippedFix> skippedFixes, {
     required bool settled,
+    required int passes,
   }) => FixOutcome(
     result: result,
     appliedRuleNames: appliedRuleNames,
@@ -184,6 +185,7 @@ class SkillFixer {
         if (_reports(result, skipped.ruleName)) skipped,
     ],
     settled: settled,
+    passes: passes,
   );
 }
 

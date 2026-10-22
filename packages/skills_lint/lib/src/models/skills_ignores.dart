@@ -21,6 +21,33 @@ class SkillsIgnores {
   @JsonKey(name: skillsKey)
   final Map<String, List<IgnoreEntry>> skills;
 
+  /// Moves any ignore entries stored under [oldSkillName] to [newSkillName].
+  ///
+  /// Returns `true` if [oldSkillName] had entries and was moved.
+  bool renameSkill(String oldSkillName, String newSkillName) {
+    if (oldSkillName == newSkillName) {
+      return false;
+    }
+    final List<IgnoreEntry>? moved = skills.remove(oldSkillName);
+    if (moved == null) {
+      return false;
+    }
+    final List<IgnoreEntry>? existing = skills[newSkillName];
+    if (existing == null) {
+      skills[newSkillName] = moved;
+      return true;
+    }
+    final seen = <String>{
+      for (final IgnoreEntry entry in existing) '${entry.ruleId}:${entry.fileName}',
+    };
+    for (final IgnoreEntry entry in moved) {
+      if (seen.add('${entry.ruleId}:${entry.fileName}')) {
+        existing.add(entry);
+      }
+    }
+    return true;
+  }
+
   /// Converts a SkillsIgnores to a JSON map.
   Map<String, dynamic> toJson() => _$SkillsIgnoresToJson(this);
 }

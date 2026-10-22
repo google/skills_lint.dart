@@ -9,6 +9,7 @@
 /// as the fixer predicted, because `--fix --dry-run` prints that prediction.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -17,9 +18,11 @@ import 'package:skills_lint/src/fixable_rule.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/custom_rule_parameters.dart';
 import 'package:skills_lint/src/models/fix_outcome.dart';
+import 'package:skills_lint/src/models/ignore_entry.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
+import 'package:skills_lint/src/models/skills_ignores.dart';
 import 'package:skills_lint/src/models/skipped_fix.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
@@ -201,5 +204,78 @@ void main() {
 
     expect(outcome.settled, isFalse);
     expect('x'.allMatches(outcome.content), hasLength(SkillFixer.maxPasses));
+  });
+
+  test('re-validates all skills after a rename breaks a sibling skill link', () async {
+    // `aaa` links to `../foo/SKILL.md`. Both get renamed (`bar-aaa` and
+    // `bar-foo`), which breaks `bar-aaa`'s link after `aaa` already passed.
+    await createPackageSkill('aaa', body: 'See [foo](../foo/SKILL.md).\n');
+    await createPackageSkill('foo');
+    final err = CapturedOutput();
+
+    final bool success = await IOOverrides.runZoned(
+      () => validateSkillsInternal(
+        skillDirPaths: [p.join(root.path, 'skills')],
+        fixApply: true,
+        quiet: true,
+        resolvedRuleConfigs: const {
+          PublishedSkillNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+      ),
+      stdout: CapturedOutput.new,
+      stderr: () => err,
+    );
+
+    expect(success, isFalse);
+    expect(err.buffer.toString(), contains('Linked file does not exist: ../foo/SKILL.md'));
+  });
+
+  test('moves baseline ignore entries to the new skill name when a fix renames a skill', () async {
+    await createPackageSkill('foo', body: 'See [missing](missing.md).\n');
+    final ignoreFile = File(p.join(root.path, 'skills', defaultIgnoreFileName));
+    await ignoreFile.writeAsString(
+      jsonEncode({
+        SkillsIgnores.skillsKey: {
+          'foo': [
+            {
+              IgnoreEntry.ruleIdKey: RelativePathsRule.ruleName,
+              IgnoreEntry.fileNameKey: 'SKILL.md',
+            },
+          ],
+        },
+      }),
+    );
+
+    final bool firstRun = await validateSkillsInternal(
+      skillDirPaths: [p.join(root.path, 'skills')],
+      fixApply: true,
+      quiet: true,
+      resolvedRuleConfigs: const {
+        PublishedSkillNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+      },
+    );
+    expect(firstRun, isTrue);
+
+    final saved = jsonDecode(ignoreFile.readAsStringSync()) as Map<String, dynamic>;
+    final skills = saved[SkillsIgnores.skillsKey] as Map<String, dynamic>;
+    expect(skills.keys, ['bar-foo']);
+
+    final out = CapturedOutput();
+    final bool secondRun = await IOOverrides.runZoned(
+      () => validateSkillsInternal(
+        skillDirPaths: [p.join(root.path, 'skills')],
+        quiet: true,
+        resolvedRuleConfigs: const {
+          PublishedSkillNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+      ),
+      stdout: () => out,
+      stderr: CapturedOutput.new,
+    );
+    expect(secondRun, isTrue);
+    expect(out.buffer.toString(), isNot(contains('Stale ignore entry')));
   });
 }
