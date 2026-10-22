@@ -2,8 +2,8 @@
 # .github/workflows/ and the composite actions in .github/actions/ use. One
 # group matches every action, so each update is one pull request that changes
 # every workflow at once.
-# packages/skills_lint/repo_test/action_pins_test.dart fails if two uses of an
-# action have different pins.
+# packages/skills_lint/repo_test/action_pin_convention_test.dart fails if two
+# uses of an action have different pins.
 #
 # Options: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
 
