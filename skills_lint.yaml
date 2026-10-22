@@ -11,6 +11,8 @@ skills_lint:
           exclude: ".*-workspace"
       ignore_file: ".agents/skills/ignore.json"
     - path: "packages/skills_lint/skills"
+      # skills-lint-validation links to package files outside the skill.
+      ignore_file: "skills_lint_ignore.json"
       rules:
         check-relative-paths:
           severity: error

@@ -1,0 +1,10 @@
+{
+  "skills": {
+    "skills-lint-validation": [
+      {
+        "rule_id": "check-relative-paths",
+        "file_name": "SKILL.md"
+      }
+    ]
+  }
+}

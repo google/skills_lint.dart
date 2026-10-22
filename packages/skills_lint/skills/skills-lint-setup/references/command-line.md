@@ -5,16 +5,22 @@ in any other repository.
 
 ## 1. Install skills_lint
 
-Pick one:
+Ask the user which install method they want, and offer these choices:
 
-- Homebrew (Linux and macOS, no Dart SDK needed):
+- **Dart SDK** (needs the Dart SDK):
+
+  ```bash
+  dart install skills_lint
+  ```
+
+- **Homebrew** (Linux and macOS, no Dart SDK needed):
 
   ```bash
   brew tap google/skills-lint https://github.com/google/skills_lint.dart
   brew install google/skills-lint/skills_lint
   ```
 
-- The install script (Linux and macOS, no Dart SDK needed). It downloads the
+- **Install script** (Linux, and macOS 14 or later; no Dart SDK needed). It downloads the
   prebuilt binary from the latest GitHub release, checks its SHA256, and
   installs it to `/usr/local/bin`:
 
@@ -22,18 +28,20 @@ Pick one:
   curl -fsSL https://github.com/google/skills_lint.dart/releases/latest/download/install.sh | bash
   ```
 
-  On macOS, the binary isn't code-signed yet. If Gatekeeper blocks the first
-  run, remove the quarantine flag:
+If the user doesn't want to be asked, or doesn't care, pick the first one that
+applies:
 
-  ```bash
-  xattr -d com.apple.quarantine "$(which skills_lint)"
-  ```
+1. `dart` is on the `PATH`: use the Dart SDK.
+2. `brew` is on the `PATH`: use Homebrew.
+3. Otherwise, on Linux or macOS: use the install script.
 
-- With the Dart SDK:
+On macOS, the binaries from Homebrew and the install script aren't
+code-signed yet. If Gatekeeper blocks the first run, remove the quarantine
+flag:
 
-  ```bash
-  dart install skills_lint
-  ```
+```bash
+xattr -d com.apple.quarantine "$(which skills_lint)"
+```
 
 Homebrew and the install script download a binary from a GitHub release. If
 that download fails, use `dart install skills_lint`.
@@ -75,3 +83,24 @@ skills_lint --fix             # write them
 ```
 
 Fix the rest by hand, then run `skills_lint` again until it passes.
+
+## 5. Ignore findings to fix later
+
+If existing skills have too many findings to fix now, ignore them and fix them
+later. Add an `ignore_file` to the directory in `skills_lint.yaml`:
+
+```yaml
+    - path: ".agents/skills"
+      ignore_file: "skills_lint_ignore.json"
+```
+
+Then write every current error into that file:
+
+```bash
+skills_lint --generate-baseline
+```
+
+Commit the file. Each entry ignores one rule in one file of one skill, so
+findings of that rule in that file no longer fail the run. Findings without
+an entry still fail it. After you fix a finding, delete its entry;
+`skills_lint` reports entries that no longer match a finding.

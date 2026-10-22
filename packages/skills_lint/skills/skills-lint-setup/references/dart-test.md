@@ -5,13 +5,19 @@ top-level `skills/` directory. `dart test` then fails when a skill is invalid.
 
 ## 1. Add the dependencies
 
-From the package root:
+The test imports `package:skills_lint` and `package:test`, so the package
+needs both as dev dependencies. From the package root, if `pubspec.yaml`
+doesn't list `test` yet:
 
 ```bash
 dart pub add dev:skills_lint dev:test
 ```
 
-Skip `dev:test` if `pubspec.yaml` already lists `test`.
+If it already lists `test`, add only skills_lint:
+
+```bash
+dart pub add dev:skills_lint
+```
 
 ## 2. Create skills_lint.yaml
 
@@ -29,38 +35,18 @@ skills_lint:
           within-skill: true
 ```
 
-- `published-skill-name` checks that each skill name is the package name with
-  `_` replaced by `-`, or starts with it followed by `-`. For package
-  `my_pkg`, that's `my-pkg` or `my-pkg-<anything>`. Published package skills
-  need this name.
+- `published-skill-name` checks that each skill name is a valid name
+  according to the [pub.dev `skills` package](https://pub.dev/packages/skills).
+  Published package skills need such a name.
 - `check-relative-paths` checks that every relative link resolves.
   `within-skill: true` also reports links that leave the skill's own folder,
-  because an installed skill is copied without the files around it.
+  because an installed skill can be copied without the files around it.
 
 ## 3. Add the test
 
-Create `test/skills_lint_test.dart`. It calls the `validateSkills` API
-directly, with the configuration from `skills_lint.yaml`:
-
-```dart
-import 'package:skills_lint/skills_lint.dart';
-import 'package:test/test.dart';
-
-void main() {
-  test('skills pass skills_lint', () async {
-    final Configuration config = await ConfigParser.loadConfig();
-    expect(
-      config.directoryConfigs,
-      isNotEmpty,
-      reason: 'skills_lint.yaml must list at least one skills directory.',
-    );
-
-    final bool passed = await validateSkills(config: config);
-
-    expect(passed, isTrue, reason: 'skills_lint found errors. Its findings are printed above.');
-  });
-}
-```
+Copy [skills_lint_test.dart](skills_lint_test.dart) to
+`test/skills_lint_test.dart`. It loads `skills_lint.yaml` with
+`ConfigParser.loadConfig()` and passes it to the `validateSkills` API.
 
 `ConfigParser.loadConfig()` reads `skills_lint.yaml` from the current
 directory, and `dart test` runs from the package root. `validateSkills` prints
@@ -75,3 +61,25 @@ To fix findings, run the linter on its own with the same configuration:
 dart run skills_lint
 dart run skills_lint --fix
 ```
+
+## 5. Ignore findings to fix later
+
+If existing skills have too many findings to fix now, ignore them and fix them
+later. Add an `ignore_file` to the directory in `skills_lint.yaml`:
+
+```yaml
+    - path: "skills"
+      ignore_file: "skills_lint_ignore.json"
+```
+
+Then write every current error into that file:
+
+```bash
+dart run skills_lint --generate-baseline
+```
+
+Commit the file. Each entry ignores one rule in one file of one skill, and
+findings of that rule in that file no longer fail the test. Findings without
+an entry still fail it. After
+you fix a finding, delete its entry; `skills_lint` reports entries that no
+longer match a finding.

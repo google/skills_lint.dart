@@ -17,7 +17,7 @@
         "skills_lint.yaml lists .agents/skills under directories.",
         "A test file under test/ calls validateSkills from package:skills_lint/skills_lint.dart and fails when it returns false.",
         "The test does NOT start a dart run skills_lint subprocess.",
-        "No deprecated skills_lint API, such as the resolvedRules parameter, is used in the generated code."
+        "The generated code uses no deprecated API."
       ]
     },
     {
