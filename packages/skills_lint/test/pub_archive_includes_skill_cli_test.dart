@@ -54,8 +54,8 @@ environment:
       errors,
       allOf(
         contains(
-          'skills/my-pkg-dropped/SKILL.md is not in the package pub publishes, so '
-          "`dart run skills@ get` won't install my-pkg-dropped.",
+          'skills/my-pkg-dropped/SKILL.md is not in the package pub publishes, so the published '
+          'package has no my-pkg-dropped skill.',
         ),
         isNot(contains('skills/my-pkg-kept/SKILL.md is not')),
       ),

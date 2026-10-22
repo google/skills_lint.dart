@@ -73,8 +73,8 @@ void main() {
     expect(errors.map((e) => (e.ruleId, e.message)), [
       (
         PubArchiveIncludesSkillRule.ruleName,
-        '$_skillFile is not in the package pub publishes, so `dart run skills@ get` '
-            "won't install $_skillName. $_howToFix",
+        '$_skillFile is not in the package pub publishes, so the published package has no '
+            '$_skillName skill. $_howToFix',
       ),
     ]);
   });
@@ -90,8 +90,8 @@ void main() {
     // so the link is on line 6.
     expect(errors.map((e) => (e.message, e.region?.startLine)), [
       (
-        '$_referenceFile, linked from $_skillFile, is not in the package pub publishes, so '
-            "`dart run skills@ get` won't install it with $_skillName. $_howToFix",
+        '$_referenceFile, linked from $_skillFile, is not in the package pub publishes. '
+            '$_howToFix',
         6,
       ),
     ]);
@@ -111,9 +111,8 @@ void main() {
 
     expect(errors.map((e) => (e.message, e.region?.startLine)), [
       (
-        'skills/$_skillName/references/ is not in the package pub publishes, so '
-            "`dart run skills@ get` won't install the 12 files $_skillFile links to in it. "
-            '$_howToFix',
+        'skills/$_skillName/references/ is not in the package pub publishes, so neither are '
+            'the 12 files $_skillFile links to in it. $_howToFix',
         6,
       ),
     ]);

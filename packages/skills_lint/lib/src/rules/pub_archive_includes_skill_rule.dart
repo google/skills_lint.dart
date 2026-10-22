@@ -17,23 +17,21 @@ import '../skill_links.dart';
 /// Checks that `dart pub publish` uploads each skill in a package's `skills/`
 /// directory, and every file inside the skill that its `SKILL.md` links to.
 ///
-/// `dart run skills@ get` installs skills from the published package. A
-/// `.pubignore` or `.gitignore` pattern can drop a skill from the archive with
-/// no warning, and a path dependency hides the problem because it ignores
-/// `.pubignore`.
+/// A `.pubignore` or `.gitignore` pattern can drop a skill, or a file it links
+/// to, from the published package with no warning. A path dependency hides the
+/// problem because it ignores `.pubignore`.
 ///
 /// The rule reads the file list from [SkillContext.pubArchive]. Skills
-/// outside `<package root>/skills/` pass, because pub does not install them.
-/// Links that leave the skill directory are skipped: `dart run skills@ get`
-/// copies only that directory, so `check-relative-paths` with
-/// `within-skill: true` reports them.
+/// outside `<package root>/skills/` pass. Links that leave the skill
+/// directory, and links to files that don't exist, are skipped;
+/// `check-relative-paths` reports those when it is enabled.
 class PubArchiveIncludesSkillRule extends SkillRule {
   PubArchiveIncludesSkillRule({this.severity = defaultSeverity});
 
   static const String ruleName = 'pub-archive-includes-skill';
   static const AnalysisSeverity defaultSeverity = AnalysisSeverity.disabled;
 
-  /// The directory, under the package root, that `dart run skills@ get` reads.
+  /// The directory, under the package root, that holds published skills.
   static const String skillsDirectoryName = 'skills';
 
   static const String _howToFix =
@@ -83,8 +81,8 @@ class PubArchiveIncludesSkillRule extends SkillRule {
       // Without SKILL.md nothing is installed, so its links don't matter.
       return [
         _error(
-          '$skillFile is not in the package pub publishes, so `dart run skills@ get` '
-          "won't install $skillName. $_howToFix",
+          '$skillFile is not in the package pub publishes, so the published package has no '
+          '$skillName skill. $_howToFix',
         ),
       ];
     }
@@ -101,10 +99,8 @@ class PubArchiveIncludesSkillRule extends SkillRule {
         continue;
       }
       final String linkedPath = p.normalize(p.join(skillPath, linkFilePath(target)));
-      // `dart run skills@ get` copies only the skill directory, so a link that
-      // leaves it is broken whether or not pub publishes the target.
-      // check-relative-paths reports those links with `within-skill: true`,
-      // and links to files that don't exist.
+      // check-relative-paths reports links to files that don't exist, and,
+      // with `within-skill: true`, links that leave the skill.
       if (!p.isWithin(skillPath, linkedPath) || !File(linkedPath).existsSync()) {
         continue;
       }
@@ -121,11 +117,10 @@ class PubArchiveIncludesSkillRule extends SkillRule {
       ).entries)
         _error(
           group.value.length == 1 && group.key == group.value.single
-              ? '${group.key}, linked from $skillFile, is not in the package pub publishes, so '
-                    "`dart run skills@ get` won't install it with $skillName. $_howToFix"
-              : '${group.key}/ is not in the package pub publishes, so `dart run skills@ get` '
-                    "won't install the ${group.value.length} files $skillFile links to in it. "
-                    '$_howToFix',
+              ? '${group.key}, linked from $skillFile, is not in the package pub publishes. '
+                    '$_howToFix'
+              : '${group.key}/ is not in the package pub publishes, so neither are the '
+                    '${group.value.length} files $skillFile links to in it. $_howToFix',
           region: SourceRegion(startLine: missing[group.value.first]!),
         ),
     ];

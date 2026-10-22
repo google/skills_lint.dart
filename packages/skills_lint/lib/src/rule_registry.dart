@@ -72,8 +72,7 @@ class RuleRegistry {
     const CheckType(
       name: PubArchiveIncludesSkillRule.ruleName,
       defaultSeverity: PubArchiveIncludesSkillRule.defaultSeverity,
-      help:
-          'Check that dart pub publish includes each skill in skills/ and the files in it that SKILL.md links to.',
+      help: 'Check that dart pub publish includes each skill in skills/ and the files it links to.',
     ),
     const CheckType(
       name: RelativePathsRule.ruleName,
