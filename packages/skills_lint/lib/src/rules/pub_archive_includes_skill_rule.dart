@@ -15,7 +15,7 @@ import '../models/validation_error.dart';
 import '../skill_links.dart';
 
 /// Checks that `dart pub publish` uploads each skill in a package's `skills/`
-/// directory, and every file the skill links to.
+/// directory, and every file inside the skill that its `SKILL.md` links to.
 ///
 /// `dart run skills@ get` installs skills from the published package. A
 /// `.pubignore` or `.gitignore` pattern can drop a skill from the archive with
@@ -24,6 +24,9 @@ import '../skill_links.dart';
 ///
 /// The rule reads the file list from [SkillContext.pubArchive]. Skills
 /// outside `<package root>/skills/` pass, because pub does not install them.
+/// Links that leave the skill directory are skipped: `dart run skills@ get`
+/// copies only that directory, so `check-relative-paths` with
+/// `within-skill: true` reports them.
 class PubArchiveIncludesSkillRule extends SkillRule {
   PubArchiveIncludesSkillRule({this.severity = defaultSeverity});
 
@@ -33,7 +36,9 @@ class PubArchiveIncludesSkillRule extends SkillRule {
   /// The directory, under the package root, that `dart run skills@ get` reads.
   static const String skillsDirectoryName = 'skills';
 
-  static const String _howToFix = 'Check .pubignore and .gitignore.';
+  static const String _howToFix =
+      'Run `dart pub publish --dry-run` to list the files pub publishes, and check .pubignore '
+      'and .gitignore.';
 
   @override
   String get name => ruleName;
@@ -84,7 +89,9 @@ class PubArchiveIncludesSkillRule extends SkillRule {
       ];
     }
 
-    final errors = <ValidationError>[];
+    // Each link inside the skill whose target exists but is not published,
+    // keyed by archive path, with the line of its first link.
+    final missing = <String, int>{};
     final RegExpMatch? frontmatter = SkillContext.skillStartRegex.firstMatch(context.rawContent);
     final int bodyStart = frontmatter?.end ?? 0;
     final String body = context.rawContent.substring(bodyStart);
@@ -94,23 +101,68 @@ class PubArchiveIncludesSkillRule extends SkillRule {
         continue;
       }
       final String linkedPath = p.normalize(p.join(skillPath, linkFilePath(target)));
-      // check-relative-paths reports links to files that don't exist. Pub
-      // doesn't publish files outside the package.
-      if (!p.isWithin(packageRoot, linkedPath) || !File(linkedPath).existsSync()) {
+      // `dart run skills@ get` copies only the skill directory, so a link that
+      // leaves it is broken whether or not pub publishes the target.
+      // check-relative-paths reports those links with `within-skill: true`,
+      // and links to files that don't exist.
+      if (!p.isWithin(skillPath, linkedPath) || !File(linkedPath).existsSync()) {
         continue;
       }
       final String linkedFile = _archivePath(packageRoot, linkedPath);
       if (!files.contains(linkedFile)) {
-        errors.add(
-          _error(
-            '$linkedFile, linked from $skillFile, is not in the package pub publishes, so '
-            'the link is broken in installed copies of $skillName. $_howToFix',
-            region: SourceRegion(startLine: context.offsetToLine(bodyStart + link.start)),
-          ),
-        );
+        missing.putIfAbsent(linkedFile, () => context.offsetToLine(bodyStart + link.start));
       }
     }
-    return errors;
+    return [
+      for (final MapEntry<String, List<String>> group in _groupByExcludedDirectory(
+        missing.keys,
+        skillFile: skillFile,
+        files: files,
+      ).entries)
+        _error(
+          group.value.length == 1 && group.key == group.value.single
+              ? '${group.key}, linked from $skillFile, is not in the package pub publishes, so '
+                    "`dart run skills@ get` won't install it with $skillName. $_howToFix"
+              : '${group.key}/ is not in the package pub publishes, so `dart run skills@ get` '
+                    "won't install the ${group.value.length} files $skillFile links to in it. "
+                    '$_howToFix',
+          region: SourceRegion(startLine: missing[group.value.first]!),
+        ),
+    ];
+  }
+
+  /// Groups each of [missingFiles] under the highest directory between it and
+  /// the skill directory that has no file in the archive, or under itself when
+  /// no such directory holds another missing file.
+  ///
+  /// A `.pubignore` pattern often drops a whole directory, such as
+  /// `references/`, and one diagnostic for it is easier to act on than one
+  /// per file.
+  static Map<String, List<String>> _groupByExcludedDirectory(
+    Iterable<String> missingFiles, {
+    required String skillFile,
+    required Set<String> files,
+  }) {
+    final String skillDirectory = p.posix.dirname(skillFile);
+    final groups = <String, List<String>>{};
+    for (final file in missingFiles) {
+      var key = file;
+      for (
+        String directory = p.posix.dirname(file);
+        directory != skillDirectory;
+        directory = p.posix.dirname(directory)
+      ) {
+        if (!files.any((f) => p.posix.isWithin(directory, f))) {
+          key = directory;
+        }
+      }
+      groups.putIfAbsent(key, () => []).add(file);
+    }
+    // A directory that holds one missing link reads better as that file.
+    return {
+      for (final MapEntry<String, List<String>> group in groups.entries)
+        if (group.value.length == 1) group.value.single: group.value else group.key: group.value,
+    };
   }
 
   /// The archive entry name for [path], a file inside [packageRoot].

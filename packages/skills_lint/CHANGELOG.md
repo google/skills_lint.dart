@@ -18,7 +18,7 @@
 - Added a `--version` flag that prints the skills_lint version.
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
 - The published package includes its agent skills, so `dart run skills@ get` installs them.
-- Added the `pub-archive-includes-skill` rule, disabled by default. It reports a skill in a package's `skills/` directory, or a file it links to, that `dart pub publish` would leave out. It needs `dart` on `PATH`.
+- Added the `pub-archive-includes-skill` rule, disabled by default. It reports a skill in a package's `skills/` directory, or a file in the skill that `SKILL.md` links to, that `dart pub publish` would leave out. It needs `dart` on `PATH`.
 
 ## 0.5.2
 

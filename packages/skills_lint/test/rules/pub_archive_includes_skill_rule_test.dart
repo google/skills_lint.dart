@@ -19,6 +19,9 @@ import '../test_utils.dart';
 const _skillName = 'my-pkg-setup';
 const _skillFile = 'skills/$_skillName/SKILL.md';
 const _referenceFile = 'skills/$_skillName/references/guide.md';
+const _howToFix =
+    'Run `dart pub publish --dry-run` to list the files pub publishes, and check .pubignore '
+    'and .gitignore.';
 
 void main() {
   late Directory packageRoot;
@@ -71,7 +74,7 @@ void main() {
       (
         PubArchiveIncludesSkillRule.ruleName,
         '$_skillFile is not in the package pub publishes, so `dart run skills@ get` '
-            "won't install $_skillName. Check .pubignore and .gitignore.",
+            "won't install $_skillName. $_howToFix",
       ),
     ]);
   });
@@ -87,11 +90,60 @@ void main() {
     // so the link is on line 6.
     expect(errors.map((e) => (e.message, e.region?.startLine)), [
       (
-        '$_referenceFile, linked from $_skillFile, is not in the package pub publishes, so the '
-            'link is broken in installed copies of $_skillName. Check .pubignore and .gitignore.',
+        '$_referenceFile, linked from $_skillFile, is not in the package pub publishes, so '
+            "`dart run skills@ get` won't install it with $_skillName. $_howToFix",
         6,
       ),
     ]);
+  });
+
+  test('reports one diagnostic for a directory that pub leaves out entirely', () async {
+    final List<String> guides = [for (var i = 0; i < 12; i++) 'references/guide$i.md'];
+    for (final guide in guides) {
+      await File(p.join(skillDir.path, guide)).create(recursive: true);
+    }
+
+    final List<ValidationError> errors = await validate(
+      directory: skillDir,
+      body: '\n${guides.map((g) => '[$g]($g)').join('\n')}\n',
+      archive: archiveOf({_skillFile}),
+    );
+
+    expect(errors.map((e) => (e.message, e.region?.startLine)), [
+      (
+        'skills/$_skillName/references/ is not in the package pub publishes, so '
+            "`dart run skills@ get` won't install the 12 files $_skillFile links to in it. "
+            '$_howToFix',
+        6,
+      ),
+    ]);
+  });
+
+  test('lists each missing file when its directory is partly published', () async {
+    await File(p.join(skillDir.path, 'references', 'other.md')).create();
+
+    final List<ValidationError> errors = await validate(
+      directory: skillDir,
+      body: '[a](references/guide.md) [b](references/other.md)\n',
+      archive: archiveOf({_skillFile, 'skills/$_skillName/references/kept.md'}),
+    );
+
+    expect(errors.map((e) => e.message.split(',').first), [
+      _referenceFile,
+      'skills/$_skillName/references/other.md',
+    ]);
+  });
+
+  test('ignores links that leave the skill, even to an unpublished package file', () async {
+    await File(p.join(packageRoot.path, 'RULES.md')).create();
+
+    final List<ValidationError> errors = await validate(
+      directory: skillDir,
+      body: '[rules](../../RULES.md)\n',
+      archive: archiveOf({_skillFile}),
+    );
+
+    expect(errors, isEmpty);
   });
 
   test('ignores links that leave the package, are URLs, or point to no file', () async {
