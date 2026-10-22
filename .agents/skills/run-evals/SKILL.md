@@ -75,10 +75,10 @@ When executing evaluation suites, the runner runs all stages across targeted ski
    - Set `Prompt` to the exact trigger prompt string. A `positive_triggers` entry is either a prompt string or an object `{"prompt": "...", "permitted_co_triggers": ["<skill>", ...]}`; for an object, use its `prompt` value.
    - Set `Workspace` to `inherit`.
 3. **Turn-1 Interception & Cutoff**:
-   - Inspect Step 2 (`PLANNER_RESPONSE`) `tool_calls` in the subagent's `transcript.jsonl`.
+   - Inspect the `tool_calls` of the first `PLANNER_RESPONSE` step that has `tool_calls` in the subagent's transcript at `~/.gemini/<harness>/brain/<conversation-id>/.system_generated/logs/transcript.jsonl`, where `<harness>` is `jetski` or `antigravity-cli`.
    - Immediately terminate all subagents via `manage_subagents(Action: 'kill_all')` before subsequent tool calls or shell commands execute.
 4. **Outcome Classification**:
-   - **Positive Trigger**: PASS if only the target `SKILL.md` is loaded via `view_file`. PASS (Co-Trigger) if the target `SKILL.md` is loaded and every other loaded skill is listed in the entry's `permitted_co_triggers`. FAIL if another skill is loaded instead of the target (Collision), plain text/unrelated tool is emitted (Under-Trigger), or the target is loaded together with any skill not listed in `permitted_co_triggers` (Multi-Trigger). A plain string entry has no permitted co-triggers.
+   - **Positive Trigger**: PASS if only the target `SKILL.md` is loaded via the file-read tool (`read_file`; older builds call it `view_file`). PASS (Co-Trigger) if the target `SKILL.md` is loaded and every other loaded skill is listed in the entry's `permitted_co_triggers`. FAIL if another skill is loaded instead of the target (Collision), plain text/unrelated tool is emitted (Under-Trigger), or the target is loaded together with any skill not listed in `permitted_co_triggers` (Multi-Trigger). A plain string entry has no permitted co-triggers.
    - **Distractor**: PASS if target skill is not loaded (Rejected / Permitted Divergence). FAIL if target skill is loaded (Over-Trigger).
 5. **Report**: Output a summary table reporting pass rates, collisions, and description boundary remedies. Count PASS (Co-Trigger) results as passes and list the co-loaded skills.
 
@@ -104,7 +104,7 @@ When executing evaluation suites, the runner runs all stages across targeted ski
      - **Commit Hash**: Record the HEAD commit hash (`git rev-parse HEAD`) active at the time the evaluation was executed.
      - **Subagent Model Resolution**:
        - Capture the `conversationId` returned from `invoke_subagent`.
-       - After the subagent completes, inspect the subagent's generation metadata from `~/.gemini/jetski/conversations/<conversationId>.db` (querying `gen_metadata`) to extract the exact model slug (e.g., `gemini-3.6-flash`) that executed the task.
+       - After the subagent completes, inspect the subagent's generation metadata from `~/.gemini/<harness>/conversations/<conversationId>.db` (`<harness>` as above) (querying `gen_metadata`) to extract the exact model slug (e.g., `gemini-3.6-flash`) that executed the task.
        - If the subagent database is unavailable, fall back to `Active session model (unspecified)`. NEVER guess, assume, or fabricate model names, effort levels, or configurations.
      - **Agent Configuration**: Record the human-readable profile name inherited by the subagent (e.g., `reidbaker-agent`) rather than the literal parameter `"self"`.
    - **Formatting Clean Tables & Comment Links**: When formatting Markdown evaluation matrices and pull request comments, avoid raw `#<number>` tokens (e.g. write `Eval 1` or link to the eval file instead of `#1`) to avoid GitHub autolinking numbers to unrelated issues or pull requests.
