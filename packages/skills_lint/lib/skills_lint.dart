@@ -12,6 +12,7 @@ export 'src/missing_defaults_exception.dart';
 export 'src/models/analysis_severity.dart';
 export 'src/models/custom_rule_parameters.dart';
 export 'src/models/output_format.dart';
+export 'src/models/pub_archive.dart';
 export 'src/models/rule_config.dart';
 export 'src/models/skill_context.dart';
 export 'src/models/skill_rule.dart';
