@@ -20,85 +20,109 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import 'models/action_pin.dart';
 import 'models/convention_violation.dart';
-
-/// One `uses:` reference to an action, reusable workflow or Docker image
-/// outside this repository.
-final class ActionPin {
-  ActionPin(this.path, this.line, this.name, this.ref, this.comment);
-
-  /// Repository-relative path of the workflow or action file, with `/`
-  /// separators.
-  final String path;
-
-  /// 1-based line of the `uses:` value.
-  final int line;
-
-  /// The `uses:` value up to its ref: `owner/repo` or `owner/repo/path` for
-  /// actions and reusable workflows, `docker://image` for Docker images.
-  final String name;
-
-  /// The rest of the `uses:` value after [name], starting with `@` (or `:`
-  /// for a Docker tag). Empty if the value has no ref.
-  final String ref;
-
-  /// The first word of the comment on the same line, such as `v7.0.1`, or
-  /// null if the line has no comment.
-  final String? comment;
-
-  /// The ref and version comment, as written after [name].
-  String get pin => comment == null ? ref : '$ref # $comment';
-}
+import 'models/local_action.dart';
 
 /// The workflow and action files under [repoRoot] whose pins must agree.
 ///
-/// These are every `.yaml` workflow in `.github/workflows/` and every
-/// composite action's `action.yaml` under `.github/actions/`, sorted by path.
+/// These are every `.yaml` workflow in `.github/workflows/` and the
+/// `action.yaml` of every composite action that a workflow or another
+/// scanned action names in a local `uses: ./<path>`, wherever that action
+/// lives. The result is sorted by path. A local `uses:` that names a file,
+/// such as a reusable workflow, adds nothing: the workflow scan covers the
+/// workflows.
 ///
-/// Throws a [StateError] if either directory is missing, so a moved
+/// Throws a [StateError] if `.github/workflows/` is missing, so a moved
 /// directory fails the scan instead of leaving its files unchecked. Also
-/// throws if a file there uses the `.yml` extension, which GitHub accepts
-/// too, so that no workflow or action goes unchecked. Also throws on a
-/// `.github/dependabot.yml`: Dependabot reads it in preference to
-/// `.github/dependabot.yaml`, so a stray copy would replace the
-/// configuration that groups action updates.
+/// throws if a workflow or a referenced action uses the `.yml` extension,
+/// which GitHub accepts too, so that no workflow or action goes unchecked.
+/// Also throws on a `.github/dependabot.yml`: Dependabot reads it in
+/// preference to `.github/dependabot.yaml`, so a stray copy would replace the
+/// configuration that groups action updates. Also throws if a local `uses:`
+/// names a directory with no action file, giving the file, line and path.
 List<File> actionPinFiles(String repoRoot) {
   final workflows = Directory(p.join(repoRoot, '.github', 'workflows'));
-  final actions = Directory(p.join(repoRoot, '.github', 'actions'));
-  for (final directory in [workflows, actions]) {
-    if (!directory.existsSync()) {
-      throw StateError('${directory.path} does not exist, so its action pins are not checked.');
-    }
+  if (!workflows.existsSync()) {
+    throw StateError('${workflows.path} does not exist, so its action pins are not checked.');
   }
-  final List<File> workflowFiles = _filesIn(workflows);
-  final List<File> actionFiles = _filesIn(actions, recursive: true);
+  final List<File> workflowFiles = [
+    for (final entry in workflows.listSync())
+      if (entry is File) entry,
+  ];
   final dependabot = File(p.join(repoRoot, '.github', 'dependabot.yml'));
   final List<String> ymlFiles = [
     for (final File(:path) in workflowFiles)
       if (p.extension(path) == '.yml') path,
-    for (final File(:path) in actionFiles)
-      if (p.basename(path) == 'action.yml') path,
     if (dependabot.existsSync()) dependabot.path,
   ];
+  _throwIfYml(ymlFiles);
+  final Map<String, File> found = {
+    for (final File file in workflowFiles)
+      if (p.extension(file.path) == '.yaml') p.normalize(file.path): file,
+  };
+  final List<String> missing = _addLocalActions(repoRoot, found, ymlFiles);
+  _throwIfYml(ymlFiles);
+  if (missing.isNotEmpty) {
+    throw StateError('These local actions have no action file: ${missing.join('; ')}');
+  }
+  return found.values.toList()..sort((a, b) => a.path.compareTo(b.path));
+}
+
+/// Adds to [found] the `action.yaml` of every composite action that a file
+/// in [found] names in a local `uses:`, and of every action those name in
+/// turn.
+///
+/// [found] maps each normalized path to its file, which also stops a cycle
+/// of actions that use each other. Adds each used `action.yml` to
+/// [ymlFiles]. The result describes each local `uses:` that names a
+/// directory with no action file.
+List<String> _addLocalActions(String repoRoot, Map<String, File> found, List<String> ymlFiles) {
+  final List<File> pending = [...found.values];
+  final List<String> missing = [];
+  while (pending.isNotEmpty) {
+    for (final LocalAction action in _localActions(repoRoot, pending.removeLast())) {
+      final yaml = File(p.join(action.directory, 'action.yaml'));
+      final yml = File(p.join(action.directory, 'action.yml'));
+      if (yml.existsSync()) {
+        ymlFiles.add(yml.path);
+      } else if (!yaml.existsSync()) {
+        missing.add(
+          '${action.source}:${action.line}: `uses: ${action.value}` names no '
+          'action.yaml in ${action.directory}',
+        );
+      } else if (!found.containsKey(p.normalize(yaml.path))) {
+        found[p.normalize(yaml.path)] = yaml;
+        pending.add(yaml);
+      }
+    }
+  }
+  return missing;
+}
+
+/// Throws a [StateError] naming [ymlFiles] unless it is empty.
+void _throwIfYml(List<String> ymlFiles) {
   if (ymlFiles.isNotEmpty) {
     throw StateError(
       'Rename these files to end in .yaml, as the others do: ${ymlFiles.join(', ')}',
     );
   }
-  final List<File> files = [
-    for (final File file in workflowFiles)
-      if (p.extension(file.path) == '.yaml') file,
-    for (final File file in actionFiles)
-      if (p.basename(file.path) == 'action.yaml') file,
-  ];
-  return files..sort((a, b) => a.path.compareTo(b.path));
 }
 
-/// The files in [directory], and in its subdirectories if [recursive].
-List<File> _filesIn(Directory directory, {bool recursive = false}) => [
-  for (final entry in directory.listSync(recursive: recursive))
-    if (entry is File) entry,
-];
+/// The local `uses:` values in [file] that name a directory or nothing at
+/// all, resolved against [repoRoot].
+///
+/// Values that name a file, such as a reusable workflow, are left out.
+Iterable<LocalAction> _localActions(String repoRoot, File file) sync* {
+  for (final YamlScalar node in _usesNodes(loadYamlNode(file.readAsStringSync()))) {
+    if (node.value case final String value when value.startsWith('./')) {
+      final String target = p.normalize(p.joinAll([repoRoot, ...value.split('/')]));
+      if (!File(target).existsSync()) {
+        yield LocalAction(file.path, node.span.start.line + 1, value, target);
+      }
+    }
+  }
+}
 
 /// Finds the `uses:` references in a workflow or composite action.
 ///
