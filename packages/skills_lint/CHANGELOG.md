@@ -18,6 +18,7 @@
 - The `skills-lint-setup` skill picks a setup path: a `dart test` that calls `validateSkills` when `skills_lint` is a dev dependency, or the installed `skills_lint` command otherwise. The shipped skills no longer link to files outside their own directory.
 - Added a `--version` flag that prints the skills_lint version.
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
+- The published package includes its agent skills, so `dart run skills@ get` installs them.
 
 ## 0.5.2
 
