@@ -18,7 +18,7 @@
 - Added a `--version` flag that prints the skills_lint version.
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
 - The published package includes its agent skills, so `dart run skills@ get` installs them.
-- Added an optional `target` field to `skills_lint_ignore.json` entries and `ValidationError` so a baseline entry for `check-relative-paths` or `check-absolute-paths` suppresses only the named link target (for example `"target": "../../RULES.md"`) rather than every link in the file. `--generate-baseline` records `target` when present, and entries without `target` match any finding of that rule in the file.
+- Added an optional `target` field to `skills_lint_ignore.json` entries and `ValidationError` so a baseline entry for `check-relative-paths` or `check-absolute-paths` suppresses only the named link target (such as `"target": "../../RULES.md"`) rather than every link in the file.
 
 ## 0.5.2
 
