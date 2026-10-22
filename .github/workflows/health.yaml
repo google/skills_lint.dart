@@ -13,7 +13,7 @@ on:
 
 jobs:
   health:
-    uses: dart-lang/ecosystem/.github/workflows/health.yaml@5576a85fa69edea4343a1b601d4c3e755fcf6ad4 # main
+    uses: dart-lang/ecosystem/.github/workflows/health.yaml@0ab0cfd2f092d09eb20081f81b5e75cb50611b40 # main
     with:
       # license is omitted because repo_test/copyright_header_test.dart checks
       # headers. coverage is omitted because skills_lint_workflow.yaml gates
