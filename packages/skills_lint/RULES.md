@@ -202,6 +202,44 @@ governs how changes to these rules ship.
   and the author may want a different name entirely.
 - **Disable:** `--no-invalid-skill-name`.
 
+## pub-archive-includes-skill
+
+- **Default severity:** disabled
+- **Fixable:** no
+- **What it checks:** for a skill in `skills/<name>/` of a Dart package,
+  `dart pub publish` uploads `skills/<name>/SKILL.md` and every file in
+  the package that `SKILL.md` links to, inside the skill or elsewhere in
+  the package, such as `../../README.md`. A `.pubignore` or `.gitignore`
+  pattern can drop a file from the published package with no warning, and
+  a path dependency ignores `.pubignore`, so local testing doesn't show
+  it. A link to a file outside the package is reported, because pub never
+  publishes it. The package is the nearest directory above the skill
+  with a `pubspec.yaml`. Skills outside its `skills/` directory pass without
+  running `pub`. Links to files that don't
+  exist pass too, even when `check-relative-paths` is disabled; enable
+  `check-relative-paths` to report them.
+- **How it works:** runs
+  `dart pub publish --skip-validation --to-archive=<temp file>` once per
+  package and reads the file names from the archive. Needs `dart` on
+  `PATH`. `--to-archive` is a hidden pub option; if pub rejects it, the
+  rule reports pub's error.
+- **Diagnostic shape:**
+  `` skills/<name>/SKILL.md is not in the package pub publishes, so the published package has no <name> skill. <fix> ``
+  `` <file>, linked from skills/<name>/SKILL.md, is not in the package pub publishes. <fix> ``
+  `` <file>, linked from skills/<name>/SKILL.md, is <archive file> in the package pub publishes. Match the file name case so the link works on case-sensitive file systems. ``
+  `` <file>, linked from skills/<name>/SKILL.md, is outside the package, so pub does not publish it. Move the file into the package, or link to an absolute URL. ``
+  `` <directory>/ is not in the package pub publishes, so neither are the <count> files skills/<name>/SKILL.md links to in it. <fix> ``
+  where `<fix>` is
+  `` Run `dart pub publish --dry-run` to list the files pub publishes, and check .pubignore and .gitignore. ``
+  Missing files under a directory with no published files are reported
+  once, as that directory. When the file list can't be built, each skill
+  in `skills/` gets one diagnostic with the reason: `publish_to: none`,
+  `dart` not found, or a pub failure. With no `pubspec.yaml` at all, every
+  skill the rule runs on gets that diagnostic. The rule never passes a
+  skill in `skills/` without the file list.
+- **Auto-fix behavior:** none.
+- **Disable:** `--no-pub-archive-includes-skill`.
+
 ## published-skill-name
 
 - **Default severity:** disabled

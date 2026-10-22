@@ -17,6 +17,7 @@ skills_lint:
           within-skill: true
         check-trailing-whitespace: error
         published-skill-name: error
+        pub-archive-includes-skill: error
     - path: "packages/skills_lint/example/skills/invalid"
       rules:
         prevent-skills-sh-publishing: error

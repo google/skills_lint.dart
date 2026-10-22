@@ -86,15 +86,12 @@ Fix the rest by hand, then run `skills_lint` again until it passes.
 
 ## 5. Ignore findings to fix later
 
-If existing skills have too many findings to fix now, ignore them and fix them
-later. Write every current error into `skills_lint_ignore.json` in each skills
-directory:
+If existing skills have too many findings to fix now, generate a baseline so
+current errors are ignored:
 
 ```bash
 skills_lint --generate-baseline
 ```
 
-Commit the file. Each entry ignores one rule in one file of one skill, so
-findings of that rule in that file no longer fail the run. Findings without
-an entry still fail it. After you fix a finding, delete its entry;
-`skills_lint` reports entries that no longer match a finding.
+Commit the generated ignore file. Ignored findings no longer fail the run,
+while new findings still do.

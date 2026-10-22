@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
+import 'pub_archive.dart';
 import 'source_region.dart';
 
 /// Context provided to [SkillRule]s during validation.
@@ -18,6 +19,7 @@ class SkillContext {
     required this.rawContent,
     this.parsedYaml,
     this.yamlParsingError,
+    this.pubArchive,
   }) : _sourceFile = SourceFile.fromString(rawContent);
 
   /// The required filename for skill documentation.
@@ -42,6 +44,13 @@ class SkillContext {
   final YamlMap? parsedYaml;
 
   final String? yamlParsingError;
+
+  /// The files pub would publish for the package that holds this skill.
+  ///
+  /// The validation session sets this only when a rule that needs it, such as
+  /// `pub-archive-includes-skill`, is enabled for the skill. Otherwise it is
+  /// `null`.
+  final PubArchive? pubArchive;
 
   final SourceFile _sourceFile;
 

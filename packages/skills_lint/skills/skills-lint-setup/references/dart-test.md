@@ -23,12 +23,16 @@ skills_lint:
     # A package publishes its skills from skills/.
     - path: "skills"
       rules:
+        pub-archive-includes-skill: error
         published-skill-name: error
         check-relative-paths:
           severity: error
           within-skill: true
 ```
 
+- `pub-archive-includes-skill` checks that `dart pub publish` includes each
+  skill and the files it links to. A path dependency ignores `.pubignore`, so
+  testing that way doesn't catch a skill left out of the package.
 - `published-skill-name` checks that each skill name is a valid name
   according to the [pub.dev `skills` package](https://pub.dev/packages/skills).
   Published package skills need such a name.
@@ -58,16 +62,12 @@ dart run skills_lint --fix
 
 ## 5. Ignore findings to fix later
 
-If existing skills have too many findings to fix now, ignore them and fix them
-later. Write every current error into `skills_lint_ignore.json` in each skills
-directory:
+If existing skills have too many findings to fix now, generate a baseline so
+current errors are ignored:
 
 ```bash
 dart run skills_lint --generate-baseline
 ```
 
-Commit the file. Each entry ignores one rule in one file of one skill, and
-findings of that rule in that file no longer fail the test. Findings without
-an entry still fail it. After
-you fix a finding, delete its entry; `skills_lint` reports entries that no
-longer match a finding.
+Commit the generated ignore file. Ignored findings no longer fail the test,
+while new findings still do.
