@@ -20,35 +20,9 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import 'models/action_pin.dart';
 import 'models/convention_violation.dart';
-
-/// One `uses:` reference to an action, reusable workflow or Docker image
-/// outside this repository.
-final class ActionPin {
-  ActionPin(this.path, this.line, this.name, this.ref, this.comment);
-
-  /// Repository-relative path of the workflow or action file, with `/`
-  /// separators.
-  final String path;
-
-  /// 1-based line of the `uses:` value.
-  final int line;
-
-  /// The `uses:` value up to its ref: `owner/repo` or `owner/repo/path` for
-  /// actions and reusable workflows, `docker://image` for Docker images.
-  final String name;
-
-  /// The rest of the `uses:` value after [name], starting with `@` (or `:`
-  /// for a Docker tag). Empty if the value has no ref.
-  final String ref;
-
-  /// The first word of the comment on the same line, such as `v7.0.1`, or
-  /// null if the line has no comment.
-  final String? comment;
-
-  /// The ref and version comment, as written after [name].
-  String get pin => comment == null ? ref : '$ref # $comment';
-}
+import 'models/local_action.dart';
 
 /// The workflow and action files under [repoRoot] whose pins must agree.
 ///
@@ -107,7 +81,7 @@ List<String> _addLocalActions(String repoRoot, Map<String, File> found, List<Str
   final List<File> pending = [...found.values];
   final List<String> missing = [];
   while (pending.isNotEmpty) {
-    for (final _LocalAction action in _localActions(repoRoot, pending.removeLast())) {
+    for (final LocalAction action in _localActions(repoRoot, pending.removeLast())) {
       final yaml = File(p.join(action.directory, 'action.yaml'));
       final yml = File(p.join(action.directory, 'action.yml'));
       if (yml.existsSync()) {
@@ -135,34 +109,16 @@ void _throwIfYml(List<String> ymlFiles) {
   }
 }
 
-/// A local `uses: ./<path>` that names a directory, which GitHub runs as a
-/// composite action.
-final class _LocalAction {
-  _LocalAction(this.source, this.line, this.value, this.directory);
-
-  /// Path of the workflow or action file that holds the `uses:`.
-  final String source;
-
-  /// 1-based line of the `uses:` value.
-  final int line;
-
-  /// The `uses:` value as written.
-  final String value;
-
-  /// The directory the value names, joined to the repository root.
-  final String directory;
-}
-
 /// The local `uses:` values in [file] that name a directory or nothing at
 /// all, resolved against [repoRoot].
 ///
 /// Values that name a file, such as a reusable workflow, are left out.
-Iterable<_LocalAction> _localActions(String repoRoot, File file) sync* {
+Iterable<LocalAction> _localActions(String repoRoot, File file) sync* {
   for (final YamlScalar node in _usesNodes(loadYamlNode(file.readAsStringSync()))) {
     if (node.value case final String value when value.startsWith('./')) {
       final String target = p.normalize(p.joinAll([repoRoot, ...value.split('/')]));
       if (!File(target).existsSync()) {
-        yield _LocalAction(file.path, node.span.start.line + 1, value, target);
+        yield LocalAction(file.path, node.span.start.line + 1, value, target);
       }
     }
   }

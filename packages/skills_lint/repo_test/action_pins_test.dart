@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'src/action_pins.dart';
+import 'src/models/action_pin.dart';
 import 'src/repo_paths.dart';
 import 'src/source_conventions.dart';
 

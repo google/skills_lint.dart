@@ -2,12 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../src/action_pins.dart';
+import '../src/models/action_pin.dart';
 import '../src/models/convention_violation.dart';
 
 const String _checkout = 'actions/checkout';
@@ -41,11 +43,33 @@ void main() {
         p.posix.joinAll(p.split(p.relative(file.path, from: root.path))),
     ];
 
-    String workflowUsing(List<String> uses) =>
-        'jobs:\n  build:\n    steps:\n${[for (final u in uses) '      - uses: $u\n'].join()}';
+    /// A workflow file with one job whose steps use each of [uses] in order.
+    ///
+    /// The document is built as a map and written as indented JSON, which
+    /// YAML parsers read as YAML, so no fixture depends on hand-written YAML
+    /// indentation. Each `uses` value sits on its own line.
+    String workflowUsing(List<String> uses) => _yaml({
+      'jobs': {
+        'build': {
+          'steps': [
+            for (final u in uses) {'uses': u},
+          ],
+        },
+      },
+    });
 
-    String actionUsing(List<String> uses) =>
-        'runs:\n  using: composite\n  steps:\n${[for (final u in uses) '    - uses: $u\n'].join()}';
+    /// An `action.yaml` for a composite action whose steps use each of [uses]
+    /// in order.
+    ///
+    /// It is built like [workflowUsing].
+    String actionUsing(List<String> uses) => _yaml({
+      'runs': {
+        'using': 'composite',
+        'steps': [
+          for (final u in uses) {'uses': u},
+        ],
+      },
+    });
 
     test('lists workflows and the actions they use, and nothing else under .github', () {
       createFiles({
@@ -96,10 +120,10 @@ void main() {
     });
 
     test('fails on a local uses that names no action file, naming the file, line and path', () {
-      createFiles({
-        '.github/workflows/ci.yaml': workflowUsing(['$_checkout@$_sha', './tools/gone']),
-        'tools/gone/README.md': '',
-      });
+      final String workflow = workflowUsing(['$_checkout@$_sha', './tools/gone']);
+      final int goneLine =
+          const LineSplitter().convert(workflow).indexWhere((l) => l.contains('./tools/gone')) + 1;
+      createFiles({'.github/workflows/ci.yaml': workflow, 'tools/gone/README.md': ''});
       expect(
         () => actionPinFiles(root.path),
         throwsA(
@@ -107,7 +131,7 @@ void main() {
             (e) => e.message,
             'message',
             allOf(
-              contains('${p.join('.github', 'workflows', 'ci.yaml')}:5:'),
+              contains('${p.join('.github', 'workflows', 'ci.yaml')}:$goneLine:'),
               contains('./tools/gone'),
             ),
           ),
@@ -323,3 +347,9 @@ runs:
 List<String> _describe(List<ActionPin> pins) => [
   for (final pin in pins) '${pin.path}:${pin.line} ${pin.name} ${pin.ref} ${pin.comment}',
 ];
+
+/// [document] as YAML text, one value per line.
+///
+/// JSON is a subset of YAML 1.2, so indented JSON is a valid workflow or
+/// action file and needs no YAML writer.
+String _yaml(Map<String, Object> document) => const JsonEncoder.withIndent('  ').convert(document);
