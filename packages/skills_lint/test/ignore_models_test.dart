@@ -18,19 +18,48 @@ void main() {
       final entry = IgnoreEntry.fromJson(json);
       expect(entry.ruleId, equals('description_too_long'));
       expect(entry.fileName, equals('SKILL.md'));
+      expect(entry.target, isNull);
       expect(entry.used, isFalse); // Default
     });
 
-    test('toJson serializes rule_id and file_name', () {
+    test('fromJson parses optional target', () {
+      final Map<String, dynamic> json = {
+        IgnoreEntry.ruleIdKey: 'check-relative-paths',
+        IgnoreEntry.fileNameKey: 'SKILL.md',
+        IgnoreEntry.targetKey: '../../RULES.md',
+      };
+      final entry = IgnoreEntry.fromJson(json);
+      expect(entry.ruleId, equals('check-relative-paths'));
+      expect(entry.fileName, equals('SKILL.md'));
+      expect(entry.target, equals('../../RULES.md'));
+    });
+
+    test('toJson serializes rule_id and file_name and omits null target', () {
       final entry = IgnoreEntry(ruleId: 'description_too_long', fileName: 'SKILL.md');
       final Map<String, dynamic> json = entry.toJson();
       expect(json[IgnoreEntry.ruleIdKey], equals('description_too_long'));
       expect(json[IgnoreEntry.fileNameKey], equals('SKILL.md'));
+      expect(json.containsKey(IgnoreEntry.targetKey), isFalse);
       expect(json.containsKey('used'), isFalse); // Suppressed
     });
 
+    test('toJson serializes non-null target', () {
+      final entry = IgnoreEntry(
+        ruleId: 'check-relative-paths',
+        fileName: 'SKILL.md',
+        target: '../../RULES.md',
+      );
+      final Map<String, dynamic> json = entry.toJson();
+      expect(json[IgnoreEntry.targetKey], equals('../../RULES.md'));
+    });
+
     test('positive round-trip using expectJsonRoundTrip', () {
-      final entry = IgnoreEntry(ruleId: 'check-absolute-paths', fileName: 'SKILL.md', used: true);
+      final entry = IgnoreEntry(
+        ruleId: 'check-relative-paths',
+        fileName: 'SKILL.md',
+        target: '../../RULES.md',
+        used: true,
+      );
       expectJsonRoundTrip<IgnoreEntry>(
         instance: entry,
         toJson: (e) => e.toJson(),

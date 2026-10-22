@@ -2,15 +2,20 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
+import 'package:skills_lint/src/models/custom_rule_parameters.dart';
+import 'package:skills_lint/src/models/ignore_entry.dart';
 import 'package:skills_lint/src/models/output_format.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
+import 'package:skills_lint/src/models/skills_ignores.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
+import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/validation_session.dart';
 import 'package:test/test.dart';
 
@@ -253,6 +258,89 @@ void main() {
       // command (see `_chmod`), which Windows does not provide, and NTFS access
       // is controlled by ACLs rather than mode bits.
     }, testOn: '!windows');
+
+    test('an ignore entry with target suppresses only findings matching that target', () async {
+      final Directory skillDir = await createDummySkill(
+        tempDir,
+        name: 'targeted-skill',
+        skillContent:
+            '${buildFrontmatter(name: 'targeted-skill')}\n'
+            '[Rules 1](../../RULES.md)\n'
+            '[Rules 2](../../RULES.md)\n'
+            '[Missing](missing.md)\n',
+      );
+      final String ignorePath = p.join(skillDir.path, defaultIgnoreFileName);
+      File(ignorePath).writeAsStringSync(
+        jsonEncode({
+          SkillsIgnores.skillsKey: {
+            'targeted-skill': [
+              {
+                IgnoreEntry.ruleIdKey: RelativePathsRule.ruleName,
+                IgnoreEntry.fileNameKey: 'SKILL.md',
+                IgnoreEntry.targetKey: '../../RULES.md',
+              },
+            ],
+          },
+        }),
+      );
+
+      final ValidationSession session = createTestSession(
+        resolvedRuleConfigs: {
+          RelativePathsRule.ruleName: RuleConfigPatch(
+            severity: AnalysisSeverity.error,
+            parameters: CustomRuleParameters(const {RelativePathsRule.withinSkillParameter: true}),
+          ),
+        },
+      );
+      await session.processIndividualSkill(skillDir.path);
+
+      expect(session.anyFailed, isTrue);
+      final List<String> errors = session.results.single.errors;
+      expect(errors, hasLength(1));
+      expect(errors.single, contains('missing.md'));
+    });
+
+    test(
+      'an ignore entry without target suppresses every finding of that rule in the file',
+      () async {
+        final Directory skillDir = await createDummySkill(
+          tempDir,
+          name: 'whole-file-skill',
+          skillContent:
+              '${buildFrontmatter(name: 'whole-file-skill')}\n'
+              '[Rules](../../RULES.md)\n'
+              '[Missing](missing.md)\n',
+        );
+        final String ignorePath = p.join(skillDir.path, defaultIgnoreFileName);
+        File(ignorePath).writeAsStringSync(
+          jsonEncode({
+            SkillsIgnores.skillsKey: {
+              'whole-file-skill': [
+                {
+                  IgnoreEntry.ruleIdKey: RelativePathsRule.ruleName,
+                  IgnoreEntry.fileNameKey: 'SKILL.md',
+                },
+              ],
+            },
+          }),
+        );
+
+        final ValidationSession session = createTestSession(
+          resolvedRuleConfigs: {
+            RelativePathsRule.ruleName: RuleConfigPatch(
+              severity: AnalysisSeverity.error,
+              parameters: CustomRuleParameters(const {
+                RelativePathsRule.withinSkillParameter: true,
+              }),
+            ),
+          },
+        );
+        await session.processIndividualSkill(skillDir.path);
+
+        expect(session.anyFailed, isFalse);
+        expect(session.results.single.errors, isEmpty);
+      },
+    );
   });
 }
 

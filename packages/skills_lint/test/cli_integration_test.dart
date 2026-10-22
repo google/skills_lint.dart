@@ -36,7 +36,7 @@ void main() {
     test('de-duplicates baseline entries for multiple identical rule failures', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
       await File('${skillDir.path}/SKILL.md').writeAsString(
-        '${buildFrontmatter(name: 'test-skill')}[Link 1](missing1.md)\n[Link 2](missing2.md)\n',
+        '${buildFrontmatter(name: 'test-skill')}[Link 1](missing.md)\n[Link 2](missing.md)\n',
       );
       // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/18
       final configFile = File('${tempDir.path}/skills_lint.yaml');
@@ -60,10 +60,129 @@ skills_lint:
       final String content = await ignoreFile.readAsString();
       final json = jsonDecode(content) as Map<String, dynamic>;
       final skills = json[SkillsIgnores.skillsKey] as Map<String, dynamic>;
-      final ignores = skills['test-skill'] as List;
+      final List<Map<String, dynamic>> ignores = (skills['test-skill'] as List)
+          .cast<Map<String, dynamic>>();
 
-      // Should be 1 entry only! Both relative link failures utilize the same ruleId/fileName de-duplication.
+      // Both relative link failures reference the same target and share one baseline entry.
       expect(ignores.length, equals(1));
+      expect(ignores.single[IgnoreEntry.targetKey], equals('missing.md'));
+    });
+
+    test('records separate baseline entries for distinct link targets in the same file', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      await File('${skillDir.path}/SKILL.md').writeAsString(
+        '${buildFrontmatter(name: 'test-skill')}[Link 1](missing1.md)\n[Link 2](missing2.md)\n',
+      );
+      final configFile = File('${tempDir.path}/skills_lint.yaml');
+      await configFile.writeAsString('''
+skills_lint:
+  rules:
+    check-relative-paths: error
+''');
+
+      final TestProcess process = await startCli([
+        '-s',
+        'test-skill',
+        '--generate-baseline',
+      ], workingDirectory: tempDir.path);
+      await process.shouldExit(0);
+
+      final ignoreFile = File('${skillDir.path}/$defaultIgnoreFileName');
+      final json = jsonDecode(await ignoreFile.readAsString()) as Map<String, dynamic>;
+      final skills = json[SkillsIgnores.skillsKey] as Map<String, dynamic>;
+      final List<Map<String, dynamic>> ignores = (skills['test-skill'] as List)
+          .cast<Map<String, dynamic>>();
+
+      expect(
+        ignores.map((e) => e[IgnoreEntry.targetKey]),
+        orderedEquals(['missing1.md', 'missing2.md']),
+      );
+    });
+
+    test(
+      'a narrow baseline entry suppresses its target while reporting other broken links in the same file',
+      () async {
+        final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+        await File('${skillDir.path}/SKILL.md').writeAsString(
+          '${buildFrontmatter(name: 'test-skill')}[Rules](../../RULES.md)\n[Other](missing.md)\n',
+        );
+        await File('${skillDir.path}/$defaultIgnoreFileName').writeAsString(
+          jsonEncode({
+            SkillsIgnores.skillsKey: {
+              'test-skill': [
+                {
+                  IgnoreEntry.ruleIdKey: 'check-relative-paths',
+                  IgnoreEntry.fileNameKey: 'SKILL.md',
+                  IgnoreEntry.targetKey: '../../RULES.md',
+                },
+              ],
+            },
+          }),
+        );
+
+        final TestProcess process = await startCli([
+          '-s',
+          'test-skill',
+          '--check-relative-paths',
+          '--check-relative-paths-within-skill=true',
+        ], workingDirectory: tempDir.path);
+
+        final List<String> stderr = await process.stderr.rest.toList();
+        final String stderrStr = stderr.join('\n');
+        expect(stderrStr, isNot(contains('../../RULES.md')));
+        expect(stderrStr, contains('Linked file does not exist: missing.md'));
+        await process.shouldExit(1);
+      },
+    );
+
+    test('reports stale ignore entries for individual skill and directory validation', () async {
+      final Directory skillsDir = await Directory('${tempDir.path}/skills').create();
+      final Directory skillDir = await Directory('${skillsDir.path}/valid-skill').create();
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'valid-skill', description: 'A valid skill')}Body');
+
+      final Map<String, Object?> staleBaseline = {
+        SkillsIgnores.skillsKey: {
+          'valid-skill': [
+            {
+              IgnoreEntry.ruleIdKey: 'check-relative-paths',
+              IgnoreEntry.fileNameKey: 'SKILL.md',
+              IgnoreEntry.targetKey: '../../RULES.md',
+            },
+          ],
+        },
+      };
+      await File(
+        '${skillDir.path}/$defaultIgnoreFileName',
+      ).writeAsString(jsonEncode(staleBaseline));
+      await File(
+        '${skillsDir.path}/$defaultIgnoreFileName',
+      ).writeAsString(jsonEncode(staleBaseline));
+
+      final TestProcess singleProcess = await startCli([
+        '-s',
+        skillDir.path,
+        '--check-relative-paths',
+      ]);
+      final String singleStdout = (await singleProcess.stdout.rest.toList()).join('\n');
+      await singleProcess.shouldExit(0);
+      expect(
+        singleStdout,
+        contains("Stale ignore entry found for rule 'check-relative-paths' in skill 'valid-skill'"),
+      );
+
+      final TestProcess dirProcess = await startCli([
+        '-d',
+        skillsDir.path,
+        '--check-relative-paths',
+      ]);
+      final String dirStdout = (await dirProcess.stdout.rest.toList()).join('\n');
+      await dirProcess.shouldExit(0);
+      expect(
+        dirStdout,
+        contains("Stale ignore entry found for rule 'check-relative-paths' in skill 'valid-skill'"),
+      );
     });
 
     test('individual skill baseline is loaded on subsequent runs', () async {

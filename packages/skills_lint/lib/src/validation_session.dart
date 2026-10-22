@@ -612,7 +612,8 @@ class ValidationSession {
       for (final pair in preNormalizedIgnores) {
         final IgnoreEntry ignore = pair.entry;
         if (ignore.ruleId == error.ruleId &&
-            _ignoreCovers(pair.normalizedFileName, portableName, absoluteName)) {
+            _ignoreCovers(pair.normalizedFileName, portableName, absoluteName) &&
+            (ignore.target == null || ignore.target == error.target)) {
           error.isIgnored = true;
           ignore.used = true;
           break;
@@ -934,19 +935,21 @@ class ValidationSession {
     final List<IgnoreEntry> currentSkillIgnores = ignores.skills[skillName] ?? [];
     final currentSkillSeen = <String>{};
     for (final ignore in currentSkillIgnores) {
-      currentSkillSeen.add('${ignore.ruleId}:${ignore.fileName}');
+      currentSkillSeen.add('${ignore.ruleId}:${ignore.fileName}:${ignore.target ?? ''}');
     }
 
     for (final ValidationError error in result.validationErrors) {
       if (!error.isIgnored) {
         final String fileName = baselineFileName(error.file, skillDir);
-        final key = '${error.ruleId}:$fileName';
+        final key = '${error.ruleId}:$fileName:${error.target ?? ''}';
         if (currentSkillSeen.contains(key)) {
           continue;
         }
         currentSkillSeen.add(key);
 
-        currentSkillIgnores.add(IgnoreEntry(ruleId: error.ruleId, fileName: fileName));
+        currentSkillIgnores.add(
+          IgnoreEntry(ruleId: error.ruleId, fileName: fileName, target: error.target),
+        );
       }
     }
 

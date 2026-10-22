@@ -12,6 +12,7 @@ class ValidationError {
     required this.file,
     required this.message,
     required this.severity,
+    this.target,
     this.isIgnored = false,
     this.region,
     this.markdownMessage,
@@ -23,6 +24,7 @@ class ValidationError {
     file: json[keyFile]! as String,
     message: json[keyMessage]! as String,
     severity: AnalysisSeverity.values.byName(json[keySeverity]! as String),
+    target: json[keyTarget] as String?,
     isIgnored: json[keyIsIgnored] as bool? ?? false,
     region: json[keyRegion] != null
         ? SourceRegion.fromJson(json[keyRegion]! as Map<String, Object?>)
@@ -41,6 +43,9 @@ class ValidationError {
 
   /// JSON key for [severity].
   static const String keySeverity = 'severity';
+
+  /// JSON key for [target].
+  static const String keyTarget = 'target';
 
   /// JSON key for [isIgnored].
   static const String keyIsIgnored = 'isIgnored';
@@ -63,6 +68,13 @@ class ValidationError {
   /// The severity of the error.
   final AnalysisSeverity severity;
 
+  /// Specific target within [file] that triggered the error, such as the raw
+  /// path of a broken link.
+  ///
+  /// When non-null, a baseline entry with a matching `target` suppresses only
+  /// findings for that target instead of every finding of [ruleId] in [file].
+  final String? target;
+
   /// Whether this error has been ignored via configuration.
   bool isIgnored;
 
@@ -83,6 +95,7 @@ class ValidationError {
     keyFile: file,
     keyMessage: message,
     keySeverity: severity.name,
+    if (target != null) keyTarget: target,
     keyIsIgnored: isIgnored,
     if (region != null) keyRegion: region!.toJson(),
     if (markdownMessage != null) keyMarkdownMessage: markdownMessage,
