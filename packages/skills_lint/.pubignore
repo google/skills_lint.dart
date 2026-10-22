@@ -4,7 +4,8 @@
 /documentation/
 /evals/
 /scripts/
-/skills/
+/skills/*/evals/
+/skills/README.md
 /.agents/
 /coverage/
 /example/api_boundary_runner/
