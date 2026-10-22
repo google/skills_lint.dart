@@ -133,28 +133,56 @@ void main() {
     ]);
   });
 
-  test('ignores links that leave the skill, even to an unpublished package file', () async {
-    await File(p.join(packageRoot.path, 'RULES.md')).create();
+  group('a link that leaves the skill but stays in the package', () {
+    setUp(() => File(p.join(packageRoot.path, 'README.md')).create());
 
-    final List<ValidationError> errors = await validate(
-      directory: skillDir,
-      body: '[rules](../../RULES.md)\n',
-      archive: archiveOf({_skillFile}),
-    );
+    test('passes when pub publishes the target', () async {
+      final List<ValidationError> errors = await validate(
+        directory: skillDir,
+        body: '[readme](../../README.md)\n',
+        archive: archiveOf({_skillFile, 'README.md'}),
+      );
 
-    expect(errors, isEmpty);
+      expect(errors, isEmpty);
+    });
+
+    test('is reported when pub leaves the target out', () async {
+      final List<ValidationError> errors = await validate(
+        directory: skillDir,
+        body: '[readme](../../README.md)\n',
+        archive: archiveOf({_skillFile}),
+      );
+
+      expect(errors.map((e) => e.message), [
+        'README.md, linked from $_skillFile, is not in the package pub publishes. $_howToFix',
+      ]);
+    });
   });
 
-  test('ignores links that leave the package, are URLs, or point to no file', () async {
+  test('reports a link to a file outside the package', () async {
     final File outside = await File(p.join(packageRoot.parent.path, 'outside.md')).create();
     addTearDown(outside.delete);
     final String outsideLink = p.relative(outside.path, from: skillDir.path).replaceAll(r'\', '/');
+    final String outsideFile = p
+        .relative(outside.path, from: packageRoot.path)
+        .replaceAll(r'\', '/');
 
     final List<ValidationError> errors = await validate(
       directory: skillDir,
-      body:
-          '[outside]($outsideLink) [web](https://dart.dev) [anchor](#steps) '
-          '[missing](references/missing.md)\n',
+      body: '[outside]($outsideLink)\n',
+      archive: archiveOf({_skillFile}),
+    );
+
+    expect(
+      errors.single.message,
+      startsWith('$outsideFile, linked from $_skillFile, is outside the package'),
+    );
+  });
+
+  test('ignores links that are URLs or point to no file', () async {
+    final List<ValidationError> errors = await validate(
+      directory: skillDir,
+      body: '[web](https://dart.dev) [anchor](#steps) [missing](references/missing.md)\n',
       archive: archiveOf({_skillFile}),
     );
 
@@ -170,6 +198,20 @@ void main() {
       directory: agentSkill,
       body: '',
       archive: archiveOf({}),
+    );
+
+    expect(errors, isEmpty);
+  });
+
+  test('passes a skill outside the skills directory when the archive is unavailable', () async {
+    final Directory agentSkill = await Directory(
+      p.join(packageRoot.path, '.agents', 'skills', _skillName),
+    ).create(recursive: true);
+
+    final List<ValidationError> errors = await validate(
+      directory: agentSkill,
+      body: '',
+      archive: PubArchiveUnavailable('dart is not on PATH', packageRoot: packageRoot.path),
     );
 
     expect(errors, isEmpty);

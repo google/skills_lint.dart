@@ -31,7 +31,11 @@ final class PubArchiveFiles extends PubArchive {
 /// The archive could not be built, for the user-facing [reason].
 @immutable
 final class PubArchiveUnavailable extends PubArchive {
-  const PubArchiveUnavailable(this.reason);
+  const PubArchiveUnavailable(this.reason, {this.packageRoot});
+
+  /// The absolute path of the directory that holds the package's
+  /// `pubspec.yaml`, or `null` when no `pubspec.yaml` was found.
+  final String? packageRoot;
 
   /// What went wrong and how to fix it, written for the person who runs the
   /// linter.

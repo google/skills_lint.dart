@@ -47,6 +47,7 @@ class PubArchiveLoader {
   /// The package is the nearest directory at or above [skillDirectory] with a
   /// `pubspec.yaml`. Problems, such as no package or a failed pub run, come
   /// back as a [PubArchiveUnavailable] rather than an exception.
+  /// [PubArchiveUnavailable.packageRoot] is set whenever a package was found.
   Future<PubArchive> archiveFor(Directory skillDirectory) async {
     final String? packageRoot = _findPackageRoot(
       Directory(p.normalize(skillDirectory.absolute.path)),
@@ -58,7 +59,15 @@ class PubArchiveLoader {
         'directory.',
       );
     }
-    return _archivesByPackageRoot[packageRoot] ??= _buildArchive(packageRoot);
+    return _archivesByPackageRoot[packageRoot] ??= _buildArchive(packageRoot).then(
+      (archive) => switch (archive) {
+        PubArchiveUnavailable(:final String reason) => PubArchiveUnavailable(
+          reason,
+          packageRoot: packageRoot,
+        ),
+        PubArchiveFiles() => archive,
+      },
+    );
   }
 
   /// Forgets every archive built so far.

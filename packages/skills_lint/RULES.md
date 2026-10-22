@@ -207,16 +207,48 @@ governs how changes to these rules ship.
 - **Default severity:** disabled
 - **Fixable:** no
 - **What it checks:** for a skill in `skills/<name>/` of a Dart package,
-  `dart pub publish` uploads `skills/<name>/SKILL.md` and every file inside
-  `skills/<name>/` that `SKILL.md` links to. A `.pubignore` or `.gitignore`
-  pattern can drop a file from the published package with no warning, and a
-  path dependency ignores `.pubignore`, so local testing doesn't show it.
-  The package is the nearest directory with a `pubspec.yaml`. Skills
-  outside its `skills/` directory pass. So do links that leave
-  `skills/<name>/` and links to files that don't exist: this rule does not
-  report them, even when `check-relative-paths` is disabled. Enable
-  `check-relative-paths` to report missing files, and add
-  `within-skill: true` to report links that leave the skill.
+  `dart pub publish` uploads `skills/<name>/SKILL.md` and every file in
+  the package that `SKILL.md` links to, inside the skill or elsewhere in
+  the package, such as `../../README.md`. A `.pubignore` or `.gitignore`
+  pattern can drop a file from the published package with no warning, and
+  a path dependency ignores `.pubignore`, so local testing doesn't show
+  it. A link to a file outside the package is reported, because pub never
+  publishes it. The package is the nearest directory with a `pubspec.yaml`.
+  Skills outside its `skills/` directory pass. Links to files that don't
+  exist pass too, even when `check-relative-paths` is disabled; enable
+  `check-relative-paths` to report them.
+- **With `within-skill`:** `check-relative-paths` with `within-skill: true`
+  reports every link that leaves the skill, including package links this
+  rule accepts. To keep `within-skill` for a skill that links to a package
+  file on purpose, add an entry for that skill to the directory's ignore
+  file. The entry ignores every `check-relative-paths` diagnostic in that
+  skill's `SKILL.md`, so missing files in it go unreported too:
+
+  ```yaml
+  # skills_lint.yaml
+  skills_lint:
+    directories:
+      - path: "skills"
+        ignore_file: "skills_lint_ignore.json"
+        rules:
+          check-relative-paths:
+            severity: error
+            within-skill: true
+          pub-archive-includes-skill: error
+  ```
+
+  ```json
+  {
+    "skills": {
+      "my-pkg-setup": [
+        {
+          "rule_id": "check-relative-paths",
+          "file_name": "SKILL.md"
+        }
+      ]
+    }
+  }
+  ```
 - **How it works:** runs
   `dart pub publish --skip-validation --to-archive=<temp file>` once per
   package and reads the file names from the archive. Needs `dart` on
@@ -225,15 +257,16 @@ governs how changes to these rules ship.
 - **Diagnostic shape:**
   `` skills/<name>/SKILL.md is not in the package pub publishes, so the published package has no <name> skill. <fix> ``
   `` <file>, linked from skills/<name>/SKILL.md, is not in the package pub publishes. <fix> ``
+  `` <file>, linked from skills/<name>/SKILL.md, is outside the package, so pub does not publish it. Move the file into the package, or link to an absolute URL. ``
   `` <directory>/ is not in the package pub publishes, so neither are the <count> files skills/<name>/SKILL.md links to in it. <fix> ``
   where `<fix>` is
   `` Run `dart pub publish --dry-run` to list the files pub publishes, and check .pubignore and .gitignore. ``
   Missing files under a directory with no published files are reported
-  once, as that directory. When the file list can't be built, every
-  skill the rule runs on, including skills outside `skills/`, gets one
-  diagnostic with the reason: no `pubspec.yaml`, `publish_to: none`,
-  `dart` not found, or a pub failure. The rule never passes silently
-  without the file list.
+  once, as that directory. When the file list can't be built, each skill
+  in `skills/` gets one diagnostic with the reason: `publish_to: none`,
+  `dart` not found, or a pub failure. With no `pubspec.yaml` at all, every
+  skill the rule runs on gets that diagnostic. The rule never passes a
+  skill in `skills/` without the file list.
 - **Auto-fix behavior:** none.
 - **Disable:** `--no-pub-archive-includes-skill`.
 

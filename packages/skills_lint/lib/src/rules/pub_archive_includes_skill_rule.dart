@@ -15,16 +15,17 @@ import '../models/validation_error.dart';
 import '../skill_links.dart';
 
 /// Checks that `dart pub publish` uploads each skill in a package's `skills/`
-/// directory, and every file inside the skill that its `SKILL.md` links to.
+/// directory, and every file in the package that its `SKILL.md` links to.
 ///
 /// A `.pubignore` or `.gitignore` pattern can drop a skill, or a file it links
 /// to, from the published package with no warning. A path dependency hides the
 /// problem because it ignores `.pubignore`.
 ///
 /// The rule reads the file list from [SkillContext.pubArchive]. Skills
-/// outside `<package root>/skills/` pass. Links that leave the skill
-/// directory, and links to files that don't exist, are skipped;
-/// `check-relative-paths` reports those when it is enabled.
+/// outside `<package root>/skills/` pass. A link to a file outside the package
+/// is reported, because pub never publishes it. Links to files that don't
+/// exist are skipped; `check-relative-paths` reports those when it is
+/// enabled.
 class PubArchiveIncludesSkillRule extends SkillRule {
   PubArchiveIncludesSkillRule({this.severity = defaultSeverity});
 
@@ -54,6 +55,9 @@ class PubArchiveIncludesSkillRule extends SkillRule {
             'skills_lint command provide. This run did not provide it.',
           ),
         ];
+      case PubArchiveUnavailable(:final String? packageRoot)
+          when packageRoot != null && !_isPublishedSkill(context, packageRoot):
+        return const [];
       case PubArchiveUnavailable(:final String reason):
         return [_error(reason)];
       case PubArchiveFiles(:final String packageRoot, :final Set<String> files):
@@ -66,11 +70,10 @@ class PubArchiveIncludesSkillRule extends SkillRule {
     required String packageRoot,
     required Set<String> files,
   }) {
-    final String skillPath = p.normalize(context.directory.absolute.path);
-    final String skillsPath = p.join(packageRoot, skillsDirectoryName);
-    if (p.dirname(skillPath) != skillsPath) {
+    if (!_isPublishedSkill(context, packageRoot)) {
       return const [];
     }
+    final String skillPath = p.normalize(context.directory.absolute.path);
     final String skillName = p.basename(skillPath);
 
     final String skillFile = _archivePath(
@@ -87,9 +90,12 @@ class PubArchiveIncludesSkillRule extends SkillRule {
       ];
     }
 
-    // Each link inside the skill whose target exists but is not published,
+    // Each link inside the package whose target exists but is not published,
     // keyed by archive path, with the line of its first link.
     final missing = <String, int>{};
+    // Each link outside the package whose target exists, keyed by the path
+    // relative to the package root, with the line of its first link.
+    final outside = <String, int>{};
     final RegExpMatch? frontmatter = SkillContext.skillStartRegex.firstMatch(context.rawContent);
     final int bodyStart = frontmatter?.end ?? 0;
     final String body = context.rawContent.substring(bodyStart);
@@ -99,17 +105,25 @@ class PubArchiveIncludesSkillRule extends SkillRule {
         continue;
       }
       final String linkedPath = p.normalize(p.join(skillPath, linkFilePath(target)));
-      // check-relative-paths reports links to files that don't exist, and,
-      // with `within-skill: true`, links that leave the skill.
-      if (!p.isWithin(skillPath, linkedPath) || !File(linkedPath).existsSync()) {
+      // check-relative-paths reports links to files that don't exist.
+      if (!File(linkedPath).existsSync()) {
         continue;
       }
       final String linkedFile = _archivePath(packageRoot, linkedPath);
-      if (!files.contains(linkedFile)) {
-        missing.putIfAbsent(linkedFile, () => context.offsetToLine(bodyStart + link.start));
+      final int line = context.offsetToLine(bodyStart + link.start);
+      if (!p.isWithin(packageRoot, linkedPath)) {
+        outside.putIfAbsent(linkedFile, () => line);
+      } else if (!files.contains(linkedFile)) {
+        missing.putIfAbsent(linkedFile, () => line);
       }
     }
     return [
+      for (final MapEntry<String, int> entry in outside.entries)
+        _error(
+          '${entry.key}, linked from $skillFile, is outside the package, so pub does not '
+          'publish it. Move the file into the package, or link to an absolute URL.',
+          region: SourceRegion(startLine: entry.value),
+        ),
       for (final MapEntry<String, List<String>> group in _groupByExcludedDirectory(
         missing.keys,
         skillFile: skillFile,
@@ -128,7 +142,8 @@ class PubArchiveIncludesSkillRule extends SkillRule {
 
   /// Groups each of [missingFiles] under the highest directory between it and
   /// the skill directory that has no file in the archive, or under itself when
-  /// no such directory holds another missing file.
+  /// no such directory holds another missing file. Files outside the skill
+  /// directory are not grouped.
   ///
   /// A `.pubignore` pattern often drops a whole directory, such as
   /// `references/`, and one diagnostic for it is easier to act on than one
@@ -144,7 +159,7 @@ class PubArchiveIncludesSkillRule extends SkillRule {
       var key = file;
       for (
         String directory = p.posix.dirname(file);
-        directory != skillDirectory;
+        p.posix.isWithin(skillDirectory, directory);
         directory = p.posix.dirname(directory)
       ) {
         if (!files.any((f) => p.posix.isWithin(directory, f))) {
@@ -160,7 +175,12 @@ class PubArchiveIncludesSkillRule extends SkillRule {
     };
   }
 
-  /// The archive entry name for [path], a file inside [packageRoot].
+  /// Whether the skill is a direct child of `<packageRoot>/skills/`.
+  static bool _isPublishedSkill(SkillContext context, String packageRoot) =>
+      p.dirname(p.normalize(context.directory.absolute.path)) ==
+      p.join(packageRoot, skillsDirectoryName);
+
+  /// The archive entry name for [path], relative to [packageRoot].
   static String _archivePath(String packageRoot, String path) =>
       p.split(p.relative(path, from: packageRoot)).join('/');
 

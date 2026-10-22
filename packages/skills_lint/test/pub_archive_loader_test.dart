@@ -118,6 +118,7 @@ void main() {
         (archive as PubArchiveUnavailable).reason,
         allOf(contains('No such file or directory'), contains('needs the Dart SDK on PATH')),
       );
+      expect(archive.packageRoot, p.normalize(root.absolute.path));
     });
 
     test('a pub that fails, such as one without --to-archive', () async {
