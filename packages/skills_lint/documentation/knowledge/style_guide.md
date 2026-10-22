@@ -21,6 +21,23 @@ All Dart code across this repository must adhere strictly to the official [Effec
    - **Avoid Tautological Comments:** Do not write comments that merely restate member names (e.g. avoid `/// The start line.` on `final int startLine;`).
    - **Document Contracts & Nullability (repo rule):** Document a public declaration when its contract isn't obvious from its name and type: coordinate systems (1-based vs 0-based), units, expected value ranges, side effects, and the precise meaning of `null` values. Don't add a doc comment only to have one; `public_member_api_docs` is off in this repo for that reason.
    - **Use Semantic Dartdoc Links:** Use square-bracketed symbol links (e.g. `[OutputFormat.text]`) rather than plain backticked strings (`\`text\``) for code entities.
+   - **Summary sentence:** Follow Effective Dart on [noun-phrase docs](https://dart.dev/effective-dart/documentation#prefer-starting-a-non-boolean-variable-or-property-comment-with-a-noun-phrase) and the [single-sentence summary](https://dart.dev/effective-dart/documentation#do-start-doc-comments-with-a-single-sentence-summary). Put conditions and `null` cases in later paragraphs.
+   - **One-line summary (repo rule):** The first sentence fits on one `///` line. This overrides the vendored [`dart-long-lines`](../../../../.agents/skills/dart-long-lines/SKILL.md) skill, which allows wrapping it.
+   - **No leading "Returns" (repo rule):** Don't start the first sentence with "Returns". Effective Dart allows it; this repo doesn't. If the result matters most, give the function a noun name and describe the result with a noun phrase. If the operation matters most, start with a third-person verb ("Parses", "Writes"). A later paragraph may start with "Returns".
+
+     ```dart
+     // Bad
+     /// Returns the problems with the formula in [assets].
+     String? get formulaProblems => ...;
+
+     // Good
+     /// Description of the problems with the formula in [assets].
+     ///
+     /// Is `null` if the formula has no problems, or if there is no formula.
+     String? get formulaProblems => ...;
+     ```
+
+   - **Answer, don't ask (repo rule):** A doc comment contains no questions. Find out the answer before you write the doc.
 
 3. **[Effective Dart: Usage](https://dart.dev/effective-dart/usage)** & **[Design](https://dart.dev/effective-dart/design)**:
    - Prefer `final` fields and immutable data structures.
@@ -83,6 +100,30 @@ for (final String key in parameters.params.keys) {
   }
 }
 return errors;
+```
+
+---
+
+## Regular Expressions
+
+Keep every piece of `RegExp` syntax in a raw string (`r'...'`). Regular expressions are hard to read already, and escapes in a non-raw string are easy to get wrong.
+
+To include a value in a pattern, keep the regex syntax in raw strings. A non-raw piece contains only the interpolated value (`'$value'`). Join the pieces with `+` or with adjacent string literals. Wrap the value in `RegExp.escape` unless it is a constant with no regex syntax.
+
+The [`use_raw_strings`](https://dart.dev/tools/linter-rules/use_raw_strings) lint doesn't catch interpolated strings, so this rule covers them.
+
+Bad:
+
+```dart
+final RegExp line = RegExp('^([0-9a-f]{64})$separator(\\S+)\$');
+```
+
+Good:
+
+```dart
+// Matches a checksum line: a 64-character hex SHA-256 hash, the separator,
+// then the file name.
+final RegExp line = RegExp(r'^([0-9a-f]{64})' '$separator' r'(\S+)$');
 ```
 
 ---
