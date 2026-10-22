@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../models/skill_rule.dart';
+import '../models/skipped_fix.dart';
 import '../models/validation_result.dart';
 import 'reporter.dart';
 import 'tool_error_messages.dart';
@@ -33,10 +34,16 @@ class JsonReporter implements Reporter {
   void onSkillValidationComplete(ValidationResult result) {}
 
   @override
-  void onFixApplied(String skillName) {}
+  void onFixApplied(String skillName, {required List<String> ruleNames}) {}
 
   @override
-  void onFixedSkillValidationComplete(ValidationResult result) {}
+  void onFixedSkillValidationComplete(ValidationResult result, {bool dryRun = false}) {}
+
+  @override
+  void onFixSkipped(SkippedFix skipped) {}
+
+  @override
+  void onFixesDidNotSettle({required String skillName, required int passes}) {}
 
   @override
   void onDryRunProposed({

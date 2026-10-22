@@ -2,23 +2,23 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// @docImport 'models/skill_context.dart';
-library;
-
-import 'dart:io';
-
+import 'models/skill_context.dart';
 import 'models/skill_rule.dart';
 
-/// Interface for rules that support fixes.
+/// A rule that `--fix` can apply to a skill's `SKILL.md`.
+///
 /// Kept internal to the package.
 abstract class FixableRule extends SkillRule {
-  /// Returns the updated content of the file at [filePath].
-  /// [currentContent] is the content after previous fixes have been applied.
-  /// If the rule does not support fixing the file at [filePath], it should return [currentContent].
+  /// The fixed `SKILL.md` content of the skill that [context] describes.
   ///
-  /// Rules should rely on [currentContent] for the current state of the file.
-  /// If a rule needs structured access (like parsed YAML), it should parse
-  /// [currentContent] itself, as structured data in [SkillContext] may be stale
-  /// if previous rules applied fixes.
-  Future<String> fix(String filePath, String currentContent, Directory directory);
+  /// [SkillContext.rawContent] holds the content with earlier fixes applied,
+  /// and [SkillContext.directoryName] holds the directory name after any
+  /// rename a fix plans. Return the content unchanged when there is nothing
+  /// to fix.
+  ///
+  /// `--fix` keeps the result only if it lowers the skill's count of errors,
+  /// then warnings, across all enabled rules. So a fix must be idempotent,
+  /// and a fix that changes the content must lower this rule's own
+  /// diagnostics. Otherwise `--fix` drops it.
+  Future<String> fix(SkillContext context);
 }

@@ -307,10 +307,8 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
       input.toLowerCase().split(RegExp(r'[^a-z0-9]+')).where((token) => token.isNotEmpty).toList();
 
   @override
-  Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    if (filePath != SkillContext.skillFileName) {
-      return currentContent;
-    }
+  Future<String> fix(SkillContext context) async {
+    final String currentContent = context.rawContent;
 
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(currentContent);
     if (match == null) {
@@ -339,7 +337,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     }
 
     final String? resolvedPackageName = resolvePackageName(
-      startDirectory: directory,
+      startDirectory: context.directory,
       explicitPackageName: packageName,
       explicitPubspecPath: pubspecPath,
     );

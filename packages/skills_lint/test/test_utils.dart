@@ -144,3 +144,17 @@ SkillContext createTestSkillContext({
     parsedYaml: effectiveParsedYaml,
   );
 }
+
+/// A [Stdout] that collects what is written to it.
+class CapturedOutput implements Stdout {
+  final StringBuffer buffer = StringBuffer();
+
+  @override
+  void write(Object? object) => buffer.write(object);
+
+  @override
+  void writeln([Object? object = '']) => buffer.writeln(object);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}

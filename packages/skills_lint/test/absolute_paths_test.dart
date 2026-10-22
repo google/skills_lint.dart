@@ -154,7 +154,9 @@ void main() {
       final String content = await file.readAsString();
       final context = SkillContext(directory: skillDir, rawContent: content);
 
-      final String fixedContent = await rule.fix('SKILL.md', content, context.directory);
+      final String fixedContent = await rule.fix(
+        SkillContext(directory: context.directory, rawContent: content),
+      );
 
       expect(fixedContent, contains('(../target.md)'));
     });
@@ -166,7 +168,9 @@ void main() {
       final rule = AbsolutePathsRule();
       final content =
           '${buildFrontmatter(name: 'test-skill')}[Link](${targetFile.path} "Target Title")\n';
-      final String fixedContent = await rule.fix('SKILL.md', content, skillDir);
+      final String fixedContent = await rule.fix(
+        SkillContext(directory: skillDir, rawContent: content),
+      );
 
       expect(fixedContent, contains('(../target.md "Target Title")'));
     });
@@ -179,9 +183,9 @@ void main() {
         final content = '${frontmatter}See [Link (label)](${targetFile.path} $title) now.\n';
         final expected = '${frontmatter}See [Link (label)](../target.md $title) now.\n';
         final rule = AbsolutePathsRule();
-        final String fixed = await rule.fix('SKILL.md', content, skillDir);
+        final String fixed = await rule.fix(SkillContext(directory: skillDir, rawContent: content));
         expect(fixed, expected);
-        expect(await rule.fix('SKILL.md', fixed, skillDir), expected);
+        expect(await rule.fix(SkillContext(directory: skillDir, rawContent: fixed)), expected);
       });
     }
 
@@ -197,7 +201,9 @@ void main() {
       final String content = await file.readAsString();
       final context = SkillContext(directory: skillDir, rawContent: content);
 
-      final String fixedContent = await rule.fix('SKILL.md', content, context.directory);
+      final String fixedContent = await rule.fix(
+        SkillContext(directory: context.directory, rawContent: content),
+      );
 
       expect(fixedContent, contains('(/non/existent/file.md)'));
     });

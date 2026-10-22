@@ -8,13 +8,12 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
-import 'package:yaml/yaml.dart';
 
 import 'config_parser.dart';
-import 'fixable_rule.dart';
 import 'missing_target_diagnostic.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
+import 'models/fix_outcome.dart';
 import 'models/ignore_entry.dart';
 import 'models/output_format.dart';
 import 'models/rule_config.dart';
@@ -26,7 +25,7 @@ import 'models/validation_error.dart';
 import 'path_utils.dart';
 import 'reporters/reporters.dart';
 import 'rule_registry.dart';
-import 'rules/name_format_rule.dart';
+import 'skill_fixer.dart';
 import 'skills_ignores_storage.dart';
 import 'validator.dart';
 
@@ -752,85 +751,30 @@ class ValidationSession {
       return result;
     }
 
-    final String fixedContent = await _runFixableRules(
-      context: context,
-      result: result,
+    final FixOutcome outcome = await SkillFixer(
       validator: validator,
-    );
+      applyIgnores: (ValidationResult candidate) =>
+          _applyIgnores(candidate, skillIgnores, skillDir),
+      onFixFailed: (String ruleName, Object error) =>
+          _reporter.onFixFailed(ruleName: ruleName, error: error),
+    ).fix(result);
+    outcome.skippedFixes.forEach(_reporter.onFixSkipped);
+    final String currentDirectoryName = p.basename(skillDir.path);
+    if (!outcome.settled) {
+      _reporter.onFixesDidNotSettle(skillName: currentDirectoryName, passes: SkillFixer.maxPasses);
+    }
 
-    if (fixedContent == context.rawContent) {
+    if (outcome.content == context.rawContent) {
       return result;
     }
 
-    return _handleFixResult(
-      skillDir: skillDir,
-      skillMdFile: skillMdFile,
-      originalContent: context.rawContent,
-      currentContent: fixedContent,
-      validator: validator,
-      skillIgnores: skillIgnores,
-      fallbackResult: result,
-    );
-  }
-
-  /// Runs all fixable rules against the [SkillContext.rawContent] of [context] sequentially and
-  /// returns the resulting content string.
-  Future<String> _runFixableRules({
-    required SkillContext context,
-    required ValidationResult result,
-    required Validator validator,
-  }) async {
-    String currentContent = context.rawContent;
-
-    for (final SkillRule rule in validator.rules) {
-      if (rule is! FixableRule) {
-        continue;
-      }
-      final bool hasErrors = result.validationErrors.any(
-        (e) => e.ruleId == rule.name && !e.isIgnored,
-      );
-      if (!hasErrors) {
-        continue;
-      }
-
-      try {
-        final String newContent = await rule.fix(
-          SkillContext.skillFileName,
-          currentContent,
-          context.directory,
-        );
-        currentContent = newContent;
-        // A fixer is rule code: built in, or a custom rule that implements
-        // FixableRule. Any throw from it, Error included, is a bug in that
-        // rule, and onFixFailed reports it as a tool bug. Catching everything
-        // stops one broken fixer from aborting the remaining rules and skills.
-        // ignore: avoid_catches_without_on_clauses
-      } catch (e) {
-        _reporter.onFixFailed(ruleName: rule.name, error: e);
-      }
-    }
-
-    return currentContent;
-  }
-
-  Future<ValidationResult> _handleFixResult({
-    required Directory skillDir,
-    required File skillMdFile,
-    required String originalContent,
-    required String currentContent,
-    required Validator validator,
-    required List<IgnoreEntry> skillIgnores,
-    required ValidationResult fallbackResult,
-  }) async {
-    final String currentDirectoryName = p.basename(skillDir.path);
-    final String? newDirectoryName = _newDirectoryName(
-      originalContent: originalContent,
-      fixedContent: currentContent,
-    );
+    final String? newDirectoryName = outcome.directoryName == currentDirectoryName
+        ? null
+        : outcome.directoryName;
 
     if (fixApply) {
-      await skillMdFile.writeAsString(currentContent);
-      _reporter.onFixApplied(currentDirectoryName);
+      await skillMdFile.writeAsString(outcome.content);
+      _reporter.onFixApplied(currentDirectoryName, ruleNames: outcome.appliedRuleNames);
 
       final Directory effectiveSkillDir = newDirectoryName != null
           ? await _alignSkillDirectory(
@@ -846,42 +790,14 @@ class ValidationSession {
       return newResult;
     }
 
-    if (fix) {
-      _reporter.onDryRunProposed(
-        skillName: currentDirectoryName,
-        targetSkillName: newDirectoryName,
-        originalContent: originalContent,
-        currentContent: currentContent,
-      );
-    }
-    return fallbackResult;
-  }
-
-  /// The name to rename the skill directory to after a fix, or `null` to
-  /// leave the directory alone.
-  ///
-  /// The directory follows the frontmatter `name` only when the fix changed
-  /// it to a valid skill name.
-  static String? _newDirectoryName({
-    required String originalContent,
-    required String fixedContent,
-  }) {
-    final String? originalName = NameFormatRule.skillNameOf(
-      NameFormatRule.nameNodeOf(originalContent),
-    )?.trim();
-    final YamlNode? fixedNode = NameFormatRule.nameNodeOf(fixedContent);
-    final String? fixedName = NameFormatRule.skillNameOf(fixedNode)?.trim();
-    if (originalName == null || fixedName == null) {
-      return null;
-    }
-    // The name becomes a directory name, so it must be text, not a plain `false` or `0x1f`.
-    if (fixedNode?.value is! String) {
-      return null;
-    }
-    if (fixedName == originalName || !NameFormatRule.isValidSkillName(fixedName)) {
-      return null;
-    }
-    return fixedName;
+    _reporter.onDryRunProposed(
+      skillName: currentDirectoryName,
+      targetSkillName: newDirectoryName,
+      originalContent: context.rawContent,
+      currentContent: outcome.content,
+    );
+    _reporter.onFixedSkillValidationComplete(outcome.result, dryRun: true);
+    return result;
   }
 
   /// Renames [skillDir], whose name is [currentDirectoryName], to

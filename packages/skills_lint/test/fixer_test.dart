@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/entry_point.dart';
 import 'package:skills_lint/src/fixable_rule.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
+import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
@@ -16,6 +17,7 @@ import 'package:test/test.dart';
 
 import 'test_utils.dart';
 
+/// A rule that reports a warning until its fix appends ` A`.
 class RuleA extends SkillRule implements FixableRule {
   @override
   String get name => 'rule-a';
@@ -23,24 +25,29 @@ class RuleA extends SkillRule implements FixableRule {
   @override
   AnalysisSeverity get severity => AnalysisSeverity.warning;
 
+  /// Whether [content] has had this rule's fix applied.
+  bool isFixed(String content) => content.contains(' A');
+
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
     return [
-      ValidationError(
-        ruleId: name,
-        message: 'Error A',
-        severity: AnalysisSeverity.warning,
-        file: 'SKILL.md',
-      ),
+      if (!isFixed(context.rawContent))
+        ValidationError(
+          ruleId: name,
+          message: 'Error A',
+          severity: AnalysisSeverity.warning,
+          file: 'SKILL.md',
+        ),
     ];
   }
 
   @override
-  Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    return '$currentContent A';
+  Future<String> fix(SkillContext context) async {
+    return '${context.rawContent} A';
   }
 }
 
+/// A rule that reports a warning until its fix appends ` B`.
 class RuleB extends SkillRule implements FixableRule {
   @override
   String get name => 'rule-b';
@@ -51,18 +58,19 @@ class RuleB extends SkillRule implements FixableRule {
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
     return [
-      ValidationError(
-        ruleId: name,
-        message: 'Error B',
-        severity: AnalysisSeverity.warning,
-        file: 'SKILL.md',
-      ),
+      if (!context.rawContent.contains(' B'))
+        ValidationError(
+          ruleId: name,
+          message: 'Error B',
+          severity: AnalysisSeverity.warning,
+          file: 'SKILL.md',
+        ),
     ];
   }
 
   @override
-  Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    return '$currentContent B';
+  Future<String> fix(SkillContext context) async {
+    return '${context.rawContent} B';
   }
 }
 
@@ -86,8 +94,7 @@ class RuleThrows extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(String filePath, String currentContent, Directory directory) =>
-      Future<String>.error(Exception('Fix failed'));
+  Future<String> fix(SkillContext context) => Future<String>.error(Exception('Fix failed'));
 }
 
 class RuleThrowsError extends RuleThrows {
@@ -95,8 +102,7 @@ class RuleThrowsError extends RuleThrows {
   String get name => 'rule-throws-error';
 
   @override
-  Future<String> fix(String filePath, String currentContent, Directory directory) =>
-      Future.error(StateError('Fixer bug'));
+  Future<String> fix(SkillContext context) => Future.error(StateError('Fixer bug'));
 }
 
 /// A fixer that sets the frontmatter `name` from [oldName] to [newName].
@@ -110,23 +116,12 @@ class RuleWritesName extends RuleA {
   String get name => 'rule-writes-name';
 
   @override
-  Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    return currentContent.replaceFirst('name: $oldName', 'name: $newName');
+  bool isFixed(String content) => content.contains('name: $newName');
+
+  @override
+  Future<String> fix(SkillContext context) async {
+    return context.rawContent.replaceFirst('name: $oldName', 'name: $newName');
   }
-}
-
-/// A [Stdout] that collects what is written to it.
-class _CapturedOutput implements Stdout {
-  final StringBuffer buffer = StringBuffer();
-
-  @override
-  void write(Object? object) => buffer.write(object);
-
-  @override
-  void writeln([Object? object = '']) => buffer.writeln(object);
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
@@ -237,22 +232,29 @@ void main() {
 
     /// Runs [RuleWritesName] with [newName] on a skill whose directory and
     /// `name` are [oldName], and returns stdout.
+    ///
+    /// `invalid-skill-name` is disabled. Otherwise `--fix` would drop a fix
+    /// that writes an invalid name, and these tests could not check what the
+    /// rename does with one.
     Future<String> fixWithName(
       String newName, {
       required bool dryRun,
       String oldName = 'old-skill',
     }) async {
       final Directory skillDir = await createOldSkill(oldName);
-      final output = _CapturedOutput();
+      final output = CapturedOutput();
       await IOOverrides.runZoned(
         () => validateSkillsInternal(
           individualSkillPaths: [skillDir.path],
           fix: true,
           fixApply: !dryRun,
+          resolvedRuleConfigs: {
+            NameFormatRule.ruleName: const RuleConfigPatch(severity: AnalysisSeverity.disabled),
+          },
           customRules: [RuleWritesName(newName, oldName: oldName)],
         ),
         stdout: () => output,
-        stderr: _CapturedOutput.new,
+        stderr: CapturedOutput.new,
       );
       return output.buffer.toString();
     }

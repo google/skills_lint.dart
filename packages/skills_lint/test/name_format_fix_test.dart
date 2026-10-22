@@ -16,8 +16,9 @@ import 'test_utils.dart';
 /// A `SKILL.md` whose frontmatter sets `name` to [name].
 String _skillMd({String name = 'Old_Name'}) => '${buildFrontmatter(name: name)}body\n';
 
-Future<String> _fix(String dirName) =>
-    NameFormatRule().fix('SKILL.md', _skillMd(), Directory(p.join('skills', dirName)));
+Future<String> _fix(String dirName) => NameFormatRule().fix(
+  SkillContext(directory: Directory(p.join('skills', dirName)), rawContent: _skillMd()),
+);
 
 void main() {
   group('NameFormatRule.skillNameOf', () {
@@ -94,9 +95,10 @@ void main() {
       for (final dirName in ['my-skill', '123']) {
         test('keeps the $quote quotes around name when setting it to "$dirName"', () async {
           final String fixed = await NameFormatRule().fix(
-            'SKILL.md',
-            _skillMd(name: '${quote}old$quote'),
-            Directory(p.join('skills', dirName)),
+            SkillContext(
+              directory: Directory(p.join('skills', dirName)),
+              rawContent: _skillMd(name: '${quote}old$quote'),
+            ),
           );
 
           expect(fixed, _skillMd(name: '$quote$dirName$quote'));

@@ -74,10 +74,8 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    if (filePath != SkillContext.skillFileName) {
-      return currentContent;
-    }
+  Future<String> fix(SkillContext context) async {
+    final String currentContent = context.rawContent;
 
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(currentContent);
     final int frontmatterEnd = match != null ? match.end : 0;
@@ -96,7 +94,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
       if (isAbsolute(pathOnly) || windows.isAbsolute(pathOnly)) {
         final file = File(pathOnly);
         if (file.existsSync()) {
-          final String relativePath = relative(pathOnly, from: directory.path);
+          final String relativePath = relative(pathOnly, from: context.directory.path);
           final String posixRelativePath = relativePath.replaceAll(r'\', '/');
           final targetWithTitle = titlePart != null
               ? '$posixRelativePath$titlePart'

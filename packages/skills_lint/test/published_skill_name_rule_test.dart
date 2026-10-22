@@ -363,7 +363,9 @@ description: Setup skill
 # Setup
 ''';
 
-        final String fixedContent = await rule.fix('SKILL.md', originalContent, tempDir);
+        final String fixedContent = await rule.fix(
+          SkillContext(directory: tempDir, rawContent: originalContent),
+        );
 
         expect(fixedContent, contains('name: skills-lint-setup'));
         expect(fixedContent, contains('description: Setup skill'));
@@ -376,7 +378,9 @@ description: Setup skill
         );
         const originalContent = '---\nname: [unclosed\ndescription: Setup skill\n---\n\n# Setup\n';
 
-        final String fixedContent = await rule.fix('SKILL.md', originalContent, tempDir);
+        final String fixedContent = await rule.fix(
+          SkillContext(directory: tempDir, rawContent: originalContent),
+        );
 
         expect(fixedContent, originalContent);
       });
@@ -395,7 +399,9 @@ description: Setup skill
 # Setup
 ''';
 
-        final String fixedContent = await rule.fix('SKILL.md', originalContent, tempDir);
+        final String fixedContent = await rule.fix(
+          SkillContext(directory: tempDir, rawContent: originalContent),
+        );
 
         expect(fixedContent, originalContent);
       });
@@ -414,7 +420,9 @@ description: Main skill
 # Main
 ''';
 
-        final String fixedContent = await rule.fix('SKILL.md', originalContent, tempDir);
+        final String fixedContent = await rule.fix(
+          SkillContext(directory: tempDir, rawContent: originalContent),
+        );
 
         expect(fixedContent, originalContent);
       });

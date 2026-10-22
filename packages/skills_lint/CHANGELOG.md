@@ -1,6 +1,9 @@
 ## 0.5.3-wip
 
 - Fixed `--fix` printing only the diagnostics from before the fix. It now also prints the result after the fix under `After fixes:`, which is the result that decides the exit code. Before, a run could print `Skill is valid.` and exit 1.
+- `--fix` keeps a fix only if it lowers the skill's errors, then warnings, across all enabled rules, and repeats until no fix helps. Fixes that would add a problem or rename onto an existing directory are skipped and named in the output.
+- `--fix --dry-run` prints the result the fixes would leave under `After fixes, the skill would be:`.
+- Added `SkillContext.directoryName`, the skill directory's name once `--fix` renames it.
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
 - Requires Dart 3.12 or later.
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.

@@ -17,6 +17,12 @@ abstract final class ToolErrorMessages {
       '$_toolBugNotice\n'
       '  Your skill was left unmodified. Cause: $error';
 
+  /// Message for fixes that kept changing a skill until the pass limit.
+  static String fixesDidNotSettleMessage({required String skillName, required int passes}) =>
+      "${Reporter.toolErrorPrefix} the fixes for '$skillName' did not settle after $passes passes.\n"
+      '$_toolBugNotice\n'
+      '  The fixes from the last pass were kept.';
+
   /// Message for a skill directory rename that failed.
   static String renameFailedMessage({
     required String oldSkillName,

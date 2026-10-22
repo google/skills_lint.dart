@@ -5,6 +5,7 @@
 import 'dart:io';
 
 import '../models/skill_rule.dart';
+import '../models/skipped_fix.dart';
 import '../models/validation_result.dart';
 import 'reporter.dart';
 import 'tool_error_messages.dart';
@@ -27,6 +28,9 @@ class TextReporter implements Reporter {
   /// Heading message emitted before the result of validating a skill again
   /// after `--fix` wrote its fixes.
   static const String afterFixesMsg = 'After fixes:';
+
+  /// Heading message emitted before the result `--fix --dry-run` predicts.
+  static const String afterDryRunFixesMsg = 'After fixes, the skill would be:';
 
   /// Prefix message emitted before evaluating a directory.
   static const String evaluatingDirMsg = 'Evaluating directory:';
@@ -81,21 +85,39 @@ class TextReporter implements Reporter {
   }
 
   @override
-  void onFixApplied(String skillName) {
+  void onFixApplied(String skillName, {required List<String> ruleNames}) {
     if (!quiet) {
-      _out.writeln('  Applied fixes for $skillName');
+      _out.writeln('  Applied fixes for $skillName: ${ruleNames.join(', ')}');
     }
   }
 
   @override
-  void onFixedSkillValidationComplete(ValidationResult result) {
+  void onFixedSkillValidationComplete(ValidationResult result, {bool dryRun = false}) {
     final bool printsWarnings = printWarnings && result.warnings.isNotEmpty;
     // With --quiet, a valid skill without warnings prints nothing, so the
     // heading would stand alone.
     if (!quiet || !result.isValid || printsWarnings) {
-      _out.writeln('  $afterFixesMsg');
+      _out.writeln('  ${dryRun ? afterDryRunFixesMsg : afterFixesMsg}');
     }
     onSkillValidationComplete(result);
+  }
+
+  @override
+  void onFixSkipped(SkippedFix skipped) {
+    if (quiet) {
+      return;
+    }
+    final reason = skipped.grownRuleIds.isEmpty
+        ? 'it would not lower the number of errors or warnings'
+        : 'it would add ${skipped.grownRuleIds.join(', ')} diagnostics';
+    final String? blocked = skipped.blockedDirectoryName;
+    final because = blocked == null ? '' : ', because directory $blocked already exists';
+    _out.writeln('  Skipped the ${skipped.ruleName} fix: $reason$because.');
+  }
+
+  @override
+  void onFixesDidNotSettle({required String skillName, required int passes}) {
+    _err.writeln(ToolErrorMessages.fixesDidNotSettleMessage(skillName: skillName, passes: passes));
   }
 
   @override

@@ -5,6 +5,7 @@
 import 'dart:io';
 
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -94,7 +95,21 @@ class Validator {
     if (context == null) {
       return ValidationResult(validationErrors: fatalErrors);
     }
+    return _runRules(context, skillMdExists: skillMdExists);
+  }
 
+  /// Validates [content] as the `SKILL.md` of [dir], without reading or
+  /// writing the file.
+  ///
+  /// `--fix` uses this to try a fix before it writes anything. Pass
+  /// [directoryName] to validate as if [dir] were already renamed to it.
+  @internal
+  Future<ValidationResult> validateContent(Directory dir, String content, {String? directoryName}) {
+    final SkillContext context = _parseContext(dir, content, directoryName: directoryName);
+    return _runRules(context, skillMdExists: true);
+  }
+
+  Future<ValidationResult> _runRules(SkillContext context, {required bool skillMdExists}) async {
     final validationErrors = <ValidationError>[];
 
     for (final SkillRule rule in _rules) {
@@ -141,6 +156,11 @@ class Validator {
       return null;
     }
 
+    return _parseContext(dir, content);
+  }
+
+  /// Parses the YAML frontmatter of [content] into a [SkillContext] for [dir].
+  SkillContext _parseContext(Directory dir, String content, {String? directoryName}) {
     YamlMap? parsedYaml;
     String? yamlParsingError;
     try {
@@ -165,6 +185,7 @@ class Validator {
       rawContent: content,
       parsedYaml: parsedYaml,
       yamlParsingError: yamlParsingError,
+      directoryName: directoryName,
     );
   }
 

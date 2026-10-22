@@ -8,6 +8,7 @@ import 'dart:io';
 import '../models/sarif/models/models.dart';
 import '../models/sarif/sarif_serializer.dart';
 import '../models/skill_rule.dart';
+import '../models/skipped_fix.dart';
 import '../models/validation_result.dart';
 import '../rule_registry.dart';
 import 'reporter.dart';
@@ -37,10 +38,16 @@ class SarifReporter implements Reporter {
   void onSkillValidationComplete(ValidationResult result) {}
 
   @override
-  void onFixApplied(String skillName) {}
+  void onFixApplied(String skillName, {required List<String> ruleNames}) {}
 
   @override
-  void onFixedSkillValidationComplete(ValidationResult result) {}
+  void onFixedSkillValidationComplete(ValidationResult result, {bool dryRun = false}) {}
+
+  @override
+  void onFixSkipped(SkippedFix skipped) {}
+
+  @override
+  void onFixesDidNotSettle({required String skillName, required int passes}) {}
 
   @override
   void onDryRunProposed({

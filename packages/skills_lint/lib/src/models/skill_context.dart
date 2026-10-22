@@ -6,6 +6,7 @@
 library;
 
 import 'dart:io';
+import 'package:path/path.dart' as p;
 import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
@@ -18,7 +19,9 @@ class SkillContext {
     required this.rawContent,
     this.parsedYaml,
     this.yamlParsingError,
-  }) : _sourceFile = SourceFile.fromString(rawContent);
+    String? directoryName,
+  }) : directoryName = directoryName ?? p.basename(directory.path),
+       _sourceFile = SourceFile.fromString(rawContent);
 
   /// The required filename for skill documentation.
   static const String skillFileName = 'SKILL.md';
@@ -35,6 +38,13 @@ class SkillContext {
   static final RegExp markdownLinkRegex = RegExp(r'\[.*?\]\((.*?)\)');
 
   final Directory directory;
+
+  /// The name of the skill directory, once `--fix` has made its renames.
+  ///
+  /// It is the base name of [directory], unless a fix plans to rename the
+  /// directory. Rules that compare against the directory name read this, so
+  /// that a planned rename counts before it happens on disk.
+  final String directoryName;
 
   /// Guaranteed to be non-null because we only run rules if SKILL.md exists.
   final String rawContent;
