@@ -40,6 +40,9 @@ class SarifReporter implements Reporter {
   void onFixApplied(String skillName) {}
 
   @override
+  void onFixedSkillValidationComplete(ValidationResult result) {}
+
+  @override
   void onDryRunProposed({
     required String skillName,
     String? targetSkillName,

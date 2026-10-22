@@ -842,6 +842,7 @@ class ValidationSession {
 
       final ValidationResult newResult = await validator.validate(effectiveSkillDir);
       _applyIgnores(newResult, skillIgnores, effectiveSkillDir);
+      _reporter.onFixedSkillValidationComplete(newResult);
       return newResult;
     }
 

@@ -54,6 +54,12 @@ abstract class Reporter {
   /// Called when fixes are written to disk for [skillName].
   void onFixApplied(String skillName);
 
+  /// Called with the result of validating a skill again after `--fix` wrote
+  /// its fixes.
+  ///
+  /// This result, not the one before the fixes, decides the exit code.
+  void onFixedSkillValidationComplete(ValidationResult result);
+
   /// Called when a rule fix fails due to an internal exception.
   void onFixFailed({required String ruleName, required Object error});
 
