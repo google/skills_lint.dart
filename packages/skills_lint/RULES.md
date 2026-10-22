@@ -217,38 +217,6 @@ governs how changes to these rules ship.
   Skills outside its `skills/` directory pass. Links to files that don't
   exist pass too, even when `check-relative-paths` is disabled; enable
   `check-relative-paths` to report them.
-- **With `within-skill`:** `check-relative-paths` with `within-skill: true`
-  reports every link that leaves the skill, including package links this
-  rule accepts. To keep `within-skill` for a skill that links to a package
-  file on purpose, add an entry for that skill to the directory's ignore
-  file. The entry ignores every `check-relative-paths` diagnostic in that
-  skill's `SKILL.md`, so missing files in it go unreported too:
-
-  ```yaml
-  # skills_lint.yaml
-  skills_lint:
-    directories:
-      - path: "skills"
-        ignore_file: "skills_lint_ignore.json"
-        rules:
-          check-relative-paths:
-            severity: error
-            within-skill: true
-          pub-archive-includes-skill: error
-  ```
-
-  ```json
-  {
-    "skills": {
-      "my-pkg-setup": [
-        {
-          "rule_id": "check-relative-paths",
-          "file_name": "SKILL.md"
-        }
-      ]
-    }
-  }
-  ```
 - **How it works:** runs
   `dart pub publish --skip-validation --to-archive=<temp file>` once per
   package and reads the file names from the archive. Needs `dart` on
