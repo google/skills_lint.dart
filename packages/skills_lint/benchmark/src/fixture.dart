@@ -45,12 +45,12 @@ skills_lint:
     check-trailing-whitespace: error
     disallowed-field: error
     prevent-skills-sh-publishing: error
+    pub-archive-includes-skill: error
     published-skill-name:
       severity: error
       # Without package_name, the rule looks for a pubspec.yaml above each
       # skill, so its result would depend on where the fixture is written.
       package_name: $fixturePackageName
-    pub-archive-includes-skill: error
   directories:
     - path: "$skillsDirectoryName"
 ''';

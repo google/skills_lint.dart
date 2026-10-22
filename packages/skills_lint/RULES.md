@@ -213,8 +213,9 @@ governs how changes to these rules ship.
   pattern can drop a file from the published package with no warning, and
   a path dependency ignores `.pubignore`, so local testing doesn't show
   it. A link to a file outside the package is reported, because pub never
-  publishes it. The package is the nearest directory with a `pubspec.yaml`.
-  Skills outside its `skills/` directory pass. Links to files that don't
+  publishes it. The package is the nearest directory above the skill
+  with a `pubspec.yaml`. Skills outside its `skills/` directory pass without
+  running `pub`. Links to files that don't
   exist pass too, even when `check-relative-paths` is disabled; enable
   `check-relative-paths` to report them.
 - **How it works:** runs
@@ -225,6 +226,7 @@ governs how changes to these rules ship.
 - **Diagnostic shape:**
   `` skills/<name>/SKILL.md is not in the package pub publishes, so the published package has no <name> skill. <fix> ``
   `` <file>, linked from skills/<name>/SKILL.md, is not in the package pub publishes. <fix> ``
+  `` <file>, linked from skills/<name>/SKILL.md, is <archive file> in the package pub publishes. Match the file name case so the link works on case-sensitive file systems. ``
   `` <file>, linked from skills/<name>/SKILL.md, is outside the package, so pub does not publish it. Move the file into the package, or link to an absolute URL. ``
   `` <directory>/ is not in the package pub publishes, so neither are the <count> files skills/<name>/SKILL.md links to in it. <fix> ``
   where `<fix>` is

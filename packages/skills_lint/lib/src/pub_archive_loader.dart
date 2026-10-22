@@ -9,6 +9,7 @@ import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:tar/tar.dart';
 
 import 'models/pub_archive.dart';
+import 'rules/pub_archive_includes_skill_rule.dart';
 
 /// Runs [executable] with [arguments] in [workingDirectory].
 ///
@@ -44,20 +45,25 @@ class PubArchiveLoader {
 
   /// The archive for the package that holds [skillDirectory].
   ///
-  /// The package is the nearest directory at or above [skillDirectory] with a
-  /// `pubspec.yaml`. Problems, such as no package or a failed pub run, come
-  /// back as a [PubArchiveUnavailable] rather than an exception.
-  /// [PubArchiveUnavailable.packageRoot] is set whenever a package was found.
+  /// The package is the nearest directory above [skillDirectory] with a
+  /// `pubspec.yaml`. Skills outside `<packageRoot>/skills/` come back as a
+  /// [PubArchiveNotApplicable] without running pub. Problems, such as no
+  /// package or a failed pub run, come back as a [PubArchiveUnavailable] rather
+  /// than an exception. [PubArchiveUnavailable.packageRoot] is set whenever a
+  /// package was found.
   Future<PubArchive> archiveFor(Directory skillDirectory) async {
-    final String? packageRoot = _findPackageRoot(
-      Directory(p.normalize(skillDirectory.absolute.path)),
-    );
+    final String skillPath = p.normalize(skillDirectory.absolute.path);
+    final String? packageRoot = _findPackageRoot(Directory(skillPath).parent);
     if (packageRoot == null) {
       return PubArchiveUnavailable(
-        'No pubspec.yaml found at or above ${skillDirectory.path}, so there is no '
+        'No pubspec.yaml found above ${skillDirectory.path}, so there is no '
         'package for pub to publish. Disable pub-archive-includes-skill for this '
         'directory.',
       );
+    }
+    if (p.dirname(skillPath) !=
+        p.join(packageRoot, PubArchiveIncludesSkillRule.skillsDirectoryName)) {
+      return PubArchiveNotApplicable(packageRoot: packageRoot);
     }
     return _archivesByPackageRoot[packageRoot] ??= _buildArchive(packageRoot).then(
       (archive) => switch (archive) {
@@ -65,7 +71,7 @@ class PubArchiveLoader {
           reason,
           packageRoot: packageRoot,
         ),
-        PubArchiveFiles() => archive,
+        PubArchiveFiles() || PubArchiveNotApplicable() => archive,
       },
     );
   }

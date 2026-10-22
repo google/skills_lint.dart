@@ -133,6 +133,25 @@ void main() {
     ]);
   });
 
+  test('reports a linked file whose case differs from the archive entry', () async {
+    const archiveGuide = 'skills/$_skillName/references/Guide.md';
+
+    final List<ValidationError> errors = await validate(
+      directory: skillDir,
+      body: '\nSee [the guide](references/guide.md).\n',
+      archive: archiveOf({_skillFile, archiveGuide}),
+    );
+
+    expect(errors.map((e) => (e.message, e.region?.startLine)), [
+      (
+        '$_referenceFile, linked from $_skillFile, is $archiveGuide in the package pub '
+            'publishes. Match the file name case so the link works on case-sensitive file '
+            'systems.',
+        6,
+      ),
+    ]);
+  });
+
   group('a link that leaves the skill but stays in the package', () {
     setUp(() => File(p.join(packageRoot.path, 'README.md')).create());
 
@@ -194,13 +213,18 @@ void main() {
       p.join(packageRoot.path, '.agents', 'skills', _skillName),
     ).create(recursive: true);
 
-    final List<ValidationError> errors = await validate(
-      directory: agentSkill,
-      body: '',
-      archive: archiveOf({}),
-    );
+    for (final PubArchive archive in [
+      PubArchiveNotApplicable(packageRoot: packageRoot.path),
+      archiveOf({}),
+    ]) {
+      final List<ValidationError> errors = await validate(
+        directory: agentSkill,
+        body: '',
+        archive: archive,
+      );
 
-    expect(errors, isEmpty);
+      expect(errors, isEmpty);
+    }
   });
 
   test('passes a skill outside the skills directory when the archive is unavailable', () async {

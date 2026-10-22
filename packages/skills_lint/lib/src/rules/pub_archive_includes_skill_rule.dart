@@ -55,6 +55,8 @@ class PubArchiveIncludesSkillRule extends SkillRule {
             'skills_lint command provide. This run did not provide it.',
           ),
         ];
+      case PubArchiveNotApplicable():
+        return const [];
       case PubArchiveUnavailable(:final String? packageRoot)
           when packageRoot != null && !_isPublishedSkill(context, packageRoot):
         return const [];
@@ -90,9 +92,18 @@ class PubArchiveIncludesSkillRule extends SkillRule {
       ];
     }
 
+    // Each archive file keyed by lowercase path, so a case mismatch on a
+    // case-insensitive filesystem can be told apart from an ignored file.
+    final Map<String, String> filesByLowerCase = {
+      for (final String file in files) file.toLowerCase(): file,
+    };
     // Each link inside the package whose target exists but is not published,
     // keyed by archive path, with the line of its first link.
     final missing = <String, int>{};
+    // Each link whose target is in the archive under different casing, keyed by
+    // the linked archive path, with the archive path and the line of its first
+    // link.
+    final wrongCase = <String, (String, int)>{};
     // Each link outside the package whose target exists, keyed by the path
     // relative to the package root, with the line of its first link.
     final outside = <String, int>{};
@@ -114,7 +125,12 @@ class PubArchiveIncludesSkillRule extends SkillRule {
       if (!p.isWithin(packageRoot, linkedPath)) {
         outside.putIfAbsent(linkedFile, () => line);
       } else if (!files.contains(linkedFile)) {
-        missing.putIfAbsent(linkedFile, () => line);
+        final String? actualFile = filesByLowerCase[linkedFile.toLowerCase()];
+        if (actualFile != null) {
+          wrongCase.putIfAbsent(linkedFile, () => (actualFile, line));
+        } else {
+          missing.putIfAbsent(linkedFile, () => line);
+        }
       }
     }
     return [
@@ -124,20 +140,32 @@ class PubArchiveIncludesSkillRule extends SkillRule {
           'publish it. Move the file into the package, or link to an absolute URL.',
           region: SourceRegion(startLine: entry.value),
         ),
+      for (final MapEntry<String, (String, int)> entry in wrongCase.entries)
+        _error(
+          '${entry.key}, linked from $skillFile, is ${entry.value.$1} in the package pub '
+          'publishes. Match the file name case so the link works on case-sensitive file systems.',
+          region: SourceRegion(startLine: entry.value.$2),
+        ),
       for (final MapEntry<String, List<String>> group in _groupByExcludedDirectory(
         missing.keys,
         skillFile: skillFile,
         files: files,
       ).entries)
-        _error(
-          group.value.length == 1 && group.key == group.value.single
-              ? '${group.key}, linked from $skillFile, is not in the package pub publishes. '
-                    '$_howToFix'
-              : '${group.key}/ is not in the package pub publishes, so neither are the '
-                    '${group.value.length} files $skillFile links to in it. $_howToFix',
-          region: SourceRegion(startLine: missing[group.value.first]!),
-        ),
+        _missingGroupError(group, skillFile: skillFile, line: missing[group.value.first]!),
     ];
+  }
+
+  ValidationError _missingGroupError(
+    MapEntry<String, List<String>> group, {
+    required String skillFile,
+    required int line,
+  }) {
+    final message = group.value.length == 1 && group.key == group.value.single
+        ? '${group.key}, linked from $skillFile, is not in the package pub publishes. '
+              '$_howToFix'
+        : '${group.key}/ is not in the package pub publishes, so neither are the '
+              '${group.value.length} files $skillFile links to in it. $_howToFix';
+    return _error(message, region: SourceRegion(startLine: line));
   }
 
   /// Groups each of [missingFiles] under the highest directory between it and

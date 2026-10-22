@@ -9,9 +9,21 @@ import 'package:meta/meta.dart';
 ///
 /// A [PubArchiveFiles] lists them. A [PubArchiveUnavailable] says why they
 /// could not be listed, such as no `pubspec.yaml` or no `dart` on `PATH`.
+/// A [PubArchiveNotApplicable] says the skill is outside `<packageRoot>/skills/`.
 @immutable
 sealed class PubArchive {
   const PubArchive();
+}
+
+/// The skill is in [packageRoot], outside its `skills/` directory, so pub
+/// does not publish it as a package skill.
+@immutable
+final class PubArchiveNotApplicable extends PubArchive {
+  const PubArchiveNotApplicable({required this.packageRoot});
+
+  /// The absolute path of the directory that holds the package's
+  /// `pubspec.yaml`.
+  final String packageRoot;
 }
 
 /// The files in the package archive that pub builds for [packageRoot].

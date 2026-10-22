@@ -76,7 +76,33 @@ void main() {
     expect(pub.workingDirectories, hasLength(2));
   });
 
+  test('ignores a pubspec.yaml inside the skill directory itself', () async {
+    final Directory root = await createPackage('my_pkg');
+    final Directory skill = await skillIn(root, 'my-pkg-a').create(recursive: true);
+    await File(p.join(skill.path, 'pubspec.yaml')).writeAsString('name: helper_script\n');
+    final pub = FakePub(archiveFiles: ['pubspec.yaml', 'skills/my-pkg-a/SKILL.md']);
+
+    final PubArchive archive = await PubArchiveLoader(runProcess: pub.run).archiveFor(skill);
+
+    expect(archive, isA<PubArchiveFiles>());
+    expect((archive as PubArchiveFiles).packageRoot, p.normalize(root.absolute.path));
+    expect(pub.workingDirectories, [p.normalize(root.absolute.path)]);
+  });
+
   group('reports, without running pub,', () {
+    test('a skill outside the package skills directory', () async {
+      final Directory root = await createPackage('my_pkg');
+      final pub = FakePub();
+
+      final PubArchive archive = await PubArchiveLoader(
+        runProcess: pub.run,
+      ).archiveFor(Directory(p.join(root.path, '.agents', 'skills', 'a')));
+
+      expect(archive, isA<PubArchiveNotApplicable>());
+      expect((archive as PubArchiveNotApplicable).packageRoot, p.normalize(root.absolute.path));
+      expect(pub.workingDirectories, isEmpty);
+    });
+
     test('a skill with no pubspec.yaml above it', () async {
       final pub = FakePub();
 
