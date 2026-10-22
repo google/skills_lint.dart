@@ -44,7 +44,7 @@ skills_lint:
 
 ## 3. Add the test
 
-Copy [skills_lint_test.dart](skills_lint_test.dart) to
+Copy [validate_skills_example.dart](validate_skills_example.dart) to
 `test/skills_lint_test.dart`. It loads `skills_lint.yaml` with
 `ConfigParser.loadConfig()` and passes it to the `validateSkills` API.
 
