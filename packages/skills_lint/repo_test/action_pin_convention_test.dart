@@ -8,13 +8,14 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'src/action_pins.dart';
+import 'src/models/action_pin.dart';
 import 'src/repo_paths.dart';
 import 'src/source_conventions.dart';
 
 /// Checks that each action, reusable workflow and Docker image has one pin.
 ///
-/// Covers the workflows in `.github/workflows/` and the composite actions in
-/// `.github/actions/`.
+/// Covers the workflows in `.github/workflows/` and every local composite
+/// action they use, directly or through another action.
 ///
 /// `src/action_pins.dart` says why. `checkers/action_pins_test.dart` pins
 /// what the detectors report on small snippets.
@@ -40,8 +41,8 @@ void main() {
 
 const String _fix =
     'Pin every use of an action, reusable workflow or Docker image to the same '
-    'ref and version comment in every file under .github/workflows/ and '
-    '.github/actions/. '
+    'ref and version comment in every workflow under .github/workflows/ and '
+    'every local action they use. '
     'To update an action, have Dependabot do it rather than editing pins by '
     'hand: on GitHub, open Insights > Dependency graph > Dependabot, click '
     '"Last checked <time> ago" next to a github-actions manifest, then click '

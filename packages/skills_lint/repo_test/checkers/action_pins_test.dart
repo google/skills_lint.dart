@@ -2,12 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../src/action_pins.dart';
+import '../src/models/action_pin.dart';
 import '../src/models/convention_violation.dart';
 
 const String _checkout = 'actions/checkout';
@@ -28,44 +30,122 @@ void main() {
       root.deleteSync(recursive: true);
     });
 
-    void createFiles(List<String> paths) {
-      for (final path in paths) {
-        File(p.joinAll([root.path, ...path.split('/')])).createSync(recursive: true);
+    void createFiles(Map<String, String> files) {
+      for (final MapEntry(key: path, value: content) in files.entries) {
+        File(p.joinAll([root.path, ...path.split('/')]))
+          ..createSync(recursive: true)
+          ..writeAsStringSync(content);
       }
     }
 
-    test('lists workflows and composite actions, and nothing else under .github', () {
-      createFiles([
+    List<String> scannedPaths() => [
+      for (final File file in actionPinFiles(root.path))
+        p.posix.joinAll(p.split(p.relative(file.path, from: root.path))),
+    ];
+
+    /// A workflow file with one job whose steps use each of [uses] in order.
+    ///
+    /// The document is built as a map and written as indented JSON, which
+    /// YAML parsers read as YAML, so no fixture depends on hand-written YAML
+    /// indentation. Each `uses` value sits on its own line.
+    String workflowUsing(List<String> uses) => _yaml({
+      'jobs': {
+        'build': {
+          'steps': [
+            for (final u in uses) {'uses': u},
+          ],
+        },
+      },
+    });
+
+    /// An `action.yaml` for a composite action whose steps use each of [uses]
+    /// in order.
+    ///
+    /// It is built like [workflowUsing].
+    String actionUsing(List<String> uses) => _yaml({
+      'runs': {
+        'using': 'composite',
+        'steps': [
+          for (final u in uses) {'uses': u},
+        ],
+      },
+    });
+
+    test('lists workflows and the actions they use, and nothing else under .github', () {
+      createFiles({
+        '.github/workflows/ci.yaml': workflowUsing(['./.github/actions/tap']),
+        '.github/workflows/release.yaml': workflowUsing(['$_checkout@$_sha']),
+        '.github/workflows/notes.md': '',
+        '.github/actions/tap/action.yaml': actionUsing(['$_checkout@$_sha']),
+        '.github/actions/tap/README.md': '',
+        '.github/actions/unused/action.yaml': actionUsing(['$_checkout@$_otherSha']),
+        '.github/dependabot.yaml': '',
+        '.github/FUNDING.yml': '',
+      });
+      expect(scannedPaths(), [
+        '.github/actions/tap/action.yaml',
         '.github/workflows/ci.yaml',
         '.github/workflows/release.yaml',
-        '.github/workflows/notes.md',
-        '.github/actions/tap/action.yaml',
-        '.github/actions/digests/action.yaml',
-        '.github/actions/tap/README.md',
-        '.github/dependabot.yaml',
-        '.github/FUNDING.yml',
       ]);
+    });
+
+    test('lists an action outside .github that a workflow uses', () {
+      createFiles({
+        '.github/workflows/ci.yaml': workflowUsing(['./tools/my-action']),
+        'tools/my-action/action.yaml': actionUsing(['$_checkout@$_sha']),
+      });
+      expect(scannedPaths(), ['.github/workflows/ci.yaml', 'tools/my-action/action.yaml']);
+    });
+
+    test('follows an action that another action uses, and stops at a cycle', () {
+      createFiles({
+        '.github/workflows/ci.yaml': workflowUsing(['./outer']),
+        'outer/action.yaml': actionUsing(['./inner']),
+        'inner/action.yaml': actionUsing(['./outer', '$_checkout@$_sha']),
+      });
+      expect(scannedPaths(), [
+        '.github/workflows/ci.yaml',
+        'inner/action.yaml',
+        'outer/action.yaml',
+      ]);
+    });
+
+    test('skips a local reusable workflow, which the workflow scan covers', () {
+      createFiles({
+        '.github/workflows/ci.yaml':
+            'jobs:\n  call:\n    uses: ./.github/workflows/reusable.yaml\n',
+        '.github/workflows/reusable.yaml': workflowUsing(['$_checkout@$_sha']),
+      });
+      expect(scannedPaths(), ['.github/workflows/ci.yaml', '.github/workflows/reusable.yaml']);
+    });
+
+    test('fails on a local uses that names no action file, naming the file, line and path', () {
+      final String workflow = workflowUsing(['$_checkout@$_sha', './tools/gone']);
+      final int goneLine =
+          const LineSplitter().convert(workflow).indexWhere((l) => l.contains('./tools/gone')) + 1;
+      createFiles({'.github/workflows/ci.yaml': workflow, 'tools/gone/README.md': ''});
       expect(
-        [
-          for (final File file in actionPinFiles(root.path))
-            p.posix.joinAll(p.split(p.relative(file.path, from: root.path))),
-        ],
-        [
-          '.github/actions/digests/action.yaml',
-          '.github/actions/tap/action.yaml',
-          '.github/workflows/ci.yaml',
-          '.github/workflows/release.yaml',
-        ],
+        () => actionPinFiles(root.path),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('${p.join('.github', 'workflows', 'ci.yaml')}:$goneLine:'),
+              contains('./tools/gone'),
+            ),
+          ),
+        ),
       );
     });
 
-    test('fails on a .yml workflow or action.yml, naming each, rather than skipping it', () {
-      createFiles([
-        '.github/workflows/ci.yaml',
-        '.github/workflows/old.yml',
-        '.github/actions/tap/action.yml',
-        '.github/actions/digests/action.yaml',
-      ]);
+    test('fails on a .yml workflow or a used action.yml, naming each, rather than skipping it', () {
+      createFiles({
+        '.github/workflows/ci.yaml': workflowUsing(['./.github/actions/tap']),
+        '.github/workflows/old.yml': '',
+        '.github/actions/tap/action.yml': '',
+        '.github/actions/digests/action.yaml': '',
+      });
       expect(
         () => actionPinFiles(root.path),
         throwsA(
@@ -74,7 +154,6 @@ void main() {
             'message',
             allOf(
               contains(p.join('workflows', 'old.yml')),
-              contains(p.join('tap', 'action.yml')),
               isNot(contains('ci.yaml')),
               isNot(contains('digests')),
             ),
@@ -83,13 +162,29 @@ void main() {
       );
     });
 
+    test('fails on an action.yml that a workflow uses', () {
+      createFiles({
+        '.github/workflows/ci.yaml': workflowUsing(['./.github/actions/tap']),
+        '.github/actions/tap/action.yml': '',
+      });
+      expect(
+        () => actionPinFiles(root.path),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(p.join('tap', 'action.yml')),
+          ),
+        ),
+      );
+    });
+
     test('fails on .github/dependabot.yml, which Dependabot reads before dependabot.yaml', () {
-      createFiles([
-        '.github/workflows/ci.yaml',
-        '.github/actions/tap/action.yaml',
-        '.github/dependabot.yaml',
-        '.github/dependabot.yml',
-      ]);
+      createFiles({
+        '.github/workflows/ci.yaml': '',
+        '.github/dependabot.yaml': '',
+        '.github/dependabot.yml': '',
+      });
       expect(
         () => actionPinFiles(root.path),
         throwsA(
@@ -105,11 +200,11 @@ void main() {
       );
     });
 
-    test('fails when .github/actions is missing, rather than checking nothing there', () {
-      createFiles(['.github/workflows/ci.yaml']);
+    test('fails when .github/workflows is missing, rather than checking nothing', () {
+      createFiles({'.github/dependabot.yaml': ''});
       expect(
         () => actionPinFiles(root.path),
-        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('actions'))),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('workflows'))),
       );
     });
   });
@@ -252,3 +347,9 @@ runs:
 List<String> _describe(List<ActionPin> pins) => [
   for (final pin in pins) '${pin.path}:${pin.line} ${pin.name} ${pin.ref} ${pin.comment}',
 ];
+
+/// [document] as YAML text, one value per line.
+///
+/// JSON is a subset of YAML 1.2, so indented JSON is a valid workflow or
+/// action file and needs no YAML writer.
+String _yaml(Map<String, Object> document) => const JsonEncoder.withIndent('  ').convert(document);
