@@ -87,14 +87,8 @@ Fix the rest by hand, then run `skills_lint` again until it passes.
 ## 5. Ignore findings to fix later
 
 If existing skills have too many findings to fix now, ignore them and fix them
-later. Add an `ignore_file` to the directory in `skills_lint.yaml`:
-
-```yaml
-    - path: ".agents/skills"
-      ignore_file: "skills_lint_ignore.json"
-```
-
-Then write every current error into that file:
+later. Write every current error into `skills_lint_ignore.json` in each skills
+directory:
 
 ```bash
 skills_lint --generate-baseline

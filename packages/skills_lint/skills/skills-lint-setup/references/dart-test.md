@@ -5,19 +5,13 @@ top-level `skills/` directory. `dart test` then fails when a skill is invalid.
 
 ## 1. Add the dependencies
 
-The test imports `package:skills_lint` and `package:test`, so the package
-needs both as dev dependencies. From the package root, if `pubspec.yaml`
-doesn't list `test` yet:
+From the package root:
 
 ```bash
 dart pub add dev:skills_lint dev:test
 ```
 
-If it already lists `test`, add only skills_lint:
-
-```bash
-dart pub add dev:skills_lint
-```
+Skip `dev:test` if `pubspec.yaml` already lists `test`.
 
 ## 2. Create skills_lint.yaml
 
@@ -65,14 +59,8 @@ dart run skills_lint --fix
 ## 5. Ignore findings to fix later
 
 If existing skills have too many findings to fix now, ignore them and fix them
-later. Add an `ignore_file` to the directory in `skills_lint.yaml`:
-
-```yaml
-    - path: "skills"
-      ignore_file: "skills_lint_ignore.json"
-```
-
-Then write every current error into that file:
+later. Write every current error into `skills_lint_ignore.json` in each skills
+directory:
 
 ```bash
 dart run skills_lint --generate-baseline
