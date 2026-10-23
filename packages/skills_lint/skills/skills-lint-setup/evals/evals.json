@@ -6,15 +6,14 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Add skills_lint as a dev dependency of our Dart package and add a dart test that validates the skills in .agents/skills.",
+      "prompt": "Set up skills_lint in our Dart package for the skills in .agents/skills.",
       "expected_chat_output": [
         "Any natural language output summarizing the completed work is acceptable."
       ],
       "expected_repo_state": [
         "skills_lint is added under dev_dependencies in pubspec.yaml as a hosted pub.dev dependency, not a git or path dependency.",
         "skills_lint is NOT added under dependencies in pubspec.yaml.",
-        "A skills_lint.yaml file is created at the package root, next to pubspec.yaml.",
-        "skills_lint.yaml lists .agents/skills under directories.",
+        "A skills_lint.yaml file is created at the package root, next to pubspec.yaml, and lists .agents/skills under directories.",
         "A test file under test/ calls validateSkills from package:skills_lint/skills_lint.dart and fails when it returns false.",
         "The test does NOT start a dart run skills_lint subprocess.",
         "The generated code uses no deprecated API."
@@ -22,32 +21,20 @@
     },
     {
       "id": 2,
-      "prompt": "Use the skills-lint-setup skill to set up skills_lint in this package. Create a skills_lint.yaml at the package root that validates skills/ with published-skill-name and check-relative-paths set to error. Then add a test under test/ that runs `dart run skills_lint` with that config and fails if it exits with a nonzero code, so `dart test` catches invalid skills. Finally, use the skills-lint-validation skill to run the linter and fix any failures.",
+      "prompt": "Our skills in .agents/skills already have lint errors. Set up skills_lint without failing CI or changing those skill files.",
       "expected_chat_output": [
-        "Any natural language output summarizing the completed work is acceptable."
+        "The response says that the existing errors are ignored and that new errors still fail."
       ],
       "expected_repo_state": [
-        "skills_lint is added under dev_dependencies in pubspec.yaml as a hosted pub.dev dependency.",
-        "A skills_lint.yaml file is created at the package root and lists skills under directories.",
-        "skills_lint.yaml sets published-skill-name to error and check-relative-paths to error.",
-        "A test file under test/ fails when skills_lint reports an error for the skills in skills/. Either a test that calls validateSkills with the configuration from skills_lint.yaml or a test that runs dart run skills_lint and checks its exit code is acceptable.",
-        "dart test passes after the linter's failures are fixed."
+        "A skills_lint.yaml file is created at the project root and lists .agents/skills under directories.",
+        "skills_lint is run with --generate-baseline, and the generated ignore file is present.",
+        "skills_lint passes after the baseline is generated.",
+        "No pre-existing SKILL.md file in .agents/skills is modified, deleted, or reformatted.",
+        "--fix is NOT passed."
       ]
     },
     {
       "id": 3,
-      "prompt": "Set up skills_lint in this repository. Our pubspec.yaml already lists skills_lint under dev_dependencies, and our published skills are in skills/.",
-      "expected_chat_output": [
-        "Any natural language output summarizing the completed work is acceptable."
-      ],
-      "expected_repo_state": [
-        "A skills_lint.yaml file is created at the package root and lists skills under directories.",
-        "A test file under test/ calls validateSkills from package:skills_lint/skills_lint.dart and fails when it returns false.",
-        "skills_lint is NOT installed globally with dart install, Homebrew or install.sh."
-      ]
-    },
-    {
-      "id": 4,
       "prompt": "Set up skills_lint for this repository. It has no pubspec.yaml; our agent skills are in .agents/skills.",
       "expected_chat_output": [
         "The response says how to install the skills_lint command, with Homebrew, install.sh or dart install."

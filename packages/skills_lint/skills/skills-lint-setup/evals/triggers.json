@@ -3,6 +3,7 @@
   "positive_triggers": [
     "Initialize skills_lint in our Dart repository for the first time",
     "Add skills_lint to dev_dependencies and generate the initial skills_lint.yaml config",
+    "Generate an ignore baseline file for pre-existing legacy skills in our repo",
     "Add a dart test that fails when the skills our package publishes are invalid",
     "Install the skills_lint command and set it up for the skills in this repo"
   ],
