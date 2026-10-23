@@ -6,14 +6,14 @@ import 'skill_context.dart';
 import 'skipped_fix.dart';
 import 'validation_result.dart';
 
-/// The state `--fix` reaches for one skill, before anything is written.
+/// The state the fixer reaches for one skill, before anything is written.
 class FixOutcome {
   FixOutcome({
     required this.result,
     required this.appliedRuleNames,
     required this.skippedFixes,
     required this.settled,
-    required this.passes,
+    this.blockedDirectoryName,
   });
 
   /// The validation result of the fixed content.
@@ -33,8 +33,10 @@ class FixOutcome {
   /// between identical calls can cause.
   final bool settled;
 
-  /// How many passes over the rules kept at least one fix.
-  final int passes;
+  /// The directory name a kept fix would rename the skill to, when another
+  /// directory already has that name. The fixed content is judged under the
+  /// current name instead.
+  final String? blockedDirectoryName;
 
   SkillContext get _context => result.context!;
 

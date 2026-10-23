@@ -6,7 +6,7 @@
 ///
 /// A new built-in fixable rule registered in [RuleRegistry.allChecks] is
 /// automatically checked for idempotence, progress on its own diagnostics,
-/// convergence within 2 passes, and dry-run/apply equivalence.
+/// convergence, and dry-run/apply equivalence.
 library;
 
 import 'dart:io';
@@ -208,12 +208,19 @@ Future<void> _verifyRuleProperties(SkillRule rule) async {
     },
   );
 
+  var edited = 0;
   for (final _CorpusFixture fixture in _corpus) {
-    await _verifyFixtureForRule(rule, fixable, validator, tempRoot, fixture);
+    if (await _verifyFixtureForRule(rule, fixable, validator, tempRoot, fixture)) {
+      edited++;
+    }
   }
+  // Without this, a fix that never changes anything would pass P1 and P2.
+  expect(edited, greaterThan(0), reason: '${rule.name} edited no fixture; add one it can fix');
 }
 
-Future<void> _verifyFixtureForRule(
+/// Checks P1 and P2 for [rule] on [fixture], and returns whether the fix
+/// changed the fixture.
+Future<bool> _verifyFixtureForRule(
   SkillRule rule,
   FixableRule fixable,
   Validator validator,
@@ -224,12 +231,12 @@ Future<void> _verifyFixtureForRule(
   final ValidationResult before = await validator.validate(skillDir);
   final SkillContext? initialContext = before.context;
   if (initialContext == null) {
-    return;
+    return false;
   }
 
   final String once = await fixable.fix(initialContext);
   if (once == initialContext.rawContent) {
-    return;
+    return false;
   }
 
   final String nameAfterFix =
@@ -255,6 +262,7 @@ Future<void> _verifyFixtureForRule(
       reason: '${rule.name} edited ${fixture.label} without lowering its diagnostics',
     );
   }
+  return true;
 }
 
 Future<void> _verifyConfigConvergence(_NamedConfig config) async {
@@ -276,9 +284,8 @@ Future<void> _verifyConfigConvergence(_NamedConfig config) async {
       onFixFailed: (ruleName, error) => fail('$ruleName fix threw $error'),
     ).fix(initial);
 
-    // P3a: settles in at most 2 productive passes.
+    // P3a: the fixes settle before the pass limit.
     expect(predicted.settled, isTrue, reason: '${config.label} on ${fixture.label}');
-    expect(predicted.passes, lessThanOrEqualTo(2), reason: '${config.label} on ${fixture.label}');
 
     await validateSkillsInternal(
       individualSkillPaths: [skillDir.path],

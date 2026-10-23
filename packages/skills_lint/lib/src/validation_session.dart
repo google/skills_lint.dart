@@ -22,6 +22,7 @@ import 'models/sarif/sarif.dart';
 import 'models/skill_context.dart';
 import 'models/skill_rule.dart';
 import 'models/skills_ignores.dart';
+import 'models/skipped_fix.dart';
 import 'models/validation_error.dart';
 import 'path_utils.dart';
 import 'pub_archive_loader.dart';
@@ -835,8 +836,10 @@ class ValidationSession {
       onFixFailed: (String ruleName, Object error) =>
           _reporter.onFixFailed(ruleName: ruleName, error: error),
     ).fix(result);
-    outcome.skippedFixes.forEach(_reporter.onFixSkipped);
     final String currentDirectoryName = p.basename(skillDir.path);
+    for (final SkippedFix skipped in outcome.skippedFixes) {
+      _reporter.onFixSkipped(currentDirectoryName, skipped);
+    }
     if (!outcome.settled) {
       _reporter.onFixesDidNotSettle(skillName: currentDirectoryName, passes: SkillFixer.maxPasses);
     }
@@ -849,7 +852,11 @@ class ValidationSession {
       await skillMdFile.writeAsString(outcome.content);
       _reporter.onFixesWritten(currentDirectoryName, ruleNames: outcome.appliedRuleNames);
 
-      final Directory fixedSkillDir = await _renameSkillDirectory(skillDir, outcome.directoryName);
+      // A blocked rename is tried again so that the collision is reported.
+      final Directory fixedSkillDir = await _renameSkillDirectory(
+        skillDir,
+        outcome.blockedDirectoryName ?? outcome.directoryName,
+      );
       final String fixedName = p.basename(fixedSkillDir.path);
       _recordSkillRename(
         oldName: currentDirectoryName,
@@ -920,7 +927,7 @@ class ValidationSession {
     final String newDirPath = p.join(parentPath, newDirectoryName);
     final newDir = Directory(newDirPath);
 
-    if (newDir.existsSync()) {
+    if (SkillFixer.isNameTaken(skillDir, newDirectoryName)) {
       _reporter.onRenameTargetExists(
         oldSkillName: currentDirectoryName,
         targetSkillName: newDirectoryName,
@@ -1068,6 +1075,7 @@ class ValidationSession {
       return;
     }
     _anySkillRenamed = false;
+    _reporter.onRecheckAfterRenames();
     final baselinesToSave = <String, SkillsIgnores>{};
     // The renames changed files on disk, so an archive built earlier may be
     // stale.
@@ -1106,29 +1114,11 @@ class ValidationSession {
     }
   }
 
-  static bool _sameDiagnostics(ValidationResult a, ValidationResult b) {
-    final List<String> aErrors = a.errors;
-    final List<String> bErrors = b.errors;
-    if (aErrors.length != bErrors.length) {
-      return false;
-    }
-    for (var i = 0; i < aErrors.length; i++) {
-      if (aErrors[i] != bErrors[i]) {
-        return false;
-      }
-    }
-    final List<String> aWarnings = a.warnings;
-    final List<String> bWarnings = b.warnings;
-    if (aWarnings.length != bWarnings.length) {
-      return false;
-    }
-    for (var i = 0; i < aWarnings.length; i++) {
-      if (aWarnings[i] != bWarnings[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
+  static bool _sameDiagnostics(ValidationResult a, ValidationResult b) =>
+      _sameStrings(a.errors, b.errors) && _sameStrings(a.warnings, b.warnings);
+
+  static bool _sameStrings(List<String> a, List<String> b) =>
+      a.length == b.length && Iterable<int>.generate(a.length).every((i) => a[i] == b[i]);
 }
 
 class _ValidatedSkill {
