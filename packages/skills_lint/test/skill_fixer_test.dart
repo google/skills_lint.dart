@@ -231,6 +231,30 @@ void main() {
     expect(err.buffer.toString(), contains('Linked file does not exist: ../foo/SKILL.md'));
   });
 
+  test('passes when a sibling rename fixes a skill link', () async {
+    // `aaa` links to `../bar-zzz/SKILL.md`, which exists only after `--fix`
+    // renames `zzz` to `bar-zzz`, after `aaa` already failed.
+    await createPackageSkill('aaa', body: 'See [zzz](../bar-zzz/SKILL.md).\n');
+    await createPackageSkill('zzz');
+
+    final bool success = await IOOverrides.runZoned(
+      () => validateSkillsInternal(
+        skillDirPaths: [p.join(root.path, 'skills')],
+        fixApply: true,
+        quiet: true,
+        resolvedRuleConfigs: const {
+          PublishedSkillNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+      ),
+      stdout: CapturedOutput.new,
+      stderr: CapturedOutput.new,
+    );
+
+    expect(Directory(p.join(root.path, 'skills', 'bar-zzz')).existsSync(), isTrue);
+    expect(success, isTrue);
+  });
+
   test('moves baseline ignore entries to the new skill name when a fix renames a skill', () async {
     await createPackageSkill('foo', body: 'See [missing](missing.md).\n');
     final ignoreFile = File(p.join(root.path, 'skills', defaultIgnoreFileName));

@@ -114,6 +114,7 @@ class SkillFixer {
       context.directory,
       fixedContent,
       directoryName: renameBlocked ? context.directoryName : plannedName,
+      pubArchive: context.pubArchive,
     );
     applyIgnores(result);
     return _Attempt(result, blockedDirectoryName: renameBlocked ? plannedName : null);

@@ -12,7 +12,7 @@ repository. For ongoing use — running the linter, interpreting
 output, and writing custom rules — see the
 [`skills-lint-validation`](../skills-lint-validation/SKILL.md)
 skill. For copy-pasteable CI workflow and pre-commit hook recipes,
-see the [`Recipes` section of the README](../../../../README.md#recipes).
+see the [`Recipes` section of the README](../../README.md#recipes).
 
 ## Steps
 
@@ -70,9 +70,9 @@ see the [`Recipes` section of the README](../../../../README.md#recipes).
    baseline still surface as errors.
 
 4. **Wire it into CI.** Use the
-   [GitHub Actions recipe](../../../../README.md#recipes) from the README
+   [GitHub Actions recipe](../../README.md#recipes) from the README
    verbatim, or follow the
-   [pre-commit hook recipe](../../../../README.md#recipes) below it.
+   [pre-commit hook recipe](../../README.md#recipes) below it.
 
 ## When you're done
 

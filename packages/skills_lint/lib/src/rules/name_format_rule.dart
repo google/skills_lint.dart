@@ -62,23 +62,28 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     for (final _FormatProblem problem in _formatProblems(skillName)) {
       errors.add(switch (problem) {
-        _FormatProblem.uppercase => _buildLowercaseError(
+        _FormatProblem.uppercase => _suggestionError(
+          problem: 'must be lowercase',
           skillName: skillName,
           suggestion: suggestion,
           region: region,
         ),
         _FormatProblem.tooLong => _buildMaxLengthError(skillName: skillName, region: region),
-        _FormatProblem.invalidCharacters => _buildInvalidCharsError(
+        _FormatProblem.invalidCharacters => _suggestionError(
+          problem: 'contains invalid characters',
+          detail: 'Only lowercase letters, digits, and hyphens are allowed.',
           skillName: skillName,
           suggestion: suggestion,
           region: region,
         ),
-        _FormatProblem.edgeHyphen => _buildLeadingTrailingHyphensError(
+        _FormatProblem.edgeHyphen => _suggestionError(
+          problem: 'has leading or trailing hyphens',
           skillName: skillName,
           suggestion: suggestion,
           region: region,
         ),
-        _FormatProblem.consecutiveHyphens => _buildConsecutiveHyphensError(
+        _FormatProblem.consecutiveHyphens => _suggestionError(
+          problem: 'has consecutive hyphens',
           skillName: skillName,
           suggestion: suggestion,
           region: region,
@@ -118,31 +123,6 @@ class NameFormatRule extends SkillRule implements FixableRule {
     );
   }
 
-  ValidationError _buildLowercaseError({
-    required String skillName,
-    required String suggestion,
-    required SourceRegion? region,
-  }) {
-    return ValidationError(
-      ruleId: name,
-      severity: severity,
-      file: SkillContext.skillFileName,
-      message:
-          'Frontmatter `name` "$skillName" must be lowercase. '
-          'Suggested: "$suggestion" (see $_nameFieldUrl)',
-      markdownMessage:
-          '**Frontmatter `name` must be lowercase.**\n\n'
-          '* **Current:** `$skillName`\n'
-          '* **Suggested:** `$suggestion`\n\n'
-          '**How to fix:**\n'
-          '```yaml\n'
-          'name: $suggestion\n'
-          '```\n'
-          '*(See [Agent Skills Specification]($_nameFieldUrl))*',
-      region: region,
-    );
-  }
-
   ValidationError _buildMaxLengthError({required String skillName, required SourceRegion? region}) {
     final int excess = skillName.length - maxNameLength;
     return ValidationError(
@@ -163,72 +143,25 @@ class NameFormatRule extends SkillRule implements FixableRule {
     );
   }
 
-  ValidationError _buildInvalidCharsError({
+  ValidationError _suggestionError({
+    required String problem,
+    String? detail,
     required String skillName,
     required String suggestion,
     required SourceRegion? region,
   }) {
+    final detailText = detail == null ? '' : '$detail ';
+    final detailParagraph = detail == null ? '' : '$detail\n\n';
     return ValidationError(
       ruleId: name,
       severity: severity,
       file: SkillContext.skillFileName,
       message:
-          'Frontmatter `name` "$skillName" contains invalid characters. '
-          'Only lowercase letters, digits, and hyphens are allowed. '
-          'Suggested: "$suggestion" (see $_nameFieldUrl)',
+          'Frontmatter `name` "$skillName" $problem. '
+          '${detailText}Suggested: "$suggestion" (see $_nameFieldUrl)',
       markdownMessage:
-          '**Frontmatter `name` contains invalid characters.**\n\n'
-          'Only lowercase letters, digits, and hyphens are allowed.\n\n'
-          '* **Current:** `$skillName`\n'
-          '* **Suggested:** `$suggestion`\n\n'
-          '**How to fix:**\n'
-          '```yaml\n'
-          'name: $suggestion\n'
-          '```\n'
-          '*(See [Agent Skills Specification]($_nameFieldUrl))*',
-      region: region,
-    );
-  }
-
-  ValidationError _buildLeadingTrailingHyphensError({
-    required String skillName,
-    required String suggestion,
-    required SourceRegion? region,
-  }) {
-    return ValidationError(
-      ruleId: name,
-      severity: severity,
-      file: SkillContext.skillFileName,
-      message:
-          'Frontmatter `name` "$skillName" has leading or trailing hyphens. '
-          'Suggested: "$suggestion" (see $_nameFieldUrl)',
-      markdownMessage:
-          '**Frontmatter `name` has leading or trailing hyphens.**\n\n'
-          '* **Current:** `$skillName`\n'
-          '* **Suggested:** `$suggestion`\n\n'
-          '**How to fix:**\n'
-          '```yaml\n'
-          'name: $suggestion\n'
-          '```\n'
-          '*(See [Agent Skills Specification]($_nameFieldUrl))*',
-      region: region,
-    );
-  }
-
-  ValidationError _buildConsecutiveHyphensError({
-    required String skillName,
-    required String suggestion,
-    required SourceRegion? region,
-  }) {
-    return ValidationError(
-      ruleId: name,
-      severity: severity,
-      file: SkillContext.skillFileName,
-      message:
-          'Frontmatter `name` "$skillName" has consecutive hyphens. '
-          'Suggested: "$suggestion" (see $_nameFieldUrl)',
-      markdownMessage:
-          '**Frontmatter `name` has consecutive hyphens.**\n\n'
+          '**Frontmatter `name` $problem.**\n\n'
+          '$detailParagraph'
           '* **Current:** `$skillName`\n'
           '* **Suggested:** `$suggestion`\n\n'
           '**How to fix:**\n'

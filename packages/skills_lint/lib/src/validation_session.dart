@@ -16,6 +16,7 @@ import 'models/check_type.dart';
 import 'models/fix_outcome.dart';
 import 'models/ignore_entry.dart';
 import 'models/output_format.dart';
+import 'models/pub_archive.dart';
 import 'models/rule_config.dart';
 import 'models/sarif/sarif.dart';
 import 'models/skill_context.dart';
@@ -23,8 +24,10 @@ import 'models/skill_rule.dart';
 import 'models/skills_ignores.dart';
 import 'models/validation_error.dart';
 import 'path_utils.dart';
+import 'pub_archive_loader.dart';
 import 'reporters/reporters.dart';
 import 'rule_registry.dart';
+import 'rules/pub_archive_includes_skill_rule.dart';
 import 'skill_fixer.dart';
 import 'skills_ignores_storage.dart';
 import 'validator.dart';
@@ -68,6 +71,8 @@ class ValidationSession {
   /// * [fixApply] is the deprecated flag indicating if fixes should be automatically applied.
   // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
   /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
+  /// * [pubArchiveLoader] lists the files pub publishes. Tests pass one with a
+  ///   fake process runner.
   ValidationSession({
     required this.config,
     // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
@@ -84,7 +89,9 @@ class ValidationSession {
     // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
     required this.fixApply,
     this.format = OutputFormat.text,
-  }) : _reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
+    @visibleForTesting PubArchiveLoader? pubArchiveLoader,
+  }) : _pubArchiveLoader = pubArchiveLoader ?? PubArchiveLoader(),
+       _reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
        resolvedRuleConfigs = mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
        ignoreFileOverride = _ingestOptionalPath(ignoreFileOverride),
        _normalizedDirectoryConfigs = [
@@ -147,6 +154,7 @@ class ValidationSession {
   final bool fixApply;
   final OutputFormat format;
   final Reporter _reporter;
+  final PubArchiveLoader _pubArchiveLoader;
 
   final List<ValidationResult> _results = [];
   final List<_ValidatedSkill> _validatedSkills = [];
@@ -243,8 +251,9 @@ class ValidationSession {
     );
 
     _anySkillsValidated = true;
+    // The workflow adds no results, so this skill's result lands at
+    // [resultIndex] when it is added below.
     final int resultIndex = _results.length;
-    _results.add(ValidationResult());
     final ValidationResult finalResult = await _runValidationWorkflow(
       skillDir: skillDir,
       validator: validator,
@@ -255,7 +264,7 @@ class ValidationSession {
       ignorePathFollowsSkillDir: localIgnoreFile == null,
       resultIndex: resultIndex,
     );
-    _results[resultIndex] = finalResult;
+    _results.add(finalResult);
 
     final Directory effectiveSkillDir = finalResult.context?.directory ?? skillDir;
     final String effectiveSkillName = p.basename(effectiveSkillDir.path);
@@ -390,8 +399,9 @@ class ValidationSession {
     );
 
     _anySkillsValidated = true;
+    // The workflow adds no results, so this skill's result lands at
+    // [resultIndex] when it is added below.
     final int resultIndex = _results.length;
-    _results.add(ValidationResult());
     final ValidationResult finalResult = await _runValidationWorkflow(
       skillDir: entity,
       validator: validator,
@@ -399,7 +409,7 @@ class ValidationSession {
       ignorePath: ignorePath,
       resultIndex: resultIndex,
     );
-    _results[resultIndex] = finalResult;
+    _results.add(finalResult);
 
     if (!finalResult.isValid) {
       _anyFailed = true;
@@ -765,10 +775,28 @@ class ValidationSession {
   }) async {
     final String skillName = p.basename(skillDir.path);
     _reporter.onSkillEvaluating(skillName);
-    final ValidationResult result = await validator.validate(skillDir);
+    final ValidationResult result = await validator.validate(
+      skillDir,
+      pubArchive: await _pubArchiveFor(skillDir, validator),
+    );
     _applyIgnores(result, skillIgnores, skillDir);
     _reporter.onSkillValidationComplete(result);
     return result;
+  }
+
+  /// The files pub publishes for the package that holds [skillDir], or
+  /// `null` when no rule in [validator] needs them.
+  ///
+  /// Building the archive runs `dart pub publish`, so the session does it
+  /// only for skills that enable [PubArchiveIncludesSkillRule].
+  Future<PubArchive?> _pubArchiveFor(Directory skillDir, Validator validator) async {
+    final bool needsArchive = validator.rules.any(
+      (SkillRule rule) => rule.name == PubArchiveIncludesSkillRule.ruleName,
+    );
+    if (!needsArchive) {
+      return null;
+    }
+    return _pubArchiveLoader.archiveFor(skillDir);
   }
 
   Future<ValidationResult> _applyFixesIfNeeded({
@@ -837,7 +865,12 @@ class ValidationSession {
       );
 
       final List<IgnoreEntry> effectiveIgnores = ignores.skills[effectiveName] ?? skillIgnores;
-      final ValidationResult newResult = await validator.validate(effectiveSkillDir);
+      // The fix wrote to disk, so an archive built earlier may be stale.
+      _pubArchiveLoader.clear();
+      final ValidationResult newResult = await validator.validate(
+        effectiveSkillDir,
+        pubArchive: await _pubArchiveFor(effectiveSkillDir, validator),
+      );
       _applyIgnores(newResult, effectiveIgnores, effectiveSkillDir);
       _reporter.onFixedSkillValidationComplete(newResult);
       return newResult;
@@ -1032,12 +1065,17 @@ class ValidationSession {
   /// Renaming a later skill can break a relative link in a sibling skill that
   /// was already validated. Re-validating once after all renames catches any
   /// new diagnostics, reports them, and updates [results] and [anyFailed].
+  /// It runs only when at least one skill directory was renamed and more
+  /// than one skill was validated.
   Future<void> revalidateAfterRenames() async {
     if (!_anySkillRenamed || _validatedSkills.length <= 1) {
       return;
     }
     _anySkillRenamed = false;
     final baselinesToSave = <String, SkillsIgnores>{};
+    // The renames changed files on disk, so an archive built earlier may be
+    // stale.
+    _pubArchiveLoader.clear();
 
     for (final _ValidatedSkill entry in _validatedSkills) {
       if (!entry.skillDir.existsSync()) {
@@ -1046,7 +1084,10 @@ class ValidationSession {
       final String skillName = p.basename(entry.skillDir.path);
       final List<IgnoreEntry> skillIgnores = entry.ignores.skills[skillName] ?? const [];
       final ValidationResult previous = _results[entry.resultIndex];
-      final ValidationResult fresh = await entry.validator.validate(entry.skillDir);
+      final ValidationResult fresh = await entry.validator.validate(
+        entry.skillDir,
+        pubArchive: await _pubArchiveFor(entry.skillDir, entry.validator),
+      );
       _applyIgnores(fresh, skillIgnores, entry.skillDir);
       _results[entry.resultIndex] = fresh;
 
@@ -1059,10 +1100,10 @@ class ValidationSession {
         _reporter.onSkillEvaluating(skillName);
         _reporter.onFixedSkillValidationComplete(fresh);
       }
-      if (!fresh.isValid) {
-        _anyFailed = true;
-      }
     }
+    // Every failure adds an invalid result, so a skill that a sibling's
+    // rename made valid no longer fails the run.
+    _anyFailed = _results.any((ValidationResult result) => !result.isValid);
 
     for (final MapEntry<String, SkillsIgnores> saveEntry in baselinesToSave.entries) {
       await _saveBaseline(saveEntry.key, saveEntry.value);

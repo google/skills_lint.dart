@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
+import 'pub_archive.dart';
 import 'source_region.dart';
 
 /// Context provided to [SkillRule]s during validation.
@@ -20,6 +21,7 @@ class SkillContext {
     this.parsedYaml,
     this.yamlParsingError,
     String? directoryName,
+    this.pubArchive,
   }) : directoryName = directoryName ?? p.basename(directory.path),
        _sourceFile = SourceFile.fromString(rawContent);
 
@@ -52,6 +54,13 @@ class SkillContext {
   final YamlMap? parsedYaml;
 
   final String? yamlParsingError;
+
+  /// The files pub would publish for the package that holds this skill.
+  ///
+  /// The validation session sets this only when a rule that needs it, such as
+  /// `pub-archive-includes-skill`, is enabled for the skill. Otherwise it is
+  /// `null`.
+  final PubArchive? pubArchive;
 
   final SourceFile _sourceFile;
 
