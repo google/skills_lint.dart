@@ -41,19 +41,12 @@ void main() {
         '${buildFrontmatter(name: 'test-skill')}'
         '[Link 1](missing1.md) \n[Link 1 again](missing1.md) \n[Link 2](missing2.md)\n',
       );
-      // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/18
-      final configFile = File('${tempDir.path}/skills_lint.yaml');
-      await configFile.writeAsString('''
-skills_lint:
-  rules:
-    check-relative-paths: error
-    check-trailing-whitespace: error
-''');
 
-      // Run with --generate-baseline
       final TestProcess process = await startCli([
         '-s',
         'test-skill',
+        '--check-relative-paths',
+        '--check-trailing-whitespace',
         '--generate-baseline',
       ], workingDirectory: tempDir.path);
       await process.shouldExit(0);
@@ -68,19 +61,12 @@ skills_lint:
       // exactly as they were written.
       const links = '[Rules](../../RULES.md)\n[Spaced](my%20folder/a:b.md)\n';
       await skillFile.writeAsString('${buildFrontmatter(name: 'test-skill')}$links');
-      // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/18
-      final configFile = File('${tempDir.path}/skills_lint.yaml');
-      await configFile.writeAsString('''
-skills_lint:
-  rules:
-    check-relative-paths:
-      severity: error
-      within-skill: true
-''');
+      const flags = ['--check-relative-paths', '--check-relative-paths-within-skill=true'];
 
       final TestProcess genProcess = await startCli([
         '-s',
         'test-skill',
+        ...flags,
         '--generate-baseline',
       ], workingDirectory: tempDir.path);
       await genProcess.shouldExit(0);
@@ -89,6 +75,7 @@ skills_lint:
       final TestProcess runProcess = await startCli([
         '-s',
         'test-skill',
+        ...flags,
       ], workingDirectory: tempDir.path);
       await runProcess.shouldExit(0);
 
@@ -99,6 +86,7 @@ skills_lint:
       final TestProcess newLinkProcess = await startCli([
         '-s',
         'test-skill',
+        ...flags,
       ], workingDirectory: tempDir.path);
       expect(await newLinkProcess.stderrStream().join('\n'), contains('unignored.md'));
       await newLinkProcess.shouldExit(1);

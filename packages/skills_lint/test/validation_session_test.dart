@@ -8,16 +8,16 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
-import 'package:skills_lint/src/models/custom_rule_parameters.dart';
 import 'package:skills_lint/src/models/ignore_entry.dart';
 import 'package:skills_lint/src/models/output_format.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
+import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/skills_ignores.dart';
+import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/pub_archive_loader.dart';
 import 'package:skills_lint/src/rules/pub_archive_includes_skill_rule.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
-import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/validation_session.dart';
 import 'package:test/test.dart';
 
@@ -263,54 +263,66 @@ void main() {
       // is controlled by ACLs rather than mode bits.
     }, testOn: '!windows');
 
-    group('ignore entries', () {
-      // Two links to ../../RULES.md, which is outside the skill, and one to a
-      // missing file: three check-relative-paths errors in SKILL.md.
-      const links =
-          '[Rules](../../RULES.md)\n[Rules again](../../RULES.md)\n[Missing](missing.md)\n';
+    group('ignore entries for a custom rule', () {
+      late Directory skillDir;
 
-      /// The errors left after validating a skill with [links] whose ignore
-      /// file lists [entries].
-      Future<List<String>> errorsIgnoring(List<Map<String, String>> entries) async {
-        final Directory skillDir = await createDummySkill(
+      setUp(() async {
+        skillDir = await createDummySkill(
           tempDir,
           name: 'my-skill',
-          skillContent: '${buildFrontmatter(name: 'my-skill')}\n$links',
+          skillContent: buildFrontmatter(name: 'my-skill'),
         );
+      });
+
+      /// Validates the skill with [_TwoSubjectsRule] and returns the subjects
+      /// of its errors that no entry in [ignoring] suppresses.
+      Future<List<String?>> unsuppressedSubjects({
+        List<Map<String, String>> ignoring = const [],
+        bool generateBaseline = false,
+      }) async {
         File(p.join(skillDir.path, defaultIgnoreFileName)).writeAsStringSync(
           jsonEncode({
-            SkillsIgnores.skillsKey: {'my-skill': entries},
+            SkillsIgnores.skillsKey: {'my-skill': ignoring},
           }),
         );
         final ValidationSession session = createTestSession(
-          resolvedRuleConfigs: {
-            RelativePathsRule.ruleName: RuleConfigPatch(
-              severity: AnalysisSeverity.error,
-              parameters: CustomRuleParameters(const {
-                RelativePathsRule.withinSkillParameter: true,
-              }),
-            ),
-          },
+          customRules: [_TwoSubjectsRule()],
+          generateBaseline: generateBaseline,
         );
         await session.processIndividualSkill(skillDir.path);
-        return session.results.single.errors;
+        return [
+          for (final ValidationError error in session.results.single.validationErrors)
+            if (error.ruleId == _TwoSubjectsRule.ruleName && !error.isIgnored) error.subject,
+        ];
       }
 
       const Map<String, String> wholeFile = {
-        IgnoreEntry.ruleIdKey: RelativePathsRule.ruleName,
+        IgnoreEntry.ruleIdKey: _TwoSubjectsRule.ruleName,
         IgnoreEntry.fileNameKey: 'SKILL.md',
       };
 
-      test('with a subject suppress every finding about it and no others', () async {
-        final List<String> errors = await errorsIgnoring([
-          {...wholeFile, IgnoreEntry.subjectKey: '../../RULES.md'},
-        ]);
+      test('are written to a baseline with each subject', () async {
+        await unsuppressedSubjects(generateBaseline: true);
 
-        expect(errors, [contains('missing.md')]);
+        final ignores = SkillsIgnores.fromJson(
+          jsonDecode(File(p.join(skillDir.path, defaultIgnoreFileName)).readAsStringSync())
+              as Map<String, dynamic>,
+        );
+        expect(ignores.skills['my-skill']!.map((entry) => entry.subject), ['first', 'second']);
       });
 
-      test('without a subject suppress every finding of the rule in the file', () async {
-        expect(await errorsIgnoring([wholeFile]), isEmpty);
+      test('with a subject suppress only the error about it', () async {
+        final List<String?> left = await unsuppressedSubjects(
+          ignoring: [
+            {...wholeFile, IgnoreEntry.subjectKey: 'first'},
+          ],
+        );
+
+        expect(left, ['second']);
+      });
+
+      test('without a subject suppress every error of the rule in the file', () async {
+        expect(await unsuppressedSubjects(ignoring: [wholeFile]), isEmpty);
       });
     });
   });
@@ -371,4 +383,28 @@ void _chmod(String mode, String path) {
   if (result.exitCode != 0) {
     throw StateError('chmod $mode $path failed: ${result.stderr}');
   }
+}
+
+/// A custom rule that reports two errors in `SKILL.md`, with the subjects
+/// `first` and `second`.
+class _TwoSubjectsRule extends SkillRule {
+  static const String ruleName = 'two-subjects';
+
+  @override
+  String get name => ruleName;
+
+  @override
+  AnalysisSeverity get severity => AnalysisSeverity.error;
+
+  @override
+  Future<List<ValidationError>> validate(SkillContext context) async => [
+    for (final subject in ['first', 'second'])
+      ValidationError(
+        ruleId: name,
+        severity: severity,
+        file: SkillContext.skillFileName,
+        message: 'Error about $subject.',
+        subject: subject,
+      ),
+  ];
 }
