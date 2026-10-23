@@ -14,7 +14,7 @@ description: |-
 
 If the user names a path, follow that one. Otherwise, inspect the project:
 
-- If `pubspec.yaml` lists `skills_lint` under `dev_dependencies`, follow
+- If the project has a `pubspec.yaml`, follow
   [the dart test path](references/dart-test.md).
 - Otherwise, follow [the command-line path](references/command-line.md).
 
