@@ -31,6 +31,10 @@ class IgnoreEntry {
   /// Specific finding target within [fileName] (such as a link path) to
   /// restrict this suppression to.
   ///
+  /// For link rules, [target] is the raw link destination as written in
+  /// `SKILL.md`, with any `#anchor` or `%`-escapes preserved and any link
+  /// title stripped.
+  ///
   /// When `null`, the entry acts as a wildcard for `(ruleId, fileName)` and
   /// suppresses every finding of [ruleId] in [fileName], regardless of whether
   /// [ValidationError.target] is set.

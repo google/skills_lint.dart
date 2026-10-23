@@ -10,6 +10,7 @@ import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
+import '../skill_links.dart';
 
 /// Enforces that links in SKILL.md do not use absolute paths.
 class AbsolutePathsRule extends SkillRule implements FixableRule {
@@ -39,7 +40,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
       markdownContent,
     )) {
       final String fullPath = linkMatch.group(1)!;
-      final String path = fullPath.trim().split(RegExp(r'\s+')).first;
+      final String path = linkTargetOf(fullPath);
 
       if (isAbsolute(path) || windows.isAbsolute(path)) {
         final int linkOffsetInFile = frontmatterEnd + linkMatch.start;

@@ -72,6 +72,10 @@ class ValidationError {
   /// Specific target within [file] that triggered the error, such as the raw
   /// path of a broken link.
   ///
+  /// For link rules, [target] is the raw link destination as written in
+  /// `SKILL.md`, with any `#anchor` or `%`-escapes preserved and any link
+  /// title stripped.
+  ///
   /// When non-null, `--generate-baseline` writes this value to
   /// [IgnoreEntry.target] so the generated baseline entry suppresses only
   /// findings with the same [target] rather than every finding of [ruleId] in
