@@ -695,7 +695,9 @@ skills_lint:
 
       final String stdout = (await process.stdout.rest.toList()).join('\n');
       final String stderr = (await process.stderr.rest.toList()).join('\n');
-      expect(stdout, contains(TextReporter.afterFixesMsg));
+      // Only the result after the fix is printed.
+      expect(stdout, isNot(contains(TextReporter.skillIsValidMsg)));
+      expect(stdout, isNot(contains('Absolute filepath found')));
       expect(stderr, contains(TextReporter.skillIsInvalidMsg));
       expect(stderr, contains('Linked file is outside the skill directory: ../../shared/guide.md'));
       await process.shouldExit(1);

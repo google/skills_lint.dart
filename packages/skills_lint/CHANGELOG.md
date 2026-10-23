@@ -1,6 +1,6 @@
 ## 0.5.3-wip
 
-- Fixed `--fix` printing only the diagnostics from before the fix. It now also prints the result after the fix under `After fixes:`, which is the result that decides the exit code. Before, a run could print `Skill is valid.` and exit 1.
+- Fixed `--fix` printing the diagnostics from before the fix. It now prints the diagnostics that remain after the fix, which decide the exit code. Before, the output could disagree with the exit code.
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
 - Requires Dart 3.12 or later.
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.
