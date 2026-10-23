@@ -760,6 +760,9 @@ class ValidationSession {
         ignorePath: effectiveIgnorePath,
       ),
     );
+    if (fixApply && identical(finalResult, result)) {
+      _reporter.onSkillValidationComplete(result);
+    }
 
     if (generateBaseline) {
       _updateBaselineForSkill(ignores, finalResult, effectiveName, effectiveSkillDir);
@@ -780,7 +783,11 @@ class ValidationSession {
       pubArchive: await _pubArchiveFor(skillDir, validator),
     );
     _applyIgnores(result, skillIgnores, skillDir);
-    _reporter.onSkillValidationComplete(result);
+    // With --fix, the result that counts is the one after the fixes, so it is
+    // reported once the fixes are done.
+    if (!fixApply) {
+      _reporter.onSkillValidationComplete(result);
+    }
     return result;
   }
 

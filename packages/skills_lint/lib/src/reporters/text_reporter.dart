@@ -21,10 +21,6 @@ class TextReporter extends Reporter {
   /// Heading message emitted before listing warnings.
   static const String warningsMsg = 'Warnings:';
 
-  /// Heading message emitted before the result of validating a skill again
-  /// after `--fix` wrote its fixes.
-  static const String afterFixesMsg = 'After fixes:';
-
   /// Heading message emitted before the result `--fix --dry-run` predicts.
   static const String afterDryRunFixesMsg = 'After fixes, the skill would be:';
 
@@ -90,8 +86,8 @@ class TextReporter extends Reporter {
     final bool printsWarnings = printWarnings && result.warnings.isNotEmpty;
     // With --quiet, a valid skill without warnings prints nothing, so the
     // heading would stand alone.
-    if (!quiet || !result.isValid || printsWarnings) {
-      out.writeln('  ${dryRun ? afterDryRunFixesMsg : afterFixesMsg}');
+    if (dryRun && (!quiet || !result.isValid || printsWarnings)) {
+      out.writeln('  $afterDryRunFixesMsg');
     }
     onSkillValidationComplete(result);
   }

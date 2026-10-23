@@ -692,7 +692,9 @@ skills_lint:
 
       final String stdout = (await process.stdout.rest.toList()).join('\n');
       final String stderr = (await process.stderr.rest.toList()).join('\n');
-      expect(stdout, contains(TextReporter.afterFixesMsg));
+      expect(stdout, contains('Applied fixes for test-skill'));
+      // Only the result after the fix is printed.
+      expect(stderr, isNot(contains('trailing space')));
       expect(stderr, contains('Linked file does not exist: missing.md'));
       await process.shouldExit(1);
     });
