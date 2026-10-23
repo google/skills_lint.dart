@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
-
 import '../models/skill_rule.dart';
 import '../models/skipped_fix.dart';
 import '../models/validation_result.dart';
@@ -11,10 +9,8 @@ import 'reporter.dart';
 import 'tool_error_messages.dart';
 
 /// Human-readable streaming text reporter.
-class TextReporter implements Reporter {
-  TextReporter({StringSink? out, StringSink? err, this.quiet = false, this.printWarnings = true})
-    : _out = out ?? stdout,
-      _err = err ?? stderr;
+class TextReporter extends Reporter {
+  TextReporter({super.out, super.err, this.quiet = false, this.printWarnings = true});
 
   /// Default message emitted when a skill is valid.
   static const String skillIsValidMsg = '  Skill is valid.';
@@ -38,28 +34,26 @@ class TextReporter implements Reporter {
   /// Heading message emitted on directory-level errors.
   static const String directoryErrorMsg = 'Directory error:';
 
-  final StringSink _out;
-  final StringSink _err;
   final bool quiet;
   final bool printWarnings;
 
   @override
   void onDirectoryEvaluating(String directoryPath) {
     if (!quiet) {
-      _out.writeln('$evaluatingDirMsg $directoryPath');
+      out.writeln('$evaluatingDirMsg $directoryPath');
     }
   }
 
   @override
   void onDirectoryError(String directoryPath, String message) {
-    _err.writeln('  $directoryErrorMsg');
-    _err.writeln('    - $message');
+    err.writeln('  $directoryErrorMsg');
+    err.writeln('    - $message');
   }
 
   @override
   void onSkillEvaluating(String skillName) {
     if (!quiet) {
-      _out.writeln('--- Validating skill: $skillName ---');
+      out.writeln('--- Validating skill: $skillName ---');
     }
   }
 
@@ -67,19 +61,19 @@ class TextReporter implements Reporter {
   void onSkillValidationComplete(ValidationResult result) {
     if (result.isValid) {
       if (!quiet) {
-        _out.writeln('  $skillIsValidMsg');
+        out.writeln('  $skillIsValidMsg');
       }
     } else {
-      _err.writeln('  $skillIsInvalidMsg');
+      err.writeln('  $skillIsInvalidMsg');
       for (final String error in result.errors) {
-        _err.writeln('    - $error');
+        err.writeln('    - $error');
       }
     }
 
     if (printWarnings && result.warnings.isNotEmpty) {
-      _out.writeln('  $warningsMsg');
+      out.writeln('  $warningsMsg');
       for (final String warning in result.warnings) {
-        _out.writeln('    - $warning');
+        out.writeln('    - $warning');
       }
     }
   }
@@ -87,7 +81,7 @@ class TextReporter implements Reporter {
   @override
   void onFixApplied(String skillName, {required List<String> ruleNames}) {
     if (!quiet) {
-      _out.writeln('  Applied fixes for $skillName: ${ruleNames.join(', ')}');
+      out.writeln('  Applied fixes for $skillName: ${ruleNames.join(', ')}');
     }
   }
 
@@ -97,7 +91,7 @@ class TextReporter implements Reporter {
     // With --quiet, a valid skill without warnings prints nothing, so the
     // heading would stand alone.
     if (!quiet || !result.isValid || printsWarnings) {
-      _out.writeln('  ${dryRun ? afterDryRunFixesMsg : afterFixesMsg}');
+      out.writeln('  ${dryRun ? afterDryRunFixesMsg : afterFixesMsg}');
     }
     onSkillValidationComplete(result);
   }
@@ -112,12 +106,12 @@ class TextReporter implements Reporter {
         : 'it would add ${skipped.grownRuleIds.join(', ')} diagnostics';
     final String? blocked = skipped.blockedDirectoryName;
     final because = blocked == null ? '' : ', because directory $blocked already exists';
-    _out.writeln('  Skipped the ${skipped.ruleName} fix: $reason$because.');
+    out.writeln('  Skipped the ${skipped.ruleName} fix: $reason$because.');
   }
 
   @override
   void onFixesDidNotSettle({required String skillName, required int passes}) {
-    _err.writeln(ToolErrorMessages.fixesDidNotSettleMessage(skillName: skillName, passes: passes));
+    err.writeln(ToolErrorMessages.fixesDidNotSettleMessage(skillName: skillName, passes: passes));
   }
 
   @override
@@ -128,10 +122,10 @@ class TextReporter implements Reporter {
     required String currentContent,
   }) {
     if (!quiet) {
-      _out.writeln('  [Dry Run] Proposed changes for $skillName (SKILL.md):');
+      out.writeln('  [Dry Run] Proposed changes for $skillName (SKILL.md):');
       _printDiff(originalContent, currentContent);
       if (targetSkillName != null && targetSkillName.isNotEmpty && targetSkillName != skillName) {
-        _out.writeln('  [Dry Run] Proposed directory rename: $skillName -> $targetSkillName');
+        out.writeln('  [Dry Run] Proposed directory rename: $skillName -> $targetSkillName');
       }
     }
   }
@@ -145,10 +139,10 @@ class TextReporter implements Reporter {
       final String mod = i < modLines.length ? modLines[i] : '';
       if (orig != mod) {
         if (orig.isNotEmpty) {
-          _out.writeln('- Line ${i + 1}: $orig');
+          out.writeln('- Line ${i + 1}: $orig');
         }
         if (mod.isNotEmpty) {
-          _out.writeln('+ Line ${i + 1}: $mod');
+          out.writeln('+ Line ${i + 1}: $mod');
         }
       }
     }
@@ -157,7 +151,7 @@ class TextReporter implements Reporter {
   @override
   void onSkillRenamed(String oldSkillName, String targetSkillName) {
     if (!quiet) {
-      _out.writeln('  Renamed skill directory: $oldSkillName -> $targetSkillName');
+      out.writeln('  Renamed skill directory: $oldSkillName -> $targetSkillName');
     }
   }
 
@@ -167,7 +161,7 @@ class TextReporter implements Reporter {
     required String skillName,
     required String fullPath,
   }) {
-    _out.writeln(
+    out.writeln(
       "Stale ignore entry found for rule '$ruleId' in skill "
       "'$skillName' at '$fullPath'. Consider removing it.",
     );
@@ -175,52 +169,12 @@ class TextReporter implements Reporter {
 
   @override
   void onNoSkillsFound(String message) {
-    _err.writeln(message);
+    err.writeln(message);
   }
 
   @override
   void onIndividualSkillHint(String message) {
-    _err.writeln(message);
-  }
-
-  @override
-  void onFixFailed({required String ruleName, required Object error}) {
-    _err.writeln(ToolErrorMessages.fixFailedMessage(ruleName: ruleName, error: error));
-  }
-
-  @override
-  void onRenameFailed({
-    required String oldSkillName,
-    required String targetSkillName,
-    required Object error,
-  }) {
-    _err.writeln(
-      ToolErrorMessages.renameFailedMessage(
-        oldSkillName: oldSkillName,
-        targetSkillName: targetSkillName,
-        error: error,
-      ),
-    );
-  }
-
-  @override
-  void onRenameTargetExists({
-    required String oldSkillName,
-    required String targetSkillName,
-    required String destinationPath,
-  }) {
-    _err.writeln(
-      ToolErrorMessages.renameTargetExistsMessage(
-        oldSkillName: oldSkillName,
-        targetSkillName: targetSkillName,
-        destinationPath: destinationPath,
-      ),
-    );
-  }
-
-  @override
-  void onBaselineFailed(String ignorePath, Object error) {
-    _err.writeln(ToolErrorMessages.baselineFailedMessage(ignorePath: ignorePath, error: error));
+    err.writeln(message);
   }
 
   @override

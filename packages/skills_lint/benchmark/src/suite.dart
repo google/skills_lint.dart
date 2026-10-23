@@ -68,7 +68,7 @@ final class BenchmarkDefinition {
 /// The benchmarks that `run_benchmarks.dart` runs.
 const List<BenchmarkDefinition> benchmarks = [
   BenchmarkDefinition(
-    name: 'validate_1000_skills_all_rules',
+    name: 'validate_1000_package_skills_all_rules',
     description: 'Installed executable validating 1000 skills with every built-in rule on.',
     skillCount: 1000,
     warmup: 2,

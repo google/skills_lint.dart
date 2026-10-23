@@ -11,6 +11,7 @@ import 'package:yaml/yaml.dart';
 
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
+import 'models/pub_archive.dart';
 import 'models/rule_config.dart';
 import 'models/skill_context.dart';
 import 'models/skill_rule.dart';
@@ -86,12 +87,21 @@ class Validator {
   ///
   /// Scans the directory for `SKILL.md`, parses its YAML metadata, and validates
   /// constraints like name format and field lengths using registered rules.
-  Future<ValidationResult> validate(Directory dir) async {
+  ///
+  /// Pass [pubArchive] to give rules such as `pub-archive-includes-skill` the
+  /// files pub would publish. It becomes [SkillContext.pubArchive].
+  Future<ValidationResult> validate(Directory dir, {PubArchive? pubArchive}) async {
     final skillMdFile = File(p.join(dir.path, SkillContext.skillFileName));
     final bool skillMdExists = dir.existsSync() && skillMdFile.existsSync();
 
     final fatalErrors = <ValidationError>[];
-    final SkillContext? context = await _buildContext(dir, skillMdFile, skillMdExists, fatalErrors);
+    final SkillContext? context = await _buildContext(
+      dir,
+      skillMdFile,
+      skillMdExists,
+      fatalErrors,
+      pubArchive: pubArchive,
+    );
     if (context == null) {
       return ValidationResult(validationErrors: fatalErrors);
     }
@@ -102,10 +112,21 @@ class Validator {
   /// writing the file.
   ///
   /// `--fix` uses this to try a fix before it writes anything. Pass
-  /// [directoryName] to validate as if [dir] were already renamed to it.
+  /// [directoryName] to validate as if [dir] were already renamed to it, and
+  /// [pubArchive] as in [validate].
   @internal
-  Future<ValidationResult> validateContent(Directory dir, String content, {String? directoryName}) {
-    final SkillContext context = _parseContext(dir, content, directoryName: directoryName);
+  Future<ValidationResult> validateContent(
+    Directory dir,
+    String content, {
+    String? directoryName,
+    PubArchive? pubArchive,
+  }) {
+    final SkillContext context = _parseContext(
+      dir,
+      content,
+      directoryName: directoryName,
+      pubArchive: pubArchive,
+    );
     return _runRules(context, skillMdExists: true);
   }
 
@@ -135,8 +156,9 @@ class Validator {
     Directory dir,
     File skillMdFile,
     bool skillMdExists,
-    List<ValidationError> fatalErrors,
-  ) async {
+    List<ValidationError> fatalErrors, {
+    required PubArchive? pubArchive,
+  }) async {
     if (!skillMdExists) {
       return SkillContext(directory: dir, rawContent: '');
     }
@@ -156,11 +178,16 @@ class Validator {
       return null;
     }
 
-    return _parseContext(dir, content);
+    return _parseContext(dir, content, pubArchive: pubArchive);
   }
 
   /// Parses the YAML frontmatter of [content] into a [SkillContext] for [dir].
-  SkillContext _parseContext(Directory dir, String content, {String? directoryName}) {
+  SkillContext _parseContext(
+    Directory dir,
+    String content, {
+    String? directoryName,
+    PubArchive? pubArchive,
+  }) {
     YamlMap? parsedYaml;
     String? yamlParsingError;
     try {
@@ -186,6 +213,7 @@ class Validator {
       parsedYaml: parsedYaml,
       yamlParsingError: yamlParsingError,
       directoryName: directoryName,
+      pubArchive: pubArchive,
     );
   }
 
