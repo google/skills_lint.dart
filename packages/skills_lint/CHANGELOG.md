@@ -1,10 +1,9 @@
 ## 0.5.3-wip
 
-- Fixed `--fix` printing the diagnostics from before the fix. It now prints the diagnostics that remain after the fix, which decide the exit code. Before, the output could disagree with the exit code.
-- `--fix` keeps a fix only if it lowers the skill's errors, then warnings, across all enabled rules, and repeats until no fix helps. Fixes that would add a problem or rename onto an existing directory are skipped and named in the output.
-- When `--fix` renames a skill directory, it re-validates all validated skills in the run so cross-skill links broken by the rename are reported, and moves the skill's baseline ignore entries to the new directory name.
-- `--fix --dry-run` prints the result the fixes would leave under `After fixes, the skill would be:`.
-- Added `SkillContext.activeDirectoryName`, the skill directory's name once a planned rename happens.
+- Fixed `--fix` printing the diagnostics from before the fix. It now prints the ones that remain, which decide the exit code.
+- `--fix` repeats fixes until none helps, keeps a fix only if it lowers the skill's errors (then warnings), and names each fix it skips. `--fix --dry-run` also prints the result the fixes would leave.
+- When `--fix` renames a skill directory, it moves the skill's baseline ignore entries to the new name and re-checks all skills for links the rename broke.
+- Added `SkillContext.activeDirectoryName`, the directory name rules check a skill against, including a planned rename.
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
 - Requires Dart 3.12 or later.
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.
