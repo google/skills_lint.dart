@@ -19,7 +19,7 @@
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
 - The published package includes its agent skills, so `dart run skills@ get` installs them.
 - Added the `pub-archive-includes-skill` rule, disabled by default. It reports a skill in a package's `skills/` directory, or a package file that `SKILL.md` links to, that `dart pub publish` would leave out, and links to files outside the package. It needs `dart` on `PATH`.
-- Added an optional `target` field to `skills_lint_ignore.json` entries and `ValidationError` so a baseline entry for `check-relative-paths` or `check-absolute-paths` suppresses only the named link target (such as `"target": "../../RULES.md"`) rather than every link in the file. Older versions of `skills_lint` (`<= 0.5.2`) ignore the `"target"` key when reading a baseline file and treat the entry as whole-file.
+- Added an optional `target` field to `skills_lint_ignore.json` entries and `ValidationError` so a baseline entry for `check-relative-paths` or `check-absolute-paths` suppresses only the named link target rather than every link in the file.
 
 ## 0.5.2
 
