@@ -62,8 +62,9 @@ const fixApplyDeprecationMsg =
     'Pass --fix --dry-run to preview changes without writing.';
 
 /// Welcoming first-run guide shown when no args are passed and no default
-/// skills directory exists.
-const _firstRunGuideMsg = '''
+/// skills directory exists. Exposed so integration tests can assert the
+/// exact greeting (drift here changes the new-user experience).
+const firstRunGuideMsg = '''
 skills_lint: a linter for Agent Skills (SKILL.md).
 
 No skills were found to validate. Get started in one of three ways:
@@ -218,9 +219,9 @@ Future<void> runApp(List<String> args) async {
     }
   } on MissingDefaultsException catch (_) {
     if (format != OutputFormat.text) {
-      stderr.writeln(_firstRunGuideMsg);
+      stderr.writeln(firstRunGuideMsg);
     } else {
-      stdout.writeln(_firstRunGuideMsg);
+      stdout.writeln(firstRunGuideMsg);
     }
     exitCode = 64;
   }
