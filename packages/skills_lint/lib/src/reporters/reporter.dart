@@ -70,18 +70,18 @@ abstract class Reporter {
   /// disk for [skillName].
   void onFixesWritten(String skillName, {required List<String> ruleNames}) {}
 
-  /// Called by the session once `--fix` has fixed a skill and validated it
-  /// again, with the result of that validation.
+  /// Called by the session once it has fixed a skill and validated it again,
+  /// with the result of that validation.
   ///
-  /// With `--fix`, this replaces [onSkillValidationComplete] for a skill
-  /// whose fixes changed it, and [result] is the one that sets the exit code.
-  /// With [dryRun], nothing was written, and [result] is the skill as `--fix`
-  /// would leave it.
+  /// When fixes are written, this replaces [onSkillValidationComplete] for a
+  /// skill whose fixes changed it, and [result] is the one that sets the exit
+  /// code. With [dryRun], nothing was written, and [result] is the skill as
+  /// the fixes would leave it.
   void onFixedSkillValidationComplete(ValidationResult result, {bool dryRun = false}) {}
 
-  /// Called when `--fix` drops a rule's fix because the fix would not lower
-  /// the skill's errors, then warnings.
-  void onFixSkipped(SkippedFix skipped) {}
+  /// Called when the fixer drops a rule's fix for [skillName] because the fix
+  /// would not lower the skill's errors, then warnings.
+  void onFixSkipped(String skillName, SkippedFix skipped) {}
 
   /// Called when the fixes for [skillName] still change the skill after
   /// [passes] passes.

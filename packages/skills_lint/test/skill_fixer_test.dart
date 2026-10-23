@@ -166,7 +166,7 @@ void main() {
     expect(outcome.content, original);
     final SkippedFix skipped = outcome.skippedFixes.single;
     expect(skipped.ruleName, AbsolutePathsRule.ruleName);
-    expect(skipped.grownRuleIds, [RelativePathsRule.ruleName]);
+    expect(skipped.grownRuleNames, [RelativePathsRule.ruleName]);
     expect(outcome.result.isValid, isTrue);
     await expectDiskMatches(outcome, skillDir, ruleConfigs);
   });
@@ -183,7 +183,7 @@ void main() {
     expect(outcome.content, original);
     expect(outcome.skippedFixes.single.ruleName, PublishedSkillNameRule.ruleName);
     expect(outcome.skippedFixes.single.blockedDirectoryName, 'bar-foo');
-    expect(outcome.skippedFixes.single.grownRuleIds, [NameFormatRule.ruleName]);
+    expect(outcome.skippedFixes.single.grownRuleNames, [NameFormatRule.ruleName]);
     for (var run = 1; run <= 2; run++) {
       await applyFix(skillDir, publishedName);
       expect(
@@ -192,6 +192,25 @@ void main() {
         reason: 'run $run',
       );
     }
+  });
+
+  test('renames a directory whose name differs only in case', () async {
+    // On a case-insensitive file system, `bar-x` already "exists" as `Bar-x`.
+    await File(p.join(root.path, 'pubspec.yaml')).writeAsString('name: bar\n');
+    final Directory skillDir = await createDummySkill(
+      Directory(p.join(root.path, 'skills')),
+      name: 'Bar-x',
+      skillContent: '${buildFrontmatter(name: 'x')}Body\n',
+    );
+
+    final FixOutcome outcome = await predict(skillDir, publishedName);
+
+    expect(outcome.skippedFixes, isEmpty);
+    expect(outcome.directoryName, 'bar-x');
+    await applyFix(skillDir, publishedName);
+    expect(Directory(p.join(root.path, 'skills')).listSync().map((e) => p.basename(e.path)), [
+      'bar-x',
+    ]);
   });
 
   test('stops after maxPasses and says the fixes did not settle', () async {

@@ -49,14 +49,14 @@ void main() {
   group('onFixSkipped names the reason', () {
     String skippedLine(SkippedFix skipped) {
       final out = StringBuffer();
-      TextReporter(out: out, err: StringBuffer()).onFixSkipped(skipped);
+      TextReporter(out: out, err: StringBuffer()).onFixSkipped('my-skill', skipped);
       return out.toString().trim();
     }
 
     test('when the directory to rename to exists', () {
       expect(
         skippedLine(
-          SkippedFix(ruleName: 'r', grownRuleIds: const ['g'], blockedDirectoryName: 'bar-foo'),
+          SkippedFix(ruleName: 'r', grownRuleNames: const ['g'], blockedDirectoryName: 'bar-foo'),
         ),
         allOf(startsWith('Skipped the r fix'), contains('bar-foo already exists')),
       );
@@ -64,14 +64,14 @@ void main() {
 
     test('when the fix adds diagnostics', () {
       expect(
-        skippedLine(SkippedFix(ruleName: 'r', grownRuleIds: const ['g', 'h'])),
+        skippedLine(SkippedFix(ruleName: 'r', grownRuleNames: const ['g', 'h'])),
         allOf(startsWith('Skipped the r fix'), contains('add g, h diagnostics')),
       );
     });
 
     test('when the fix only fails to lower the count', () {
       expect(
-        skippedLine(SkippedFix(ruleName: 'r', grownRuleIds: const [])),
+        skippedLine(SkippedFix(ruleName: 'r', grownRuleNames: const [])),
         allOf(startsWith('Skipped the r fix'), contains('would not lower')),
       );
     });

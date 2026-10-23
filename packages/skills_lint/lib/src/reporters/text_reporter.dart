@@ -93,14 +93,14 @@ class TextReporter extends Reporter {
   }
 
   @override
-  void onFixSkipped(SkippedFix skipped) {
+  void onFixSkipped(String skillName, SkippedFix skipped) {
     if (quiet) {
       return;
     }
     final String reason = switch (skipped) {
       SkippedFix(blockedDirectoryName: final String name) => 'directory $name already exists',
-      SkippedFix(grownRuleIds: []) => 'it would not lower the number of errors or warnings',
-      SkippedFix(:final grownRuleIds) => 'it would add ${grownRuleIds.join(', ')} diagnostics',
+      SkippedFix(grownRuleNames: []) => 'it would not lower the number of errors or warnings',
+      SkippedFix(:final grownRuleNames) => 'it would add ${grownRuleNames.join(', ')} diagnostics',
     };
     out.writeln('  Skipped the ${skipped.ruleName} fix: $reason.');
   }

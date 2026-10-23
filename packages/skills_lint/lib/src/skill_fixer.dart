@@ -26,9 +26,9 @@ class SkillFixer {
 
   /// The most passes over the fixable rules for one skill.
   ///
-  /// Every kept fix lowers the count, and every pass but the last keeps a
-  /// fix, so the loop ends on its own. Only a fix whose result changes
-  /// between identical calls can reach this limit.
+  /// Every kept fix strictly lowers the count of errors, then warnings, which
+  /// can't go below zero, so the loop ends on its own. Only a fix whose
+  /// result changes between identical calls can reach this limit.
   static const int maxPasses = 10;
 
   /// Validates each candidate, with the skill's rules.
@@ -43,11 +43,13 @@ class SkillFixer {
 
   /// Fixes the skill that [initial] describes, without writing to disk.
   ///
-  /// [initial] must have a context.
+  /// [initial] must have a context. The fixer reads the file system only to
+  /// check whether a planned rename would collide with another directory.
   Future<FixOutcome> fix(ValidationResult initial) async {
     var current = initial;
     final appliedRuleNames = <String>[];
     final skippedFixes = <String, SkippedFix>{};
+    String? blockedDirectoryName;
 
     for (var pass = 1; pass <= maxPasses; pass++) {
       var keptAFix = false;
@@ -63,6 +65,7 @@ class SkillFixer {
         if (_DiagnosticCount.of(candidate).isLowerThan(_DiagnosticCount.of(current))) {
           current = candidate;
           keptAFix = true;
+          blockedDirectoryName = attempt.blockedDirectoryName ?? blockedDirectoryName;
           skippedFixes.remove(rule.name);
           if (!appliedRuleNames.contains(rule.name)) {
             appliedRuleNames.add(rule.name);
@@ -70,16 +73,22 @@ class SkillFixer {
         } else {
           skippedFixes[rule.name] = SkippedFix(
             ruleName: rule.name,
-            grownRuleIds: _grownRuleIds(before: current, after: candidate),
+            grownRuleNames: _grownRuleNames(before: current, after: candidate),
             blockedDirectoryName: attempt.blockedDirectoryName,
           );
         }
       }
       if (!keptAFix) {
-        return _outcome(current, appliedRuleNames, skippedFixes, settled: true);
+        return _outcome(
+          current,
+          appliedRuleNames,
+          skippedFixes,
+          blockedDirectoryName,
+          settled: true,
+        );
       }
     }
-    return _outcome(current, appliedRuleNames, skippedFixes, settled: false);
+    return _outcome(current, appliedRuleNames, skippedFixes, blockedDirectoryName, settled: false);
   }
 
   /// Runs [rule]'s fix on the content of [current] and validates the result,
@@ -109,7 +118,7 @@ class SkillFixer {
     // the fixed content keeps the current name and is judged that way.
     final bool renameBlocked =
         nameAfterFix != p.basename(context.directory.path) &&
-        Directory(p.join(p.dirname(context.directory.path), nameAfterFix)).existsSync();
+        isNameTaken(context.directory, nameAfterFix);
     final ValidationResult result = await validator.validateProposedContent(
       context,
       fixedContent,
@@ -143,13 +152,23 @@ class SkillFixer {
     return nameAfter;
   }
 
+  /// Whether a directory other than [skillDir] already has the name [name]
+  /// next to it.
+  static bool isNameTaken(Directory skillDir, String name) {
+    final target = Directory(p.join(p.dirname(skillDir.path), name));
+    // On a case-insensitive file system, a name that differs only in case
+    // finds the skill directory itself.
+    return target.existsSync() &&
+        target.resolveSymbolicLinksSync() != skillDir.resolveSymbolicLinksSync();
+  }
+
   /// Whether [result] has an un-ignored diagnostic from the rule named
   /// [ruleName].
   static bool _reports(ValidationResult result, String ruleName) =>
       result.validationErrors.any((e) => e.ruleId == ruleName && !e.isIgnored);
 
   /// The rules that report more diagnostics in [after] than in [before].
-  static List<String> _grownRuleIds({
+  static List<String> _grownRuleNames({
     required ValidationResult before,
     required ValidationResult after,
   }) {
@@ -174,7 +193,8 @@ class SkillFixer {
   static FixOutcome _outcome(
     ValidationResult result,
     List<String> appliedRuleNames,
-    Map<String, SkippedFix> skippedFixes, {
+    Map<String, SkippedFix> skippedFixes,
+    String? blockedDirectoryName, {
     required bool settled,
   }) => FixOutcome(
     result: result,
@@ -186,6 +206,7 @@ class SkillFixer {
         if (_reports(result, skipped.ruleName)) skipped,
     ],
     settled: settled,
+    blockedDirectoryName: blockedDirectoryName,
   );
 }
 
