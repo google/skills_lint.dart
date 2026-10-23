@@ -741,8 +741,7 @@ class ValidationSession {
       pubArchive: await _pubArchiveFor(skillDir, validator),
     );
     _applyIgnores(result, skillIgnores, skillDir);
-    // With --fix, the result that counts is the one after the fixes, so it is
-    // reported once the fixes are done.
+    // With --fix, the result that counts is the one after the fixes are done.
     if (!fixApply) {
       _reporter.onSkillValidationComplete(result);
     }
