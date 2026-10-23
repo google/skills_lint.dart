@@ -86,8 +86,13 @@ void main() {
     );
   }
 
-  Future<FixOutcome> predict(Directory skillDir, Map<String, RuleConfig> ruleConfigs) async {
-    final validator = Validator(ruleConfigs: ruleConfigs);
+  /// Runs [SkillFixer] on [skillDir] in memory.
+  Future<FixOutcome> predict(
+    Directory skillDir,
+    Map<String, RuleConfig> ruleConfigs, {
+    List<SkillRule> customRules = const [],
+  }) async {
+    final validator = Validator(ruleConfigs: ruleConfigs, customRules: customRules);
     return SkillFixer(
       validator: validator,
       applyIgnores: (_) {},
@@ -194,13 +199,11 @@ void main() {
 
   test('stops after maxPasses and says the fixes did not settle', () async {
     final Directory skillDir = await createPackageSkill('bar-foo');
-    final validator = Validator(customRules: [_OneStepAtATimeRule(SkillFixer.maxPasses + 1)]);
-
-    final FixOutcome outcome = await SkillFixer(
-      validator: validator,
-      applyIgnores: (_) {},
-      onFixFailed: (ruleName, error) => fail('$ruleName fix threw $error'),
-    ).fix(await validator.validate(skillDir));
+    final FixOutcome outcome = await predict(
+      skillDir,
+      const {},
+      customRules: [_OneStepAtATimeRule(SkillFixer.maxPasses + 1)],
+    );
 
     expect(outcome.settled, isFalse);
     expect('x'.allMatches(outcome.content), hasLength(SkillFixer.maxPasses));

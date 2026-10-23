@@ -845,46 +845,37 @@ class ValidationSession {
       return result;
     }
 
-    final String? newDirectoryName = outcome.directoryName == currentDirectoryName
-        ? null
-        : outcome.directoryName;
-
     if (fixApply) {
       await skillMdFile.writeAsString(outcome.content);
-      _reporter.onFixApplied(currentDirectoryName, ruleNames: outcome.appliedRuleNames);
+      _reporter.onFixesWritten(currentDirectoryName, ruleNames: outcome.appliedRuleNames);
 
-      final Directory effectiveSkillDir = newDirectoryName != null
-          ? await _alignSkillDirectory(
-              skillDir: skillDir,
-              currentDirectoryName: currentDirectoryName,
-              newDirectoryName: newDirectoryName,
-            )
-          : skillDir;
-      final String effectiveName = p.basename(effectiveSkillDir.path);
+      final Directory fixedSkillDir = await _renameSkillDirectory(skillDir, outcome.directoryName);
+      final String fixedName = p.basename(fixedSkillDir.path);
       _recordSkillRename(
         oldName: currentDirectoryName,
-        newName: effectiveName,
-        effectiveSkillDir: effectiveSkillDir,
+        newName: fixedName,
+        fixedSkillDir: fixedSkillDir,
         ignores: ignores,
         ignorePath: ignorePath,
         ignorePathFollowsSkillDir: ignorePathFollowsSkillDir,
       );
-
-      final List<IgnoreEntry> effectiveIgnores = ignores.skills[effectiveName] ?? skillIgnores;
-      // The fix wrote to disk, so an archive built earlier may be stale.
-      _pubArchiveLoader.clear();
+      if (fixedName != currentDirectoryName) {
+        // The archive lists files by path, so a rename makes it stale.
+        _pubArchiveLoader.clear();
+      }
+      final List<IgnoreEntry> fixedIgnores = ignores.skills[fixedName] ?? skillIgnores;
       final ValidationResult newResult = await validator.validate(
-        effectiveSkillDir,
-        pubArchive: await _pubArchiveFor(effectiveSkillDir, validator),
+        fixedSkillDir,
+        pubArchive: await _pubArchiveFor(fixedSkillDir, validator),
       );
-      _applyIgnores(newResult, effectiveIgnores, effectiveSkillDir);
+      _applyIgnores(newResult, fixedIgnores, fixedSkillDir);
       _reporter.onFixedSkillValidationComplete(newResult);
       return newResult;
     }
 
     _reporter.onDryRunProposed(
       skillName: currentDirectoryName,
-      targetSkillName: newDirectoryName,
+      targetSkillName: outcome.directoryName,
       originalContent: context.rawContent,
       currentContent: outcome.content,
     );
@@ -895,7 +886,7 @@ class ValidationSession {
   void _recordSkillRename({
     required String oldName,
     required String newName,
-    required Directory effectiveSkillDir,
+    required Directory fixedSkillDir,
     required SkillsIgnores ignores,
     required String ignorePath,
     required bool ignorePathFollowsSkillDir,
@@ -908,20 +899,19 @@ class ValidationSession {
       return;
     }
     final String targetIgnorePath = ignorePathFollowsSkillDir
-        ? p.join(effectiveSkillDir.path, defaultIgnoreFileName)
+        ? p.join(fixedSkillDir.path, defaultIgnoreFileName)
         : ignorePath;
     if (File(targetIgnorePath).existsSync()) {
       _renamedIgnorePaths.add(targetIgnorePath);
     }
   }
 
-  /// Renames [skillDir], whose name is [currentDirectoryName], to
-  /// [newDirectoryName], and returns the directory to validate next.
-  Future<Directory> _alignSkillDirectory({
-    required Directory skillDir,
-    required String currentDirectoryName,
-    required String newDirectoryName,
-  }) async {
+  /// Renames [skillDir] to [newDirectoryName], and returns the skill
+  /// directory as it is afterwards.
+  ///
+  /// Returns [skillDir] when it already has that name or the rename fails.
+  Future<Directory> _renameSkillDirectory(Directory skillDir, String newDirectoryName) async {
+    final String currentDirectoryName = p.basename(skillDir.path);
     if (newDirectoryName == currentDirectoryName) {
       return skillDir;
     }

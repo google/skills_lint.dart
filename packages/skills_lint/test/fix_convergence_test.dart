@@ -232,13 +232,13 @@ Future<void> _verifyFixtureForRule(
     return;
   }
 
-  final String plannedName =
+  final String nameAfterFix =
       SkillFixer.newDirectoryName(originalContent: initialContext.rawContent, fixedContent: once) ??
-      initialContext.directoryName;
-  final ValidationResult afterOnce = await validator.validateContent(
-    skillDir,
+      initialContext.activeDirectoryName;
+  final ValidationResult afterOnce = await validator.validateProposedContent(
+    initialContext,
     once,
-    directoryName: plannedName,
+    activeDirectoryName: nameAfterFix,
   );
 
   // P1: applying the rule's fix a second time changes nothing.
