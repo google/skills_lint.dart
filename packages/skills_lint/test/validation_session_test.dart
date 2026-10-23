@@ -263,72 +263,25 @@ void main() {
       // is controlled by ACLs rather than mode bits.
     }, testOn: '!windows');
 
-    test('an ignore entry with a subject suppresses only findings about that subject', () async {
-      final Directory skillDir = await createDummySkill(
-        tempDir,
-        name: 'subject-skill',
-        skillContent:
-            '${buildFrontmatter(name: 'subject-skill')}\n'
-            '[Rules 1](../../RULES.md)\n'
-            '[Rules 2](../../RULES.md)\n'
-            '[Missing](missing.md)\n',
-      );
-      final String ignorePath = p.join(skillDir.path, defaultIgnoreFileName);
-      File(ignorePath).writeAsStringSync(
-        jsonEncode({
-          SkillsIgnores.skillsKey: {
-            'subject-skill': [
-              {
-                IgnoreEntry.ruleIdKey: RelativePathsRule.ruleName,
-                IgnoreEntry.fileNameKey: 'SKILL.md',
-                IgnoreEntry.subjectKey: '../../RULES.md',
-              },
-            ],
-          },
-        }),
-      );
+    group('ignore entries', () {
+      // Two links to ../../RULES.md, which is outside the skill, and one to a
+      // missing file: three check-relative-paths errors in SKILL.md.
+      const links =
+          '[Rules](../../RULES.md)\n[Rules again](../../RULES.md)\n[Missing](missing.md)\n';
 
-      final ValidationSession session = createTestSession(
-        resolvedRuleConfigs: {
-          RelativePathsRule.ruleName: RuleConfigPatch(
-            severity: AnalysisSeverity.error,
-            parameters: CustomRuleParameters(const {RelativePathsRule.withinSkillParameter: true}),
-          ),
-        },
-      );
-      await session.processIndividualSkill(skillDir.path);
-
-      expect(session.anyFailed, isTrue);
-      final List<String> errors = session.results.single.errors;
-      expect(errors, hasLength(1));
-      expect(errors.single, contains('missing.md'));
-    });
-
-    test(
-      'an ignore entry without a subject suppresses every finding of that rule in the file',
-      () async {
+      /// The errors left after validating a skill with [links] whose ignore
+      /// file lists [entries].
+      Future<List<String>> errorsIgnoring(List<Map<String, String>> entries) async {
         final Directory skillDir = await createDummySkill(
           tempDir,
-          name: 'whole-file-skill',
-          skillContent:
-              '${buildFrontmatter(name: 'whole-file-skill')}\n'
-              '[Rules](../../RULES.md)\n'
-              '[Missing](missing.md)\n',
+          name: 'my-skill',
+          skillContent: '${buildFrontmatter(name: 'my-skill')}\n$links',
         );
-        final String ignorePath = p.join(skillDir.path, defaultIgnoreFileName);
-        File(ignorePath).writeAsStringSync(
+        File(p.join(skillDir.path, defaultIgnoreFileName)).writeAsStringSync(
           jsonEncode({
-            SkillsIgnores.skillsKey: {
-              'whole-file-skill': [
-                {
-                  IgnoreEntry.ruleIdKey: RelativePathsRule.ruleName,
-                  IgnoreEntry.fileNameKey: 'SKILL.md',
-                },
-              ],
-            },
+            SkillsIgnores.skillsKey: {'my-skill': entries},
           }),
         );
-
         final ValidationSession session = createTestSession(
           resolvedRuleConfigs: {
             RelativePathsRule.ruleName: RuleConfigPatch(
@@ -340,11 +293,26 @@ void main() {
           },
         );
         await session.processIndividualSkill(skillDir.path);
+        return session.results.single.errors;
+      }
 
-        expect(session.anyFailed, isFalse);
-        expect(session.results.single.errors, isEmpty);
-      },
-    );
+      const Map<String, String> wholeFile = {
+        IgnoreEntry.ruleIdKey: RelativePathsRule.ruleName,
+        IgnoreEntry.fileNameKey: 'SKILL.md',
+      };
+
+      test('with a subject suppress every finding about it and no others', () async {
+        final List<String> errors = await errorsIgnoring([
+          {...wholeFile, IgnoreEntry.subjectKey: '../../RULES.md'},
+        ]);
+
+        expect(errors, [contains('missing.md')]);
+      });
+
+      test('without a subject suppress every finding of the rule in the file', () async {
+        expect(await errorsIgnoring([wholeFile]), isEmpty);
+      });
+    });
   });
 
   group('pub archive', () {

@@ -69,8 +69,7 @@ class ValidationError {
   /// The severity of the error.
   final AnalysisSeverity severity;
 
-  /// The thing within [file] that this error is about, or `null` if the rule
-  /// names none.
+  /// The thing within [file] that this error is about, or `null` if unset.
   ///
   /// An ignore entry with the same [ruleId], [file] and [IgnoreEntry.subject]
   /// suppresses this error. The rule must derive the value from the content,

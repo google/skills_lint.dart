@@ -4,7 +4,6 @@
 
 import 'dart:io';
 
-import '../models/ignore_entry.dart';
 import '../models/output_format.dart';
 import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
@@ -108,8 +107,6 @@ abstract class Reporter {
   }
 
   /// Called when an ignore entry was not matched by any finding.
-  ///
-  /// [subject] is the entry's [IgnoreEntry.subject].
   void onStaleIgnoreFound({
     required String ruleId,
     required String skillName,

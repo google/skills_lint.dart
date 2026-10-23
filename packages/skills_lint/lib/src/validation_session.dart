@@ -617,15 +617,7 @@ class ValidationSession {
       if (error.isIgnored) {
         continue;
       }
-      final String portableName = baselineFileName(error.file, skillDir);
-      final String absoluteName = _absoluteErrorFile(error.file, skillDir);
-      final List<IgnoreEntry> fileEntries = [
-        for (final pair in preNormalizedIgnores)
-          if (pair.entry.ruleId == error.ruleId &&
-              _ignoreCovers(pair.normalizedFileName, portableName, absoluteName))
-            pair.entry,
-      ];
-      final IgnoreEntry? entry = _entryFor(error, fileEntries);
+      final IgnoreEntry? entry = _entryFor(error, preNormalizedIgnores, skillDir);
       if (entry != null) {
         error.isIgnored = true;
         entry.used = true;
@@ -633,23 +625,28 @@ class ValidationSession {
     }
   }
 
-  /// The entry in [fileEntries] that suppresses [error], or `null` if none does.
+  /// The entry in [ignores] that suppresses [error], or `null` if none does.
   ///
-  /// [fileEntries] cover the error's rule and file. An entry whose subject
-  /// matches is used before a whole-file entry, so the order of entries in the
-  /// ignore file doesn't change which one is reported stale.
-  static IgnoreEntry? _entryFor(ValidationError error, List<IgnoreEntry> fileEntries) {
-    for (final entry in fileEntries) {
-      if (entry.subject != null && entry.subject == error.subject) {
-        return entry;
-      }
-    }
-    for (final entry in fileEntries) {
-      if (entry.subject == null) {
-        return entry;
-      }
-    }
-    return null;
+  /// An entry whose subject matches is used before a whole-file entry, so the
+  /// order of entries in the ignore file doesn't change which one is reported
+  /// stale.
+  static IgnoreEntry? _entryFor(
+    ValidationError error,
+    List<({IgnoreEntry entry, String normalizedFileName})> ignores,
+    Directory skillDir,
+  ) {
+    final String portableName = baselineFileName(error.file, skillDir);
+    final String absoluteName = _absoluteErrorFile(error.file, skillDir);
+    final List<IgnoreEntry> sameRuleAndFile = [
+      for (final ignore in ignores)
+        if (ignore.entry.ruleId == error.ruleId &&
+            _ignoreCovers(ignore.normalizedFileName, portableName, absoluteName))
+          ignore.entry,
+    ];
+    return sameRuleAndFile
+            .where((entry) => entry.subject != null && entry.subject == error.subject)
+            .firstOrNull ??
+        sameRuleAndFile.where((entry) => entry.subject == null).firstOrNull;
   }
 
   /// Returns the `file_name` to store in a baseline entry for an error that a
