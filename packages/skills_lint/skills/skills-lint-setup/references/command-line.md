@@ -55,8 +55,6 @@ holds skills. For example:
 
 ```yaml
 skills_lint:
-  rules:
-    check-relative-paths: error
   directories:
     - path: ".agents/skills"
 ```

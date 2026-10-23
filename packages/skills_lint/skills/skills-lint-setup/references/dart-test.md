@@ -22,8 +22,6 @@ package publishes; leave them out for skills it doesn't publish, such as
 
 ```yaml
 skills_lint:
-  rules:
-    check-relative-paths: error
   directories:
     # A package publishes its skills from skills/.
     - path: "skills"
