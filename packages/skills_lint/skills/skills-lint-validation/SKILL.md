@@ -94,10 +94,11 @@ void main() {
       isNotEmpty,
       reason: 'Configuration directoryConfigs should not be empty.',
     );
-    await validateSkills(
+    final bool passed = await validateSkills(
       config: config,
       customRules: [DeprecatedSkillRule()],
     );
+    expect(passed, isTrue, reason: 'skills_lint found errors. Its findings are printed above.');
   });
 }
 ```
