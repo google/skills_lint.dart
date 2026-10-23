@@ -712,6 +712,9 @@ class ValidationSession {
       validator: validator,
       skillIgnores: skillIgnores,
     );
+    if (fixApply && identical(finalResult, result)) {
+      _reporter.onSkillValidationComplete(result);
+    }
 
     if (generateBaseline) {
       final String effectiveName = p.basename(finalResult.context?.directory.path ?? skillDir.path);
@@ -738,7 +741,11 @@ class ValidationSession {
       pubArchive: await _pubArchiveFor(skillDir, validator),
     );
     _applyIgnores(result, skillIgnores, skillDir);
-    _reporter.onSkillValidationComplete(result);
+    // With --fix, the result that counts is the one after the fixes, so it is
+    // reported once the fixes are done.
+    if (!fixApply) {
+      _reporter.onSkillValidationComplete(result);
+    }
     return result;
   }
 

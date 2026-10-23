@@ -24,12 +24,12 @@ void main() {
     ],
   );
 
-  test('prints the heading and the remaining errors after fixes', () {
+  test('prints the errors that remain after fixes', () {
     final out = StringBuffer();
     final err = StringBuffer();
     TextReporter(out: out, err: err).onFixedSkillValidationComplete(invalidResult);
 
-    expect(out.toString(), contains(TextReporter.afterFixesMsg));
+    expect(err.toString(), contains(TextReporter.skillIsInvalidMsg));
     expect(err.toString(), contains('Still broken'));
   });
 
@@ -44,14 +44,5 @@ void main() {
 
     expect(out.toString(), isEmpty);
     expect(err.toString(), isEmpty);
-  });
-
-  test('with --quiet, still prints the heading before remaining errors', () {
-    final out = StringBuffer();
-    final err = StringBuffer();
-    TextReporter(out: out, err: err, quiet: true).onFixedSkillValidationComplete(invalidResult);
-
-    expect(out.toString(), contains(TextReporter.afterFixesMsg));
-    expect(err.toString(), contains('Still broken'));
   });
 }

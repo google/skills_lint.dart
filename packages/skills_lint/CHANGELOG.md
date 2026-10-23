@@ -1,6 +1,6 @@
 ## 0.5.3-wip
 
-- Fixed `--fix` printing only the diagnostics from before the fix. It now also prints the result after the fix under `After fixes:`, which is the result that decides the exit code. Before, a run could print `Skill is valid.` and exit 1.
+- Fixed `--fix` printing the diagnostics from before the fix. It now prints the diagnostics that remain after the fix, which decide the exit code. Before, the output could disagree with the exit code.
 - `--fix` keeps a fix only if it lowers the skill's errors, then warnings, across all enabled rules, and repeats until no fix helps. Fixes that would add a problem or rename onto an existing directory are skipped and named in the output.
 - `--fix --dry-run` prints the result the fixes would leave under `After fixes, the skill would be:`.
 - Added `SkillContext.directoryName`, the skill directory's name once `--fix` renames it.

@@ -159,7 +159,7 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `--[no-]check-trailing-whitespace`: Enable/disable checking for trailing whitespace. (Disabled by default).
 - `--[no-]pub-archive-includes-skill`: Check that `dart pub publish` includes each skill in `skills/` and the files it links to. (Disabled by default).
 - `--[no-]published-skill-name`: Enable/disable checking that published package skills follow the package naming convention. (Disabled by default).
-- `--fix`: Write fixes for failing lints to disk, then print the diagnostics that remain under `After fixes:`. The exit code reflects the skill after the fixes. A fix is kept only if it lowers the skill's errors, then warnings. Fixes repeat until none helps, so one run is enough.
+- `--fix`: Write fixes for failing lints to disk, then print the diagnostics that remain. The exit code reflects the skill after the fixes. A fix is kept only if it lowers the skill's errors, then warnings. Fixes repeat until none helps, so one run is enough.
 - `--dry-run`: When combined with `--fix`, prints the proposed diff and the resulting diagnostics without writing.
 - `--fix-apply`: *Deprecated* alias for `--fix`. Prints a deprecation notice on use.
 - `--format`: Output format for validation diagnostics. One of:
