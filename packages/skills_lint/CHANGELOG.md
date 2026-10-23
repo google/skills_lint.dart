@@ -1,5 +1,6 @@
 ## 0.5.3-wip
 
+- Fixed `--fix` printing the diagnostics from before the fix. It now prints the ones that remain, which decide the exit code.
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
 - Requires Dart 3.12 or later.
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.

@@ -77,6 +77,9 @@ class TextReporter extends Reporter {
   }
 
   @override
+  void onFixedSkillValidationComplete(ValidationResult result) => onSkillValidationComplete(result);
+
+  @override
   void onDryRunProposed({
     required String skillName,
     String? targetSkillName,

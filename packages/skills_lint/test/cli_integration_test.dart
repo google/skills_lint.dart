@@ -672,6 +672,37 @@ skills_lint:
       expect(content, contains('Line with 1 space\n'));
     });
 
+    test('--fix prints the diagnostics that remain after the fix', () async {
+      // The absolute-path fix turns a warning into a within-skill error, so the
+      // skill is valid before the fix and invalid after it.
+      final String root = tempDir.resolveSymbolicLinksSync();
+      final String guidePath = p.join(root, 'shared', 'guide.md');
+      await File(guidePath).create(recursive: true);
+      final Directory skillDir = await createDummySkill(
+        Directory(p.join(root, 'skills')),
+        name: 'my-skill',
+        skillContent: '${buildFrontmatter(name: 'my-skill')}See [guide]($guidePath).\n',
+      );
+
+      final TestProcess process = await startCli([
+        '--ignore-config',
+        '-s',
+        skillDir.path,
+        '--check-relative-paths',
+        '--check-relative-paths-within-skill=true',
+        '--fix',
+      ]);
+
+      final String stdout = (await process.stdout.rest.toList()).join('\n');
+      final String stderr = (await process.stderr.rest.toList()).join('\n');
+      // Only the result after the fix is printed.
+      expect(stdout, isNot(contains(TextReporter.skillIsValidMsg)));
+      expect(stdout, isNot(contains('Absolute filepath found')));
+      expect(stderr, contains(TextReporter.skillIsInvalidMsg));
+      expect(stderr, contains('Linked file is outside the skill directory: ../../shared/guide.md'));
+      await process.shouldExit(1);
+    });
+
     test('--fix-apply alias still works but prints a deprecation notice', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
       await File(
