@@ -16,7 +16,7 @@ import 'release_exception.dart';
 
 /// The suffix of the checksum file that each build job writes next to its
 /// archive.
-const String checksumSuffix = '.sha256';
+const String _checksumSuffix = '.sha256';
 
 /// The name of the release asset that lists the checksum of every archive.
 const String sha256SumsName = 'SHA256SUMS';
@@ -49,7 +49,7 @@ String _line(File file) => '${fileSha256(file)}  ${p.basename(file.path)}';
 /// Writes `<file>.sha256`, which holds the line `<hash>  <name>` for [file],
 /// and returns it.
 File writeChecksum(File file) =>
-    File('${file.path}$checksumSuffix')..writeAsStringSync('${_line(file)}\n');
+    File('${file.path}$_checksumSuffix')..writeAsStringSync('${_line(file)}\n');
 
 /// Merges the `.sha256` files in [dir] into one [sha256SumsName] file.
 ///
@@ -64,7 +64,7 @@ File mergeChecksums(Directory dir) {
   final List<File> files = dir.listSync().whereType<File>().toList();
   final List<File> parts = [
     for (final file in files)
-      if (file.path.endsWith(checksumSuffix)) file,
+      if (file.path.endsWith(_checksumSuffix)) file,
   ];
   final Set<String> archives = {
     for (final file in files)
@@ -92,7 +92,7 @@ File mergeChecksums(Directory dir) {
   }
   final List<String> unchecked = archives.difference(linesByName.keys.toSet()).toList()..sort();
   if (unchecked.isNotEmpty) {
-    throw ReleaseException('No $checksumSuffix file for ${unchecked.join(', ')}.');
+    throw ReleaseException('No $_checksumSuffix file for ${unchecked.join(', ')}.');
   }
 
   final List<String> names = linesByName.keys.toList()..sort();
