@@ -15,10 +15,15 @@ Skip `dev:test` if `pubspec.yaml` already lists `test`.
 
 ## 2. Create skills_lint.yaml
 
-Create `skills_lint.yaml` at the package root, next to `pubspec.yaml`:
+Create `skills_lint.yaml` at the package root, next to `pubspec.yaml`. List
+each directory that holds skills. The rules under `skills` are for skills the
+package publishes; leave them out for skills it doesn't publish, such as
+`.agents/skills`:
 
 ```yaml
 skills_lint:
+  rules:
+    check-relative-paths: error
   directories:
     # A package publishes its skills from skills/.
     - path: "skills"
@@ -28,17 +33,19 @@ skills_lint:
         check-relative-paths:
           severity: error
           within-skill: true
+    # Skills used only by agents working in this package.
+    - path: ".agents/skills"
 ```
 
+- `check-relative-paths` checks that every relative link resolves.
+  `within-skill: true` also reports links that leave the skill's own folder,
+  because an installed skill can be copied without the files around it.
 - `pub-archive-includes-skill` checks that `dart pub publish` includes each
   skill and the files it links to. A path dependency ignores `.pubignore`, so
   testing that way doesn't catch a skill left out of the package.
 - `published-skill-name` checks that each skill name is a valid name
   according to the [pub.dev `skills` package](https://pub.dev/packages/skills).
   Published package skills need such a name.
-- `check-relative-paths` checks that every relative link resolves.
-  `within-skill: true` also reports links that leave the skill's own folder,
-  because an installed skill can be copied without the files around it.
 
 ## 3. Add the test
 

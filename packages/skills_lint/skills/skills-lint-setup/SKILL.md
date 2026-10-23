@@ -22,17 +22,8 @@ If the user names a path, follow that one. Otherwise, inspect the project:
 
 Both paths use a `skills_lint.yaml` file at the project root. The command
 reads it from the current directory by default. Keep it short: list the skill
-directories and only the rules whose severity you want to change.
-
-```yaml
-skills_lint:
-  rules:
-    check-relative-paths: error
-  directories:
-    - path: ".agents/skills"
-```
-
-Each path's reference file shows the configuration to use for that path.
+directories and only the rules whose severity you want to change. Each path's
+reference file shows the configuration to use.
 
 ## Find the rules
 
