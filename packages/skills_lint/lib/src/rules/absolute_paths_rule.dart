@@ -13,6 +13,9 @@ import '../models/validation_error.dart';
 import '../skill_links.dart';
 
 /// Enforces that links in SKILL.md do not use absolute paths.
+///
+/// Each error's [ValidationError.subject] is the link destination as written,
+/// without its title, so an ignore entry can cover one link.
 class AbsolutePathsRule extends SkillRule implements FixableRule {
   AbsolutePathsRule({this.severity = defaultSeverity});
 
@@ -62,7 +65,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
       ruleId: name,
       severity: severity,
       file: SkillContext.skillFileName,
-      target: path,
+      subject: path,
       message:
           'Absolute filepath found in link: $path. '
           'Skills must use paths relative to SKILL.md so they remain '

@@ -33,7 +33,7 @@ void main() {
       }
     });
 
-    test('de-duplicates identical link targets and records distinct targets in baseline', () async {
+    test('a baseline records one entry per link destination', () async {
       final Directory skillDir = await createDummySkill(
         tempDir,
         name: 'test-skill',
@@ -61,7 +61,7 @@ void main() {
           .cast<Map<String, dynamic>>();
 
       expect(
-        ignores.map((e) => e[IgnoreEntry.targetKey]),
+        ignores.map((e) => e[IgnoreEntry.subjectKey]),
         orderedEquals(['missing1.md', 'missing2.md']),
       );
     });
@@ -80,7 +80,7 @@ void main() {
             {
               IgnoreEntry.ruleIdKey: 'check-relative-paths',
               IgnoreEntry.fileNameKey: 'SKILL.md',
-              IgnoreEntry.targetKey: '../../RULES.md',
+              IgnoreEntry.subjectKey: '../../RULES.md',
             },
           ],
         },
@@ -101,7 +101,10 @@ void main() {
       await singleProcess.shouldExit(0);
       expect(
         singleStdout,
-        contains("Stale ignore entry found for rule 'check-relative-paths' in skill 'valid-skill'"),
+        contains(
+          "Stale ignore entry found for rule 'check-relative-paths' with subject "
+          "'../../RULES.md' in skill 'valid-skill'",
+        ),
       );
 
       final TestProcess dirProcess = await startCli([
@@ -113,8 +116,50 @@ void main() {
       await dirProcess.shouldExit(0);
       expect(
         dirStdout,
-        contains("Stale ignore entry found for rule 'check-relative-paths' in skill 'valid-skill'"),
+        contains(
+          "Stale ignore entry found for rule 'check-relative-paths' with subject "
+          "'../../RULES.md' in skill 'valid-skill'",
+        ),
       );
+    });
+
+    test('an entry with a subject is used before a whole-file entry', () async {
+      final Directory skillDir = await createDummySkill(
+        tempDir,
+        name: 'test-skill',
+        skillContent: '${buildFrontmatter(name: 'test-skill')}[Rules](../../RULES.md)\n',
+      );
+      // The whole-file entry comes first, so a first-match lookup would use it
+      // and report the entry with the subject as stale.
+      await File('${skillDir.path}/$defaultIgnoreFileName').writeAsString(
+        jsonEncode({
+          SkillsIgnores.skillsKey: {
+            'test-skill': [
+              {IgnoreEntry.ruleIdKey: 'check-relative-paths', IgnoreEntry.fileNameKey: 'SKILL.md'},
+              {
+                IgnoreEntry.ruleIdKey: 'check-relative-paths',
+                IgnoreEntry.fileNameKey: 'SKILL.md',
+                IgnoreEntry.subjectKey: '../../RULES.md',
+              },
+            ],
+          },
+        }),
+      );
+
+      final TestProcess process = await startCli([
+        '-s',
+        'test-skill',
+        '--check-relative-paths',
+        '--check-relative-paths-within-skill=true',
+      ], workingDirectory: tempDir.path);
+      final String stdout = (await process.stdout.rest.toList()).join('\n');
+      await process.shouldExit(0);
+
+      expect(
+        stdout,
+        contains("Stale ignore entry found for rule 'check-relative-paths' in skill 'test-skill'"),
+      );
+      expect(stdout, isNot(contains('with subject')));
     });
 
     test('individual skill baseline is loaded on subsequent runs', () async {
@@ -144,7 +189,12 @@ skills_lint:
       await genProcess.shouldExit(0);
 
       final ignoreFile = File('${skillDir.path}/$defaultIgnoreFileName');
-      expect(ignoreFile.existsSync(), isTrue);
+      final json = jsonDecode(await ignoreFile.readAsString()) as Map<String, dynamic>;
+      final skills = json[SkillsIgnores.skillsKey] as Map<String, dynamic>;
+      expect(
+        (skills['test-skill'] as List).map((e) => (e as Map)[IgnoreEntry.subjectKey]),
+        orderedEquals(['../../RULES.md', 'my%20folder/a:b.md']),
+      );
 
       final TestProcess runProcess = await startCli([
         '-s',
@@ -155,7 +205,7 @@ skills_lint:
       await runProcess.shouldExit(0);
 
       // Adding an unbaselined broken link in the same file fails the run while
-      // the baselined targets remain suppressed.
+      // the baselined links stay suppressed.
       await File('${skillDir.path}/SKILL.md').writeAsString(
         '${buildFrontmatter(name: 'test-skill')}'
         '[Rules](../../RULES.md)\n'

@@ -263,12 +263,12 @@ void main() {
       // is controlled by ACLs rather than mode bits.
     }, testOn: '!windows');
 
-    test('an ignore entry with target suppresses only findings matching that target', () async {
+    test('an ignore entry with a subject suppresses only findings about that subject', () async {
       final Directory skillDir = await createDummySkill(
         tempDir,
-        name: 'targeted-skill',
+        name: 'subject-skill',
         skillContent:
-            '${buildFrontmatter(name: 'targeted-skill')}\n'
+            '${buildFrontmatter(name: 'subject-skill')}\n'
             '[Rules 1](../../RULES.md)\n'
             '[Rules 2](../../RULES.md)\n'
             '[Missing](missing.md)\n',
@@ -277,11 +277,11 @@ void main() {
       File(ignorePath).writeAsStringSync(
         jsonEncode({
           SkillsIgnores.skillsKey: {
-            'targeted-skill': [
+            'subject-skill': [
               {
                 IgnoreEntry.ruleIdKey: RelativePathsRule.ruleName,
                 IgnoreEntry.fileNameKey: 'SKILL.md',
-                IgnoreEntry.targetKey: '../../RULES.md',
+                IgnoreEntry.subjectKey: '../../RULES.md',
               },
             ],
           },
@@ -305,7 +305,7 @@ void main() {
     });
 
     test(
-      'an ignore entry without target suppresses every finding of that rule in the file',
+      'an ignore entry without a subject suppresses every finding of that rule in the file',
       () async {
         final Directory skillDir = await createDummySkill(
           tempDir,

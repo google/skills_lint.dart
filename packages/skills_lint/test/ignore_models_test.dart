@@ -18,46 +18,46 @@ void main() {
       final entry = IgnoreEntry.fromJson(json);
       expect(entry.ruleId, equals('description_too_long'));
       expect(entry.fileName, equals('SKILL.md'));
-      expect(entry.target, isNull);
+      expect(entry.subject, isNull);
       expect(entry.used, isFalse); // Default
     });
 
-    test('fromJson parses optional target', () {
+    test('fromJson parses optional subject', () {
       final Map<String, dynamic> json = {
         IgnoreEntry.ruleIdKey: 'check-relative-paths',
         IgnoreEntry.fileNameKey: 'SKILL.md',
-        IgnoreEntry.targetKey: '../../RULES.md',
+        IgnoreEntry.subjectKey: '../../RULES.md',
       };
       final entry = IgnoreEntry.fromJson(json);
       expect(entry.ruleId, equals('check-relative-paths'));
       expect(entry.fileName, equals('SKILL.md'));
-      expect(entry.target, equals('../../RULES.md'));
+      expect(entry.subject, equals('../../RULES.md'));
     });
 
-    test('toJson serializes rule_id and file_name and omits null target', () {
+    test('toJson serializes rule_id and file_name and omits null subject', () {
       final entry = IgnoreEntry(ruleId: 'description_too_long', fileName: 'SKILL.md');
       final Map<String, dynamic> json = entry.toJson();
       expect(json[IgnoreEntry.ruleIdKey], equals('description_too_long'));
       expect(json[IgnoreEntry.fileNameKey], equals('SKILL.md'));
-      expect(json.containsKey(IgnoreEntry.targetKey), isFalse);
+      expect(json.containsKey(IgnoreEntry.subjectKey), isFalse);
       expect(json.containsKey('used'), isFalse); // Suppressed
     });
 
-    test('toJson serializes non-null target', () {
+    test('toJson serializes non-null subject', () {
       final entry = IgnoreEntry(
         ruleId: 'check-relative-paths',
         fileName: 'SKILL.md',
-        target: '../../RULES.md',
+        subject: '../../RULES.md',
       );
       final Map<String, dynamic> json = entry.toJson();
-      expect(json[IgnoreEntry.targetKey], equals('../../RULES.md'));
+      expect(json[IgnoreEntry.subjectKey], equals('../../RULES.md'));
     });
 
     test('positive round-trip using expectJsonRoundTrip', () {
       final entry = IgnoreEntry(
         ruleId: 'check-relative-paths',
         fileName: 'SKILL.md',
-        target: '../../RULES.md',
+        subject: '../../RULES.md',
         used: true,
       );
       expectJsonRoundTrip<IgnoreEntry>(

@@ -19,6 +19,9 @@ import '../suggestions/sibling_suggestion.dart';
 /// Turn on [withinSkill] for skills that must be portable. It reports links
 /// that leave the skill directory, which break when the skill is copied
 /// somewhere else on its own.
+///
+/// Each error's [ValidationError.subject] is the link destination as written,
+/// without its title, so an ignore entry can cover one link.
 class RelativePathsRule extends SkillRule {
   RelativePathsRule({this.severity = defaultSeverity, bool? withinSkill})
     : withinSkill = withinSkill ?? false;
@@ -94,7 +97,7 @@ class RelativePathsRule extends SkillRule {
             ruleId: name,
             severity: severity,
             file: _skillFileName,
-            target: path,
+            subject: path,
             message:
                 'Linked file does not exist: $path (resolved to $resolvedPath).'
                 '$suggestionClause',
@@ -124,7 +127,7 @@ class RelativePathsRule extends SkillRule {
       ruleId: name,
       severity: severity,
       file: _skillFileName,
-      target: path,
+      subject: path,
       message:
           'Linked file is outside the skill directory: $path (resolved to $resolvedPath). '
           'The link breaks when the skill is installed on its own. Link to an absolute URL, '

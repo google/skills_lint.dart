@@ -13,11 +13,11 @@ part of 'ignore_entry.dart';
 IgnoreEntry _$IgnoreEntryFromJson(Map<String, dynamic> json) => IgnoreEntry(
   ruleId: json['rule_id'] as String,
   fileName: json['file_name'] as String,
-  target: json['target'] as String?,
+  subject: json['subject'] as String?,
 );
 
 Map<String, dynamic> _$IgnoreEntryToJson(IgnoreEntry instance) => <String, dynamic>{
   'rule_id': instance.ruleId,
   'file_name': instance.fileName,
-  if (instance.target case final value?) 'target': value,
+  if (instance.subject case final value?) 'subject': value,
 };
