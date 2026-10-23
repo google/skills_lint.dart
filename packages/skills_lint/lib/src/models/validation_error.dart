@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'analysis_severity.dart';
-import 'ignore_entry.dart';
 import 'source_region.dart';
 
 /// Represents a single validation error found during analysis.
@@ -71,9 +70,9 @@ class ValidationError {
 
   /// The thing within [file] that this error is about, or `null` if unset.
   ///
-  /// An ignore entry with the same [ruleId], [file] and [IgnoreEntry.subject]
-  /// suppresses this error. The rule must derive the value from the content,
-  /// never from a line number, so the entry keeps matching after edits.
+  /// An ignore entry for [ruleId] and [file] suppresses this error if it has
+  /// no `subject` or the same one. Derive the value from the content, never
+  /// from a line number, so the entry keeps matching after edits.
   final String? subject;
 
   /// Whether this error has been ignored via configuration.

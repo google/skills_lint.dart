@@ -62,7 +62,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
       ruleId: name,
       severity: severity,
       file: SkillContext.skillFileName,
-      // RULES.md documents this subject format. Changing it makes ignore entries stale.
+      // RULES.md documents this subject format. Changing it is a breaking change.
       subject: path,
       message:
           'Absolute filepath found in link: $path. '

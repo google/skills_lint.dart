@@ -48,8 +48,10 @@ governs how changes to these rules ship.
 - **Auto-fix behavior:** if the absolute path resolves to a file that
   exists on disk, the fixer rewrites it to the equivalent POSIX-style
   relative path from `SKILL.md`. If the target does not exist the
-  fixer leaves the link untouched.
-- **Ignore subject:** the link destination as written, without its title.
+  fixer leaves the link untouched. If an ignore entry covers any of the
+  links, the fixer leaves the file unchanged.
+- **Ignore subject:** the link destination as written, including any
+  `#anchor`, without its title.
 - **Disable:** `--no-check-absolute-paths`.
 
 ## check-relative-paths
@@ -98,7 +100,8 @@ governs how changes to these rules ship.
   the content. `check-absolute-paths --fix` rewrites an absolute
   link to a file outside the skill as a `../` link, which
   `within-skill` then reports.
-- **Ignore subject:** the link destination as written, without its title.
+- **Ignore subject:** the link destination as written, including any
+  `#anchor`, without its title.
 - **Disable:** `--no-check-relative-paths` (also the default state).
 
 ## check-trailing-whitespace

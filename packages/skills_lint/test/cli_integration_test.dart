@@ -33,11 +33,13 @@ void main() {
       }
     });
 
-    test('a baseline records each link destination once', () async {
+    test('a baseline lists each rule, file and subject once', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      // Two findings per link destination, and two trailing-whitespace
+      // findings, which have no subject.
       await File('${skillDir.path}/SKILL.md').writeAsString(
         '${buildFrontmatter(name: 'test-skill')}'
-        '[Link 1](missing1.md)\n[Link 1 again](missing1.md)\n[Link 2](missing2.md)\n',
+        '[Link 1](missing1.md) \n[Link 1 again](missing1.md) \n[Link 2](missing2.md)\n',
       );
       // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/18
       final configFile = File('${tempDir.path}/skills_lint.yaml');
@@ -45,6 +47,7 @@ void main() {
 skills_lint:
   rules:
     check-relative-paths: error
+    check-trailing-whitespace: error
 ''');
 
       // Run with --generate-baseline
@@ -55,7 +58,7 @@ skills_lint:
       ], workingDirectory: tempDir.path);
       await process.shouldExit(0);
 
-      expect(_baselineSubjects(skillDir), ['missing1.md', 'missing2.md']);
+      expect(_baselineSubjects(skillDir), unorderedEquals([null, 'missing1.md', 'missing2.md']));
     });
 
     test('individual skill baseline is loaded on subsequent runs', () async {
@@ -156,7 +159,7 @@ skills_lint:
       await process.shouldExit(0);
 
       expect(stdout, contains("Stale ignore entry found for rule 'check-relative-paths' in skill"));
-      expect(stdout, isNot(contains('with subject')));
+      expect(stdout, isNot(contains('../../RULES.md')));
     });
 
     test('baseline entries name files relative to the skill directory', () async {
@@ -791,6 +794,26 @@ skills_lint:
 
       final String content = await File('${skillDir.path}/SKILL.md').readAsString();
       expect(content, contains('Line with 1 space \n'));
+    });
+
+    test('--fix does not rewrite a link that an entry with a subject ignores', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      final String kept = (await File('${tempDir.path}/kept.md').create()).path;
+      final String other = (await File('${tempDir.path}/other.md').create()).path;
+      final content = '${buildFrontmatter(name: 'test-skill')}[Kept]($kept)\n[Other]($other)\n';
+      await File('${skillDir.path}/SKILL.md').writeAsString(content);
+      await _writeIgnoreFile(skillDir, 'test-skill', [
+        {
+          IgnoreEntry.ruleIdKey: 'check-absolute-paths',
+          IgnoreEntry.fileNameKey: 'SKILL.md',
+          IgnoreEntry.subjectKey: kept,
+        },
+      ]);
+
+      final TestProcess process = await startCli(['-s', skillDir.path, '--fix']);
+      await process.shouldExit(0);
+
+      expect(await File('${skillDir.path}/SKILL.md').readAsString(), content);
     });
 
     test('--fix does not modify file if invalid-skill-name is ignored', () async {

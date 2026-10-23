@@ -8,7 +8,7 @@ import 'validation_error.dart';
 
 part 'ignore_entry.g.dart';
 
-/// Represents a single ignored rule entry for a specific file.
+/// A rule to ignore in one file, or only for one [subject] in it.
 @JsonSerializable()
 class IgnoreEntry {
   IgnoreEntry({required this.ruleId, required this.fileName, this.subject, this.used = false});

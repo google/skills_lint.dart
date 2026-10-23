@@ -637,16 +637,19 @@ class ValidationSession {
   ) {
     final String portableName = baselineFileName(error.file, skillDir);
     final String absoluteName = _absoluteErrorFile(error.file, skillDir);
-    final List<IgnoreEntry> sameRuleAndFile = [
-      for (final ignore in ignores)
-        if (ignore.entry.ruleId == error.ruleId &&
-            _ignoreCovers(ignore.normalizedFileName, portableName, absoluteName))
-          ignore.entry,
-    ];
-    return sameRuleAndFile
-            .where((entry) => entry.subject != null && entry.subject == error.subject)
-            .firstOrNull ??
-        sameRuleAndFile.where((entry) => entry.subject == null).firstOrNull;
+    IgnoreEntry? wholeFile;
+    for (final (:entry, :normalizedFileName) in ignores) {
+      if (entry.ruleId != error.ruleId ||
+          !_ignoreCovers(normalizedFileName, portableName, absoluteName)) {
+        continue;
+      }
+      if (entry.subject == null) {
+        wholeFile ??= entry;
+      } else if (entry.subject == error.subject) {
+        return entry;
+      }
+    }
+    return wholeFile;
   }
 
   /// Returns the `file_name` to store in a baseline entry for an error that a
@@ -832,10 +835,14 @@ class ValidationSession {
       if (rule is! FixableRule) {
         continue;
       }
-      final bool hasErrors = result.validationErrors.any(
-        (e) => e.ruleId == rule.name && !e.isIgnored,
-      );
-      if (!hasErrors) {
+      final List<ValidationError> ruleErrors = [
+        for (final error in result.validationErrors)
+          if (error.ruleId == rule.name) error,
+      ];
+      // A fixer rewrites every finding of its rule, so it must not run when an
+      // ignore entry covers some of them.
+      final bool canFix = ruleErrors.isNotEmpty && ruleErrors.every((e) => !e.isIgnored);
+      if (!canFix) {
         continue;
       }
 
