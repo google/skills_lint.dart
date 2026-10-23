@@ -10,10 +10,9 @@ description: |-
 This skill covers **day-to-day use**: running the linter, walking
 through a failing run, and writing a custom rule when defaults
 aren't enough. For first-time wiring (adding the dep, creating the
-config file, generating a baseline) see
-[`skills-lint-setup`](../skills-lint-setup/SKILL.md). The
-full rule reference (default severities, diagnostic shapes,
-fixability) lives in [`RULES.md`](../../RULES.md).
+config file, generating a baseline) use the
+skills-lint-setup skill. The full rule reference (default severities,
+diagnostic shapes, fixability) lives in [`RULES.md`](../../RULES.md).
 
 ## Running the linter
 
@@ -66,19 +65,17 @@ class DeprecatedSkillRule extends SkillRule {
 
   @override
   Future<List<ValidationError>> validate(SkillContext context) async {
-    final errors = <ValidationError>[];
-    final yaml = context.parsedYaml;
-    if (yaml == null) return errors;
-
-    if (yaml['metadata']?['deprecated'] == true) {
-      errors.add(ValidationError(
-        ruleId: name,
-        severity: severity,
-        file: 'SKILL.md',
-        message: 'This skill is marked as deprecated.',
-      ));
-    }
-    return errors;
+    return switch (context.parsedYaml) {
+      {'metadata': {'deprecated': true}} => [
+        ValidationError(
+          ruleId: name,
+          severity: severity,
+          file: 'SKILL.md',
+          message: 'This skill is marked as deprecated.',
+        ),
+      ],
+      _ => [],
+    };
   }
 }
 ```
@@ -91,24 +88,24 @@ import 'package:test/test.dart';
 
 void main() {
   test('skills pass with deprecated-skill custom rule', () async {
-    final config = await ConfigParser.loadConfig();
+    final Configuration config = await ConfigParser.loadConfig();
     expect(
       config.directoryConfigs,
       isNotEmpty,
       reason: 'Configuration directoryConfigs should not be empty.',
     );
-    await validateSkills(
+    final bool passed = await validateSkills(
       config: config,
       customRules: [DeprecatedSkillRule()],
     );
+    expect(passed, isTrue, reason: 'skills_lint found errors. Its findings are printed above.');
   });
 }
 ```
 
 ## Related
 
-- [`skills-lint-setup`](../skills-lint-setup/SKILL.md) —
-  first-time wiring.
+- The skills-lint-setup skill — first-time wiring.
 - [`RULES.md`](../../RULES.md) — canonical rule reference.
 - [`README.md`](../../README.md) — installation, configuration,
   integration recipes.
