@@ -48,7 +48,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final SourceRegion? region = context.yamlNodeToRegion(nameNode);
     final String suggestion = suggestNormalizedName(skillName);
-    final String directoryName = context.directoryName;
+    final String directoryName = context.activeDirectoryName;
 
     if (skillName != directoryName) {
       errors.add(
@@ -177,7 +177,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
   Future<String> fix(SkillContext context) async {
     final String currentContent = context.rawContent;
 
-    final String directoryName = context.directoryName;
+    final String directoryName = context.activeDirectoryName;
     if (!isValidSkillName(directoryName)) {
       return currentContent;
     }

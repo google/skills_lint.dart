@@ -15,14 +15,19 @@ import 'source_region.dart';
 
 /// Context provided to [SkillRule]s during validation.
 class SkillContext {
+  /// Creates the context for the skill in [directory] whose `SKILL.md` holds
+  /// [rawContent].
+  ///
+  /// Pass [activeDirectoryName] only to validate the skill as if [directory]
+  /// had that name. It defaults to the name of [directory].
   SkillContext({
     required this.directory,
     required this.rawContent,
     this.parsedYaml,
     this.yamlParsingError,
-    String? directoryName,
+    String? activeDirectoryName,
     this.pubArchive,
-  }) : directoryName = directoryName ?? p.basename(directory.path),
+  }) : activeDirectoryName = activeDirectoryName ?? p.basename(directory.path),
        _sourceFile = SourceFile.fromString(rawContent);
 
   /// The required filename for skill documentation.
@@ -41,12 +46,13 @@ class SkillContext {
 
   final Directory directory;
 
-  /// The name of the skill directory, once `--fix` has made its renames.
+  /// The name the skill directory has, or will have once a planned rename
+  /// happens.
   ///
-  /// It is the base name of [directory], unless a fix plans to rename the
-  /// directory. Rules that compare against the directory name read this, so
+  /// It is the base name of [directory], unless the skill is validated as if
+  /// renamed. Rules that compare against the directory name read this, so
   /// that a planned rename counts before it happens on disk.
-  final String directoryName;
+  final String activeDirectoryName;
 
   /// Guaranteed to be non-null because we only run rules if SKILL.md exists.
   final String rawContent;

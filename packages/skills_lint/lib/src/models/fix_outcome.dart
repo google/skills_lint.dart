@@ -39,5 +39,5 @@ class FixOutcome {
 
   /// The directory name after the fixes, which differs from the current one
   /// when a fix renames the skill.
-  String get directoryName => _context.directoryName;
+  String get directoryName => _context.activeDirectoryName;
 }

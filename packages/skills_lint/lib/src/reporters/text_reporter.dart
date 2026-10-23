@@ -75,7 +75,7 @@ class TextReporter extends Reporter {
   }
 
   @override
-  void onFixApplied(String skillName, {required List<String> ruleNames}) {
+  void onFixesWritten(String skillName, {required List<String> ruleNames}) {
     if (!quiet) {
       out.writeln('  Applied fixes for $skillName: ${ruleNames.join(', ')}');
     }
@@ -97,12 +97,12 @@ class TextReporter extends Reporter {
     if (quiet) {
       return;
     }
-    final reason = skipped.grownRuleIds.isEmpty
-        ? 'it would not lower the number of errors or warnings'
-        : 'it would add ${skipped.grownRuleIds.join(', ')} diagnostics';
-    final String? blocked = skipped.blockedDirectoryName;
-    final because = blocked == null ? '' : ', because directory $blocked already exists';
-    out.writeln('  Skipped the ${skipped.ruleName} fix: $reason$because.');
+    final String reason = switch (skipped) {
+      SkippedFix(blockedDirectoryName: final String name) => 'directory $name already exists',
+      SkippedFix(grownRuleIds: []) => 'it would not lower the number of errors or warnings',
+      SkippedFix(:final grownRuleIds) => 'it would add ${grownRuleIds.join(', ')} diagnostics',
+    };
+    out.writeln('  Skipped the ${skipped.ruleName} fix: $reason.');
   }
 
   @override

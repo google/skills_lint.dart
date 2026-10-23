@@ -5,20 +5,18 @@
 import 'models/skill_context.dart';
 import 'models/skill_rule.dart';
 
-/// A rule that `--fix` can apply to a skill's `SKILL.md`.
+/// A rule that can rewrite a skill's `SKILL.md` to clear its own diagnostics.
 ///
 /// Kept internal to the package.
 abstract class FixableRule extends SkillRule {
-  /// The fixed `SKILL.md` content of the skill that [context] describes.
+  /// Returns [SkillContext.rawContent] of [context] with this rule's
+  /// diagnostics fixed, or unchanged when there is nothing to fix.
   ///
-  /// [SkillContext.rawContent] holds the content with earlier fixes applied,
-  /// and [SkillContext.directoryName] holds the directory name after any
-  /// rename a fix plans. Return the content unchanged when there is nothing
-  /// to fix.
+  /// [context] can hold content that earlier fixes changed, and a
+  /// [SkillContext.activeDirectoryName] that differs from the name on disk.
   ///
-  /// `--fix` keeps the result only if it lowers the skill's count of errors,
-  /// then warnings, across all enabled rules. So a fix must be idempotent,
-  /// and a fix that changes the content must lower this rule's own
-  /// diagnostics. Otherwise `--fix` drops it.
+  /// A fix is kept only if it lowers the skill's errors, then warnings,
+  /// across all enabled rules. So a fix must be idempotent, and a fix that
+  /// changes the content must lower this rule's own diagnostics.
   Future<String> fix(SkillContext context);
 }

@@ -68,7 +68,7 @@ abstract class Reporter {
 
   /// Called when the fixes of the rules named [ruleNames] are written to
   /// disk for [skillName].
-  void onFixApplied(String skillName, {required List<String> ruleNames}) {}
+  void onFixesWritten(String skillName, {required List<String> ruleNames}) {}
 
   /// Called by the session once `--fix` has fixed a skill and validated it
   /// again, with the result of that validation.

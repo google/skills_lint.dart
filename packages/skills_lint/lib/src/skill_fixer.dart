@@ -102,22 +102,21 @@ class SkillFixer {
       return null;
     }
 
-    final String plannedName =
+    final String nameAfterFix =
         newDirectoryName(originalContent: context.rawContent, fixedContent: fixedContent) ??
-        context.directoryName;
+        context.activeDirectoryName;
     // The rename can't happen if another directory has the name already, so
-    // the candidate keeps the current name and is judged that way.
+    // the fixed content keeps the current name and is judged that way.
     final bool renameBlocked =
-        plannedName != p.basename(context.directory.path) &&
-        Directory(p.join(p.dirname(context.directory.path), plannedName)).existsSync();
-    final ValidationResult result = await validator.validateContent(
-      context.directory,
+        nameAfterFix != p.basename(context.directory.path) &&
+        Directory(p.join(p.dirname(context.directory.path), nameAfterFix)).existsSync();
+    final ValidationResult result = await validator.validateProposedContent(
+      context,
       fixedContent,
-      directoryName: renameBlocked ? context.directoryName : plannedName,
-      pubArchive: context.pubArchive,
+      activeDirectoryName: renameBlocked ? context.activeDirectoryName : nameAfterFix,
     );
     applyIgnores(result);
-    return _Attempt(result, blockedDirectoryName: renameBlocked ? plannedName : null);
+    return _Attempt(result, blockedDirectoryName: renameBlocked ? nameAfterFix : null);
   }
 
   /// The name to rename the skill directory to after a fix, or `null` to
@@ -126,24 +125,26 @@ class SkillFixer {
   /// The directory follows the frontmatter `name` only when the fix changed
   /// it to a valid skill name.
   static String? newDirectoryName({required String originalContent, required String fixedContent}) {
-    final String? originalName = NameFormatRule.skillNameOf(
+    final String? nameBefore = NameFormatRule.skillNameOf(
       NameFormatRule.nameNodeOf(originalContent),
     )?.trim();
-    final YamlNode? fixedNode = NameFormatRule.nameNodeOf(fixedContent);
-    final String? fixedName = NameFormatRule.skillNameOf(fixedNode)?.trim();
-    if (originalName == null || fixedName == null) {
+    final YamlNode? nameNodeAfter = NameFormatRule.nameNodeOf(fixedContent);
+    final String? nameAfter = NameFormatRule.skillNameOf(nameNodeAfter)?.trim();
+    if (nameBefore == null || nameAfter == null) {
       return null;
     }
     // The name becomes a directory name, so it must be text, not a plain `false` or `0x1f`.
-    if (fixedNode?.value is! String) {
+    if (nameNodeAfter?.value is! String) {
       return null;
     }
-    if (fixedName == originalName || !NameFormatRule.isValidSkillName(fixedName)) {
+    if (nameAfter == nameBefore || !NameFormatRule.isValidSkillName(nameAfter)) {
       return null;
     }
-    return fixedName;
+    return nameAfter;
   }
 
+  /// Whether [result] has an un-ignored diagnostic from the rule named
+  /// [ruleName].
   static bool _reports(ValidationResult result, String ruleName) =>
       result.validationErrors.any((e) => e.ruleId == ruleName && !e.isIgnored);
 
