@@ -27,12 +27,16 @@ const List<String> otherPackageDirectories = ['../../release'];
 /// Every directory whose Dart files are checked by default, for example for
 /// the copyright header and the source conventions.
 ///
+/// `skills` holds the published skills. Its Dart files are analyzed and
+/// formatted with the package, so the same checks cover them.
+///
 /// `evals/test_data/` is left out because its Dart files are fixtures that
 /// are written to fail review on purpose.
 const List<String> dartSourceDirectories = [
   'benchmark',
   ...shippedDirectories,
   'example',
+  'skills',
   'test',
   'repo_test',
   'compiled_test',
