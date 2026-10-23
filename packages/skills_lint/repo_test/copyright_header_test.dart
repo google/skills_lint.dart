@@ -27,13 +27,15 @@ void main() {
     final String packageRoot = p.normalize(p.absolute('.'));
     final List<String> missing = [];
 
-    for (final String dir in dartSourceDirectories) {
+    for (final String dir in [...dartSourceDirectories, 'skills']) {
       final source = Directory(p.join(packageRoot, dir));
       if (!source.existsSync()) {
         continue;
       }
       for (final FileSystemEntity entity in source.listSync(recursive: true)) {
-        if (entity is File && entity.path.endsWith('.dart')) {
+        if (entity is File &&
+            entity.path.endsWith('.dart') &&
+            !_isCopiedByUsers(p.relative(entity.path, from: packageRoot))) {
           final String content = entity.readAsStringSync();
           if (!_hasCopyrightHeader(content)) {
             missing.add(p.relative(entity.path, from: packageRoot));
@@ -59,6 +61,10 @@ final RegExp _copyrightPattern = RegExp(
   r'// for details\. All rights reserved\. Use of this source code is governed by a\n'
   r'// BSD-style license that can be found in the LICENSE file\.',
 );
+
+/// Whether [path] is a skill reference file that users copy into their own
+/// package, so it must not carry this repository's copyright header.
+bool _isCopiedByUsers(String path) => p.split(path).contains('references');
 
 bool _hasCopyrightHeader(String content) {
   // Normalize Windows line endings so the regex works on files checked out
