@@ -2,15 +2,23 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import '../models/output_format.dart';
 import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
 import 'json_reporter.dart';
 import 'sarif_reporter.dart';
 import 'text_reporter.dart';
+import 'tool_error_messages.dart';
 
 /// Contract for reporting validation events and results across formats.
 abstract class Reporter {
+  /// Creates a reporter writing normal output to [out] (defaulting to
+  /// [stdout]) and operational failure messages to [err] (defaulting to
+  /// [stderr]).
+  Reporter({StringSink? out, StringSink? err}) : out = out ?? stdout, err = err ?? stderr;
+
   /// Creates a reporter instance corresponding to [format].
   factory Reporter.fromFormat(
     OutputFormat format, {
@@ -34,14 +42,20 @@ abstract class Reporter {
   /// Prefix used for internal tool failure messages routed to stderr.
   static const String toolErrorPrefix = 'skills_lint internal error:';
 
+  /// Destination for normal report output.
+  final StringSink out;
+
+  /// Destination for operational failure messages.
+  final StringSink err;
+
   /// Called when evaluation of a container directory begins.
-  void onDirectoryEvaluating(String directoryPath);
+  void onDirectoryEvaluating(String directoryPath) {}
 
   /// Called when validation of an individual skill folder begins.
-  void onSkillEvaluating(String skillName);
+  void onSkillEvaluating(String skillName) {}
 
   /// Called when validation of a single skill completes.
-  void onSkillValidationComplete(ValidationResult result);
+  void onSkillValidationComplete(ValidationResult result) {}
 
   /// Called when dry-run fix proposals are emitted.
   void onDryRunProposed({
@@ -49,55 +63,75 @@ abstract class Reporter {
     String? targetSkillName,
     required String originalContent,
     required String currentContent,
-  });
+  }) {}
 
   /// Called when fixes are written to disk for [skillName].
-  void onFixApplied(String skillName);
+  void onFixApplied(String skillName) {}
 
   /// Called with the result of validating a skill again after `--fix` wrote
   /// its fixes.
   ///
   /// This result, not the one before the fixes, decides the exit code.
-  void onFixedSkillValidationComplete(ValidationResult result);
+  void onFixedSkillValidationComplete(ValidationResult result) {}
 
   /// Called when a rule fix fails due to an internal exception.
-  void onFixFailed({required String ruleName, required Object error});
+  void onFixFailed({required String ruleName, required Object error}) {
+    err.writeln(ToolErrorMessages.fixFailedMessage(ruleName: ruleName, error: error));
+  }
 
   /// Called when a skill directory is renamed on disk.
-  void onSkillRenamed(String oldSkillName, String targetSkillName);
+  void onSkillRenamed(String oldSkillName, String targetSkillName) {}
 
   /// Called when a skill directory rename is blocked because the destination exists.
   void onRenameTargetExists({
     required String oldSkillName,
     required String targetSkillName,
     required String destinationPath,
-  });
+  }) {
+    err.writeln(
+      ToolErrorMessages.renameTargetExistsMessage(
+        oldSkillName: oldSkillName,
+        targetSkillName: targetSkillName,
+        destinationPath: destinationPath,
+      ),
+    );
+  }
 
   /// Called when a skill directory rename fails due to an internal exception.
   void onRenameFailed({
     required String oldSkillName,
     required String targetSkillName,
     required Object error,
-  });
+  }) {
+    err.writeln(
+      ToolErrorMessages.renameFailedMessage(
+        oldSkillName: oldSkillName,
+        targetSkillName: targetSkillName,
+        error: error,
+      ),
+    );
+  }
 
   /// Called when an ignore entry was not matched by any finding.
   void onStaleIgnoreFound({
     required String ruleId,
     required String skillName,
     required String fullPath,
-  });
+  }) {}
 
   /// Called when no skills were found across specified directories.
-  void onNoSkillsFound(String message);
+  void onNoSkillsFound(String message) {}
 
   /// Called when a single skill folder was passed to `-d`.
-  void onIndividualSkillHint(String message);
+  void onIndividualSkillHint(String message) {}
 
   /// Called when a directory listing or structural failure occurs.
-  void onDirectoryError(String directoryPath, String message);
+  void onDirectoryError(String directoryPath, String message) {}
 
   /// Called when saving a baseline ignore file fails.
-  void onBaselineFailed(String ignorePath, Object error);
+  void onBaselineFailed(String ignorePath, Object error) {
+    err.writeln(ToolErrorMessages.baselineFailedMessage(ignorePath: ignorePath, error: error));
+  }
 
   /// Called at the end of the validation session with all accumulated results.
   void onSessionComplete(List<ValidationResult> results, {List<SkillRule> customRules = const []});

@@ -157,6 +157,7 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `--ignore-file`: Path to a JSON file listing lints to ignore for the run.
 - `--generate-baseline`: Write every current error into `skills_lint_ignore.json` so existing violations are ignored on future runs.
 - `--[no-]check-trailing-whitespace`: Enable/disable checking for trailing whitespace. (Disabled by default).
+- `--[no-]pub-archive-includes-skill`: Check that `dart pub publish` includes each skill in `skills/` and the files it links to. (Disabled by default).
 - `--[no-]published-skill-name`: Enable/disable checking that published package skills follow the package naming convention. (Disabled by default).
 - `--fix`: Write fixes for failing lints to disk, then print the diagnostics that remain under `After fixes:`. The exit code reflects the skill after the fixes.
 - `--dry-run`: When combined with `--fix`, prints the proposed diff without writing.

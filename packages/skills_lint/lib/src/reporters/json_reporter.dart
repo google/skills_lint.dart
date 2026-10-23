@@ -3,109 +3,21 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:convert';
-import 'dart:io';
 
 import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
 import 'reporter.dart';
-import 'tool_error_messages.dart';
 
 /// Machine-readable JSON array reporter.
-class JsonReporter implements Reporter {
-  JsonReporter({StringSink? out, StringSink? err, this.pretty = true})
-    : _out = out ?? stdout,
-      _err = err ?? stderr;
+class JsonReporter extends Reporter {
+  JsonReporter({super.out, super.err, this.pretty = true});
 
-  final StringSink _out;
-  final StringSink _err;
   final bool pretty;
-
-  @override
-  void onDirectoryEvaluating(String directoryPath) {}
-
-  @override
-  void onDirectoryError(String directoryPath, String message) {}
-
-  @override
-  void onSkillEvaluating(String skillName) {}
-
-  @override
-  void onSkillValidationComplete(ValidationResult result) {}
-
-  @override
-  void onFixApplied(String skillName) {}
-
-  @override
-  void onFixedSkillValidationComplete(ValidationResult result) {}
-
-  @override
-  void onDryRunProposed({
-    required String skillName,
-    String? targetSkillName,
-    required String originalContent,
-    required String currentContent,
-  }) {}
-
-  @override
-  void onSkillRenamed(String oldSkillName, String targetSkillName) {}
-
-  @override
-  void onStaleIgnoreFound({
-    required String ruleId,
-    required String skillName,
-    required String fullPath,
-  }) {}
-
-  @override
-  void onNoSkillsFound(String message) {}
-
-  @override
-  void onIndividualSkillHint(String message) {}
-
-  @override
-  void onFixFailed({required String ruleName, required Object error}) {
-    _err.writeln(ToolErrorMessages.fixFailedMessage(ruleName: ruleName, error: error));
-  }
-
-  @override
-  void onRenameFailed({
-    required String oldSkillName,
-    required String targetSkillName,
-    required Object error,
-  }) {
-    _err.writeln(
-      ToolErrorMessages.renameFailedMessage(
-        oldSkillName: oldSkillName,
-        targetSkillName: targetSkillName,
-        error: error,
-      ),
-    );
-  }
-
-  @override
-  void onRenameTargetExists({
-    required String oldSkillName,
-    required String targetSkillName,
-    required String destinationPath,
-  }) {
-    _err.writeln(
-      ToolErrorMessages.renameTargetExistsMessage(
-        oldSkillName: oldSkillName,
-        targetSkillName: targetSkillName,
-        destinationPath: destinationPath,
-      ),
-    );
-  }
-
-  @override
-  void onBaselineFailed(String ignorePath, Object error) {
-    _err.writeln(ToolErrorMessages.baselineFailedMessage(ignorePath: ignorePath, error: error));
-  }
 
   @override
   void onSessionComplete(List<ValidationResult> results, {List<SkillRule> customRules = const []}) {
     final List<Map<String, Object?>> jsonList = results.map((r) => r.toJson()).toList();
     final encoder = pretty ? const JsonEncoder.withIndent('  ') : const JsonEncoder();
-    _out.writeln(encoder.convert(jsonList));
+    out.writeln(encoder.convert(jsonList));
   }
 }
