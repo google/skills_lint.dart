@@ -94,6 +94,8 @@ class RelativePathsRule extends SkillRule {
             ruleId: name,
             severity: severity,
             file: _skillFileName,
+            // RULES.md documents this subject format. Changing it is a breaking change.
+            subject: path,
             message:
                 'Linked file does not exist: $path (resolved to $resolvedPath).'
                 '$suggestionClause',
@@ -123,6 +125,8 @@ class RelativePathsRule extends SkillRule {
       ruleId: name,
       severity: severity,
       file: _skillFileName,
+      // RULES.md documents this subject format. Changing it is a breaking change.
+      subject: path,
       message:
           'Linked file is outside the skill directory: $path (resolved to $resolvedPath). '
           'The link breaks when the skill is installed on its own. Link to an absolute URL, '

@@ -111,6 +111,7 @@ abstract class Reporter {
     required String ruleId,
     required String skillName,
     required String fullPath,
+    String? subject,
   }) {}
 
   /// Called when no skills were found across specified directories.

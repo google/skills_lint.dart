@@ -268,6 +268,7 @@ class ValidationSession {
             ruleId: ignore.ruleId,
             skillName: skillName,
             fullPath: fullPath,
+            subject: ignore.subject,
           );
         }
       }
@@ -442,6 +443,7 @@ class ValidationSession {
             ruleId: ignore.ruleId,
             skillName: skillName,
             fullPath: fullPath,
+            subject: ignore.subject,
           );
         }
       }
@@ -615,18 +617,39 @@ class ValidationSession {
       if (error.isIgnored) {
         continue;
       }
-      final String portableName = baselineFileName(error.file, skillDir);
-      final String absoluteName = _absoluteErrorFile(error.file, skillDir);
-      for (final pair in preNormalizedIgnores) {
-        final IgnoreEntry ignore = pair.entry;
-        if (ignore.ruleId == error.ruleId &&
-            _ignoreCovers(pair.normalizedFileName, portableName, absoluteName)) {
-          error.isIgnored = true;
-          ignore.used = true;
-          break;
-        }
+      final IgnoreEntry? entry = _entryFor(error, preNormalizedIgnores, skillDir);
+      if (entry != null) {
+        error.isIgnored = true;
+        entry.used = true;
       }
     }
+  }
+
+  /// The entry in [ignores] that suppresses [error], or `null` if none does.
+  ///
+  /// An entry whose subject matches is used before a whole-file entry, so the
+  /// order of entries in the ignore file doesn't change which one is reported
+  /// stale.
+  static IgnoreEntry? _entryFor(
+    ValidationError error,
+    List<({IgnoreEntry entry, String normalizedFileName})> ignores,
+    Directory skillDir,
+  ) {
+    final String portableName = baselineFileName(error.file, skillDir);
+    final String absoluteName = _absoluteErrorFile(error.file, skillDir);
+    IgnoreEntry? wholeFile;
+    for (final (:entry, :normalizedFileName) in ignores) {
+      if (entry.ruleId != error.ruleId ||
+          !_ignoreCovers(normalizedFileName, portableName, absoluteName)) {
+        continue;
+      }
+      if (entry.subject == null) {
+        wholeFile ??= entry;
+      } else if (entry.subject == error.subject) {
+        return entry;
+      }
+    }
+    return wholeFile;
   }
 
   /// Returns the `file_name` to store in a baseline entry for an error that a
@@ -812,10 +835,14 @@ class ValidationSession {
       if (rule is! FixableRule) {
         continue;
       }
-      final bool hasErrors = result.validationErrors.any(
-        (e) => e.ruleId == rule.name && !e.isIgnored,
-      );
-      if (!hasErrors) {
+      final List<ValidationError> ruleErrors = [
+        for (final error in result.validationErrors)
+          if (error.ruleId == rule.name) error,
+      ];
+      // A fixer rewrites every finding of its rule, so it must not run when an
+      // ignore entry covers some of them.
+      final bool canFix = ruleErrors.isNotEmpty && ruleErrors.every((e) => !e.isIgnored);
+      if (!canFix) {
         continue;
       }
 
@@ -962,31 +989,32 @@ class ValidationSession {
     String skillName,
     Directory skillDir,
   ) {
-    final List<IgnoreEntry> currentSkillIgnores = ignores.skills[skillName] ?? [];
-    final currentSkillSeen = <String>{};
-    for (final ignore in currentSkillIgnores) {
-      currentSkillSeen.add('${ignore.ruleId}:${ignore.fileName}');
-    }
-
-    for (final ValidationError error in result.validationErrors) {
-      if (!error.isIgnored) {
-        final String fileName = baselineFileName(error.file, skillDir);
-        final key = '${error.ruleId}:$fileName';
-        if (currentSkillSeen.contains(key)) {
-          continue;
-        }
-        currentSkillSeen.add(key);
-
-        currentSkillIgnores.add(IgnoreEntry(ruleId: error.ruleId, fileName: fileName));
+    final List<IgnoreEntry> entries = ignores.skills[skillName] ?? [];
+    final Iterable<ValidationError> unsuppressed = result.validationErrors.where(
+      (error) => !error.isIgnored,
+    );
+    for (final error in unsuppressed) {
+      final newEntry = IgnoreEntry(
+        ruleId: error.ruleId,
+        fileName: baselineFileName(error.file, skillDir),
+        subject: error.subject,
+      );
+      final bool alreadyListed = entries.any((entry) => _coverSameFindings(entry, newEntry));
+      if (!alreadyListed) {
+        entries.add(newEntry);
       }
     }
 
-    if (currentSkillIgnores.isNotEmpty) {
-      ignores.skills[skillName] = currentSkillIgnores;
+    if (entries.isNotEmpty) {
+      ignores.skills[skillName] = entries;
     } else {
       ignores.skills.remove(skillName);
     }
   }
+
+  /// Whether [a] and [b] suppress the same findings.
+  static bool _coverSameFindings(IgnoreEntry a, IgnoreEntry b) =>
+      a.ruleId == b.ruleId && a.fileName == b.fileName && a.subject == b.subject;
 
   /// Writes [ignores] to [ignorePath]. Write failures are logged at warning
   /// level and otherwise swallowed so a single I/O error does not abort the
