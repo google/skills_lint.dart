@@ -19,16 +19,16 @@ final String releasePackageDir = p.dirname(
 );
 
 /// The root directory of the repository.
-final String repoRoot = p.dirname(releasePackageDir);
+final String _repoRoot = p.dirname(releasePackageDir);
 
 /// The Homebrew formula, which `release homebrew-formula` generates.
-final String homebrewFormulaPath = p.join(repoRoot, 'Formula', 'skills_lint.rb');
+final String homebrewFormulaPath = p.join(_repoRoot, 'Formula', 'skills_lint.rb');
 
 /// The template that `release homebrew-formula` generates the formula from.
 final String homebrewTemplatePath = p.join(releasePackageDir, 'templates', 'skills_lint.rb.tmpl');
 
 /// The root directory of the `skills_lint` package that the release ships.
-final String skillsLintPackageDir = p.join(repoRoot, 'packages', 'skills_lint');
+final String skillsLintPackageDir = p.join(_repoRoot, 'packages', 'skills_lint');
 
 /// The directory that holds the licenses of the third-party code in the Dart
 /// runtime. Its `README.md` gives the source of each file.

@@ -27,10 +27,10 @@ import 'release_info.dart';
 import 'release_notes.dart';
 
 /// Exit code for a command-line usage error, from BSD `sysexits.h`.
-const int usageExitCode = 64;
+const int _usageExitCode = 64;
 
 /// Exit code for a release step that failed.
-const int failureExitCode = 1;
+const int _failureExitCode = 1;
 
 /// Runs the `release` command with [arguments] and returns its exit code.
 Future<int> runRelease(List<String> arguments) async {
@@ -49,10 +49,10 @@ Future<int> runRelease(List<String> arguments) async {
     return 0;
   } on UsageException catch (e) {
     stderr.writeln(e);
-    return usageExitCode;
+    return _usageExitCode;
   } on ReleaseException catch (e) {
     stderr.writeln('release: error: ${e.message}');
-    return failureExitCode;
+    return _failureExitCode;
   }
 }
 

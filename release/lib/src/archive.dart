@@ -170,7 +170,7 @@ Future<void> verifyArchive(File archive, String target) async {
         'expected ${expected.join(', ')}.',
       );
     }
-    await smokeTest(p.join(temp.path, binaryName(target)));
+    await _smokeTest(p.join(temp.path, binaryName(target)));
   } finally {
     temp.deleteSync(recursive: true);
   }
@@ -179,13 +179,13 @@ Future<void> verifyArchive(File archive, String target) async {
 /// Runs the [executable] with `--help`.
 ///
 /// Throws a [ReleaseException] if it exits with a nonzero code.
-Future<void> smokeTest(String executable) => _run(executable, ['--help']);
+Future<void> _smokeTest(String executable) => _run(executable, ['--help']);
 
 /// Runs the [executable] with `--version`.
 ///
 /// Throws a [ReleaseException] if it exits with a nonzero code or prints
 /// anything but [version].
-Future<void> checkVersion(String executable, String version) async {
+Future<void> _checkVersion(String executable, String version) async {
   final ProcessResult result = await Process.run(executable, ['--version']);
   final String printed = (result.stdout as String).trim();
   if (result.exitCode != 0 || printed != version) {
@@ -252,8 +252,8 @@ Future<File> packageExecutable({
   if (target.startsWith('macos-')) {
     checkMacosMinimum(File(executable).readAsBytesSync());
   }
-  await smokeTest(executable);
-  await checkVersion(executable, version);
+  await _smokeTest(executable);
+  await _checkVersion(executable, version);
   File(p.join(stage.path, _licenseName)).writeAsStringSync(
     await collectLicenses(
       packageDir: skillsLintPackageDir,

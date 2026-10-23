@@ -78,7 +78,7 @@ String pendingRelease(String pubspecVersion) => pubspecVersion.replaceFirst('-wi
 ///
 /// A dry run of a `-wip` version gives the release it works toward, so the
 /// run can check that the formula template renders it.
-String? formulaVersion(String version) {
+String? _formulaVersion(String version) {
   final String pending = pendingRelease(version);
   return isHomebrewVersion(pending) ? pending : null;
 }
@@ -198,4 +198,4 @@ String outputLines(ReleaseInfo info) =>
     'tag=${info.tag}\n'
     'prerelease=${info.prerelease}\n'
     'mode=${info.mode.name}\n'
-    'formula-version=${formulaVersion(info.version) ?? ''}\n';
+    'formula-version=${_formulaVersion(info.version) ?? ''}\n';

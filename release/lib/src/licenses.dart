@@ -21,10 +21,10 @@ import 'line_endings.dart';
 import 'release_exception.dart';
 
 /// The package whose executable the notices are for.
-const String rootPackage = 'skills_lint';
+const String _rootPackage = 'skills_lint';
 
 /// The heading for the Dart SDK's license in the notices.
-const String sdkNoticeName = 'Dart SDK';
+const String _sdkNoticeName = 'Dart SDK';
 
 /// The third-party components of the Dart runtime, each with the name of the
 /// file in `release/dart_runtime_licenses` that holds its license.
@@ -45,7 +45,7 @@ final RegExp _licenseFileName = RegExp(
 /// One license text and the component it applies to.
 typedef LicenseNotice = ({String component, String text});
 
-/// Returns the license notices for [rootPackage], whose package directory is
+/// Returns the license notices for [_rootPackage], whose package directory is
 /// [packageDir], built with the Dart SDK in [sdkDir]. [runtimeLicensesDir]
 /// holds the [dartRuntimeLicenseFiles].
 ///
@@ -77,8 +77,8 @@ Future<String> collectLicenses({
   );
 
   return formatNotices([
-    (component: rootPackage, text: _readLicense(rootPackage, packageDir)),
-    (component: sdkNoticeName, text: readSdkLicense(sdkDir)),
+    (component: _rootPackage, text: _readLicense(_rootPackage, packageDir)),
+    (component: _sdkNoticeName, text: readSdkLicense(sdkDir)),
     for (final MapEntry(key: component, value: file) in dartRuntimeLicenseFiles.entries)
       (
         component: '$component (in the Dart runtime)',
@@ -89,7 +89,7 @@ Future<String> collectLicenses({
   ]);
 }
 
-/// Returns the names, sorted, of the packages that [rootPackage] depends on
+/// Returns the names, sorted, of the packages that [_rootPackage] depends on
 /// directly or transitively, leaving out its `dev_dependencies` and the
 /// packages that only they bring in.
 ///
@@ -102,11 +102,11 @@ List<String> runtimeDependencies(Map<String, Object?> depsJson) {
       if (package case {'name': final String name, 'directDependencies': final List<Object?> deps})
         name: deps.cast<String>(),
   };
-  if (!graph.containsKey(rootPackage)) {
-    throw ReleaseException('`dart pub deps --json` does not list $rootPackage.');
+  if (!graph.containsKey(_rootPackage)) {
+    throw ReleaseException('`dart pub deps --json` does not list $_rootPackage.');
   }
-  final Set<String> seen = {rootPackage};
-  final List<String> pending = [rootPackage];
+  final Set<String> seen = {_rootPackage};
+  final List<String> pending = [_rootPackage];
   while (pending.isNotEmpty) {
     final String name = pending.removeLast();
     final List<String>? deps = graph[name];
@@ -115,7 +115,7 @@ List<String> runtimeDependencies(Map<String, Object?> depsJson) {
     }
     pending.addAll(deps.where(seen.add));
   }
-  return (seen..remove(rootPackage)).toList()..sort();
+  return (seen..remove(_rootPackage)).toList()..sort();
 }
 
 /// Returns the `.dart_tool/package_config.json` file that applies to
