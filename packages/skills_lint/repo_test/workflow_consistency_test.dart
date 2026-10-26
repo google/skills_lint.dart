@@ -115,6 +115,25 @@ void main() {
             'line verbatim:\n  $commandLine',
       );
     });
+
+    test('documents quote each CI undead command exactly', () {
+      final List<String> commands = _undeadInvocations();
+      expect(commands, isNotEmpty, reason: 'The CI workflow must run `dart run undead`.');
+      final String text = File(
+        p.join(repoRoot, '.agents', 'skills', 'definition-of-done', 'SKILL.md'),
+      ).readAsStringSync();
+      final List<String> unquoted = [
+        for (final String command in commands)
+          if (!text.contains('`$command`')) command,
+      ];
+      expect(
+        unquoted,
+        isEmpty,
+        reason:
+            '.agents/skills/definition-of-done/SKILL.md must quote each undead '
+            'command that CI runs. Copy these lines verbatim:\n  ${unquoted.join('\n  ')}',
+      );
+    });
   });
 }
 
@@ -183,6 +202,27 @@ List<String> _dartTestInvocations() {
   final String content = _getWorkflowFile().readAsStringSync();
   return [
     for (final RegExpMatch match in _dartTestRunStep.allMatches(content)) match.group(1)!.trim(),
+  ];
+}
+
+/// A `run:` step of the CI workflow that runs `dart run undead`, such as:
+///
+/// ```yaml
+///         run: dart run undead --fail-on-undead .
+/// ```
+///
+/// Group 1 is the command, from `dart run undead` to the end of the line.
+final RegExp _undeadRunStep = RegExp(
+  r'^\s*(?:-\s+)?run:\s*(dart\s+run\s+undead\b[^\r\n]*)',
+  multiLine: true,
+);
+
+/// Returns each `dart run undead` command that a `run:` step of the CI
+/// workflow runs.
+List<String> _undeadInvocations() {
+  final String content = _getWorkflowFile().readAsStringSync();
+  return [
+    for (final RegExpMatch match in _undeadRunStep.allMatches(content)) match.group(1)!.trim(),
   ];
 }
 

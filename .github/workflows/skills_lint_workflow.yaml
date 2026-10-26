@@ -74,6 +74,13 @@ jobs:
         run: dart run cognitive_complexity --fail-threshold 20 --exclude 'third_party/**' --exclude 'packages/skills_lint/evals/test_data/**' --exclude '.worktrees/**' --exclude '.claude/**' .
         working-directory: .
 
+      # undead fails on declarations that only tests use or that nothing uses.
+      # It checks the Dart source, not how the code behaves on each OS, so one
+      # leg runs it.
+      - name: Run undead declaration check
+        if: matrix.os == 'ubuntu-latest' && !matrix.lower_bound
+        run: dart run undead --fail-on-undead .
+
       # One step per test directory, so a failure names its kind. See "Where
       # tests go" in CONTRIBUTING.md. Plain `dart test` runs test/ only. Each
       # later test step also runs when an earlier test step fails, so one run
@@ -142,6 +149,9 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed ../../release
       - run: dart analyze --fatal-infos ../../release
       - run: dart test ../../release/test
+      # One OS is enough; see the undead step in analyze_and_test.
+      - if: matrix.os == 'ubuntu-latest'
+        run: dart run undead --fail-on-undead ../../release
 
   coverage:
     runs-on: ubuntu-latest
