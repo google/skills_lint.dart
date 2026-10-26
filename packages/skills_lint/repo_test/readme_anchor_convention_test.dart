@@ -10,6 +10,10 @@ import 'package:test/test.dart';
 import 'src/readme_anchors.dart';
 import 'src/repo_paths.dart';
 
+/// The dart.dev page on package skills, added in
+/// https://github.com/dart-lang/site-www/pull/7572.
+const String _dartDevPackageSkills = 'dart.dev /tools/pub/package-skills (dart-lang/site-www#7572)';
+
 /// README anchors that pages outside this repository link to, as
 /// `pub.dev/packages/skills_lint#<anchor>`, mapped to the page that links.
 ///
@@ -21,10 +25,6 @@ const Map<String, String> externallyLinkedAnchors = {
   'built-in-rules': _dartDevPackageSkills,
   'recipes': _dartDevPackageSkills,
 };
-
-/// The dart.dev page on package skills, added in
-/// https://github.com/dart-lang/site-www/pull/7572.
-const String _dartDevPackageSkills = 'dart.dev /tools/pub/package-skills (dart-lang/site-www#7572)';
 
 /// Fails when a README heading that another site links to is renamed.
 ///
@@ -42,13 +42,14 @@ void main() {
       for (final MapEntry<String, String> entry in externallyLinkedAnchors.entries)
         if (!anchors.contains(entry.key)) '#${entry.key}: linked from ${entry.value}',
     ];
-    if (missing.isNotEmpty) {
-      fail(
-        'packages/skills_lint/README.md has no heading for ${missing.length} '
-        'externally linked anchor(s):\n${missing.join('\n')}\n\n'
-        'Fix: restore the heading text, or update the linking page and then '
-        'the list in repo_test/readme_anchor_convention_test.dart.',
-      );
-    }
+    expect(
+      missing,
+      isEmpty,
+      reason:
+          'packages/skills_lint/README.md has no heading for ${missing.length} '
+          'externally linked anchor(s):\n${missing.join('\n')}\n\n'
+          'Fix: restore the heading text, or update the linking page and then '
+          'the list in repo_test/readme_anchor_convention_test.dart.',
+    );
   });
 }

@@ -31,7 +31,8 @@ String slugify(String text) =>
 /// Every heading anchor in [markdown], in document order.
 ///
 /// Lines inside fenced code blocks are skipped, since a `#` comment there is
-/// not a heading. A repeated anchor gets `-2`, `-3` and so on, as pub.dev
+/// not a heading. Setext headings (underlined with `===` or `---`) are not
+/// recognized; the README uses ATX `#` headings only. A repeated anchor gets `-2`, `-3` and so on, as pub.dev
 /// does.
 List<String> headingAnchors(String markdown) {
   final List<String> anchors = [];

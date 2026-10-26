@@ -34,6 +34,21 @@ void main() {
   });
 
   group('headingAnchors', () {
+    test('matches the ids pub.dev renders for README headings', () {
+      // Expected ids copied from https://pub.dev/packages/skills_lint.
+      const markdown =
+          '### 1. Dart developers — pub.dev\n'
+          '#### As a project dev_dependency\n'
+          '### 2. `install.sh` — Linux + macOS, no Dart required\n'
+          '### Recipe: Dart-native pre-commit hook\n';
+      expect(headingAnchors(markdown), [
+        '1-dart-developers--pubdev',
+        'as-a-project-dev_dependency',
+        '2-installsh--linux--macos-no-dart-required',
+        'recipe-dart-native-pre-commit-hook',
+      ]);
+    });
+
     test('numbers repeated headings with -2, -3, as pub.dev does', () {
       expect(headingAnchors('## Usage\n### Flags\n## Flags\n# flags\n'), [
         'usage',
