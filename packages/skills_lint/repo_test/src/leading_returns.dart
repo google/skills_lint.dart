@@ -29,7 +29,9 @@ List<ConventionViolation> findLeadingReturns(Source source) {
   return violations;
 }
 
-bool _isDocLine(Token comment) => comment.lexeme.startsWith('///');
+/// Whether [comment] is a `///` doc line. A `////` line is a plain comment.
+bool _isDocLine(Token comment) =>
+    comment.lexeme.startsWith('///') && !comment.lexeme.startsWith('////');
 
 /// Whether [comment] is the next line of the `///` block that [previous]
 /// belongs to.

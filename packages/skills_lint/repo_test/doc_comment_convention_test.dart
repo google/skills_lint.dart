@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'src/leading_returns.dart';
@@ -29,7 +30,7 @@ void main() {
   setUpAll(() {
     sources = parseDirectories(
       _scannedDirectories,
-    ).where((source) => !source.path.contains('third_party/')).toList();
+    ).where((source) => !p.split(source.path).contains('third_party')).toList();
   });
 
   test('no doc comment starts with "Returns"', () {
@@ -41,10 +42,12 @@ void main() {
   });
 
   test('each file in the allowlist has exactly its listed count', () {
+    final Map<String, int> counts = {
+      for (final Source source in sources) source.path: findLeadingReturns(source).length,
+    };
     final List<String> mismatches = [
       for (final MapEntry(key: path, value: listed) in _shouldBeFixed.entries)
-        if (_countIn(sources, path) case final int found when found != listed)
-          '$path: listed $listed, found $found',
+        if ((counts[path] ?? 0) != listed) '$path: listed $listed, found ${counts[path] ?? 0}',
     ];
     expect(
       mismatches,
@@ -55,13 +58,6 @@ void main() {
     );
   });
 }
-
-/// The number of leading "Returns" in the file at [path], or 0 if
-/// [sources] has no such file.
-int _countIn(List<Source> sources, String path) => [
-  for (final Source source in sources)
-    if (source.path == path) ...findLeadingReturns(source),
-].length;
 
 const List<String> _scannedDirectories = ['lib', '../../release/lib', 'repo_test'];
 

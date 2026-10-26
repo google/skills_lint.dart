@@ -38,6 +38,9 @@ void noop() {}
 
 /// ReturnsNothing is not the word Returns.
 void other() {}
+
+//// Returns in a banner line is a plain comment.
+void banner() {}
 ''');
     expect(findLeadingReturns(source), isEmpty);
   });
