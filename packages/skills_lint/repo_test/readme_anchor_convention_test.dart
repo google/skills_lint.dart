@@ -47,7 +47,7 @@ void main() {
         'packages/skills_lint/README.md has no heading for ${missing.length} '
         'externally linked anchor(s):\n${missing.join('\n')}\n\n'
         'Fix: restore the heading text, or update the linking page and then '
-        'the list in repo_test/readme_anchors_test.dart.',
+        'the list in repo_test/readme_anchor_convention_test.dart.',
       );
     }
   });
