@@ -20,7 +20,7 @@ enum SiblingKind {
   directory,
 }
 
-/// Returns the name of the entry in [parent] closest to [missingName], or
+/// Finds the name of the entry in [parent] closest to [missingName], or
 /// `null` when nothing is close enough.
 ///
 /// Only entries of [kind] are candidates. Names are compared without regard
