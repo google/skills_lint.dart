@@ -85,10 +85,18 @@ class SkillFixer {
           skippedFixes,
           blockedDirectoryName,
           settled: true,
+          passes: pass - 1,
         );
       }
     }
-    return _outcome(current, appliedRuleNames, skippedFixes, blockedDirectoryName, settled: false);
+    return _outcome(
+      current,
+      appliedRuleNames,
+      skippedFixes,
+      blockedDirectoryName,
+      settled: false,
+      passes: maxPasses,
+    );
   }
 
   /// Runs [rule]'s fix on the content of [current] and validates the result,
@@ -196,6 +204,7 @@ class SkillFixer {
     Map<String, SkippedFix> skippedFixes,
     String? blockedDirectoryName, {
     required bool settled,
+    required int passes,
   }) => FixOutcome(
     result: result,
     appliedRuleNames: appliedRuleNames,
@@ -206,6 +215,7 @@ class SkillFixer {
         if (_reports(result, skipped.ruleName)) skipped,
     ],
     settled: settled,
+    passes: passes,
     blockedDirectoryName: blockedDirectoryName,
   );
 }

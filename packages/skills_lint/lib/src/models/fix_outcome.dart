@@ -13,6 +13,7 @@ class FixOutcome {
     required this.appliedRuleNames,
     required this.skippedFixes,
     required this.settled,
+    required this.passes,
     this.blockedDirectoryName,
   });
 
@@ -32,6 +33,9 @@ class FixOutcome {
   /// False when the pass limit ended the loop, which only a fix that changes
   /// between identical calls can cause.
   final bool settled;
+
+  /// How many passes over the rules kept at least one fix.
+  final int passes;
 
   /// The directory name a kept fix would rename the skill to, when another
   /// directory already has that name. The fixed content is judged under the

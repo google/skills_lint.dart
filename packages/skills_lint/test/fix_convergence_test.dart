@@ -6,7 +6,7 @@
 ///
 /// A new built-in fixable rule registered in [RuleRegistry.allChecks] is
 /// automatically checked for idempotence, progress on its own diagnostics,
-/// convergence, and dry-run/apply equivalence.
+/// convergence within 2 passes, and dry-run/apply equivalence.
 library;
 
 import 'dart:io';
@@ -284,8 +284,9 @@ Future<void> _verifyConfigConvergence(_NamedConfig config) async {
       onFixFailed: (ruleName, error) => fail('$ruleName fix threw $error'),
     ).fix(initial);
 
-    // P3a: the fixes settle before the pass limit.
+    // P3a: settles in at most 2 passes that keep a fix.
     expect(predicted.settled, isTrue, reason: '${config.label} on ${fixture.label}');
+    expect(predicted.passes, lessThanOrEqualTo(2), reason: '${config.label} on ${fixture.label}');
 
     await validateSkillsInternal(
       individualSkillPaths: [skillDir.path],
