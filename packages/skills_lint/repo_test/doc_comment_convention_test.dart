@@ -14,10 +14,13 @@ import 'src/source_conventions.dart';
 ///
 /// Effective Dart allows a leading "Returns", but this repo asks for a noun
 /// phrase or a third-person verb so the summary says what a member is or
-/// does. A later paragraph may still start with "Returns". Only `lib/`,
-/// `release/lib/` and `repo_test/` are scanned, the code reviewers read most;
-/// `third_party/` is vendored and keeps its upstream wording. Widen the scope
-/// or drop the rule if the style guide's bullet changes.
+/// does. A later paragraph may still start with "Returns".
+///
+/// Only `lib/`, `release/lib/` and `repo_test/` are scanned, the scope that
+/// issue #146 set. `bin/`, `benchmark/` and `test/` still have leading
+/// "Returns"; add each directory here once it is fixed. `third_party/` is
+/// vendored and keeps its upstream wording. Drop the rule if the style
+/// guide's bullet changes.
 ///
 /// `leading_returns_test.dart` in `checkers/` pins what the detector reports.
 void main() {
@@ -32,39 +35,49 @@ void main() {
   test('no doc comment starts with "Returns"', () {
     final List<ConventionViolation> violations = [
       for (final Source source in sources)
-        if (!_shouldBeFixed.contains(source.path)) ...findLeadingReturns(source),
+        if (!_shouldBeFixed.containsKey(source.path)) ...findLeadingReturns(source),
     ];
     expectNoViolations(violations, fix: _fix);
   });
 
-  test('every file in the allowlist still has a leading "Returns"', () {
-    final List<String> clean = [
-      for (final String path in _shouldBeFixed)
-        if (findLeadingReturns(sources.firstWhere((s) => s.path == path)).isEmpty) path,
+  test('each file in the allowlist has exactly its listed count', () {
+    final List<String> mismatches = [
+      for (final MapEntry(key: path, value: listed) in _shouldBeFixed.entries)
+        if (_countIn(sources, path) case final int found when found != listed)
+          '$path: listed $listed, found $found',
     ];
     expect(
-      clean,
+      mismatches,
       isEmpty,
       reason:
-          '${clean.join(', ')} no longer has a leading "Returns"; remove it from the allowlist.',
+          'Fix new violations in these files. When the count drops, lower it, '
+          'and once it reaches 0, remove it from the allowlist.',
     );
   });
 }
 
+/// The number of leading "Returns" in the file at [path], or 0 if
+/// [sources] has no such file.
+int _countIn(List<Source> sources, String path) => [
+  for (final Source source in sources)
+    if (source.path == path) ...findLeadingReturns(source),
+].length;
+
 const List<String> _scannedDirectories = ['lib', '../../release/lib', 'repo_test'];
 
-/// Files that still have a leading "Returns". Shrink-only.
+/// The number of leading "Returns" in each file that still has some.
+/// Shrink-only.
 ///
 /// The multi-pass `--fix` work is rewriting these files, so they are left
 /// alone to avoid merge conflicts.
 // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/146
 // remove once the multi-pass --fix stack lands.
-const Set<String> _shouldBeFixed = {
-  'lib/src/fixable_rule.dart',
-  'lib/src/rules/name_format_rule.dart',
-  'lib/src/rules/trailing_whitespace_rule.dart',
-  'lib/src/validation_session.dart',
-  'lib/src/validator.dart',
+const Map<String, int> _shouldBeFixed = {
+  'lib/src/fixable_rule.dart': 1,
+  'lib/src/rules/name_format_rule.dart': 3,
+  'lib/src/rules/trailing_whitespace_rule.dart': 1,
+  'lib/src/validation_session.dart': 1,
+  'lib/src/validator.dart': 1,
 };
 
 const String _fix =

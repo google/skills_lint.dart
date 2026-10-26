@@ -94,8 +94,8 @@ class DartPackage {
     return imported;
   }
 
-  /// Converts [path] to be relative to [srcRoot] with `/` separators, or
-  /// gives null if [path] is not below [srcRoot].
+  /// Converts [path] to a path relative to [srcRoot] with `/` separators,
+  /// or null if [path] is not below [srcRoot].
   String? srcRelative(String path) {
     if (!p.isWithin(srcRoot, path)) {
       return null;

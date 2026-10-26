@@ -14,6 +14,7 @@ final RegExp _leadingReturns = RegExp(r'^///\s*Returns\b');
 /// The style guide's "No leading Returns" rule asks for a noun phrase or a
 /// third-person verb that says what the member does. Only the first line of
 /// a block is checked, so a later paragraph may still start with "Returns".
+/// `/** */` comments are not checked.
 List<ConventionViolation> findLeadingReturns(Source source) {
   final List<ConventionViolation> violations = [];
   Token? previous;

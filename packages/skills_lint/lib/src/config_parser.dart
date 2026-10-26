@@ -628,7 +628,7 @@ class LintTargetConfig {
   }
 }
 
-/// Looks up where [target] was declared, or `null` for a target built by a
+/// The location where [target] was declared, or `null` for a target built by a
 /// caller rather than read by [ConfigParser].
 ///
 /// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this

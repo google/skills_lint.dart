@@ -138,7 +138,7 @@ File findPackageConfig(String packageDir) {
   }
 }
 
-/// Maps each package name to the package's root directory, by package name, from the
+/// Maps each package name to its root directory, from the
 /// [packageConfig] JSON that was read from [packageConfigUri].
 ///
 /// Relative `rootUri` values resolve against [packageConfigUri], as the
