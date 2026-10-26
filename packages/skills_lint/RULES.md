@@ -26,6 +26,11 @@ All rules are enabled / disabled / escalated the same three ways:
 The "Disable" line under each rule below names the negated CLI flag for
 quick reference.
 
+An entry in an ignore file covers every finding of one rule in one file.
+A rule with an "Ignore subject" line names what each finding is about, and
+an entry with that `subject` covers only the findings about it. The format
+of a rule's subject is part of its contract.
+
 See [`CONTRIBUTING.md`](../../CONTRIBUTING.md#rule-stability-policy-semver) for the SemVer policy that
 governs how changes to these rules ship.
 
@@ -43,7 +48,10 @@ governs how changes to these rules ship.
 - **Auto-fix behavior:** if the absolute path resolves to a file that
   exists on disk, the fixer rewrites it to the equivalent POSIX-style
   relative path from `SKILL.md`. If the target does not exist the
-  fixer leaves the link untouched.
+  fixer leaves the link untouched. If an ignore entry covers any of the
+  links, the fixer leaves the file unchanged.
+- **Ignore subject:** the link destination as written, including any
+  `#anchor`, without its title.
 - **Disable:** `--no-check-absolute-paths`.
 
 ## check-relative-paths
@@ -92,6 +100,8 @@ governs how changes to these rules ship.
   the content. `check-absolute-paths --fix` rewrites an absolute
   link to a file outside the skill as a `../` link, which
   `within-skill` then reports.
+- **Ignore subject:** the link destination as written, including any
+  `#anchor`, without its title.
 - **Disable:** `--no-check-relative-paths` (also the default state).
 
 ## check-trailing-whitespace

@@ -12,6 +12,7 @@ class ValidationError {
     required this.file,
     required this.message,
     required this.severity,
+    this.subject,
     this.isIgnored = false,
     this.region,
     this.markdownMessage,
@@ -23,6 +24,7 @@ class ValidationError {
     file: json[keyFile]! as String,
     message: json[keyMessage]! as String,
     severity: AnalysisSeverity.values.byName(json[keySeverity]! as String),
+    subject: json[keySubject] as String?,
     isIgnored: json[keyIsIgnored] as bool? ?? false,
     region: json[keyRegion] != null
         ? SourceRegion.fromJson(json[keyRegion]! as Map<String, Object?>)
@@ -41,6 +43,9 @@ class ValidationError {
 
   /// JSON key for [severity].
   static const String keySeverity = 'severity';
+
+  /// JSON key for [subject].
+  static const String keySubject = 'subject';
 
   /// JSON key for [isIgnored].
   static const String keyIsIgnored = 'isIgnored';
@@ -63,6 +68,13 @@ class ValidationError {
   /// The severity of the error.
   final AnalysisSeverity severity;
 
+  /// The thing within [file] that this error is about, or `null` if unset.
+  ///
+  /// An ignore entry for [ruleId] and [file] suppresses this error if it has
+  /// no `subject` or the same one. Derive the value from the content, never
+  /// from a line number, so the entry keeps matching after edits.
+  final String? subject;
+
   /// Whether this error has been ignored via configuration.
   bool isIgnored;
 
@@ -83,6 +95,7 @@ class ValidationError {
     keyFile: file,
     keyMessage: message,
     keySeverity: severity.name,
+    if (subject != null) keySubject: subject,
     keyIsIgnored: isIgnored,
     if (region != null) keyRegion: region!.toJson(),
     if (markdownMessage != null) keyMarkdownMessage: markdownMessage,

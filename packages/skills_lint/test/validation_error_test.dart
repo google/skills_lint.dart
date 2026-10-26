@@ -15,6 +15,7 @@ void main() {
         file: 'SKILL.md',
         message: 'Invalid frontmatter syntax',
         severity: AnalysisSeverity.error,
+        subject: '../../RULES.md',
         isIgnored: true,
         region: const SourceRegion(startLine: 2, startColumn: 1, endLine: 2, endColumn: 15),
         markdownMessage: '**Invalid YAML frontmatter.**\n\nSyntax error on line 2.',
