@@ -88,7 +88,33 @@ void main() {
       expect(findCompiledRunnerGaps(source, testSources), isEmpty);
     });
 
-    test('counts only calls inside main', () {
+    test("counts only calls inside main's 'compiled CLI' group", () {
+      final Source source = runner('''
+import '../test/a_test.dart' as a;
+import '../test/sub/b_test.dart' as b;
+
+void main() {
+  group('compiled CLI', () {
+    a.defineCliTests();
+  });
+  b.defineCliTests();
+}
+
+void unused() {
+  group('compiled CLI', () {
+    b.defineCliTests();
+  });
+}
+''');
+      final List<ConventionViolation> violations = findCompiledRunnerGaps(source, testSources);
+      expect(_lines(violations), [2]);
+      expect(
+        violations.single.problem,
+        contains("add b.defineCliTests(); inside main's 'compiled CLI' group"),
+      );
+    });
+
+    test('reports a declaring file that is imported but never called', () {
       final Source source = runner('''
 import '../test/a_test.dart' as a;
 import '../test/sub/b_test.dart' as b;
@@ -98,60 +124,68 @@ void main() {
     a.defineCliTests();
   });
 }
-
-void unused() {
-  b.defineCliTests();
-}
 ''');
       final List<ConventionViolation> violations = findCompiledRunnerGaps(source, testSources);
       expect(_lines(violations), [2]);
-      expect(violations.single.problem, contains('add b.defineCliTests(); to main'));
-    });
-
-    test('reports a declaring file that is imported but never called', () {
-      final Source source = runner('''
-import '../test/a_test.dart' as a;
-import '../test/sub/b_test.dart' as b;
-
-void main() {
-  a.defineCliTests();
-}
-''');
-      final List<ConventionViolation> violations = findCompiledRunnerGaps(source, testSources);
-      expect(_lines(violations), [2]);
-      expect(violations.single.problem, contains('add b.defineCliTests(); to main'));
+      expect(violations.single.problem, contains('add b.defineCliTests();'));
     });
 
     test('reports a declaring file that is not imported, or imported without a prefix', () {
       final Source source = runner('''
+import 'package:test/test.dart';
 import '../test/a_test.dart';
 
 void main() {}
 ''');
       final List<ConventionViolation> violations = findCompiledRunnerGaps(source, testSources);
+      expect(_lines(violations), [2, 1]);
       expect(violations.map((v) => v.problem), [
-        contains('test/a_test.dart declares defineCliTests() but is not imported with a prefix'),
-        contains("import '../test/sub/b_test.dart' as <prefix>;"),
+        "test/a_test.dart declares defineCliTests() but is imported without a prefix; use import '../test/a_test.dart' as <prefix>;",
+        "test/sub/b_test.dart declares defineCliTests() but is not imported; add import '../test/sub/b_test.dart' as <prefix>;",
       ]);
     });
 
     test('reports a call whose file does not declare defineCliTests(), or is not imported', () {
       final Source source = runner('''
+import 'package:test/test.dart' as pkg;
 import '../test/a_test.dart' as a;
 import '../test/sub/b_test.dart' as b;
 import '../test/c_test.dart' as c;
 
 void main() {
-  a.defineCliTests();
-  b.defineCliTests();
-  c.defineCliTests();
-  missing.defineCliTests();
+  group('compiled CLI', () {
+    a.defineCliTests();
+    b.defineCliTests();
+    c.defineCliTests();
+    pkg.defineCliTests();
+    missing.defineCliTests();
+  });
 }
 ''');
       final List<ConventionViolation> violations = findCompiledRunnerGaps(source, testSources);
-      expect(_lines(violations), [8, 9]);
-      expect(violations.first.problem, contains('names test/c_test.dart, which does not declare'));
-      expect(violations.last.problem, contains('names no imported file'));
+      expect(_lines(violations), [10, 11, 12]);
+      expect(violations[0].problem, contains('names test/c_test.dart, which does not declare'));
+      expect(
+        violations[1].problem,
+        contains('names package:test/test.dart, which does not declare'),
+      );
+      expect(violations[2].problem, contains('names no imported file'));
+    });
+
+    test('accepts a file imported twice under two prefixes', () {
+      final Source source = runner('''
+import '../test/a_test.dart' as a;
+import '../test/a_test.dart' as a2;
+import '../test/sub/b_test.dart' as b;
+
+void main() {
+  group('compiled CLI', () {
+    a.defineCliTests();
+    b.defineCliTests();
+  });
+}
+''');
+      expect(findCompiledRunnerGaps(source, testSources), isEmpty);
     });
   });
 }

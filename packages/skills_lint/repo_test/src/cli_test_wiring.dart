@@ -25,6 +25,10 @@ import 'models/source.dart';
 /// The name of the function that holds a test file's CLI tests.
 const String cliTestsFunction = 'defineCliTests';
 
+/// The description of the group in `compiled_test/cli_test.dart` whose
+/// setup runs the CLI tests against the compiled binary.
+const String compiledGroup = 'compiled CLI';
+
 /// Whether [source] declares a top-level function named [cliTestsFunction].
 bool declaresCliTests(Source source) => _topLevelFunction(source, cliTestsFunction) != null;
 
@@ -62,26 +66,27 @@ List<ConventionViolation> findMainWithoutCliTests(Source source) {
 /// each `<prefix>.defineCliTests()` call in [runner] names a file that
 /// declares it.
 ///
-/// Only calls inside [runner]'s top-level `main`, including inside closures
-/// such as the `group` body, count. Import URIs in [runner] are resolved relative to its directory and
-/// compared with each [Source.path].
+/// Only calls inside the [compiledGroup] group in [runner]'s top-level
+/// `main` count, because that group's setup is what points the tests at the
+/// compiled binary. Relative import URIs in [runner] are resolved against its
+/// directory and compared with each [Source.path].
 List<ConventionViolation> findCompiledRunnerGaps(Source runner, Iterable<Source> testSources) {
   final Map<String, ImportDirective> importsByPath = {
     for (final ImportDirective import in runner.unit.directives.whereType<ImportDirective>())
-      if (import.uri.stringValue case final String uri) _resolve(runner.path, uri): import,
+      if (import.uri.stringValue case final String uri when !uri.contains(':'))
+        _resolve(runner.path, uri): import,
   };
-  final Map<String, MethodInvocation> callsByPrefix = _prefixedCallsInMain(runner);
+  final Map<String, MethodInvocation> callsByPrefix = _prefixedCallsInCompiledGroup(runner);
   final Set<String> declaringPaths = {
     for (final Source source in testSources)
       if (declaresCliTests(source)) source.path,
   };
-  final Map<String, String> pathsByPrefix = {
-    for (final MapEntry(key: path, value: import) in importsByPath.entries)
-      if (import.prefix?.name case final String prefix) prefix: path,
-  };
+  final Map<String, String> pathsByPrefix = _pathsByPrefix(runner);
   return [
     for (final String path in declaringPaths.toList()..sort())
-      ?_uncalledDeclaration(runner, path, importsByPath[path], callsByPrefix.keys.toSet()),
+      ?_uncalledDeclaration(runner, path, importsByPath[path], {
+        for (final String prefix in callsByPrefix.keys) ?pathsByPrefix[prefix],
+      }),
     for (final MapEntry(key: prefix, value: call) in callsByPrefix.entries)
       if (pathsByPrefix[prefix] case final path when path == null || !declaringPaths.contains(path))
         runner.violationAt(
@@ -93,42 +98,67 @@ List<ConventionViolation> findCompiledRunnerGaps(Source runner, Iterable<Source>
 }
 
 /// Reports [path], which declares [cliTestsFunction], unless [import], its
-/// import in [runner], has a prefix in [calledPrefixes].
+/// import in [runner], has a prefix and [path] is in [calledPaths].
 ConventionViolation? _uncalledDeclaration(
   Source runner,
   String path,
   ImportDirective? import,
-  Set<String> calledPrefixes,
+  Set<String> calledPaths,
 ) {
-  final String? prefix = import?.prefix?.name;
-  if (import == null || prefix == null) {
+  final importLine =
+      "import '${p.posix.relative(path, from: p.posix.dirname(runner.path))}' as <prefix>;";
+  if (import == null) {
     // With no import to point at, report line 1 of the runner.
     return runner.violationAt(
-      import?.offset ?? 0,
-      '$path declares $cliTestsFunction() but is not imported with a prefix; add '
-      "import '${p.posix.relative(path, from: p.posix.dirname(runner.path))}' as <prefix>;",
+      0,
+      '$path declares $cliTestsFunction() but is not imported; add $importLine',
     );
   }
-  if (calledPrefixes.contains(prefix)) {
+  final String? prefix = import.prefix?.name;
+  if (prefix == null) {
+    return runner.violationAt(
+      import.offset,
+      '$path declares $cliTestsFunction() but is imported without a prefix; use $importLine',
+    );
+  }
+  if (calledPaths.contains(path)) {
     return null;
   }
   return runner.violationAt(
     import.offset,
     '$path declares $cliTestsFunction() but it is never called here, so these CLI tests '
-    'never run against the compiled binary; add $prefix.$cliTestsFunction(); to main',
+    "never run against the compiled binary; add $prefix.$cliTestsFunction(); inside main's "
+    "'$compiledGroup' group",
   );
 }
 
-/// Each `<prefix>.defineCliTests()` call inside [source]'s top-level `main`,
-/// keyed by prefix.
-Map<String, MethodInvocation> _prefixedCallsInMain(Source source) => {
-  if (_topLevelFunction(source, 'main') case final FunctionDeclaration main)
-    for (final MethodInvocation call in _invocations(main))
-      if (call.target case SimpleIdentifier(
-        :final name,
-      ) when call.methodName.name == cliTestsFunction)
-        name: call,
+/// The file each prefixed import in [runner] names, keyed by prefix: a
+/// package-relative path for a relative URI, or the URI itself otherwise.
+Map<String, String> _pathsByPrefix(Source runner) => {
+  for (final ImportDirective import in runner.unit.directives.whereType<ImportDirective>())
+    if ((import.prefix?.name, import.uri.stringValue) case (final String prefix, final String uri))
+      prefix: uri.contains(':') ? uri : _resolve(runner.path, uri),
 };
+
+/// Each `<prefix>.defineCliTests()` call inside a [compiledGroup] group in
+/// [source]'s top-level `main`, keyed by prefix.
+Map<String, MethodInvocation> _prefixedCallsInCompiledGroup(Source source) => {
+  if (_topLevelFunction(source, 'main') case final FunctionDeclaration main)
+    for (final MethodInvocation group in _invocations(main).where(_isCompiledGroup))
+      for (final MethodInvocation call in _invocations(group))
+        if (call.target case SimpleIdentifier(
+          :final name,
+        ) when call.methodName.name == cliTestsFunction)
+          name: call,
+};
+
+/// Whether [call] is `group('$compiledGroup', ...)`.
+bool _isCompiledGroup(MethodInvocation call) =>
+    call.target == null &&
+    call.methodName.name == 'group' &&
+    call.argumentList.arguments.firstOrNull?.argumentExpression is SimpleStringLiteral &&
+    (call.argumentList.arguments.first.argumentExpression as SimpleStringLiteral).value ==
+        compiledGroup;
 
 FunctionDeclaration? _topLevelFunction(Source source, String name) {
   for (final FunctionDeclaration function
