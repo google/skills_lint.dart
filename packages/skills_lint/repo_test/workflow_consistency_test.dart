@@ -243,7 +243,7 @@ final RegExp _undeadCommand = RegExp(r'dart\s+run\s+undead\b');
 /// A YAML comment line, which [_undeadCommand] must not count.
 final RegExp _yamlComment = RegExp(r'^\s*#.*$', multiLine: true);
 
-/// Returns each `dart run undead` command that a `run:` step of the CI
+/// Lists each `dart run undead` command that a `run:` step of the CI
 /// workflow runs.
 List<String> _undeadInvocations() {
   final String content = _getWorkflowFile().readAsStringSync();
@@ -256,7 +256,7 @@ List<String> _undeadInvocations() {
 /// the command.
 final RegExp _quotedUndeadCommand = RegExp(r'`(dart\s+run\s+undead\b[^`]*)`');
 
-/// Returns the entries of [commands] that [text] does not quote in backticks.
+/// The entries of [commands] that [text] does not quote in backticks.
 List<String> _unquotedIn(String text, List<String> commands) => [
   for (final String command in commands)
     if (!text.contains('`$command`')) command,
