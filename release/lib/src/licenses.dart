@@ -45,7 +45,7 @@ final RegExp _licenseFileName = RegExp(
 /// One license text and the component it applies to.
 typedef LicenseNotice = ({String component, String text});
 
-/// Returns the license notices for [_rootPackage], whose package directory is
+/// Collects the license notices for [_rootPackage], whose package directory is
 /// [packageDir], built with the Dart SDK in [sdkDir]. [runtimeLicensesDir]
 /// holds the [dartRuntimeLicenseFiles].
 ///
@@ -89,7 +89,7 @@ Future<String> collectLicenses({
   ]);
 }
 
-/// Returns the names, sorted, of the packages that [_rootPackage] depends on
+/// Lists the names, sorted, of the packages that [_rootPackage] depends on
 /// directly or transitively, leaving out its `dev_dependencies` and the
 /// packages that only they bring in.
 ///
@@ -118,7 +118,7 @@ List<String> runtimeDependencies(Map<String, Object?> depsJson) {
   return (seen..remove(_rootPackage)).toList()..sort();
 }
 
-/// Returns the `.dart_tool/package_config.json` file that applies to
+/// Finds the `.dart_tool/package_config.json` file that applies to
 /// [packageDir]: the one in [packageDir] or in the nearest directory above
 /// it, such as a pub workspace root.
 File findPackageConfig(String packageDir) {
@@ -138,7 +138,7 @@ File findPackageConfig(String packageDir) {
   }
 }
 
-/// Returns each package's root directory, by package name, from the
+/// Maps each package name to the package's root directory, by package name, from the
 /// [packageConfig] JSON that was read from [packageConfigUri].
 ///
 /// Relative `rootUri` values resolve against [packageConfigUri], as the
@@ -149,7 +149,7 @@ Map<String, String> packageRoots(Map<String, Object?> packageConfig, Uri package
       name: p.fromUri(packageConfigUri.resolve(rootUri)),
 };
 
-/// Returns the license text of the Dart SDK in [sdkDir].
+/// Reads the license text of the Dart SDK in [sdkDir].
 ///
 /// Homebrew's Dart SDK keeps `LICENSE` in the directory above the SDK, so
 /// that directory is checked when [sdkDir] has none.
@@ -163,7 +163,7 @@ String readSdkLicense(String sdkDir) {
   throw ReleaseException('No LICENSE file in the Dart SDK at $sdkDir or above it.');
 }
 
-/// Returns the license file in [dir], or `null` if it has none.
+/// Finds the license file in [dir], or `null` if it has none.
 ///
 /// When several file names match, such as `LICENSE` and `LICENSE.md`, returns
 /// the shortest, which is most likely the canonical one.
@@ -182,7 +182,7 @@ File? findLicenseFile(String dir) {
   return matches.reduce((a, b) => p.basename(a.path).length <= p.basename(b.path).length ? a : b);
 }
 
-/// Returns the notices as one document.
+/// Formats [notices] as one document.
 ///
 /// Components with the same license text share one copy of it, headed by
 /// all of their names, in the order the components first appear in
