@@ -17,7 +17,7 @@
 - **Behavior change:** `invalid-skill-name` reads a `name` that YAML loads as a number or boolean as the text written, so `name: 1e3` matches a `1e3` directory, and `name: 0x1f` no longer matches a `31` directory, nor `name: True` a `true` one.
 - The `skills-lint-setup` skill picks a setup path: a `dart test` that calls `validateSkills` in a Dart package, or the installed `skills_lint` command otherwise. It no longer links to files outside its own directory.
 - Added a `--version` flag that prints the skills_lint version.
-- `validateSkills` prints each entry in `config.parsingErrors` to stderr as a `Configuration warning:` line. It still returns `true` for these errors, unlike the `skills_lint` command. To fail on them, check that `parsingErrors` is empty.
+- `validateSkills` prints each `config.parsingErrors` entry to stderr as a `Configuration warning:` and still returns `true`, unlike the `skills_lint` command. To fail on them, check that `parsingErrors` is empty. [#152](https://github.com/google/skills_lint.dart/issues/152) tracks failing in 0.6.0.
 - The `skills-lint-setup` example test fails when `skills_lint.yaml` has errors.
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
 - The published package includes its agent skills, so `dart run skills@ get` installs them.

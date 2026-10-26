@@ -19,17 +19,18 @@ class _CapturingStdout implements Stdout {
   void writeln([Object? object = '']) => buffer.writeln(object);
 
   @override
+  Future<void> flush() async {}
+
+  /// Throws for any other member, so a test fails loudly if validation starts
+  /// using one.
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+final String validSkillPath = p.normalize(p.absolute(p.join('example', 'skills', 'valid')));
+
 void main() {
   group('validateSkills with configuration errors', () {
-    late String validSkillPath;
-
-    setUpAll(() {
-      validSkillPath = p.normalize(p.absolute(p.join('example', 'skills', 'valid')));
-    });
-
     /// Runs `validateSkills` on the valid example skill with the
     /// configuration parsed from [yaml], and returns its result and the text
     /// it wrote to standard error.
