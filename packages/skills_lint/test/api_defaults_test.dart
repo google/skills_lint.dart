@@ -146,7 +146,7 @@ skills_lint:
     /// Runs [validate] on the valid example skill with the configuration
     /// parsed from [yaml], and returns its result and what it wrote to
     /// standard error.
-    Future<(bool, String)> run(
+    Future<(bool, String)> runWithConfig(
       String yaml, {
       Future<bool> Function({Configuration? config}) validate = _validateSkills,
     }) async {
@@ -160,7 +160,7 @@ skills_lint:
     }
 
     test('prints an unknown rule parameter as a warning and passes', () async {
-      final (bool passed, String err) = await run(_typoConfig);
+      final (bool passed, String err) = await runWithConfig(_typoConfig);
 
       expect(
         err,
@@ -183,7 +183,7 @@ skills_lint:
       final List<String> errors = ConfigParser.parse(yaml).parsingErrors;
       expect(errors, hasLength(2));
 
-      final (_, String err) = await run(yaml);
+      final (_, String err) = await runWithConfig(yaml);
 
       for (final error in errors) {
         expect(err, contains('Configuration warning: $error'));
@@ -191,7 +191,7 @@ skills_lint:
     });
 
     test('prints no configuration warning for a valid configuration', () async {
-      final (bool passed, String err) = await run('''
+      final (bool passed, String err) = await runWithConfig('''
 skills_lint:
   rules:
     check-relative-paths:
@@ -206,7 +206,7 @@ skills_lint:
     test('validateSkillsInternal leaves configuration errors to its caller', () async {
       // The CLI reports configuration errors itself before it calls
       // validateSkillsInternal, so they must not print twice.
-      final (_, String err) = await run(
+      final (_, String err) = await runWithConfig(
         _typoConfig,
         validate: ({Configuration? config}) => validateSkillsInternal(
           individualSkillPaths: [_validSkillPath],
