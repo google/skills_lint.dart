@@ -101,9 +101,7 @@ void main() {
 
     test('documents quote the CI cognitive complexity command exactly', () {
       final String commandLine = _parseCognitiveComplexityInvocation().group(0)!.trim();
-      final String text = File(
-        p.join(repoRoot, '.agents', 'skills', 'definition-of-done', 'SKILL.md'),
-      ).readAsStringSync();
+      final String text = _definitionOfDoneFile().readAsStringSync();
       // The backticks pin both ends, so a document that drops or appends a
       // path root does not match.
       expect(
@@ -119,19 +117,41 @@ void main() {
     test('documents quote each CI undead command exactly', () {
       final List<String> commands = _undeadInvocations();
       expect(commands, isNotEmpty, reason: 'The CI workflow must run `dart run undead`.');
-      final String text = File(
-        p.join(repoRoot, '.agents', 'skills', 'definition-of-done', 'SKILL.md'),
-      ).readAsStringSync();
-      final List<String> unquoted = [
-        for (final String command in commands)
-          if (!text.contains('`$command`')) command,
-      ];
+      // A command that the run-step pattern misses, such as one inside a
+      // `run: |` block, would otherwise go unchecked.
+      final int mentions = _undeadCommand
+          .allMatches(_getWorkflowFile().readAsStringSync().replaceAll(_yamlComment, ''))
+          .length;
+      expect(
+        commands,
+        hasLength(mentions),
+        reason: 'Each `dart run undead` in the CI workflow must be a one-line `run:` step.',
+      );
+      final String text = _definitionOfDoneFile().readAsStringSync();
+      final List<String> unquoted = _unquotedIn(text, commands);
       expect(
         unquoted,
         isEmpty,
         reason:
             '.agents/skills/definition-of-done/SKILL.md must quote each undead '
             'command that CI runs. Copy these lines verbatim:\n  ${unquoted.join('\n  ')}',
+      );
+    });
+
+    test('documents quote no undead command that CI does not run', () {
+      final Set<String> commands = _undeadInvocations().toSet();
+      final List<String> stale = [
+        for (final RegExpMatch match in _quotedUndeadCommand.allMatches(
+          _definitionOfDoneFile().readAsStringSync(),
+        ))
+          match.group(1)!,
+      ]..removeWhere(commands.contains);
+      expect(
+        stale,
+        isEmpty,
+        reason:
+            '.agents/skills/definition-of-done/SKILL.md quotes undead commands '
+            'that CI does not run. Remove them or add them to CI:\n  ${stale.join('\n  ')}',
       );
     });
   });
@@ -217,6 +237,12 @@ final RegExp _undeadRunStep = RegExp(
   multiLine: true,
 );
 
+/// Any `dart run undead` command in the CI workflow, in any form of step.
+final RegExp _undeadCommand = RegExp(r'dart\s+run\s+undead\b');
+
+/// A YAML comment line, which [_undeadCommand] must not count.
+final RegExp _yamlComment = RegExp(r'^\s*#.*$', multiLine: true);
+
 /// Returns each `dart run undead` command that a `run:` step of the CI
 /// workflow runs.
 List<String> _undeadInvocations() {
@@ -225,6 +251,19 @@ List<String> _undeadInvocations() {
     for (final RegExpMatch match in _undeadRunStep.allMatches(content)) match.group(1)!.trim(),
   ];
 }
+
+/// A `dart run undead` command quoted in backticks in a document. Group 1 is
+/// the command.
+final RegExp _quotedUndeadCommand = RegExp(r'`(dart\s+run\s+undead\b[^`]*)`');
+
+/// Returns the entries of [commands] that [text] does not quote in backticks.
+List<String> _unquotedIn(String text, List<String> commands) => [
+  for (final String command in commands)
+    if (!text.contains('`$command`')) command,
+];
+
+File _definitionOfDoneFile() =>
+    File(p.join(repoRoot, '.agents', 'skills', 'definition-of-done', 'SKILL.md'));
 
 File _getWorkflowFile() =>
     File(p.join(repoRoot, '.github', 'workflows', 'skills_lint_workflow.yaml'));
