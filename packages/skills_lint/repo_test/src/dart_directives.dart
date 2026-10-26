@@ -30,7 +30,7 @@ class DartPackage {
   /// The path of the package's `lib` directory.
   String get libRoot => p.dirname(srcRoot);
 
-  /// Returns the path that [uri] names when written in the file at [from].
+  /// Resolves the path that [uri] names when written in the file at [from].
   ///
   /// Returns null for URIs in other packages and for any other scheme, such
   /// as `dart:`.
@@ -45,7 +45,7 @@ class DartPackage {
     return p.normalize(p.join(p.dirname(from), uri));
   }
 
-  /// Returns the paths named by the `import` and `export` directives in
+  /// Lists the paths named by the `import` and `export` directives in
   /// [source], or only by its `export` directives if [exportsOnly] is true.
   /// URIs that [resolve] drops are left out.
   List<String> directiveTargets(Source source, {bool exportsOnly = false}) {
@@ -64,7 +64,7 @@ class DartPackage {
     return targets;
   }
 
-  /// Returns [library] and every file reachable from it through `export`
+  /// Collects [library] and every file reachable from it through `export`
   /// directives, following re-exports. Exports with `show` or `hide` count.
   Set<String> exportedFiles(String library) {
     final seen = <String>{};
@@ -79,7 +79,7 @@ class DartPackage {
     return seen;
   }
 
-  /// Returns the files below [srcRoot] named by an `import` or `export`
+  /// Collects the files below [srcRoot] named by an `import` or `export`
   /// directive in [sources], as [srcRelative] paths.
   Set<String> filesImportedBy(Iterable<Source> sources) {
     final imported = <String>{};
@@ -94,8 +94,8 @@ class DartPackage {
     return imported;
   }
 
-  /// Returns [path] relative to [srcRoot] with `/` separators, or null if
-  /// [path] is not below [srcRoot].
+  /// Converts [path] to a path relative to [srcRoot] with `/` separators,
+  /// or null if [path] is not below [srcRoot].
   String? srcRelative(String path) {
     if (!p.isWithin(srcRoot, path)) {
       return null;

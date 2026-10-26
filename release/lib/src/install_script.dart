@@ -10,7 +10,7 @@ import 'release_exception.dart';
 /// The line of `scripts/install.sh` that sets the default version.
 const String _defaultVersionLine = r'VERSION="${VERSION:-latest}"';
 
-/// Returns the install [script] with [version] as the version it installs
+/// Pins the install [script] to [version] as the version it installs
 /// when `VERSION` is unset, so the copy attached to a release installs that
 /// release.
 ///

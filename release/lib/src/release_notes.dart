@@ -8,7 +8,7 @@ library;
 import 'line_endings.dart';
 import 'release_exception.dart';
 
-/// Returns the entries under the `## <version>` heading of [changelog], up to
+/// Extracts the entries under the `## <version>` heading of [changelog], up to
 /// the next `## ` heading, without surrounding blank lines.
 ///
 /// Throws a [ReleaseException] if there is no such heading or it has no

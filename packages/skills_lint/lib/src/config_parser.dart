@@ -186,8 +186,8 @@ class ConfigParser {
     }
   }
 
-  /// Returns the absolute directory that target paths and ignore files resolve
-  /// against.
+  /// Resolves the absolute directory that target paths and ignore files
+  /// resolve against.
   ///
   /// Uses [baseDirectory] when supplied, otherwise the directory holding
   /// [sourceFile], otherwise [Directory.current].
@@ -628,7 +628,7 @@ class LintTargetConfig {
   }
 }
 
-/// Returns where [target] was declared, or `null` for a target built by a
+/// The location where [target] was declared, or `null` for a target built by a
 /// caller rather than read by [ConfigParser].
 ///
 /// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this

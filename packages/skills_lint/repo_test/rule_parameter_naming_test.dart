@@ -79,7 +79,7 @@ void main() {
   });
 }
 
-/// Returns what is wrong with [param] of [check], or null if nothing is.
+/// Describes what is wrong with [param] of [check], or null if nothing is.
 String? _problem(CheckType check, String param) {
   final String firstWord = _words(param).first;
   final problems = [

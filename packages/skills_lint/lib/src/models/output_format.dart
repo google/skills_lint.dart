@@ -34,7 +34,7 @@ enum OutputFormat {
   }
 }
 
-/// Returns `true` if auto-fixing is incompatible with the requested [format].
+/// Checks whether auto-fixing is incompatible with the requested [format].
 ///
 /// Auto-fixing cannot be combined with structured machine formats
 /// ([OutputFormat.sarif], [OutputFormat.json]) because applying fixes modifies
