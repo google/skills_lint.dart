@@ -62,6 +62,19 @@ void main() {
       );
     });
 
+    test('positive round-trip with a subject using expectJsonRoundTrip', () {
+      final entry = IgnoreEntry(
+        ruleId: 'check-relative-paths',
+        fileName: 'SKILL.md',
+        subject: '../../RULES.md',
+      );
+      expectJsonRoundTrip<IgnoreEntry>(
+        instance: entry,
+        toJson: (e) => e.toJson(),
+        fromJson: IgnoreEntry.fromJson,
+      );
+    });
+
     test('negative handling on malformed JSON', () {
       expect(() => IgnoreEntry.fromJson(const {'rule_id': 123}), throwsA(isA<TypeError>()));
     });

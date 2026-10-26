@@ -124,7 +124,7 @@ class TextReporter extends Reporter {
     required String fullPath,
     String? subject,
   }) {
-    final subjectClause = subject != null ? " with subject '$subject'" : '';
+    final subjectClause = subject != null ? " (subject: '$subject')" : '';
     out.writeln(
       "Stale ignore entry found for rule '$ruleId'$subjectClause in skill "
       "'$skillName' at '$fullPath'. Consider removing it.",

@@ -47,10 +47,13 @@ void main() {
         '${buildFrontmatter(name: 'test-skill')}'
         '[Link 1](missing1.md) \n[Link 1 again](missing1.md) \n[Link 2](missing2.md)\n',
       );
-      await _writeConfig(tempDir, {
-        RelativePathsRule.ruleName: const RuleConfigPatch(severity: AnalysisSeverity.error),
-        TrailingWhitespaceRule.ruleName: const RuleConfigPatch(severity: AnalysisSeverity.error),
-      });
+      const config = Configuration(
+        ruleConfigs: {
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+          TrailingWhitespaceRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString(config.toYamlString());
 
       // Run with --generate-baseline
       final TestProcess process = await startCli([
@@ -70,12 +73,15 @@ void main() {
       // exactly as they were written.
       const links = '[Rules](../../RULES.md)\n[Spaced](my%20folder/a:b.md)\n';
       await skillFile.writeAsString('${buildFrontmatter(name: 'test-skill')}$links');
-      await _writeConfig(tempDir, {
-        RelativePathsRule.ruleName: RuleConfigPatch(
-          severity: AnalysisSeverity.error,
-          parameters: CustomRuleParameters(const {RelativePathsRule.withinSkillParameter: true}),
-        ),
-      });
+      final config = Configuration(
+        ruleConfigs: {
+          RelativePathsRule.ruleName: RuleConfigPatch(
+            severity: AnalysisSeverity.error,
+            parameters: CustomRuleParameters(const {RelativePathsRule.withinSkillParameter: true}),
+          ),
+        },
+      );
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString(config.toYamlString());
 
       final TestProcess genProcess = await startCli([
         '-s',
@@ -118,15 +124,18 @@ void main() {
       // -s reads the ignore file in the skill, -d the one in the skills root.
       await _writeIgnoreFile(skillDir, 'valid-skill', [entry]);
       await _writeIgnoreFile(skillsDir, 'valid-skill', [entry]);
-      const staleMessage =
-          "Stale ignore entry found for rule 'check-relative-paths' with subject '../../RULES.md'";
+      final Matcher staleLine = allOf(
+        startsWith('Stale ignore entry'),
+        contains("'check-relative-paths'"),
+        contains("(subject: '../../RULES.md')"),
+      );
 
       for (final List<String> target in [
         ['-s', skillDir.path],
         ['-d', skillsDir.path],
       ]) {
         final TestProcess process = await startCli([...target, '--check-relative-paths']);
-        expect(await process.stdoutStream().join('\n'), contains(staleMessage), reason: '$target');
+        expect(await process.stdoutStream().toList(), contains(staleLine), reason: '$target');
         await process.shouldExit(0);
       }
     });
@@ -154,11 +163,13 @@ void main() {
         '--check-relative-paths',
         '--check-relative-paths-within-skill=true',
       ]);
-      final String stdout = await process.stdoutStream().join('\n');
+      final Iterable<String> staleLines = (await process.stdoutStream().toList()).where(
+        (line) => line.startsWith('Stale ignore entry'),
+      );
       await process.shouldExit(0);
 
-      expect(stdout, contains("Stale ignore entry found for rule 'check-relative-paths' in skill"));
-      expect(stdout, isNot(contains('../../RULES.md')));
+      // Only the whole-file entry is stale.
+      expect(staleLines, [isNot(contains('../../RULES.md'))]);
     });
 
     test('baseline entries name files relative to the skill directory', () async {
@@ -1425,11 +1436,6 @@ skills_lint:
     });
   });
 }
-
-/// Writes a `skills_lint.yaml` into [directory] that sets [rules].
-Future<void> _writeConfig(Directory directory, Map<String, RuleConfigPatch> rules) => File(
-  p.join(directory.path, 'skills_lint.yaml'),
-).writeAsString(Configuration(ruleConfigs: rules).toYamlString());
 
 /// Writes an ignore file into [directory] that lists [entries] for [skillName].
 Future<void> _writeIgnoreFile(
