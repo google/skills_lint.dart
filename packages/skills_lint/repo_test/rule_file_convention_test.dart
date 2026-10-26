@@ -41,7 +41,7 @@ void main() {
   });
 }
 
-/// Returns the public top-level class, enum, mixin and extension type names
+/// Lists the public top-level class, enum, mixin and extension type names
 /// in [source].
 List<String> _publicTypes(Source source) => [
   for (final CompilationUnitMember member in source.unit.declarations)

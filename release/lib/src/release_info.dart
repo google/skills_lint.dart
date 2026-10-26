@@ -192,7 +192,7 @@ void _checkStage({
   }
 }
 
-/// Returns [info] as `name=value` lines for `$GITHUB_OUTPUT`.
+/// Formats [info] as `name=value` lines for `$GITHUB_OUTPUT`.
 String outputLines(ReleaseInfo info) =>
     'version=${info.version}\n'
     'tag=${info.tag}\n'

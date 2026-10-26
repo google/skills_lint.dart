@@ -37,7 +37,7 @@ class CustomRuleParameters {
 
   final Map<String, Object?> params;
 
-  /// Returns `true` if no parameters are configured.
+  /// Whether no parameters are configured.
   bool get isEmpty => params.isEmpty;
 
   bool get isNotEmpty => params.isNotEmpty;

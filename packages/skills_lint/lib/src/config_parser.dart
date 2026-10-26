@@ -186,8 +186,8 @@ class ConfigParser {
     }
   }
 
-  /// Returns the absolute directory that target paths and ignore files resolve
-  /// against.
+  /// Resolves the absolute directory that target paths and ignore files
+  /// resolve against.
   ///
   /// Uses [baseDirectory] when supplied, otherwise the directory holding
   /// [sourceFile], otherwise [Directory.current].
@@ -628,7 +628,7 @@ class LintTargetConfig {
   }
 }
 
-/// Returns where [target] was declared, or `null` for a target built by a
+/// The location where [target] was declared, or `null` for a target built by a
 /// caller rather than read by [ConfigParser].
 ///
 /// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
@@ -647,6 +647,13 @@ class Configuration {
   final List<LintTargetConfig> directoryConfigs;
   final List<LintTargetConfig> individualSkillConfigs;
   final Map<String, RuleConfigPatch> ruleConfigs;
+
+  /// Problems in the configuration file, such as invalid YAML or an unknown
+  /// key. The settings with problems are left out.
+  ///
+  /// The `skills_lint` command fails on these; `validateSkills` only warns
+  /// ([#152](https://github.com/google/skills_lint.dart/issues/152) makes it
+  /// fail).
   final List<String> parsingErrors;
 
   /// Converts this configuration into its YAML representation.

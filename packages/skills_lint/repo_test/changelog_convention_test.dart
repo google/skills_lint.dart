@@ -185,13 +185,13 @@ bool _releasedSectionsUnchanged(List<String> base, List<String> head) {
   return true;
 }
 
-/// Returns [lines] from the first released `## ` heading down.
+/// The part of [lines] from the first released `## ` heading down.
 List<String> _released(List<String> lines) {
   final int start = lines.indexWhere((String l) => l.startsWith('## ') && !l.endsWith('-wip'));
   return start == -1 ? const [] : lines.sublist(start);
 }
 
-/// Returns a description of each heading problem in [section].
+/// Describes each heading problem in [section].
 List<String> _headingProblems(List<String> section) {
   final problems = <String>[];
   var lastIndex = -1;
@@ -227,7 +227,7 @@ List<String> _headingProblems(List<String> section) {
   return problems;
 }
 
-/// Returns the bullets in [lines], joining wrapped lines.
+/// Collects the bullets in [lines], joining wrapped lines.
 ///
 /// `### ` headings end the bullet before them.
 List<String> _bullets(Iterable<String> lines) {

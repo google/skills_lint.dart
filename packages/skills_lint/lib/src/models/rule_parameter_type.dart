@@ -10,7 +10,7 @@ enum RuleParameterType {
   stringList,
   regExp;
 
-  /// Returns whether [value] matches this schema type constraint and syntax format.
+  /// Checks whether [value] matches this schema type constraint and syntax format.
   bool isValid(Object? value) {
     switch (this) {
       case RuleParameterType.string:

@@ -7,6 +7,11 @@ void main() {
   test('skills pass skills_lint', () async {
     final Configuration config = await ConfigParser.loadConfig();
     expect(
+      config.parsingErrors,
+      isEmpty,
+      reason: 'Fix the skills_lint.yaml errors listed in this failure.',
+    );
+    expect(
       config.directoryConfigs,
       isNotEmpty,
       reason: 'skills_lint.yaml must list at least one skills directory.',

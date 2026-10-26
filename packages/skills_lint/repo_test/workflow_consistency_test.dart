@@ -32,7 +32,7 @@ const Set<String> _allowedExcludes = {
 /// `test`, `--coverage=coverage` and `test`.
 final RegExp _whitespace = RegExp(r'\s+');
 
-/// Returns the entries of [testDirectories] that a `dart test` [command]
+/// Computes the entries of [testDirectories] that a `dart test` [command]
 /// selects. A command with no path argument selects `test`, package:test's
 /// default path.
 ///
@@ -182,7 +182,7 @@ final RegExp _dartTestRunStep = RegExp(
   multiLine: true,
 );
 
-/// Returns the [_cognitiveComplexityCommand] match in the CI workflow.
+/// Finds the [_cognitiveComplexityCommand] match in the CI workflow.
 RegExpMatch _parseCognitiveComplexityInvocation() {
   final File workflowFile = _getWorkflowFile();
   expect(workflowFile.existsSync(), isTrue, reason: 'CI workflow file missing');
@@ -217,7 +217,7 @@ RegExpMatch _parseCognitiveComplexityInvocation() {
   return (paths: paths, excludes: excludes);
 }
 
-/// Returns each `dart test` command that a `run:` step of the CI workflow runs.
+/// Lists each `dart test` command that a `run:` step of the CI workflow runs.
 List<String> _dartTestInvocations() {
   final String content = _getWorkflowFile().readAsStringSync();
   return [
