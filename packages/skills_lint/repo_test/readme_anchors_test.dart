@@ -16,11 +16,15 @@ import 'src/repo_paths.dart';
 /// When another page starts linking to a README section, add its anchor here
 /// with that page. Remove an entry only once no page links to it.
 const Map<String, String> externallyLinkedAnchors = {
-  'rule-precedence': 'dart-lang/site-www#7572 (dart.dev /tools/pub/package-skills)',
-  '3-custom-rules': 'dart-lang/site-www#7572 (dart.dev /tools/pub/package-skills)',
-  'built-in-rules': 'dart-lang/site-www#7572 (dart.dev /tools/pub/package-skills)',
-  'recipes': 'dart-lang/site-www#7572 (dart.dev /tools/pub/package-skills)',
+  'rule-precedence': _dartDevPackageSkills,
+  '3-custom-rules': _dartDevPackageSkills,
+  'built-in-rules': _dartDevPackageSkills,
+  'recipes': _dartDevPackageSkills,
 };
+
+/// The dart.dev page on package skills, added in
+/// https://github.com/dart-lang/site-www/pull/7572.
+const String _dartDevPackageSkills = 'dart.dev /tools/pub/package-skills (dart-lang/site-www#7572)';
 
 /// Fails when a README heading that another site links to is renamed.
 ///

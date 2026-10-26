@@ -20,19 +20,31 @@ void main() {
       expect(slugify('Dart-native pre_commit'), 'dart-native-pre_commit');
     });
 
+    test('drops non-ASCII letters, as pub.dev does', () {
+      expect(slugify('Café é'), 'caf-');
+    });
+
+    test('drops tabs inside a heading, as pub.dev does', () {
+      expect(slugify('a\tb'), 'ab');
+    });
+
     test('drops a trailing colon', () {
       expect(slugify('Recipe: GitHub Actions'), 'recipe-github-actions');
     });
   });
 
   group('headingAnchors', () {
-    test('numbers repeated headings with -1, -2', () {
+    test('numbers repeated headings with -2, -3, as pub.dev does', () {
       expect(headingAnchors('## Usage\n### Flags\n## Flags\n# flags\n'), [
         'usage',
         'flags',
-        'flags-1',
         'flags-2',
+        'flags-3',
       ]);
+    });
+
+    test('a ```` fence is not closed by a shorter ``` line', () {
+      expect(headingAnchors('````\n```\n# hidden\n````\n# shown\n'), ['shown']);
     });
 
     test('skips # lines inside fenced code blocks', () {
