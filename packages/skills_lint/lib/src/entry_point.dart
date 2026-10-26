@@ -24,6 +24,7 @@ import 'models/skill_rule.dart';
 import 'models/validation_target.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
+import 'unknown_rule_names.dart';
 import 'validation_session.dart';
 import 'version.dart';
 
@@ -463,6 +464,12 @@ Future<bool> validateSkillsInternal({
       'Applying fixes modifies files described by the report.',
     );
   }
+
+  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/155
+  // Fail on unknown rule names in 0.6.0. Failing can turn a passing
+  // configuration into a failure, which needs a major release under the
+  // rule-stability policy.
+  printUnknownRuleNameWarnings(config, customRules);
 
   // The CLI and API boundary: everything below this point works with absolute,
   // normalized paths. See [canonicalizePath] for the boundary contract.
