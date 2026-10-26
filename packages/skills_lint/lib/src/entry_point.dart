@@ -465,6 +465,7 @@ Future<bool> validateSkillsInternal({
   Configuration? config,
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
+  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/152 - remove this flag when config errors fail validateSkills.
   bool warnOnParsingErrors = false,
 }) async {
   if (hasInvalidFixFormatCombination(fix: fix || fixApply, format: format)) {
