@@ -52,8 +52,8 @@ Copy [validate_skills_example.dart](validate_skills_example.dart) to
 `ConfigParser.loadConfig()` and passes it to the `validateSkills` API.
 
 `ConfigParser.loadConfig()` reads `skills_lint.yaml` from the current
-directory, and `dart test` runs from the package root. `validateSkills` prints
-each finding and returns `false` if any skill has an error. Run the test with
+directory, and `dart test` runs from the package root. The test fails if
+`skills_lint.yaml` has an error or any skill has an error. Run the test with
 `dart test test/skills_lint_test.dart`.
 
 ## 4. Fix what it reports

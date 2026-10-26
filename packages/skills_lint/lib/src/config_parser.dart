@@ -647,6 +647,13 @@ class Configuration {
   final List<LintTargetConfig> directoryConfigs;
   final List<LintTargetConfig> individualSkillConfigs;
   final Map<String, RuleConfigPatch> ruleConfigs;
+
+  /// Problems in the configuration file, such as invalid YAML or an unknown
+  /// key. The settings with problems are left out.
+  ///
+  /// The `skills_lint` command fails on these; `validateSkills` only warns
+  /// ([#152](https://github.com/google/skills_lint.dart/issues/152) makes it
+  /// fail).
   final List<String> parsingErrors;
 
   /// Converts this configuration into its YAML representation.
