@@ -9,7 +9,7 @@ import '../src/models/convention_violation.dart';
 import '../src/models/source.dart';
 
 /// Runs the detectors in `src/cli_test_wiring.dart` over inline snippets, so
-/// the repo-wide scan in `cli_test_wiring_test.dart` can trust what they
+/// the repo-wide scan in `cli_test_wiring_convention_test.dart` can trust what they
 /// report and what they ignore.
 void main() {
   group('findMainWithoutCliTests', () {
