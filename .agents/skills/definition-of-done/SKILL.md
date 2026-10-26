@@ -25,6 +25,7 @@ Before stating that a task is complete, you MUST execute and pass the following 
     - **Explicit N/A**: If the task is internal-only, leave `CHANGELOG.md` untouched and output `[x] Changelog: (N/A) <reason>`.
     - **Label**: Internal-only PRs get the `skip-changelog-check` label. Without it, the Health changelog check fails the PR.
     - Audit all entries against the *previously released version* (do not document changes to intermediate PR development code or new unreleased APIs as breaking changes).
+    - Put each entry under a heading from [Changelog sections](../../../CONTRIBUTING.md#changelog-sections). Change only the `-wip` section. Released sections stay as published, whitespace included.
     - Write entries for users. Incidental fixes that no user would notice get no entry.
     - Changes to message wording get no entry.
 7.  **Temporal**: Code, comments and docs describe the code as it is. They don't compare it with an earlier version or with your change. See [Temporal Words](../../../packages/skills_lint/documentation/knowledge/style_guide.md#temporal-words) for examples and the reason.
