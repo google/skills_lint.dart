@@ -12,6 +12,9 @@ skills_lint:
       ignore_file: ".agents/skills/ignore.json"
     - path: "packages/skills_lint/skills"
       rules:
+        check-relative-paths:
+          severity: error
+          within-skill: true
         check-trailing-whitespace: error
         published-skill-name: error
         pub-archive-includes-skill: error

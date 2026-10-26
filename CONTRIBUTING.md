@@ -230,3 +230,31 @@ buckets above, say so on the PR and the maintainers will decide where
 it lands. New built-in rules **must** include a `## <rule-name>`
 entry in `RULES.md` describing default severity and behavior — see
 the existing entries for the expected shape.
+
+## Changelog sections
+
+Each release in `packages/skills_lint/CHANGELOG.md` groups its entries
+under these `###` headings, in this order. Leave out a heading that has
+no entries.
+
+- `### Breaking changes`: changes that can stop a user's setup from
+  working, such as a higher minimum Dart SDK, a removed rule or API, or a
+  change the policy above puts in a major release.
+- `### New rules`: rules the release adds.
+- `### Behavior changes`: existing rules, errors and fixes that report
+  more, less or differently.
+- `### New features`: flags, config keys, rule parameters, output
+  formats, API, skills, and speedups that don't change results.
+- `### Bug fixes`: fixes that make the tool match its docs.
+
+If a change makes a rule report differently because the old results were
+wrong, it is a bug fix. If the old results matched the docs and the docs
+change too, it is a behavior change.
+
+Change only the `-wip` section. Released sections stay as published,
+including the flat sections that have no headings.
+`packages/skills_lint/repo_test/changelog_convention_test.dart` checks the
+headings. The `released_changelog` job in
+`.github/workflows/skills_lint_workflow.yaml` runs it with
+`CHANGELOG_BASE_REF` set, so that it also checks that no released section
+changes.

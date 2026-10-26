@@ -6,6 +6,7 @@
 /scripts/
 /skills/*/evals/
 /skills/README.md
+/skills/skills_lint_ignore.json
 /.agents/
 /coverage/
 /example/api_boundary_runner/
