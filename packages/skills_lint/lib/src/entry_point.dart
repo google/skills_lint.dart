@@ -398,7 +398,12 @@ Future<Configuration?> _loadConfig(
 /// [quiet] suppresses non-error/warning output.
 /// [generateBaseline] writes current errors to a baseline file instead of reporting them.
 /// [ignoreFileOverride] is an optional path to a baseline file to use.
-/// [config] is the loaded configuration.
+/// [config] is the loaded configuration. Each entry in its
+/// [Configuration.parsingErrors] is printed to standard error as a
+/// `Configuration warning:` line, and does not make validation fail. The
+/// `skills_lint` command fails on these errors, so a caller that must fail
+/// on a broken configuration checks that [Configuration.parsingErrors] is
+/// empty.
 /// [customRules] contains programmatically injected custom skill rule checks.
 /// [format] specifies the output format for diagnostics (`text`, `json`, `sarif`).
 ///
@@ -420,6 +425,11 @@ Future<bool> validateSkills({
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
 }) {
+  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/152
+  // Return false on configuration errors, as the CLI does.
+  for (final String error in config?.parsingErrors ?? const <String>[]) {
+    stderr.writeln('Configuration warning: $error');
+  }
   return validateSkillsInternal(
     skillDirPaths: skillDirPaths,
     individualSkillPaths: individualSkillPaths,

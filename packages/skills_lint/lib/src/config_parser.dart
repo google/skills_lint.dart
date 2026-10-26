@@ -647,6 +647,15 @@ class Configuration {
   final List<LintTargetConfig> directoryConfigs;
   final List<LintTargetConfig> individualSkillConfigs;
   final Map<String, RuleConfigPatch> ruleConfigs;
+
+  /// Problems found while reading the configuration file, such as invalid
+  /// YAML, an unrecognized key, or an unknown or mistyped rule parameter.
+  ///
+  /// The settings with problems are left out of this configuration. The
+  /// `skills_lint` command exits with an error when this list is not empty.
+  /// `validateSkills` prints each entry as a warning and does not fail, so a
+  /// caller that must fail on a broken configuration checks that this list is
+  /// empty.
   final List<String> parsingErrors;
 
   /// Converts this configuration into its YAML representation.
