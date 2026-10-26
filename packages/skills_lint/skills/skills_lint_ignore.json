@@ -3,7 +3,13 @@
     "skills-lint-validation": [
       {
         "rule_id": "check-relative-paths",
-        "file_name": "SKILL.md"
+        "file_name": "SKILL.md",
+        "subject": "../../RULES.md"
+      },
+      {
+        "rule_id": "check-relative-paths",
+        "file_name": "SKILL.md",
+        "subject": "../../README.md"
       }
     ]
   }
