@@ -111,9 +111,9 @@ jobs:
         if: matrix.lower_bound
         run: dart analyze --fatal-infos
 
-  # Released CHANGELOG sections stay as published. A pull request may change
-  # the `-wip` section and add sections above the released ones, but not
-  # change any line from the first released `## ` heading down.
+  # Released CHANGELOG sections stay as published. With CHANGELOG_BASE_REF
+  # set, repo_test/changelog_convention_test.dart compares them with the
+  # pull request's base.
   released_changelog:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -121,19 +121,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - run: dart pub get
       - name: Check that released CHANGELOG sections are unchanged
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CHANGELOG_BASE_REF: ${{ github.event.pull_request.base.sha }}
         run: |
-          git fetch --depth=1 origin "$BASE_SHA"
-          released() { awk '/^## / && !/-wip$/ { p = 1 } p'; }
-          git show "$BASE_SHA:packages/skills_lint/CHANGELOG.md" | released > /tmp/base.md
-          released < CHANGELOG.md > /tmp/head.md
-          if ! tail -n "$(wc -l < /tmp/base.md)" /tmp/head.md | cmp -s - /tmp/base.md; then
-            echo "::error file=packages/skills_lint/CHANGELOG.md::A released CHANGELOG section changed. Change only the -wip section."
-            diff /tmp/base.md /tmp/head.md || true
-            exit 1
-          fi
+          git fetch --depth=1 origin "$CHANGELOG_BASE_REF"
+          dart test repo_test/changelog_convention_test.dart
 
   # The release scripts in release/, on the SDK and OSes that
   # release_build_and_tag.yaml builds with. They only need to work there, so

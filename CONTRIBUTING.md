@@ -247,9 +247,14 @@ no entries.
   formats, API, skills, and speedups that don't change results.
 - `### Bug fixes`: fixes that make the tool match its docs.
 
+If a change makes a rule report differently because the old results were
+wrong, it is a bug fix. If the old results matched the docs and the docs
+change too, it is a behavior change.
+
 Change only the `-wip` section. Released sections stay as published,
 including the flat sections that have no headings.
 `packages/skills_lint/repo_test/changelog_convention_test.dart` checks the
-headings, and the
-`released_changelog` job in `.github/workflows/skills_lint_workflow.yaml`
-checks that no released section changes.
+headings. The `released_changelog` job in
+`.github/workflows/skills_lint_workflow.yaml` runs it with
+`CHANGELOG_BASE_REF` set, so that it also checks that no released section
+changes.
