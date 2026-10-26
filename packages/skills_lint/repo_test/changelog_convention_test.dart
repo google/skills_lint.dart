@@ -13,7 +13,7 @@ import 'package:test/test.dart';
 /// carrying detail that belongs in the docs or the pull request.
 const int maxBulletLength = 300;
 
-/// The `### ` headings allowed in a `-wip` section, in the order they appear.
+/// The `### ` headings allowed in a `-wip` section, in the order they must appear.
 ///
 /// CONTRIBUTING.md says what belongs under each one.
 const List<String> sectionHeadings = [
@@ -75,6 +75,33 @@ void main() {
           'CONTRIBUTING.md.\n'
           '${problems.join('\n')}',
     );
+  });
+
+  group('heading check', () {
+    test('accepts headings in order with entries under each', () {
+      expect(_headingProblems(['### New rules', '- a', '### Bug fixes', '- b']), isEmpty);
+    });
+    test('reports an unknown heading', () {
+      expect(_headingProblems(['### Misc', '- a']), [contains('not one of the headings')]);
+    });
+    test('reports headings out of order', () {
+      expect(_headingProblems(['### Bug fixes', '- a', '### New rules', '- b']), [
+        contains('out of order'),
+      ]);
+    });
+    test('reports a repeated heading', () {
+      expect(_headingProblems(['### New rules', '- a', '### New rules', '- b']), [
+        contains('repeated'),
+      ]);
+    });
+    test('reports an empty heading', () {
+      expect(_headingProblems(['### New rules', '', '### Bug fixes', '- b']), [
+        contains('has no entries'),
+      ]);
+    });
+    test('reports an entry before any heading', () {
+      expect(_headingProblems(['- a', '### Bug fixes', '- b']), [contains('not under a heading')]);
+    });
   });
 }
 
