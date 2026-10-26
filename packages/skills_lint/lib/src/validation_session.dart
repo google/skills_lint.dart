@@ -31,6 +31,7 @@ import 'rule_registry.dart';
 import 'rules/name_format_rule.dart';
 import 'rules/pub_archive_includes_skill_rule.dart';
 import 'skills_ignores_storage.dart';
+import 'unknown_rule_names.dart';
 import 'validator.dart';
 
 final _log = Logger('skills_lint');
@@ -448,6 +449,20 @@ class ValidationSession {
         }
       }
     }
+  }
+
+  /// Reports configuration warnings for [config] and [customRules].
+  ///
+  /// Reports each rule name in [config] that is neither built in nor in
+  /// [customRules] ([#155](https://github.com/google/skills_lint.dart/issues/155)
+  /// makes these fail). When [includeParsingErrors] is true, also reports each
+  /// entry in [Configuration.parsingErrors] of [config]. Does not mark the
+  /// session as failed.
+  void reportConfigurationWarnings({bool includeParsingErrors = true}) {
+    if (includeParsingErrors) {
+      config.parsingErrors.forEach(_reporter.onConfigurationWarning);
+    }
+    unknownRuleNameWarnings(config, customRules).forEach(_reporter.onConfigurationWarning);
   }
 
   /// If no skills were validated across the whole run, emit appropriate

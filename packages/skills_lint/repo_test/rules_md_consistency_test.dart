@@ -87,8 +87,8 @@ void main() {
   });
 }
 
-/// Returns descriptive mismatch strings for rules whose documented
-/// `Default severity:` in `RULES.md` differs from [CheckType.defaultSeverity].
+/// Describes each rule whose documented `Default severity:` in `RULES.md`
+/// differs from [CheckType.defaultSeverity].
 List<String> _findSeverityMismatches(
   Map<String, _DocRule> docRules,
   Map<String, CheckType> registryByName,
@@ -110,9 +110,8 @@ List<String> _findSeverityMismatches(
   return mismatches;
 }
 
-/// Returns descriptive mismatch strings for rules whose documented
-/// `Fixable:` claim in `RULES.md` differs from whether the rule class
-/// implements [FixableRule].
+/// Describes each rule whose documented `Fixable:` claim in `RULES.md`
+/// differs from whether the rule class implements [FixableRule].
 List<String> _findFixableMismatches(
   Map<String, _DocRule> docRules,
   Map<String, CheckType> registryByName,

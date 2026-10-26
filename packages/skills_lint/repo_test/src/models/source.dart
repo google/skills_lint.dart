@@ -22,7 +22,7 @@ class Source {
   final String content;
   final ParseStringResult _parsed;
 
-  /// Returns the root of the syntax tree.
+  /// The root of the syntax tree.
   CompilationUnit get unit => _parsed.unit;
 
   /// Every node of the syntax tree, in source order.

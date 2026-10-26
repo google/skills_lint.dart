@@ -2,11 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/rule_registry.dart';
@@ -32,7 +30,107 @@ class _QuietCustomRule extends SkillRule {
 
 final String validSkillPath = p.normalize(p.absolute(p.join('example', 'skills', 'valid')));
 
+/// Defines the tests that start the CLI. [main] calls this, and
+/// `compiled_test/cli_test.dart` calls it again to run the same tests
+/// against the compiled binary.
+void defineCliTests() {
+  group('skills_lint command with an unknown rule name', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('unknown_rule_test.');
+      final Directory skillDir = await Directory(
+        p.join(tempDir.path, 'skills', 'my-skill'),
+      ).create(recursive: true);
+      await File(
+        p.join(skillDir.path, 'SKILL.md'),
+      ).writeAsString('${buildFrontmatter(name: 'my-skill')}Body\n');
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    test('prints a warning with a suggestion and exits 0', () async {
+      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
+skills_lint:
+  directories:
+    - path: skills
+  rules:
+    check-relative-path: error
+''');
+
+      final TestProcess process = await startCli([], workingDirectory: tempDir.path);
+
+      await process.shouldExit(0);
+      final String err = (await process.stderr.rest.toList()).join('\n');
+      expect(
+        err,
+        contains(
+          'Configuration warning: Global rules: Unknown rule "check-relative-path". '
+          'Did you mean "check-relative-paths"?',
+        ),
+      );
+    });
+
+    test('keeps JSON output on stdout parseable', () async {
+      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
+skills_lint:
+  directories:
+    - path: skills
+  rules:
+    check-relative-path: error
+''');
+
+      final TestProcess process = await startCli(['--format=json'], workingDirectory: tempDir.path);
+
+      await process.shouldExit(0);
+      final String out = (await process.stdout.rest.toList()).join('\n');
+      expect(() => jsonDecode(out), returnsNormally);
+      expect(out, isNot(contains('Configuration warning')));
+      final String err = (await process.stderr.rest.toList()).join('\n');
+      expect(err, contains('Unknown rule "check-relative-path"'));
+    });
+
+    test('prints no warning with --ignore-config', () async {
+      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
+skills_lint:
+  rules:
+    check-relative-path: error
+''');
+
+      final TestProcess process = await startCli([
+        '--ignore-config',
+        '-d',
+        p.join(tempDir.path, 'skills'),
+      ], workingDirectory: tempDir.path);
+
+      await process.shouldExit(0);
+      final String err = (await process.stderr.rest.toList()).join('\n');
+      expect(err, isNot(contains('Configuration warning')));
+    });
+
+    test('prints no warning for known rule names', () async {
+      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
+skills_lint:
+  directories:
+    - path: skills
+  rules:
+    check-relative-paths: error
+''');
+
+      final TestProcess process = await startCli([], workingDirectory: tempDir.path);
+
+      await process.shouldExit(0);
+      final String err = (await process.stderr.rest.toList()).join('\n');
+      expect(err, isNot(contains('Configuration warning')));
+    });
+  });
+}
+
 void main() {
+  defineCliTests();
+
   group('unknownRuleNameWarnings', () {
     test('names a misspelled rule and suggests the closest rule', () {
       final Configuration config = ConfigParser.parse('''
@@ -134,25 +232,17 @@ skills_lint:
   group('validateSkills with an unknown rule name', () {
     Future<(bool, String)> validate(String yaml, {List<SkillRule> customRules = const []}) async {
       final Configuration config = ConfigParser.parse(yaml);
-      final warnings = StringBuffer();
-      final StreamSubscription<LogRecord> subscription = Logger('skills_lint').onRecord.listen((
-        LogRecord record,
-      ) {
-        if (record.level >= Level.WARNING) {
-          warnings.writeln(record.message);
-        }
-      });
-      try {
-        final bool passed = await validateSkills(
+      final err = CapturedOutput();
+      final bool passed = await IOOverrides.runZoned(
+        () => validateSkills(
           individualSkillPaths: [validSkillPath],
           config: config,
           customRules: customRules,
           quiet: true,
-        );
-        return (passed, warnings.toString());
-      } finally {
-        await subscription.cancel();
-      }
+        ),
+        stderr: () => err,
+      );
+      return (passed, err.buffer.toString());
     }
 
     test('prints a warning with a suggestion and passes', () async {
@@ -184,99 +274,6 @@ skills_lint:
 
       expect(err, isNot(contains('Configuration warning')));
       expect(passed, isTrue);
-    });
-  });
-
-  group('skills_lint command with an unknown rule name', () {
-    late Directory tempDir;
-
-    setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp('unknown_rule_test.');
-      final Directory skillDir = await Directory(
-        p.join(tempDir.path, 'skills', 'my-skill'),
-      ).create(recursive: true);
-      await File(
-        p.join(skillDir.path, 'SKILL.md'),
-      ).writeAsString('${buildFrontmatter(name: 'my-skill')}Body\n');
-    });
-
-    tearDown(() async {
-      await tempDir.delete(recursive: true);
-    });
-
-    test('prints a warning with a suggestion and exits 0', () async {
-      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
-skills_lint:
-  directories:
-    - path: skills
-  rules:
-    check-relative-path: error
-''');
-
-      final TestProcess process = await startCli([], workingDirectory: tempDir.path);
-
-      await process.shouldExit(0);
-      final String err = (await process.stderr.rest.toList()).join('\n');
-      expect(
-        err,
-        contains(
-          'Configuration warning: Global rules: Unknown rule "check-relative-path". '
-          'Did you mean "check-relative-paths"?',
-        ),
-      );
-    });
-
-    test('keeps JSON output on stdout parseable', () async {
-      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
-skills_lint:
-  directories:
-    - path: skills
-  rules:
-    check-relative-path: error
-''');
-
-      final TestProcess process = await startCli(['--format=json'], workingDirectory: tempDir.path);
-
-      await process.shouldExit(0);
-      final String out = (await process.stdout.rest.toList()).join('\n');
-      expect(() => jsonDecode(out), returnsNormally);
-      expect(out, isNot(contains('Configuration warning')));
-      final String err = (await process.stderr.rest.toList()).join('\n');
-      expect(err, contains('Unknown rule "check-relative-path"'));
-    });
-
-    test('prints no warning with --ignore-config', () async {
-      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
-skills_lint:
-  rules:
-    check-relative-path: error
-''');
-
-      final TestProcess process = await startCli([
-        '--ignore-config',
-        '-d',
-        p.join(tempDir.path, 'skills'),
-      ], workingDirectory: tempDir.path);
-
-      await process.shouldExit(0);
-      final String err = (await process.stderr.rest.toList()).join('\n');
-      expect(err, isNot(contains('Configuration warning')));
-    });
-
-    test('prints no warning for known rule names', () async {
-      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
-skills_lint:
-  directories:
-    - path: skills
-  rules:
-    check-relative-paths: error
-''');
-
-      final TestProcess process = await startCli([], workingDirectory: tempDir.path);
-
-      await process.shouldExit(0);
-      final String err = (await process.stderr.rest.toList()).join('\n');
-      expect(err, isNot(contains('Configuration warning')));
     });
   });
 }

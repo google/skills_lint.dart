@@ -23,7 +23,7 @@ All Dart code across this repository must adhere strictly to the official [Effec
    - **Use Semantic Dartdoc Links:** Use square-bracketed symbol links (e.g. `[OutputFormat.text]`) rather than plain backticked strings (`\`text\``) for code entities.
    - **Summary sentence:** Follow Effective Dart on [noun-phrase docs](https://dart.dev/effective-dart/documentation#prefer-starting-a-non-boolean-variable-or-property-comment-with-a-noun-phrase) and the [single-sentence summary](https://dart.dev/effective-dart/documentation#do-start-doc-comments-with-a-single-sentence-summary). Put conditions and `null` cases in later paragraphs.
    - **Short summary (repo rule):** Keep the first sentence short enough that it rarely needs to wrap. The vendored [`dart-long-lines`](../../../../.agents/skills/dart-long-lines/SKILL.md) skill allows wrapping it, and that is fine when a shorter sentence would lose meaning.
-   - **No leading "Returns" (repo rule):** Don't start the first sentence with "Returns". Effective Dart allows it; this repo doesn't. If the result matters most, give the function a noun name and describe the result with a noun phrase. If the operation matters most, start with a third-person verb ("Parses", "Writes"). A later paragraph may start with "Returns".
+   - **No leading "Returns" (repo rule):** Don't start the first sentence with "Returns". Effective Dart allows it; this repo doesn't. If the result matters most, give the function a noun name and describe the result with a noun phrase. If the operation matters most, start with a third-person verb ("Parses", "Writes"). A later paragraph may start with "Returns". [doc_comment_convention_test.dart](../../repo_test/doc_comment_convention_test.dart) enforces this.
 
      ```dart
      // Bad

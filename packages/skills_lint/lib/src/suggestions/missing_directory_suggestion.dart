@@ -12,8 +12,8 @@ import 'package:path/path.dart' as p;
 import '../path_utils.dart';
 import 'sibling_suggestion.dart';
 
-/// Returns the path the user most likely meant by [declaredText], written the
-/// way they should type it, or `null` when no directory is a confident match.
+/// Suggests the path the user most likely meant by [declaredText], written
+/// the way they should type it, or `null` when no directory is a confident match.
 ///
 /// [declaredText] is the path exactly as typed in a configuration file or on
 /// the command line. [resolvedPath] is that text resolved against

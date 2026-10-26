@@ -24,7 +24,6 @@ import 'models/skill_rule.dart';
 import 'models/validation_target.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
-import 'unknown_rule_names.dart';
 import 'validation_session.dart';
 import 'version.dart';
 
@@ -399,7 +398,13 @@ Future<Configuration?> _loadConfig(
 /// [quiet] suppresses non-error/warning output.
 /// [generateBaseline] writes current errors to a baseline file instead of reporting them.
 /// [ignoreFileOverride] is an optional path to a baseline file to use.
-/// [config] is the loaded configuration.
+/// [config] is the loaded configuration. Each entry in its
+/// [Configuration.parsingErrors], and each rule name in it that is neither
+/// built in nor in [customRules], is printed to standard error as a
+/// `Configuration warning:` line, and does not make validation fail. The
+/// `skills_lint` command fails on [Configuration.parsingErrors], so a caller
+/// that must fail on a broken configuration checks that
+/// [Configuration.parsingErrors] is empty.
 /// [customRules] contains programmatically injected custom skill rule checks.
 /// [format] specifies the output format for diagnostics (`text`, `json`, `sarif`).
 ///
@@ -433,12 +438,16 @@ Future<bool> validateSkills({
     config: config,
     customRules: customRules,
     format: format,
+    warnOnParsingErrors: true,
   );
 }
 
 /// Internal implementation of skill validation that supports fixing.
 ///
 /// Kept internal to avoid exposing experimental fix parameters in the public API.
+///
+/// When [warnOnParsingErrors] is true, each entry in
+/// [Configuration.parsingErrors] of [config] is reported as a warning.
 ///
 /// Returns `true` if all validations passed (or if generating a baseline), `false` otherwise.
 @visibleForTesting
@@ -457,6 +466,8 @@ Future<bool> validateSkillsInternal({
   Configuration? config,
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
+  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/152 - remove this flag when config errors fail validateSkills.
+  bool warnOnParsingErrors = false,
 }) async {
   if (hasInvalidFixFormatCombination(fix: fix || fixApply, format: format)) {
     throw ArgumentError(
@@ -464,9 +475,6 @@ Future<bool> validateSkillsInternal({
       'Applying fixes modifies files described by the report.',
     );
   }
-
-  final Configuration effectiveConfig = config ?? const Configuration();
-  _logUnknownRuleNames(effectiveConfig, customRules);
 
   // The CLI and API boundary: everything below this point works with absolute,
   // normalized paths. See [canonicalizePath] for the boundary contract.
@@ -501,7 +509,7 @@ Future<bool> validateSkillsInternal({
   );
 
   final session = ValidationSession(
-    config: effectiveConfig,
+    config: config ?? const Configuration(),
     resolvedRuleConfigs: resolvedRuleConfigs,
     ignoreFileOverride: canonicalIgnoreFileOverride,
     customRules: customRules,
@@ -513,6 +521,7 @@ Future<bool> validateSkillsInternal({
     fixApply: fixApply,
     format: format,
   );
+  session.reportConfigurationWarnings(includeParsingErrors: warnOnParsingErrors);
 
   for (final skill in effectiveIndividualSkills) {
     final bool keepGoing = await session.processIndividualSkill(
@@ -552,14 +561,6 @@ Future<bool> validateSkillsInternal({
     return true;
   }
   return !session.anyFailed;
-}
-
-/// Logs a `Configuration warning:` for each rule name in [config] that is
-/// neither built in nor one of [customRules].
-void _logUnknownRuleNames(Configuration config, List<SkillRule> customRules) {
-  for (final String warning in unknownRuleNameWarnings(config, customRules)) {
-    _log.warning('Configuration warning: $warning');
-  }
 }
 
 /// Pairs each of [canonicalPaths] with the [rawPaths] entry it came from.

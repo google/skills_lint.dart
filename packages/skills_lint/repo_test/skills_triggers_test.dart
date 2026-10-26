@@ -207,7 +207,7 @@ Future<List<File>> _getTriggerFiles() async {
     ..sort((a, b) => a.path.compareTo(b.path));
 }
 
-/// Returns the names of skill directories that contain a `SKILL.md` in the
+/// Collects the names of skill directories that contain a `SKILL.md` in the
 /// published and internal skill roots.
 Future<Set<String>> _getKnownSkillNames() async {
   final List<Directory> roots = await _getSkillRoots();
@@ -302,7 +302,7 @@ PositiveTriggersCheck checkPositiveTriggers(
   return (prompts: prompts, errors: errors);
 }
 
-/// Returns the trimmed prompt of a `positive_triggers` entry, or `null` when
+/// Extracts the trimmed prompt of a `positive_triggers` entry, or `null` when
 /// the entry has no usable prompt. Adds violations to [errors].
 String? _entryPrompt(Object? item, String skill, Set<String> knownSkills, List<String> errors) {
   switch (item) {

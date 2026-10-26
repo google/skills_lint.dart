@@ -11,7 +11,7 @@ import 'suggestions/levenshtein.dart';
 /// unknown one.
 const int _maxSuggestionDistance = 3;
 
-/// Returns one message for each rule name in [config] that is neither a
+/// Lists a warning message for each rule name in [config] that is neither a
 /// built-in rule nor one of [customRules].
 ///
 /// Checks the top-level `rules` map and the `rules` map of every
@@ -52,7 +52,7 @@ List<String> unknownRuleNameWarnings(Configuration config, List<SkillRule> custo
   return warnings;
 }
 
-/// Returns the name in [candidates] closest to [name], or `null` when none is
+/// Finds the name in [candidates] closest to [name], or `null` when none is
 /// within [_maxSuggestionDistance] or two are equally close.
 String? _closest(String name, Iterable<String> candidates) {
   String? best;
@@ -71,6 +71,6 @@ String? _closest(String name, Iterable<String> candidates) {
   return tied ? null : best;
 }
 
-/// Returns [target]'s path as written in the configuration file, matching the
+/// Reads [target]'s path as written in the configuration file, matching the
 /// labels [ConfigParser] uses in its errors.
 Object? _authoredPath(LintTargetConfig target) => target.toYaml()[ConfigParser.pathKey];
