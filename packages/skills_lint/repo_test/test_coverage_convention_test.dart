@@ -134,18 +134,18 @@ void _expectNone(Set<String> found, String fix) {
   expect(sorted, isEmpty, reason: '$fix\n${sorted.join('\n')}');
 }
 
-/// Returns the paths below `lib/src/` with `/` separators, excluding
+/// Lists the paths below `lib/src/` with `/` separators, excluding
 /// generated files.
 Set<String> _libSrcFiles() => {
   for (final Source source in parseDirectories([_package.srcRoot]))
     _package.srcRelative(source.path)!,
 };
 
-/// Returns the `lib/src` files named by an `import` or `export` directive in
+/// Collects the `lib/src` files named by an `import` or `export` directive in
 /// a test under `test/`, the same tests CI measures coverage with.
 Set<String> _importedByTests() => _package.filesImportedBy(parseDirectories(['test']));
 
-/// Returns the `lib/src` files reachable from `lib/skills_lint.dart` through
+/// Collects the `lib/src` files reachable from `lib/skills_lint.dart` through
 /// `export` directives.
 Set<String> _exportedFiles() => {
   for (final String path in _package.exportedFiles(p.join('lib', 'skills_lint.dart')))

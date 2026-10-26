@@ -42,7 +42,7 @@ void main() {
   });
 }
 
-/// Returns the bullets before the next `## ` heading, joining wrapped lines.
+/// Collects the bullets before the next `## ` heading, joining wrapped lines.
 List<String> _bullets(Iterable<String> lines) {
   final bullets = <String>[];
   for (final String line in lines.takeWhile((String l) => !l.startsWith('## '))) {

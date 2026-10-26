@@ -58,7 +58,7 @@ Version _lowerBound(String relativePath) {
 Pubspec _pubspec(String relativePath) =>
     Pubspec.parse(File(p.join(repoRoot, relativePath)).readAsStringSync());
 
-/// Returns the `sdk` of the `lower_bound: true` entry in the analyze_and_test
+/// Reads the `sdk` of the `lower_bound: true` entry in the analyze_and_test
 /// matrix.
 String _testedSdk() {
   final workflow =
