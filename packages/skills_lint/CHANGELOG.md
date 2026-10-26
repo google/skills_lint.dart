@@ -1,27 +1,41 @@
 ## 0.5.3-wip
 
-- Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
+### Breaking changes
+
 - Requires Dart 3.12 or later.
+
+### New rules
+
+- Added the `pub-archive-includes-skill` rule, disabled by default. It reports a skill in a package's `skills/` directory, or a package file that `SKILL.md` links to, that `dart pub publish` would leave out, and links to files outside the package. It needs `dart` on `PATH`.
+
+### Behavior changes
+
+- When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
+- In `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
+- `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link.
+- `invalid-skill-name` `--fix` writes only a directory name that is a valid skill name. For a directory such as `my_skill`, it leaves `name` unchanged and reports the mismatch.
+- `check-trailing-whitespace` treats a lone carriage return (`\r`) as a line break. It reports trailing whitespace before one, and running `--fix` twice gives the same result as running it once.
+- `check-relative-paths` decodes percent escapes before it looks for the file, so `[doc](my%20file.md)` resolves to `my file.md`. A file named literally `my%20file.md` no longer matches it.
+- After a custom rule's fixer changes `name`, `--fix` renames the skill directory, and `--fix --dry-run` proposes the rename, only to a valid skill name that YAML reads as a string. It does not rename to `my_skill` or to an unquoted `123`.
+- `invalid-skill-name` reads a `name` that YAML loads as a number or boolean as the text written, so `name: 1e3` matches a `1e3` directory, and `name: 0x1f` no longer matches a `31` directory, nor `name: True` a `true` one.
+
+### New features
+
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
 - Added a `within-skill` parameter to `check-relative-paths` that reports relative links leaving the skill directory, which break when the skill is copied somewhere else on its own. Off by default. Enable it with `within-skill: true` or `--check-relative-paths-within-skill=true`.
-- When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
-- **Behavior change:** in `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
-- **Behavior change:** `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link.
-- Made `check-trailing-whitespace` about 20 times faster. Its diagnostics and `--fix` output are unchanged, except for the lone carriage return change below.
-- Fixed `invalid-skill-name` `--fix` writing a directory name that YAML misreads, and then renaming the directory to the misread name: `My Skill #1` became `My Skill`, and `0x1f` became `31`. A name such as `0x1f` is written in quotes.
-- **Behavior change:** `invalid-skill-name` `--fix` writes only a directory name that is a valid skill name. For a directory such as `my_skill`, it leaves `name` unchanged and reports the mismatch.
-- **Behavior change:** `check-trailing-whitespace` treats a lone carriage return (`\r`) as a line break. It reports trailing whitespace before one, and running `--fix` twice gives the same result as running it once.
-- **Behavior change:** `check-relative-paths` decodes percent escapes before it looks for the file, so `[doc](my%20file.md)` resolves to `my file.md`. A file named literally `my%20file.md` no longer matches it.
-- **Behavior change:** after a custom rule's fixer changes `name`, `--fix` renames the skill directory, and `--fix --dry-run` proposes the rename, only to a valid skill name that YAML reads as a string. It does not rename to `my_skill` or to an unquoted `123`.
-- **Behavior change:** `invalid-skill-name` reads a `name` that YAML loads as a number or boolean as the text written, so `name: 1e3` matches a `1e3` directory, and `name: 0x1f` no longer matches a `31` directory, nor `name: True` a `true` one.
+- Made `check-trailing-whitespace` about 20 times faster. Its diagnostics and `--fix` output are unchanged, except for the lone carriage return change under Behavior changes.
 - The `skills-lint-setup` skill picks a setup path: a `dart test` that calls `validateSkills` in a Dart package, or the installed `skills_lint` command otherwise. It no longer links to files outside its own directory.
 - Added a `--version` flag that prints the skills_lint version.
-- The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
 - The published package includes its agent skills, so `dart run skills@ get` installs them.
-- Added the `pub-archive-includes-skill` rule, disabled by default. It reports a skill in a package's `skills/` directory, or a package file that `SKILL.md` links to, that `dart pub publish` would leave out, and links to files outside the package. It needs `dart` on `PATH`.
 - Ignore file entries take an optional `subject` that limits an entry to the findings about one thing in the file. `check-relative-paths` and `check-absolute-paths` set it to the link destination, and `--generate-baseline` records it.
 - Added `ValidationError.subject`, which a custom rule can set so that an ignore entry can name it. `--format=json` output includes it.
+
+### Bug fixes
+
+- Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
+- Fixed `invalid-skill-name` `--fix` writing a directory name that YAML misreads, and then renaming the directory to the misread name: `My Skill #1` became `My Skill`, and `0x1f` became `31`. A name such as `0x1f` is written in quotes.
+- The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
 
 ## 0.5.2
 
