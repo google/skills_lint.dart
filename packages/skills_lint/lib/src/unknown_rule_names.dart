@@ -2,14 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:logging/logging.dart';
-
 import 'config_parser.dart';
 import 'models/skill_rule.dart';
 import 'rule_registry.dart';
 import 'suggestions/levenshtein.dart';
-
-final _log = Logger('skills_lint');
 
 /// The largest edit distance at which a known rule name is suggested for an
 /// unknown one.
@@ -56,20 +52,9 @@ List<String> unknownRuleNameWarnings(Configuration config, List<SkillRule> custo
   return warnings;
 }
 
-/// Logs each of [unknownRuleNameWarnings] for [config] as a
-/// `Configuration warning:` at [Level.WARNING]. Does nothing when [config] is `null`.
-void logUnknownRuleNameWarnings(Configuration? config, List<SkillRule> customRules) {
-  if (config == null) {
-    return;
-  }
-  for (final String warning in unknownRuleNameWarnings(config, customRules)) {
-    _log.warning('Configuration warning: $warning');
-  }
-}
-
 /// Returns the name in [candidates] closest to [name], or `null` when none is
 /// within [_maxSuggestionDistance] or two are equally close.
-String? _closest(String name, List<String> candidates) {
+String? _closest(String name, Iterable<String> candidates) {
   String? best;
   int bestDistance = _maxSuggestionDistance + 1;
   var tied = false;

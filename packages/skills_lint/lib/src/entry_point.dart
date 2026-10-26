@@ -465,7 +465,8 @@ Future<bool> validateSkillsInternal({
     );
   }
 
-  logUnknownRuleNameWarnings(config, customRules);
+  final Configuration effectiveConfig = config ?? const Configuration();
+  _logUnknownRuleNames(effectiveConfig, customRules);
 
   // The CLI and API boundary: everything below this point works with absolute,
   // normalized paths. See [canonicalizePath] for the boundary contract.
@@ -500,7 +501,7 @@ Future<bool> validateSkillsInternal({
   );
 
   final session = ValidationSession(
-    config: config ?? const Configuration(),
+    config: effectiveConfig,
     resolvedRuleConfigs: resolvedRuleConfigs,
     ignoreFileOverride: canonicalIgnoreFileOverride,
     customRules: customRules,
@@ -551,6 +552,14 @@ Future<bool> validateSkillsInternal({
     return true;
   }
   return !session.anyFailed;
+}
+
+/// Logs a `Configuration warning:` for each rule name in [config] that is
+/// neither built in nor one of [customRules].
+void _logUnknownRuleNames(Configuration config, List<SkillRule> customRules) {
+  for (final String warning in unknownRuleNameWarnings(config, customRules)) {
+    _log.warning('Configuration warning: $warning');
+  }
 }
 
 /// Pairs each of [canonicalPaths] with the [rawPaths] entry it came from.
