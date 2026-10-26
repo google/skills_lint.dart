@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -32,10 +33,12 @@ class _CapturingStdout implements Stdout {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// A custom rule that never reports anything.
+/// A custom rule named [name] that never reports anything.
 class _QuietCustomRule extends SkillRule {
+  _QuietCustomRule([this.name = 'my-team-rule']);
+
   @override
-  final String name = 'my-team-rule';
+  final String name;
 
   @override
   final AnalysisSeverity severity = AnalysisSeverity.warning;
@@ -115,6 +118,22 @@ skills_lint:
       expect(unknownRuleNameWarnings(config, [_QuietCustomRule()]), [
         'Global rules: Unknown rule "my-team-rul". Did you mean "my-team-rule"?',
       ]);
+    });
+
+    test('suggests nothing when two rules are equally close', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint:
+  rules:
+    team-rule-c: error
+''');
+
+      expect(
+        unknownRuleNameWarnings(config, [
+          _QuietCustomRule('team-rule-a'),
+          _QuietCustomRule('team-rule-b'),
+        ]),
+        ['Global rules: Unknown rule "team-rule-c".'],
+      );
     });
 
     test('does not flag any built-in rule', () {
@@ -214,6 +233,43 @@ skills_lint:
           'Did you mean "check-relative-paths"?',
         ),
       );
+    });
+
+    test('keeps JSON output on stdout parseable', () async {
+      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
+skills_lint:
+  directories:
+    - path: skills
+  rules:
+    check-relative-path: error
+''');
+
+      final TestProcess process = await startCli(['--format=json'], workingDirectory: tempDir.path);
+
+      await process.shouldExit(0);
+      final String out = (await process.stdout.rest.toList()).join('\n');
+      expect(() => jsonDecode(out), returnsNormally);
+      expect(out, isNot(contains('Configuration warning')));
+      final String err = (await process.stderr.rest.toList()).join('\n');
+      expect(err, contains('Unknown rule "check-relative-path"'));
+    });
+
+    test('prints no warning with --ignore-config', () async {
+      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
+skills_lint:
+  rules:
+    check-relative-path: error
+''');
+
+      final TestProcess process = await startCli([
+        '--ignore-config',
+        '-d',
+        p.join(tempDir.path, 'skills'),
+      ], workingDirectory: tempDir.path);
+
+      await process.shouldExit(0);
+      final String err = (await process.stderr.rest.toList()).join('\n');
+      expect(err, isNot(contains('Configuration warning')));
     });
 
     test('prints no warning for known rule names', () async {
