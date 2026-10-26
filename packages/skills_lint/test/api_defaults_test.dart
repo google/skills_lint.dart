@@ -142,6 +142,83 @@ skills_lint:
     });
   });
 
+  group('validateSkills with configuration errors', () {
+    /// Runs [validate] on the valid example skill with the configuration
+    /// parsed from [yaml], and returns its result and what it wrote to
+    /// standard error.
+    Future<(bool, String)> run(
+      String yaml, {
+      Future<bool> Function({Configuration? config}) validate = _validateSkills,
+    }) async {
+      final Configuration config = ConfigParser.parse(yaml);
+      final err = CapturedOutput();
+      final bool passed = await IOOverrides.runZoned(
+        () => validate(config: config),
+        stderr: () => err,
+      );
+      return (passed, err.buffer.toString());
+    }
+
+    test('prints an unknown rule parameter as a warning and passes', () async {
+      final (bool passed, String err) = await run(_typoConfig);
+
+      expect(
+        err,
+        contains(
+          'Configuration warning: Global rules: Unrecognized parameter "within-skil" '
+          'for rule "check-relative-paths".',
+        ),
+      );
+      expect(passed, isTrue);
+    });
+
+    test('prints every configuration error', () async {
+      const yaml = '''
+skills_lint:
+  bogus: 1
+  rules:
+    check-relative-paths:
+      within-skill: maybe
+''';
+      final List<String> errors = ConfigParser.parse(yaml).parsingErrors;
+      expect(errors, hasLength(2));
+
+      final (_, String err) = await run(yaml);
+
+      for (final error in errors) {
+        expect(err, contains('Configuration warning: $error'));
+      }
+    });
+
+    test('prints no configuration warning for a valid configuration', () async {
+      final (bool passed, String err) = await run('''
+skills_lint:
+  rules:
+    check-relative-paths:
+      severity: error
+      within-skill: true
+''');
+
+      expect(err, isNot(contains('Configuration warning')));
+      expect(passed, isTrue);
+    });
+
+    test('validateSkillsInternal leaves configuration errors to its caller', () async {
+      // The CLI reports configuration errors itself before it calls
+      // validateSkillsInternal, so they must not print twice.
+      final (_, String err) = await run(
+        _typoConfig,
+        validate: ({Configuration? config}) => validateSkillsInternal(
+          individualSkillPaths: [_validSkillPath],
+          config: config,
+          quiet: true,
+        ),
+      );
+
+      expect(err, isNot(contains('Configuration warning')));
+    });
+  });
+
   test('Nested Directory Rule Inheritance merging and precedence override', () async {
     await withTempDir((tempDir) {
       // parent path: 'skills' (enables check-trailing-whitespace: error, description-length: warning)
@@ -289,3 +366,17 @@ skills_lint:
     );
   });
 }
+
+const _typoConfig = '''
+skills_lint:
+  rules:
+    check-relative-paths:
+      severity: error
+      within-skil: true
+''';
+
+final String _validSkillPath = p.normalize(p.absolute(p.join('example', 'skills', 'valid')));
+
+/// Calls [validateSkills] on the valid example skill.
+Future<bool> _validateSkills({Configuration? config}) =>
+    validateSkills(individualSkillPaths: [_validSkillPath], config: config, quiet: true);

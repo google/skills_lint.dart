@@ -425,11 +425,6 @@ Future<bool> validateSkills({
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
 }) {
-  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/152
-  // Return false on configuration errors, as the CLI does.
-  for (final String error in config?.parsingErrors ?? const <String>[]) {
-    stderr.writeln('Configuration warning: $error');
-  }
   return validateSkillsInternal(
     skillDirPaths: skillDirPaths,
     individualSkillPaths: individualSkillPaths,
@@ -442,12 +437,16 @@ Future<bool> validateSkills({
     config: config,
     customRules: customRules,
     format: format,
+    warnOnParsingErrors: true,
   );
 }
 
 /// Internal implementation of skill validation that supports fixing.
 ///
 /// Kept internal to avoid exposing experimental fix parameters in the public API.
+///
+/// When [warnOnParsingErrors] is true, each entry in
+/// [Configuration.parsingErrors] of [config] is reported as a warning.
 ///
 /// Returns `true` if all validations passed (or if generating a baseline), `false` otherwise.
 @visibleForTesting
@@ -466,6 +465,7 @@ Future<bool> validateSkillsInternal({
   Configuration? config,
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
+  bool warnOnParsingErrors = false,
 }) async {
   if (hasInvalidFixFormatCombination(fix: fix || fixApply, format: format)) {
     throw ArgumentError(
@@ -519,6 +519,7 @@ Future<bool> validateSkillsInternal({
     fixApply: fixApply,
     format: format,
   );
+  _reportConfigurationWarnings(session, enabled: warnOnParsingErrors);
 
   for (final skill in effectiveIndividualSkills) {
     final bool keepGoing = await session.processIndividualSkill(
@@ -558,6 +559,14 @@ Future<bool> validateSkillsInternal({
     return true;
   }
   return !session.anyFailed;
+}
+
+/// Calls [ValidationSession.reportConfigurationWarnings] on [session] when
+/// [enabled] is true.
+void _reportConfigurationWarnings(ValidationSession session, {required bool enabled}) {
+  if (enabled) {
+    session.reportConfigurationWarnings();
+  }
 }
 
 /// Pairs each of [canonicalPaths] with the [rawPaths] entry it came from.

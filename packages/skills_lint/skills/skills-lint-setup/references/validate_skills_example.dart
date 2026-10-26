@@ -6,7 +6,11 @@ import 'package:test/test.dart';
 void main() {
   test('skills pass skills_lint', () async {
     final Configuration config = await ConfigParser.loadConfig();
-    expect(config.parsingErrors, isEmpty, reason: 'skills_lint.yaml has errors.');
+    expect(
+      config.parsingErrors,
+      isEmpty,
+      reason: 'Fix the skills_lint.yaml errors listed in this failure.',
+    );
     expect(
       config.directoryConfigs,
       isNotEmpty,

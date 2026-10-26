@@ -68,6 +68,11 @@ abstract class Reporter {
   /// Called when fixes are written to disk for [skillName].
   void onFixApplied(String skillName) {}
 
+  /// Called for each problem found in the configuration file.
+  void onConfigurationWarning(String error) {
+    err.writeln('Configuration warning: $error');
+  }
+
   /// Called when a rule fix fails due to an internal exception.
   void onFixFailed({required String ruleName, required Object error}) {
     err.writeln(ToolErrorMessages.fixFailedMessage(ruleName: ruleName, error: error));
