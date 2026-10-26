@@ -2,12 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
+import 'package:logging/logging.dart';
 
 import 'config_parser.dart';
 import 'models/skill_rule.dart';
 import 'rule_registry.dart';
 import 'suggestions/levenshtein.dart';
+
+final _log = Logger('skills_lint');
 
 /// The largest edit distance at which a known rule name is suggested for an
 /// unknown one.
@@ -54,14 +56,14 @@ List<String> unknownRuleNameWarnings(Configuration config, List<SkillRule> custo
   return warnings;
 }
 
-/// Writes each of [unknownRuleNameWarnings] for [config] to standard error
-/// as a `Configuration warning:` line. Does nothing when [config] is `null`.
-void printUnknownRuleNameWarnings(Configuration? config, List<SkillRule> customRules) {
+/// Logs each of [unknownRuleNameWarnings] for [config] as a
+/// `Configuration warning:` at [Level.WARNING]. Does nothing when [config] is `null`.
+void logUnknownRuleNameWarnings(Configuration? config, List<SkillRule> customRules) {
   if (config == null) {
     return;
   }
   for (final String warning in unknownRuleNameWarnings(config, customRules)) {
-    stderr.writeln('Configuration warning: $warning');
+    _log.warning('Configuration warning: $warning');
   }
 }
 

@@ -1,6 +1,6 @@
 ## 0.5.3-wip
 
-- An unknown rule name in `skills_lint.yaml`, such as `check-relative-path`, prints a `Configuration warning:` naming it, with a "Did you mean" suggestion when a rule name is close. Names of rules passed in `customRules` are not flagged. Validation does not fail on it.
+- An unknown rule name in `skills_lint.yaml`, such as `check-relative-path`, gives a `Configuration warning:` naming it, with a "Did you mean" suggestion when a rule name is close. The CLI prints it; `validateSkills` logs it to the `skills_lint` logger. Rules in `customRules` are not flagged.
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
 - Requires Dart 3.12 or later.
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.

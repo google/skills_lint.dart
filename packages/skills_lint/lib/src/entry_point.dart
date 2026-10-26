@@ -465,11 +465,7 @@ Future<bool> validateSkillsInternal({
     );
   }
 
-  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/155
-  // Fail on unknown rule names in 0.6.0. Failing can turn a passing
-  // configuration into a failure, which needs a major release under the
-  // rule-stability policy.
-  printUnknownRuleNameWarnings(config, customRules);
+  logUnknownRuleNameWarnings(config, customRules);
 
   // The CLI and API boundary: everything below this point works with absolute,
   // normalized paths. See [canonicalizePath] for the boundary contract.
