@@ -216,8 +216,9 @@ section says which kind of release each rule change needs.
   removing a rule (so configs referencing it stop working), upgrading
   a rule's default severity (`disabled → warning`, `warning → error`),
   broadening what a rule matches (more true positives = more
-  failures), or renaming a rule. The CHANGELOG calls out the exact
-  rules affected.
+  failures), renaming a rule, or changing the format of a rule's
+  ignore subject (existing ignore entries stop matching). The CHANGELOG
+  calls out the exact rules affected.
 
 Rationale: adopters should be able to set a caret constraint on
 `skills_lint` in `pubspec.yaml` and trust that a `dart pub upgrade`

@@ -20,6 +20,8 @@
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
 - The published package includes its agent skills, so `dart run skills@ get` installs them.
 - Added the `pub-archive-includes-skill` rule, disabled by default. It reports a skill in a package's `skills/` directory, or a package file that `SKILL.md` links to, that `dart pub publish` would leave out, and links to files outside the package. It needs `dart` on `PATH`.
+- Ignore file entries take an optional `subject` that limits an entry to the findings about one thing in the file. `check-relative-paths` and `check-absolute-paths` set it to the link destination, and `--generate-baseline` records it.
+- Added `ValidationError.subject`, which a custom rule can set so that an ignore entry can name it. `--format=json` output includes it.
 
 ## 0.5.2
 
