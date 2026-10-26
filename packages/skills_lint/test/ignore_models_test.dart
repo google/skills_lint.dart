@@ -54,12 +54,7 @@ void main() {
     });
 
     test('positive round-trip using expectJsonRoundTrip', () {
-      final entry = IgnoreEntry(
-        ruleId: 'check-relative-paths',
-        fileName: 'SKILL.md',
-        subject: '../../RULES.md',
-        used: true,
-      );
+      final entry = IgnoreEntry(ruleId: 'check-absolute-paths', fileName: 'SKILL.md', used: true);
       expectJsonRoundTrip<IgnoreEntry>(
         instance: entry,
         toJson: (e) => e.toJson(),

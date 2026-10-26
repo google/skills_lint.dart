@@ -6,12 +6,18 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/entry_point.dart';
+import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/check_type.dart';
+import 'package:skills_lint/src/models/custom_rule_parameters.dart';
 import 'package:skills_lint/src/models/ignore_entry.dart';
+import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skills_ignores.dart';
 import 'package:skills_lint/src/reporters/reporters.dart';
 import 'package:skills_lint/src/rule_registry.dart';
+import 'package:skills_lint/src/rules/relative_paths_rule.dart';
+import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
 import 'package:skills_lint/src/validator.dart';
 import 'package:skills_lint/src/version.dart';
 import 'package:test/test.dart';
@@ -33,7 +39,7 @@ void main() {
       }
     });
 
-    test('a baseline lists each rule, file and subject once', () async {
+    test('de-duplicates baseline entries for multiple identical rule failures', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
       // Two findings per link destination, and two trailing-whitespace
       // findings, which have no subject.
@@ -41,12 +47,15 @@ void main() {
         '${buildFrontmatter(name: 'test-skill')}'
         '[Link 1](missing1.md) \n[Link 1 again](missing1.md) \n[Link 2](missing2.md)\n',
       );
+      await _writeConfig(tempDir, {
+        RelativePathsRule.ruleName: const RuleConfigPatch(severity: AnalysisSeverity.error),
+        TrailingWhitespaceRule.ruleName: const RuleConfigPatch(severity: AnalysisSeverity.error),
+      });
 
+      // Run with --generate-baseline
       final TestProcess process = await startCli([
         '-s',
         'test-skill',
-        '--check-relative-paths',
-        '--check-trailing-whitespace',
         '--generate-baseline',
       ], workingDirectory: tempDir.path);
       await process.shouldExit(0);
@@ -61,12 +70,16 @@ void main() {
       // exactly as they were written.
       const links = '[Rules](../../RULES.md)\n[Spaced](my%20folder/a:b.md)\n';
       await skillFile.writeAsString('${buildFrontmatter(name: 'test-skill')}$links');
-      const flags = ['--check-relative-paths', '--check-relative-paths-within-skill=true'];
+      await _writeConfig(tempDir, {
+        RelativePathsRule.ruleName: RuleConfigPatch(
+          severity: AnalysisSeverity.error,
+          parameters: CustomRuleParameters(const {RelativePathsRule.withinSkillParameter: true}),
+        ),
+      });
 
       final TestProcess genProcess = await startCli([
         '-s',
         'test-skill',
-        ...flags,
         '--generate-baseline',
       ], workingDirectory: tempDir.path);
       await genProcess.shouldExit(0);
@@ -75,7 +88,6 @@ void main() {
       final TestProcess runProcess = await startCli([
         '-s',
         'test-skill',
-        ...flags,
       ], workingDirectory: tempDir.path);
       await runProcess.shouldExit(0);
 
@@ -86,7 +98,6 @@ void main() {
       final TestProcess newLinkProcess = await startCli([
         '-s',
         'test-skill',
-        ...flags,
       ], workingDirectory: tempDir.path);
       expect(await newLinkProcess.stderrStream().join('\n'), contains('unignored.md'));
       await newLinkProcess.shouldExit(1);
@@ -1414,6 +1425,11 @@ skills_lint:
     });
   });
 }
+
+/// Writes a `skills_lint.yaml` into [directory] that sets [rules].
+Future<void> _writeConfig(Directory directory, Map<String, RuleConfigPatch> rules) => File(
+  p.join(directory.path, 'skills_lint.yaml'),
+).writeAsString(Configuration(ruleConfigs: rules).toYamlString());
 
 /// Writes an ignore file into [directory] that lists [entries] for [skillName].
 Future<void> _writeIgnoreFile(
