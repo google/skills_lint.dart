@@ -33,6 +33,7 @@ const List<String> dartSourceDirectories = [
   'benchmark',
   ...shippedDirectories,
   'example',
+  'skills',
   'test',
   'repo_test',
   'compiled_test',
