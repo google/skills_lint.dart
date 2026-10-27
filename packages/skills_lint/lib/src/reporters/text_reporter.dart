@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
+import '../rule_set.dart';
 import 'reporter.dart';
 
 /// Human-readable streaming text reporter.
@@ -142,8 +142,5 @@ class TextReporter extends Reporter {
   }
 
   @override
-  void onSessionComplete(
-    List<ValidationResult> results, {
-    List<SkillRule> customRules = const [],
-  }) {}
+  void onSessionComplete(List<ValidationResult> results, {RuleSet? ruleSet}) {}
 }

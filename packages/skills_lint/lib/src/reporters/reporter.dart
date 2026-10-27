@@ -5,8 +5,8 @@
 import 'dart:io';
 
 import '../models/output_format.dart';
-import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
+import '../rule_set.dart';
 import 'json_reporter.dart';
 import 'sarif_reporter.dart';
 import 'text_reporter.dart';
@@ -134,5 +134,7 @@ abstract class Reporter {
   }
 
   /// Called at the end of the validation session with all accumulated results.
-  void onSessionComplete(List<ValidationResult> results, {List<SkillRule> customRules = const []});
+  ///
+  /// [ruleSet] lists the rules the session knows about, built-in and custom.
+  void onSessionComplete(List<ValidationResult> results, {RuleSet? ruleSet});
 }

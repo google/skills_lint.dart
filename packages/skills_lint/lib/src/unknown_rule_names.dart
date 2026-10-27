@@ -3,16 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'config_parser.dart';
-import 'models/skill_rule.dart';
-import 'rule_registry.dart';
+import 'rule_set.dart';
 import 'suggestions/levenshtein.dart';
 
 /// The largest edit distance at which a known rule name is suggested for an
 /// unknown one.
 const int _maxSuggestionDistance = 3;
 
-/// Lists a warning message for each rule name in [config] that is neither a
-/// built-in rule nor one of [customRules].
+/// Lists a warning message for each rule name in [config] that [ruleSet]
+/// does not know.
 ///
 /// Checks the top-level `rules` map and the `rules` map of every
 /// `directories` and `individual_skills` entry. [ConfigParser] cannot do this
@@ -20,11 +19,8 @@ const int _maxSuggestionDistance = 3;
 ///
 /// When a known rule name is close to the unknown one, the message suggests
 /// it.
-List<String> unknownRuleNameWarnings(Configuration config, List<SkillRule> customRules) {
-  final List<String> knownNames = [
-    for (final check in RuleRegistry.allChecks) check.name,
-    for (final rule in customRules) rule.name,
-  ];
+List<String> unknownRuleNameWarnings(Configuration config, RuleSet ruleSet) {
+  final List<String> knownNames = ruleSet.names.toList();
   final Set<String> knownSet = knownNames.toSet();
 
   final warnings = <String>[];

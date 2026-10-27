@@ -24,6 +24,7 @@ import 'models/skill_rule.dart';
 import 'models/validation_target.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
+import 'rule_set.dart';
 import 'validation_session.dart';
 import 'version.dart';
 
@@ -400,12 +401,16 @@ Future<Configuration?> _loadConfig(
 /// [ignoreFileOverride] is an optional path to a baseline file to use.
 /// [config] is the loaded configuration. Each entry in its
 /// [Configuration.parsingErrors], and each rule name in it that is neither
-/// built in nor in [customRules], is printed to standard error as a
+/// built in nor in [customRules] or [customRuleDefinitions], is printed to standard error as a
 /// `Configuration warning:` line, and does not make validation fail. The
 /// `skills_lint` command fails on [Configuration.parsingErrors], so a caller
 /// that must fail on a broken configuration checks that
 /// [Configuration.parsingErrors] is empty.
 /// [customRules] contains programmatically injected custom skill rule checks.
+/// [customRuleDefinitions] lists custom rules that [config] enables, disables
+/// and gives parameters to by name, like built-in rules. Unlike
+/// [customRules], their severity and parameters come from the configuration
+/// and round-trip through `skills_lint.yaml`.
 /// [format] specifies the output format for diagnostics (`text`, `json`, `sarif`).
 ///
 /// Returns a [Future] that resolves to `true` if all skills validated successfully
@@ -424,6 +429,7 @@ Future<bool> validateSkills({
   String? ignoreFileOverride,
   Configuration? config,
   List<SkillRule> customRules = const [],
+  List<RuleDefinition> customRuleDefinitions = const [],
   OutputFormat format = OutputFormat.text,
 }) {
   return validateSkillsInternal(
@@ -437,6 +443,7 @@ Future<bool> validateSkills({
     ignoreFileOverride: ignoreFileOverride,
     config: config,
     customRules: customRules,
+    customRuleDefinitions: customRuleDefinitions,
     format: format,
     warnOnParsingErrors: true,
   );
@@ -465,6 +472,7 @@ Future<bool> validateSkillsInternal({
   String? ignoreFileOverride,
   Configuration? config,
   List<SkillRule> customRules = const [],
+  List<RuleDefinition> customRuleDefinitions = const [],
   OutputFormat format = OutputFormat.text,
   // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/152 - remove this flag when config errors fail validateSkills.
   bool warnOnParsingErrors = false,
@@ -513,6 +521,7 @@ Future<bool> validateSkillsInternal({
     resolvedRuleConfigs: resolvedRuleConfigs,
     ignoreFileOverride: canonicalIgnoreFileOverride,
     customRules: customRules,
+    customRuleDefinitions: customRuleDefinitions,
     printWarnings: printWarnings,
     fastFail: fastFail,
     quiet: quiet,

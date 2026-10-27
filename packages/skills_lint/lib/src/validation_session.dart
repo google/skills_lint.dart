@@ -14,7 +14,6 @@ import 'config_parser.dart';
 import 'fixable_rule.dart';
 import 'missing_target_diagnostic.dart';
 import 'models/analysis_severity.dart';
-import 'models/check_type.dart';
 import 'models/ignore_entry.dart';
 import 'models/output_format.dart';
 import 'models/pub_archive.dart';
@@ -27,7 +26,7 @@ import 'models/validation_error.dart';
 import 'path_utils.dart';
 import 'pub_archive_loader.dart';
 import 'reporters/reporters.dart';
-import 'rule_registry.dart';
+import 'rule_set.dart';
 import 'rules/name_format_rule.dart';
 import 'rules/pub_archive_includes_skill_rule.dart';
 import 'skills_ignores_storage.dart';
@@ -65,6 +64,8 @@ class ValidationSession {
   /// * [resolvedRuleConfigs] maps rule names to rule configuration patches (e.g., CLI-passed flags).
   /// * [ignoreFileOverride] specifies a custom file path containing lint ignores to load.
   /// * [customRules] contains programmatically injected custom skill rule checks.
+  /// * [customRuleDefinitions] lists custom rules that the configuration
+  ///   enables and gives parameters to by name, like built-in rules.
   /// * [printWarnings] controls whether warnings are printed to stdout.
   /// * [fastFail] controls whether validation stops immediately on the first error.
   /// * [quiet] controls whether success messages and other info logs are silenced.
@@ -83,6 +84,7 @@ class ValidationSession {
     Map<String, RuleConfigPatch> resolvedRuleConfigs = const {},
     required String? ignoreFileOverride,
     required this.customRules,
+    List<RuleDefinition> customRuleDefinitions = const [],
     required this.printWarnings,
     required this.fastFail,
     required this.quiet,
@@ -92,7 +94,8 @@ class ValidationSession {
     required this.fixApply,
     this.format = OutputFormat.text,
     @visibleForTesting PubArchiveLoader? pubArchiveLoader,
-  }) : _pubArchiveLoader = pubArchiveLoader ?? PubArchiveLoader(),
+  }) : ruleSet = RuleSet(customDefinitions: customRuleDefinitions, customRules: customRules),
+       _pubArchiveLoader = pubArchiveLoader ?? PubArchiveLoader(),
        _reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
        resolvedRuleConfigs = mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
        ignoreFileOverride = _ingestOptionalPath(ignoreFileOverride),
@@ -147,6 +150,9 @@ class ValidationSession {
   final Map<String, RuleConfigPatch> resolvedRuleConfigs;
   final String? ignoreFileOverride;
   final List<SkillRule> customRules;
+
+  /// The built-in rules plus every custom rule this session runs.
+  final RuleSet ruleSet;
   final bool printWarnings;
   final bool fastFail;
   final bool quiet;
@@ -241,7 +247,7 @@ class ValidationSession {
 
     final Map<String, RuleConfig> resolvedConfigs = resolveRuleConfigsForPath(normalizedSkillPath);
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
-    final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
+    final validator = Validator(ruleConfigs: resolvedConfigs, ruleSet: ruleSet);
 
     final String ignorePath = _resolveIgnorePath(localIgnoreFile, skillDir);
     final SkillsIgnores ignores = await _loadIgnores(
@@ -374,7 +380,7 @@ class ValidationSession {
     final String normalizedSkillPath = p.normalize(entity.path);
     final Map<String, RuleConfig> resolvedConfigs = resolveRuleConfigsForPath(normalizedSkillPath);
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
-    final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
+    final validator = Validator(ruleConfigs: resolvedConfigs, ruleSet: ruleSet);
 
     final SkillsIgnores ignores = await _getIgnoresForSkill(
       localIgnoreFile,
@@ -451,10 +457,9 @@ class ValidationSession {
     }
   }
 
-  /// Reports configuration warnings for [config] and [customRules].
+  /// Reports configuration warnings for [config].
   ///
-  /// Reports each rule name in [config] that is neither built in nor in
-  /// [customRules] ([#155](https://github.com/google/skills_lint.dart/issues/155)
+  /// Reports each rule name in [config] that [ruleSet] does not know ([#155](https://github.com/google/skills_lint.dart/issues/155)
   /// makes these fail). When [includeParsingErrors] is true, also reports each
   /// entry in [Configuration.parsingErrors] of [config]. Does not mark the
   /// session as failed.
@@ -462,7 +467,7 @@ class ValidationSession {
     if (includeParsingErrors) {
       config.parsingErrors.forEach(_reporter.onConfigurationWarning);
     }
-    unknownRuleNameWarnings(config, customRules).forEach(_reporter.onConfigurationWarning);
+    unknownRuleNameWarnings(config, ruleSet).forEach(_reporter.onConfigurationWarning);
   }
 
   /// If no skills were validated across the whole run, emit appropriate
@@ -529,8 +534,10 @@ class ValidationSession {
     final resolvedConfigs = <String, RuleConfig>{};
 
     // Initialize with all checks defaults
-    for (final CheckType check in RuleRegistry.allChecks) {
-      resolvedConfigs[check.name] = RuleConfig(severity: check.defaultSeverity);
+    for (final RuleDefinition definition in ruleSet.definitions) {
+      if (definition.isConfigurable) {
+        resolvedConfigs[definition.name] = RuleConfig(severity: definition.check.defaultSeverity);
+      }
     }
 
     void applyPatchMap(Map<String, RuleConfigPatch> patches) {
@@ -1045,9 +1052,9 @@ class ValidationSession {
   /// Emits the formatted validation output (SARIF or JSON) to [sink] (defaults to [stdout]).
   void emitFormattedOutput([StringSink? sink]) {
     if (sink != null) {
-      Reporter.fromFormat(format, out: sink).onSessionComplete(_results, customRules: customRules);
+      Reporter.fromFormat(format, out: sink).onSessionComplete(_results, ruleSet: ruleSet);
     } else {
-      _reporter.onSessionComplete(_results, customRules: customRules);
+      _reporter.onSessionComplete(_results, ruleSet: ruleSet);
     }
   }
 
@@ -1087,8 +1094,7 @@ class ValidationSession {
     return SarifSerializer.toSarifLog(
       _results,
       toolVersion: toolVersion,
-      checkTypes: RuleRegistry.allChecks,
-      customRules: customRules,
+      ruleSet: ruleSet,
       rootDirectory: rootDirectory,
     );
   }

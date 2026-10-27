@@ -103,6 +103,29 @@ void main() {
 }
 ```
 
+A rule in `customRules` keeps the severity it was built with. To let
+`skills_lint.yaml` set its severity and parameters, as it does for built-in
+rules, give the rule a `severity` constructor parameter and pass a
+`RuleDefinition` in `customRuleDefinitions` instead:
+
+```dart
+final bool passed = await validateSkills(
+  config: config,
+  customRuleDefinitions: [
+    RuleDefinition(
+      check: const CheckType(
+        name: 'deprecated-skill',
+        defaultSeverity: AnalysisSeverity.warning,
+        help: 'Check for skills marked as deprecated.',
+      ),
+      create: (severity, parameters) => DeprecatedSkillRule(severity: severity),
+    ),
+  ],
+);
+```
+
+Then `rules: {deprecated-skill: error}` in `skills_lint.yaml` makes it an error.
+
 ## Related
 
 - The skills-lint-setup skill — first-time wiring.

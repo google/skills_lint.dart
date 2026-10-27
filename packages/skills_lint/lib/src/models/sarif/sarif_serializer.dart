@@ -7,11 +7,10 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../path_utils.dart';
-import '../../rule_registry.dart';
+import '../../rule_set.dart';
 import '../analysis_severity.dart';
 import '../check_type.dart';
 import '../skill_context.dart';
-import '../skill_rule.dart';
 import '../source_region.dart';
 import '../validation_error.dart';
 import '../validation_result.dart';
@@ -45,15 +44,11 @@ class SarifSerializer {
   static SarifLog toSarifLog(
     List<ValidationResult> results, {
     String? toolVersion,
-    List<CheckType>? checkTypes,
-    List<SkillRule>? customRules,
+    RuleSet? ruleSet,
     String? rootDirectory,
   }) {
     final String effectiveRoot = rootDirectory ?? _findGitRoot() ?? Directory.current.path;
-    final List<SarifRule> rules = _buildSarifRules(
-      checkTypes ?? RuleRegistry.allChecks,
-      customRules ?? [],
-    );
+    final List<SarifRule> rules = _buildSarifRules(ruleSet ?? RuleSet());
     final ruleIndexMap = <String, int>{for (var i = 0; i < rules.length; i++) rules[i].id: i};
 
     final sarifResults = <SarifResult>[];
@@ -86,50 +81,32 @@ class SarifSerializer {
     );
   }
 
-  static List<SarifRule> _buildSarifRules(List<CheckType> checks, List<SkillRule> customRules) {
+  static List<SarifRule> _buildSarifRules(RuleSet ruleSet) {
     final rules = <SarifRule>[];
     final seen = <String>{};
 
-    for (final check in checks) {
-      if (!seen.contains(check.name)) {
-        seen.add(check.name);
-        rules.add(
-          SarifRule(
-            id: check.name,
-            shortDescription: SarifMessage(text: check.help),
-            helpUri: SarifDriver.defaultInformationUri,
-            defaultConfiguration: SarifReportingConfiguration(
-              level: severityToSarifLevel(check.defaultSeverity),
-            ),
-            properties: const {
-              SarifRule.keyTags: ['lint', 'quality'],
-              SarifRule.keyProblemSeverity: 'recommendation',
-              SarifRule.keyPrecision: 'very-high',
-            },
-          ),
-        );
+    for (final RuleDefinition definition in ruleSet.definitions) {
+      final CheckType check = definition.check;
+      if (!seen.add(check.name)) {
+        continue;
       }
-    }
-
-    for (final customRule in customRules) {
-      if (!seen.contains(customRule.name)) {
-        seen.add(customRule.name);
-        rules.add(
-          SarifRule(
-            id: customRule.name,
-            shortDescription: SarifMessage(text: 'Custom rule ${customRule.name}.'),
-            helpUri: SarifDriver.defaultInformationUri,
-            defaultConfiguration: SarifReportingConfiguration(
-              level: severityToSarifLevel(customRule.severity),
-            ),
-            properties: const {
-              SarifRule.keyTags: ['lint', 'quality', 'custom-rule'],
-              SarifRule.keyProblemSeverity: 'recommendation',
-              SarifRule.keyPrecision: 'very-high',
-            },
+      rules.add(
+        SarifRule(
+          id: check.name,
+          shortDescription: SarifMessage(text: check.help),
+          helpUri: SarifDriver.defaultInformationUri,
+          defaultConfiguration: SarifReportingConfiguration(
+            level: severityToSarifLevel(check.defaultSeverity),
           ),
-        );
-      }
+          properties: {
+            SarifRule.keyTags: definition.isCustom
+                ? const ['lint', 'quality', 'custom-rule']
+                : const ['lint', 'quality'],
+            SarifRule.keyProblemSeverity: 'recommendation',
+            SarifRule.keyPrecision: 'very-high',
+          },
+        ),
+      );
     }
 
     return rules;

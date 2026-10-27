@@ -29,6 +29,7 @@ The core analysis engine responsible for inspecting individual skills.
 ### 4. [Rule Subsystem & Extensibility](../../lib/src/rules/)
 The extensible framework for authoring and running skill checks.
 - **Diagnostic Rules:** Independent rule checkers that validate specific constraints (such as metadata schemas, directory layout, path portability, and naming conventions).
+- **[Rule Set](../../lib/src/rule_set.dart):** One list of every rule a run knows about, built-in and custom. Rule building, SARIF rule metadata and unknown-rule-name warnings all read it. Configuration names a rule and gives its severity and parameters; the rule set maps that name to Dart code, so configuration stays serializable while custom rules are configured like built-in ones.
 - **Auto-Fix Interface:** Rules that support automated remediation define pure transformation operations, taking current file content and returning modified content without directly touching the filesystem.
 
 ### 5. [Baseline & Suppression Subsystem](../../lib/src/skills_ignores_storage.dart)

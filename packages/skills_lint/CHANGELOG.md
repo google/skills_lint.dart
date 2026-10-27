@@ -24,6 +24,7 @@
 
 ### New features
 
+- Added `customRuleDefinitions` to `validateSkills`. Each `RuleDefinition` builds a custom rule from the severity and parameters that `skills_lint.yaml` gives it, as for built-in rules. Also exports `RuleSet`, `CheckType`, `RuleParameterType` and `ParameterConstraint`.
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
 - Added a `within-skill` parameter to `check-relative-paths` that reports relative links leaving the skill directory, which break when the skill is copied somewhere else on its own. Off by default. Enable it with `within-skill: true` or `--check-relative-paths-within-skill=true`.

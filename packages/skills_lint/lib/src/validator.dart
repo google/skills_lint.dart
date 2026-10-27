@@ -9,14 +9,13 @@ import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import 'models/analysis_severity.dart';
-import 'models/check_type.dart';
 import 'models/pub_archive.dart';
 import 'models/rule_config.dart';
 import 'models/skill_context.dart';
 import 'models/skill_rule.dart';
 import 'models/validation_error.dart';
 import 'models/validation_result.dart';
-import 'rule_registry.dart';
+import 'rule_set.dart';
 import 'rules/path_does_not_exist_rule.dart';
 
 // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
@@ -30,13 +29,29 @@ class Validator {
   ///
   /// * [ruleConfigs] defines resolved severity and options for the validation rules.
   /// * [customRules] specifies custom rules to be included in the validation.
+  /// * [ruleSet] lists the rules this validator knows about. It defaults to
+  ///   the built-in rules plus [customRules]; pass one or the other.
   Validator({
     // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
     @Deprecated('Use ruleConfigs instead') Map<String, AnalysisSeverity>? ruleOverrides,
     Map<String, RuleConfig>? ruleConfigs,
     List<SkillRule>? customRules,
+    RuleSet? ruleSet,
   }) : _ruleConfigs = _mergeOverrides(ruleOverrides, ruleConfigs),
-       _rules = _buildRules(_mergeOverrides(ruleOverrides, ruleConfigs), customRules ?? []);
+       _rules = _resolveRuleSet(
+         ruleSet,
+         customRules,
+       ).buildRules(_mergeOverrides(ruleOverrides, ruleConfigs));
+
+  static RuleSet _resolveRuleSet(RuleSet? ruleSet, List<SkillRule>? customRules) {
+    if (ruleSet == null) {
+      return RuleSet(customRules: customRules ?? const []);
+    }
+    if (customRules != null && customRules.isNotEmpty) {
+      throw ArgumentError('Pass custom rules in ruleSet or customRules, not both.');
+    }
+    return ruleSet;
+  }
 
   static Map<String, RuleConfig> _mergeOverrides(
     Map<String, AnalysisSeverity>? deprecatedOverrides,
@@ -188,49 +203,5 @@ class Validator {
         );
       }
     }
-  }
-
-  /// Compiles the final list of active rules for the validator.
-  ///
-  /// * [ruleConfigs] resolved rules configurations mapping.
-  /// * [customRules] specifies custom rules to be included in the validation.
-  ///
-  /// Rules configured with [AnalysisSeverity.disabled] are excluded.
-  /// Throws an [ArgumentError] if a duplicate rule name is encountered.
-  static List<SkillRule> _buildRules(
-    Map<String, RuleConfig> ruleConfigs,
-    List<SkillRule> customRules,
-  ) {
-    final rules = <SkillRule>[];
-    final seenNames = <String>{};
-
-    void addRule(SkillRule rule) {
-      if (rule.severity != AnalysisSeverity.disabled) {
-        if (seenNames.contains(rule.name)) {
-          throw ArgumentError('Duplicate rule name detected: ${rule.name}');
-        }
-        seenNames.add(rule.name);
-        rules.add(rule);
-      }
-    }
-
-    for (final CheckType check in RuleRegistry.allChecks) {
-      final RuleConfig config =
-          ruleConfigs[check.name] ?? RuleConfig(severity: check.defaultSeverity);
-      if (config.severity != AnalysisSeverity.disabled) {
-        final SkillRule? rule = RuleRegistry.createRule(
-          check.name,
-          config.severity,
-          config.parameters,
-        );
-        if (rule != null) {
-          addRule(rule);
-        }
-      }
-    }
-
-    customRules.forEach(addRule);
-
-    return rules;
   }
 }

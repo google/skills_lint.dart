@@ -140,7 +140,7 @@ skills_lint:
 ''');
 
       expect(config.parsingErrors, isEmpty);
-      expect(unknownRuleNameWarnings(config, const []), [
+      expect(unknownRuleNameWarnings(config, RuleSet()), [
         'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
       ]);
     });
@@ -152,7 +152,7 @@ skills_lint:
     no-such-rule-at-all: error
 ''');
 
-      expect(unknownRuleNameWarnings(config, const []), [
+      expect(unknownRuleNameWarnings(config, RuleSet()), [
         'Global rules: Unknown rule "no-such-rule-at-all".',
       ]);
     });
@@ -170,7 +170,7 @@ skills_lint:
         bogus-rule-name-here: error
 ''');
 
-      expect(unknownRuleNameWarnings(config, const []), [
+      expect(unknownRuleNameWarnings(config, RuleSet()), [
         'Directory entry rules for "skills": Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
         'Individual skill entry rules for "one/skill": Unknown rule "bogus-rule-name-here".',
       ]);
@@ -186,7 +186,7 @@ skills_lint:
 ''');
 
       expect(config.parsingErrors, isEmpty);
-      expect(unknownRuleNameWarnings(config, [_QuietCustomRule()]), isEmpty);
+      expect(unknownRuleNameWarnings(config, RuleSet(customRules: [_QuietCustomRule()])), isEmpty);
     });
 
     test('suggests a custom rule for a misspelling of it', () {
@@ -196,7 +196,7 @@ skills_lint:
     my-team-rul: error
 ''');
 
-      expect(unknownRuleNameWarnings(config, [_QuietCustomRule()]), [
+      expect(unknownRuleNameWarnings(config, RuleSet(customRules: [_QuietCustomRule()])), [
         'Global rules: Unknown rule "my-team-rul". Did you mean "my-team-rule"?',
       ]);
     });
@@ -209,10 +209,10 @@ skills_lint:
 ''');
 
       expect(
-        unknownRuleNameWarnings(config, [
-          _QuietCustomRule('team-rule-a'),
-          _QuietCustomRule('team-rule-b'),
-        ]),
+        unknownRuleNameWarnings(
+          config,
+          RuleSet(customRules: [_QuietCustomRule('team-rule-a'), _QuietCustomRule('team-rule-b')]),
+        ),
         ['Global rules: Unknown rule "team-rule-c".'],
       );
     });
@@ -225,7 +225,7 @@ skills_lint:
         },
       );
 
-      expect(unknownRuleNameWarnings(config, const []), isEmpty);
+      expect(unknownRuleNameWarnings(config, RuleSet()), isEmpty);
     });
   });
 

@@ -256,7 +256,10 @@ void main() {
 
     test('SarifSerializer includes custom rules in driver rules list with tags', () {
       final customRule = _MockCustomRule();
-      final SarifLog sarif = SarifSerializer.toSarifLog([], customRules: [customRule]);
+      final SarifLog sarif = SarifSerializer.toSarifLog(
+        [],
+        ruleSet: RuleSet(customRules: [customRule]),
+      );
 
       final SarifDriver driver = sarif.runs.first.tool.driver;
       expect(driver.rules.any((r) => r.id == 'custom-test-rule'), isTrue);
