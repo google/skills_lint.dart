@@ -207,10 +207,10 @@ skills_lint:
     // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
     // Expect the default to report the unknown name and fail in 0.6.0.
     test('ignores an unknown rule name by default', () async {
-      // `check-relative-path` misspells `check-relative-paths`.
+      // `disallowed-feild` swaps two letters of `disallowed-field`.
       final (bool passed, String err) = await runWithConfig(
         const Configuration(
-          ruleConfigs: {'check-relative-path': RuleConfigPatch(severity: AnalysisSeverity.error)},
+          ruleConfigs: {'disallowed-feild': RuleConfigPatch(severity: AnalysisSeverity.error)},
         ).toYamlString(),
       );
 
@@ -219,12 +219,13 @@ skills_lint:
     });
 
     test('fails on an unknown rule name when unknown-rule-name is enabled', () async {
-      // `check-relative-path` misspells `check-relative-paths`.
+      // `check_absolute_paths` uses underscores where `check-absolute-paths`
+      // has hyphens.
       final (bool passed, String err) = await runWithConfig(
         const Configuration(
           ruleConfigs: {
             UnknownRuleNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-            'check-relative-path': RuleConfigPatch(severity: AnalysisSeverity.error),
+            'check_absolute_paths': RuleConfigPatch(severity: AnalysisSeverity.error),
           },
         ).toYamlString(),
       );
@@ -232,8 +233,8 @@ skills_lint:
       expect(
         err,
         contains(
-          'Configuration error: Global rules: Unknown rule "check-relative-path". '
-          'Did you mean "check-relative-paths"?',
+          'Configuration error: Global rules: Unknown rule "check_absolute_paths". '
+          'Did you mean "check-absolute-paths"?',
         ),
       );
       expect(passed, isFalse);
@@ -241,16 +242,16 @@ skills_lint:
 
     test('does not report a rule passed in customRules as unknown', () async {
       final (bool passed, String err) = await runWithConfig(
-        const Configuration(
+        Configuration(
           ruleConfigs: {
-            UnknownRuleNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
-            'my-team-rule': RuleConfigPatch(severity: AnalysisSeverity.error),
+            UnknownRuleNameRule.ruleName: const RuleConfigPatch(severity: AnalysisSeverity.error),
+            QuietRule().name: const RuleConfigPatch(severity: AnalysisSeverity.error),
           },
         ).toYamlString(),
         validate: ({Configuration? config}) => validateSkills(
           individualSkillPaths: [_validSkillPath],
           config: config,
-          customRules: [_QuietCustomRule()],
+          customRules: [QuietRule()],
           quiet: true,
         ),
       );
@@ -432,18 +433,6 @@ skills_lint:
 ''';
 
 final String _validSkillPath = p.normalize(p.absolute(p.join('example', 'skills', 'valid')));
-
-/// A custom rule named `my-team-rule` that never reports anything.
-class _QuietCustomRule extends SkillRule {
-  @override
-  final String name = 'my-team-rule';
-
-  @override
-  final AnalysisSeverity severity = AnalysisSeverity.warning;
-
-  @override
-  Future<List<ValidationError>> validate(SkillContext context) async => const [];
-}
 
 /// Calls [validateSkills] on the valid example skill.
 Future<bool> _validateSkills({Configuration? config}) =>
