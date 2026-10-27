@@ -7,22 +7,22 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
+import 'package:skills_lint/src/rule_catalog.dart';
 import 'package:skills_lint/src/rule_registry.dart';
-import 'package:skills_lint/src/unknown_rule_names.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 
 import 'test_utils.dart';
 
-/// A custom rule named [name] that never reports anything.
+/// A custom rule named [name] at [severity] that never reports anything.
 class _QuietCustomRule extends SkillRule {
-  _QuietCustomRule([this.name = 'my-team-rule']);
+  _QuietCustomRule([this.name = 'my-team-rule', this.severity = AnalysisSeverity.warning]);
 
   @override
   final String name;
 
   @override
-  final AnalysisSeverity severity = AnalysisSeverity.warning;
+  final AnalysisSeverity severity;
 
   @override
   Future<List<ValidationError>> validate(SkillContext context) async => const [];
@@ -131,7 +131,58 @@ skills_lint:
 void main() {
   defineCliTests();
 
-  group('unknownRuleNameWarnings', () {
+  group('RuleCatalog.activeRules', () {
+    test('creates each enabled built-in check, then the custom rules', () {
+      final rule = _QuietCustomRule();
+      final List<SkillRule> rules = RuleCatalog(customRules: [rule]).activeRules(const {});
+
+      expect(rules.last, same(rule));
+      expect(
+        rules.map((r) => r.name).toSet(),
+        containsAll([
+          for (final check in RuleRegistry.allChecks)
+            if (check.defaultSeverity != AnalysisSeverity.disabled) check.name,
+        ]),
+      );
+    });
+
+    test('leaves out a disabled built-in check and a disabled custom rule', () {
+      final List<SkillRule> rules =
+          RuleCatalog(
+            customRules: [_QuietCustomRule('off-rule', AnalysisSeverity.disabled)],
+          ).activeRules(const {
+            'check-relative-paths': RuleConfig(severity: AnalysisSeverity.disabled),
+          });
+
+      expect(rules.map((r) => r.name), isNot(contains('check-relative-paths')));
+      expect(rules.map((r) => r.name), isNot(contains('off-rule')));
+    });
+
+    test('throws on two enabled rules with one name', () {
+      final catalog = RuleCatalog(customRules: [_QuietCustomRule('dup'), _QuietCustomRule('dup')]);
+
+      expect(() => catalog.activeRules(const {}), throwsArgumentError);
+    });
+
+    test('allows a duplicate name when one of the rules is disabled', () {
+      final catalog = RuleCatalog(
+        customRules: [_QuietCustomRule('dup'), _QuietCustomRule('dup', AnalysisSeverity.disabled)],
+      );
+
+      expect(catalog.activeRules(const {}).where((r) => r.name == 'dup'), hasLength(1));
+    });
+  });
+
+  group('RuleCatalog.names', () {
+    test('lists built-in checks first, then custom rules', () {
+      expect(RuleCatalog(customRules: [_QuietCustomRule()]).names, [
+        for (final check in RuleRegistry.allChecks) check.name,
+        'my-team-rule',
+      ]);
+    });
+  });
+
+  group('RuleCatalog.unknownNameWarnings', () {
     test('names a misspelled rule and suggests the closest rule', () {
       final Configuration config = ConfigParser.parse('''
 skills_lint:
@@ -140,7 +191,7 @@ skills_lint:
 ''');
 
       expect(config.parsingErrors, isEmpty);
-      expect(unknownRuleNameWarnings(config, const []), [
+      expect(const RuleCatalog().unknownNameWarnings(config), [
         'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
       ]);
     });
@@ -152,7 +203,7 @@ skills_lint:
     no-such-rule-at-all: error
 ''');
 
-      expect(unknownRuleNameWarnings(config, const []), [
+      expect(const RuleCatalog().unknownNameWarnings(config), [
         'Global rules: Unknown rule "no-such-rule-at-all".',
       ]);
     });
@@ -170,7 +221,7 @@ skills_lint:
         bogus-rule-name-here: error
 ''');
 
-      expect(unknownRuleNameWarnings(config, const []), [
+      expect(const RuleCatalog().unknownNameWarnings(config), [
         'Directory entry rules for "skills": Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
         'Individual skill entry rules for "one/skill": Unknown rule "bogus-rule-name-here".',
       ]);
@@ -186,7 +237,7 @@ skills_lint:
 ''');
 
       expect(config.parsingErrors, isEmpty);
-      expect(unknownRuleNameWarnings(config, [_QuietCustomRule()]), isEmpty);
+      expect(RuleCatalog(customRules: [_QuietCustomRule()]).unknownNameWarnings(config), isEmpty);
     });
 
     test('suggests a custom rule for a misspelling of it', () {
@@ -196,7 +247,7 @@ skills_lint:
     my-team-rul: error
 ''');
 
-      expect(unknownRuleNameWarnings(config, [_QuietCustomRule()]), [
+      expect(RuleCatalog(customRules: [_QuietCustomRule()]).unknownNameWarnings(config), [
         'Global rules: Unknown rule "my-team-rul". Did you mean "my-team-rule"?',
       ]);
     });
@@ -209,10 +260,9 @@ skills_lint:
 ''');
 
       expect(
-        unknownRuleNameWarnings(config, [
-          _QuietCustomRule('team-rule-a'),
-          _QuietCustomRule('team-rule-b'),
-        ]),
+        RuleCatalog(
+          customRules: [_QuietCustomRule('team-rule-a'), _QuietCustomRule('team-rule-b')],
+        ).unknownNameWarnings(config),
         ['Global rules: Unknown rule "team-rule-c".'],
       );
     });
@@ -225,7 +275,7 @@ skills_lint:
         },
       );
 
-      expect(unknownRuleNameWarnings(config, const []), isEmpty);
+      expect(const RuleCatalog().unknownNameWarnings(config), isEmpty);
     });
   });
 

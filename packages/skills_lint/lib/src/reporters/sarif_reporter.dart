@@ -6,9 +6,8 @@ import 'dart:convert';
 
 import '../models/sarif/models/models.dart';
 import '../models/sarif/sarif_serializer.dart';
-import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
-import '../rule_registry.dart';
+import '../rule_catalog.dart';
 import 'reporter.dart';
 
 /// SARIF 2.1.0 document reporter for CI and GitHub Code Scanning.
@@ -19,12 +18,14 @@ class SarifReporter extends Reporter {
   final String? toolVersion;
 
   @override
-  void onSessionComplete(List<ValidationResult> results, {List<SkillRule> customRules = const []}) {
+  void onSessionComplete(
+    List<ValidationResult> results, {
+    RuleCatalog catalog = const RuleCatalog(),
+  }) {
     final SarifLog sarif = SarifSerializer.toSarifLog(
       results,
       toolVersion: toolVersion,
-      checkTypes: RuleRegistry.allChecks,
-      customRules: customRules,
+      catalog: catalog,
     );
     final encoder = pretty ? const JsonEncoder.withIndent('  ') : const JsonEncoder();
     out.writeln(encoder.convert(sarif.toJson()));

@@ -5,18 +5,18 @@
 import 'dart:io';
 
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import 'models/analysis_severity.dart';
-import 'models/check_type.dart';
 import 'models/pub_archive.dart';
 import 'models/rule_config.dart';
 import 'models/skill_context.dart';
 import 'models/skill_rule.dart';
 import 'models/validation_error.dart';
 import 'models/validation_result.dart';
-import 'rule_registry.dart';
+import 'rule_catalog.dart';
 import 'rules/path_does_not_exist_rule.dart';
 
 // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
@@ -35,8 +35,20 @@ class Validator {
     @Deprecated('Use ruleConfigs instead') Map<String, AnalysisSeverity>? ruleOverrides,
     Map<String, RuleConfig>? ruleConfigs,
     List<SkillRule>? customRules,
-  }) : _ruleConfigs = _mergeOverrides(ruleOverrides, ruleConfigs),
-       _rules = _buildRules(_mergeOverrides(ruleOverrides, ruleConfigs), customRules ?? []);
+  }) : this._fromCatalog(
+         RuleCatalog(customRules: customRules ?? const []),
+         _mergeOverrides(ruleOverrides, ruleConfigs),
+       );
+
+  /// Creates a validator that runs the rules of [catalog] enabled by
+  /// [ruleConfigs].
+  @internal
+  Validator.withCatalog(RuleCatalog catalog, {Map<String, RuleConfig> ruleConfigs = const {}})
+    : this._fromCatalog(catalog, ruleConfigs);
+
+  Validator._fromCatalog(RuleCatalog catalog, Map<String, RuleConfig> ruleConfigs)
+    : _ruleConfigs = ruleConfigs,
+      _rules = catalog.activeRules(ruleConfigs);
 
   static Map<String, RuleConfig> _mergeOverrides(
     Map<String, AnalysisSeverity>? deprecatedOverrides,
@@ -188,49 +200,5 @@ class Validator {
         );
       }
     }
-  }
-
-  /// Compiles the final list of active rules for the validator.
-  ///
-  /// * [ruleConfigs] resolved rules configurations mapping.
-  /// * [customRules] specifies custom rules to be included in the validation.
-  ///
-  /// Rules configured with [AnalysisSeverity.disabled] are excluded.
-  /// Throws an [ArgumentError] if a duplicate rule name is encountered.
-  static List<SkillRule> _buildRules(
-    Map<String, RuleConfig> ruleConfigs,
-    List<SkillRule> customRules,
-  ) {
-    final rules = <SkillRule>[];
-    final seenNames = <String>{};
-
-    void addRule(SkillRule rule) {
-      if (rule.severity != AnalysisSeverity.disabled) {
-        if (seenNames.contains(rule.name)) {
-          throw ArgumentError('Duplicate rule name detected: ${rule.name}');
-        }
-        seenNames.add(rule.name);
-        rules.add(rule);
-      }
-    }
-
-    for (final CheckType check in RuleRegistry.allChecks) {
-      final RuleConfig config =
-          ruleConfigs[check.name] ?? RuleConfig(severity: check.defaultSeverity);
-      if (config.severity != AnalysisSeverity.disabled) {
-        final SkillRule? rule = RuleRegistry.createRule(
-          check.name,
-          config.severity,
-          config.parameters,
-        );
-        if (rule != null) {
-          addRule(rule);
-        }
-      }
-    }
-
-    customRules.forEach(addRule);
-
-    return rules;
   }
 }

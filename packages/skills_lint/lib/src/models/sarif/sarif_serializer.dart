@@ -7,7 +7,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../path_utils.dart';
-import '../../rule_registry.dart';
+import '../../rule_catalog.dart';
 import '../analysis_severity.dart';
 import '../check_type.dart';
 import '../skill_context.dart';
@@ -45,15 +45,11 @@ class SarifSerializer {
   static SarifLog toSarifLog(
     List<ValidationResult> results, {
     String? toolVersion,
-    List<CheckType>? checkTypes,
-    List<SkillRule>? customRules,
+    RuleCatalog catalog = const RuleCatalog(),
     String? rootDirectory,
   }) {
     final String effectiveRoot = rootDirectory ?? _findGitRoot() ?? Directory.current.path;
-    final List<SarifRule> rules = _buildSarifRules(
-      checkTypes ?? RuleRegistry.allChecks,
-      customRules ?? [],
-    );
+    final List<SarifRule> rules = _buildSarifRules(catalog);
     final ruleIndexMap = <String, int>{for (var i = 0; i < rules.length; i++) rules[i].id: i};
 
     final sarifResults = <SarifResult>[];
@@ -86,11 +82,11 @@ class SarifSerializer {
     );
   }
 
-  static List<SarifRule> _buildSarifRules(List<CheckType> checks, List<SkillRule> customRules) {
+  static List<SarifRule> _buildSarifRules(RuleCatalog catalog) {
     final rules = <SarifRule>[];
     final seen = <String>{};
 
-    for (final check in checks) {
+    for (final CheckType check in catalog.builtInChecks) {
       if (!seen.contains(check.name)) {
         seen.add(check.name);
         rules.add(
@@ -111,7 +107,7 @@ class SarifSerializer {
       }
     }
 
-    for (final customRule in customRules) {
+    for (final SkillRule customRule in catalog.customRules) {
       if (!seen.contains(customRule.name)) {
         seen.add(customRule.name);
         rules.add(

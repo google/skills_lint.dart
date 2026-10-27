@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/models/sarif/sarif.dart';
+import 'package:skills_lint/src/rule_catalog.dart';
 import 'package:test/test.dart';
 import 'test_utils.dart';
 
@@ -256,7 +257,10 @@ void main() {
 
     test('SarifSerializer includes custom rules in driver rules list with tags', () {
       final customRule = _MockCustomRule();
-      final SarifLog sarif = SarifSerializer.toSarifLog([], customRules: [customRule]);
+      final SarifLog sarif = SarifSerializer.toSarifLog(
+        [],
+        catalog: RuleCatalog(customRules: [customRule]),
+      );
 
       final SarifDriver driver = sarif.runs.first.tool.driver;
       expect(driver.rules.any((r) => r.id == 'custom-test-rule'), isTrue);

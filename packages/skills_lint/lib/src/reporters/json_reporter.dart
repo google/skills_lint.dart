@@ -4,8 +4,8 @@
 
 import 'dart:convert';
 
-import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
+import '../rule_catalog.dart';
 import 'reporter.dart';
 
 /// Machine-readable JSON array reporter.
@@ -15,7 +15,10 @@ class JsonReporter extends Reporter {
   final bool pretty;
 
   @override
-  void onSessionComplete(List<ValidationResult> results, {List<SkillRule> customRules = const []}) {
+  void onSessionComplete(
+    List<ValidationResult> results, {
+    RuleCatalog catalog = const RuleCatalog(),
+  }) {
     final List<Map<String, Object?>> jsonList = results.map((r) => r.toJson()).toList();
     final encoder = pretty ? const JsonEncoder.withIndent('  ') : const JsonEncoder();
     out.writeln(encoder.convert(jsonList));

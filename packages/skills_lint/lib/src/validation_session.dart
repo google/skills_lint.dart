@@ -27,11 +27,11 @@ import 'models/validation_error.dart';
 import 'path_utils.dart';
 import 'pub_archive_loader.dart';
 import 'reporters/reporters.dart';
+import 'rule_catalog.dart';
 import 'rule_registry.dart';
 import 'rules/name_format_rule.dart';
 import 'rules/pub_archive_includes_skill_rule.dart';
 import 'skills_ignores_storage.dart';
-import 'unknown_rule_names.dart';
 import 'validator.dart';
 
 final _log = Logger('skills_lint');
@@ -147,6 +147,9 @@ class ValidationSession {
   final Map<String, RuleConfigPatch> resolvedRuleConfigs;
   final String? ignoreFileOverride;
   final List<SkillRule> customRules;
+
+  /// The built-in checks and [customRules], built once for the session.
+  late final RuleCatalog _catalog = RuleCatalog(customRules: customRules);
   final bool printWarnings;
   final bool fastFail;
   final bool quiet;
@@ -241,7 +244,7 @@ class ValidationSession {
 
     final Map<String, RuleConfig> resolvedConfigs = resolveRuleConfigsForPath(normalizedSkillPath);
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
-    final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
+    final validator = Validator.withCatalog(_catalog, ruleConfigs: resolvedConfigs);
 
     final String ignorePath = _resolveIgnorePath(localIgnoreFile, skillDir);
     final SkillsIgnores ignores = await _loadIgnores(
@@ -374,7 +377,7 @@ class ValidationSession {
     final String normalizedSkillPath = p.normalize(entity.path);
     final Map<String, RuleConfig> resolvedConfigs = resolveRuleConfigsForPath(normalizedSkillPath);
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
-    final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
+    final validator = Validator.withCatalog(_catalog, ruleConfigs: resolvedConfigs);
 
     final SkillsIgnores ignores = await _getIgnoresForSkill(
       localIgnoreFile,
@@ -451,7 +454,7 @@ class ValidationSession {
     }
   }
 
-  /// Reports configuration warnings for [config] and [customRules].
+  /// Reports configuration warnings for [config] and the rule catalog.
   ///
   /// Reports each rule name in [config] that is neither built in nor in
   /// [customRules] ([#155](https://github.com/google/skills_lint.dart/issues/155)
@@ -462,7 +465,7 @@ class ValidationSession {
     if (includeParsingErrors) {
       config.parsingErrors.forEach(_reporter.onConfigurationWarning);
     }
-    unknownRuleNameWarnings(config, customRules).forEach(_reporter.onConfigurationWarning);
+    _catalog.unknownNameWarnings(config).forEach(_reporter.onConfigurationWarning);
   }
 
   /// If no skills were validated across the whole run, emit appropriate
@@ -1045,9 +1048,9 @@ class ValidationSession {
   /// Emits the formatted validation output (SARIF or JSON) to [sink] (defaults to [stdout]).
   void emitFormattedOutput([StringSink? sink]) {
     if (sink != null) {
-      Reporter.fromFormat(format, out: sink).onSessionComplete(_results, customRules: customRules);
+      Reporter.fromFormat(format, out: sink).onSessionComplete(_results, catalog: _catalog);
     } else {
-      _reporter.onSessionComplete(_results, customRules: customRules);
+      _reporter.onSessionComplete(_results, catalog: _catalog);
     }
   }
 
@@ -1087,8 +1090,7 @@ class ValidationSession {
     return SarifSerializer.toSarifLog(
       _results,
       toolVersion: toolVersion,
-      checkTypes: RuleRegistry.allChecks,
-      customRules: customRules,
+      catalog: _catalog,
       rootDirectory: rootDirectory,
     );
   }
