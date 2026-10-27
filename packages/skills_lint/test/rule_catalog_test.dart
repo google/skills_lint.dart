@@ -13,6 +13,13 @@ import 'test_utils.dart';
 const _error = RuleConfigPatch(severity: AnalysisSeverity.error);
 
 void main() {
+  _testActiveRules();
+  _testNames();
+  _testFindUnknownNames();
+  _testUnknownRuleNameRule();
+}
+
+void _testActiveRules() {
   group('RuleCatalog.activeRules', () {
     test('creates each enabled built-in check, then the custom rules', () {
       final rule = QuietRule();
@@ -62,7 +69,9 @@ void main() {
       expect(catalog.activeRules(const {}).where((r) => r.name == 'dup'), hasLength(1));
     });
   });
+}
 
+void _testNames() {
   group('RuleCatalog.names', () {
     test('lists built-in checks first, then custom rules', () {
       expect(RuleCatalog(customRules: [QuietRule()]).names, [
@@ -71,7 +80,9 @@ void main() {
       ]);
     });
   });
+}
 
+void _testFindUnknownNames() {
   group('RuleCatalog.findUnknownNames', () {
     test('names a misspelled rule, records its YAML line, and suggests the closest rule', () {
       // `check-relative-path` misspells `check-relative-paths` on line 3.
@@ -243,7 +254,9 @@ skills_lint:
       expect(const RuleCatalog().findUnknownNames(config), isEmpty);
     });
   });
+}
 
+void _testUnknownRuleNameRule() {
   group('UnknownRuleNameRule.validate', () {
     test('attaches the configuration file and YAML line to the ValidationError', () {
       final Configuration config = ConfigParser.parse('''
