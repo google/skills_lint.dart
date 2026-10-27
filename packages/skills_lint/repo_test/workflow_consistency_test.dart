@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:yaml/yaml.dart';
 
 import 'src/package_directories.dart';
 import 'src/repo_paths.dart';
@@ -117,16 +118,6 @@ void main() {
     test('documents quote each CI undead command exactly', () {
       final List<String> commands = _undeadInvocations();
       expect(commands, isNotEmpty, reason: 'The CI workflow must run `dart run undead`.');
-      // A command that the run-step pattern misses, such as one inside a
-      // `run: |` block, would otherwise go unchecked.
-      final int mentions = _undeadCommand
-          .allMatches(_getWorkflowFile().readAsStringSync().replaceAll(_yamlComment, ''))
-          .length;
-      expect(
-        commands,
-        hasLength(mentions),
-        reason: 'Each `dart run undead` in the CI workflow must be a one-line `run:` step.',
-      );
       final String text = _definitionOfDoneFile().readAsStringSync();
       final List<String> unquoted = _unquotedIn(text, commands);
       expect(
@@ -225,30 +216,27 @@ List<String> _dartTestInvocations() {
   ];
 }
 
-/// A `run:` step of the CI workflow that runs `dart run undead`, such as:
+/// A `dart run undead` command in a workflow `run:` step, such as:
 ///
 /// ```yaml
 ///         run: dart run undead --fail-on-undead .
 /// ```
-///
-/// Group 1 is the command, from `dart run undead` to the end of the line.
-final RegExp _undeadRunStep = RegExp(
-  r'^\s*(?:-\s+)?run:\s*(dart\s+run\s+undead\b[^\r\n]*)',
-  multiLine: true,
-);
-
-/// Any `dart run undead` command in the CI workflow, in any form of step.
-final RegExp _undeadCommand = RegExp(r'dart\s+run\s+undead\b');
-
-/// A YAML comment line, which [_undeadCommand] must not count.
-final RegExp _yamlComment = RegExp(r'^\s*#.*$', multiLine: true);
+final RegExp _undeadCommand = RegExp(r'dart\s+run\s+undead\b[^\r\n]*');
 
 /// Lists each `dart run undead` command that a `run:` step of the CI
 /// workflow runs.
+///
+/// Parses the workflow with `package:yaml` so YAML comments are ignored and
+/// multi-line `run: |` steps are included.
 List<String> _undeadInvocations() {
-  final String content = _getWorkflowFile().readAsStringSync();
+  final workflow = loadYaml(_getWorkflowFile().readAsStringSync()) as YamlMap;
+  final jobs = workflow['jobs'] as YamlMap;
   return [
-    for (final RegExpMatch match in _undeadRunStep.allMatches(content)) match.group(1)!.trim(),
+    for (final YamlMap job in jobs.values.whereType<YamlMap>())
+      if (job['steps'] case final YamlList steps)
+        for (final YamlMap step in steps.whereType<YamlMap>())
+          if (step['run'] case final String run)
+            for (final RegExpMatch match in _undeadCommand.allMatches(run)) match.group(0)!.trim(),
   ];
 }
 
