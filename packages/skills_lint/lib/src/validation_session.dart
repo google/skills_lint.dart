@@ -470,48 +470,20 @@ class ValidationSession {
   /// failed when the severity is [AnalysisSeverity.error]. Does nothing when
   /// the rule is disabled, its default.
   void reportUnknownRuleNames() {
-    final RuleConfig rule = [config.ruleConfigs, resolvedRuleConfigs]
-        .map((patches) => patches[UnknownRuleNameRule.ruleName])
-        .nonNulls
-        .fold(
-          const RuleConfig(severity: UnknownRuleNameRule.defaultSeverity),
-          (RuleConfig base, RuleConfigPatch patch) => patch.applyTo(base),
-        );
-    if (rule.severity == AnalysisSeverity.disabled) {
-      return;
-    }
-    final List<UnknownRuleName> unknown = _catalog.findUnknownNames(
-      config,
-      allowed: rule.parameters.getStringList(UnknownRuleNameRule.allowParameter) ?? const [],
+    final RuleConfig ruleConfig = resolveGlobalRuleConfigs()[UnknownRuleNameRule.ruleName]!;
+    final rule = UnknownRuleNameRule(
+      severity: ruleConfig.severity,
+      allowed: ruleConfig.parameters.getStringList(UnknownRuleNameRule.allowParameter) ?? const [],
     );
-    for (final finding in unknown) {
-      _reporter.onConfigurationProblem(finding.message, rule.severity);
-      _results.add(
-        ValidationResult(
-          validationErrors: [
-            ValidationError(
-              ruleId: UnknownRuleNameRule.ruleName,
-              file: _configFile,
-              message: finding.message,
-              severity: rule.severity,
-            ),
-          ],
-        ),
-      );
+    final List<ValidationError> errors = rule.validate(config, catalog: _catalog);
+    for (final error in errors) {
+      _reporter.onConfigurationProblem(error.message);
+      _results.add(ValidationResult(validationErrors: [error]));
     }
-    if (unknown.isNotEmpty && rule.severity == AnalysisSeverity.error) {
+    if (errors.any((e) => e.severity == AnalysisSeverity.error)) {
       _anyFailed = true;
     }
   }
-
-  /// The configuration file [config] was read from, as recorded by its
-  /// targets, or `skills_lint.yaml` when none recorded it.
-  String get _configFile =>
-      [
-        ...config.directoryConfigs,
-        ...config.individualSkillConfigs,
-      ].map((target) => declarationOf(target)?.source?.file).nonNulls.firstOrNull ??
-      'skills_lint.yaml';
 
   /// If no skills were validated across the whole run, emit appropriate
   /// diagnostics and mark the session as failed.
@@ -571,24 +543,40 @@ class ValidationSession {
     ).map((String key, RuleConfig value) => MapEntry(key, value.severity));
   }
 
+  /// Resolves rule configurations across built-in defaults, the top-level
+  /// `rules` map of [config], and [resolvedRuleConfigs].
+  ///
+  /// Configuration-level rules use this directly; [resolveRuleConfigsForPath]
+  /// layers target-specific overrides on top of the global `rules` map.
+  @visibleForTesting
+  Map<String, RuleConfig> resolveGlobalRuleConfigs() =>
+      _resolveRuleConfigs(targetPatches: const []);
+
   @visibleForTesting
   Map<String, RuleConfig> resolveRuleConfigsForPath(String path) {
     final String normalizedPath = _ingestPath(path);
-    final resolvedConfigs = <String, RuleConfig>{};
+    return _resolveRuleConfigs(
+      targetPatches: [
+        for (final entry in _normalizedDirectoryConfigs)
+          if (_targetCovers(entry.normalizedPath, normalizedPath)) entry.config.ruleConfigs,
+      ],
+    );
+  }
 
-    // Initialize with all checks defaults
-    for (final CheckType check in RuleRegistry.allChecks) {
-      resolvedConfigs[check.name] = RuleConfig(severity: check.defaultSeverity);
-    }
+  Map<String, RuleConfig> _resolveRuleConfigs({
+    required Iterable<Map<String, RuleConfigPatch>> targetPatches,
+  }) {
+    final resolvedConfigs = <String, RuleConfig>{
+      for (final CheckType check in RuleRegistry.allChecks)
+        check.name: RuleConfig(severity: check.defaultSeverity),
+    };
 
     void applyPatchMap(Map<String, RuleConfigPatch> patches) {
       for (final MapEntry<String, RuleConfigPatch> entry in patches.entries) {
         final String ruleName = entry.key;
-        final RuleConfigPatch patch = entry.value;
-
         final RuleConfig base =
             resolvedConfigs[ruleName] ?? const RuleConfig(severity: AnalysisSeverity.disabled);
-        resolvedConfigs[ruleName] = patch.applyTo(base);
+        resolvedConfigs[ruleName] = entry.value.applyTo(base);
       }
     }
 
@@ -596,13 +584,7 @@ class ValidationSession {
     applyPatchMap(config.ruleConfigs);
 
     // 2. Path-Specific Config (from YAML)
-    for (final ({String normalizedPath, String? normalizedIgnoreFile, LintTargetConfig config})
-        entry
-        in _normalizedDirectoryConfigs) {
-      if (_targetCovers(entry.normalizedPath, normalizedPath)) {
-        applyPatchMap(entry.config.ruleConfigs);
-      }
-    }
+    targetPatches.forEach(applyPatchMap);
 
     // 3. Overrides (CLI flags or API caller) take highest precedence
     applyPatchMap(resolvedRuleConfigs);

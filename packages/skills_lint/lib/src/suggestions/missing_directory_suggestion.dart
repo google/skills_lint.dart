@@ -10,7 +10,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../path_utils.dart';
-import 'sibling_suggestion.dart';
+import 'closest_name.dart';
 
 /// Suggests the path the user most likely meant by [declaredText], written
 /// the way they should type it, or `null` when no directory is a confident match.

@@ -26,6 +26,14 @@ void main() {
       expect(closestName('ab', ['ac']), 'ac');
     });
 
+    test('uses maxDistance when supplied', () {
+      // 'abcdef' and 'abcxyz' have edit distance 3, which exceeds the
+      // default threshold of 2 (6 ~/ 3) but is within maxDistance: 3.
+      expect(closestName('abcdef', ['abcxyz']), isNull);
+      expect(closestName('abcdef', ['abcxyz'], maxDistance: 3), 'abcxyz');
+      expect(closestName('abcdef', ['abcxyz'], maxDistance: 0), isNull);
+    });
+
     test('returns null when two different candidates are equally close', () {
       expect(closestName('team-rule-c', ['team-rule-a', 'team-rule-b']), isNull);
     });

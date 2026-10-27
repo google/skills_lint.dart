@@ -6,7 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
-import 'package:skills_lint/src/suggestions/sibling_suggestion.dart';
+import 'package:skills_lint/src/suggestions/closest_name.dart';
 import 'package:test/test.dart';
 
 /// Unit tests for findSiblingSuggestion. The full path-rule integration is

@@ -233,7 +233,7 @@ skills_lint:
       expect(
         err,
         contains(
-          'Configuration error: Global rules: Unknown rule "check_absolute_paths". '
+          'Configuration: Global rules: Unknown rule "check_absolute_paths". '
           'Did you mean "check-absolute-paths"?',
         ),
       );

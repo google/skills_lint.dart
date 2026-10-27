@@ -2,16 +2,23 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import '../config_parser.dart';
 import '../models/analysis_severity.dart';
+import '../models/skill_rule.dart';
+import '../models/source_region.dart';
+import '../models/validation_error.dart';
+import '../rule_catalog.dart';
 
-/// The names and defaults of the `unknown-rule-name` rule, which reports a
-/// rule name in `skills_lint.yaml` that names no built-in or custom rule.
+/// Checks that every rule name in `skills_lint.yaml` names a built-in rule or
+/// a custom rule.
 ///
-/// The rule checks the configuration, not a skill, so it has no
-/// `SkillRule` class. `ValidationSession.reportUnknownRuleNames` runs it
-/// once per run, with the severity and parameters from the top-level
-/// `rules` map and the command line.
-abstract final class UnknownRuleNameRule {
+/// Unlike a [SkillRule], which runs on each skill directory, this rule checks
+/// the [Configuration] once per session, with the severity and [allowed] names
+/// from the top-level `rules` map and the command line.
+class UnknownRuleNameRule {
+  UnknownRuleNameRule({this.severity = defaultSeverity, Iterable<String> allowed = const []})
+    : allowed = List.unmodifiable(allowed);
+
   /// The rule's name.
   static const String ruleName = 'unknown-rule-name';
 
@@ -23,4 +30,36 @@ abstract final class UnknownRuleNameRule {
   // Change the default to error in 0.6.0.
   /// The rule's default severity.
   static const AnalysisSeverity defaultSeverity = AnalysisSeverity.disabled;
+
+  /// The severity of findings this rule produces.
+  final AnalysisSeverity severity;
+
+  /// Rule names to accept even when they match no built-in or custom rule.
+  final List<String> allowed;
+
+  /// Validates the rule names in [config] against [catalog] and [allowed].
+  List<ValidationError> validate(
+    Configuration config, {
+    RuleCatalog catalog = const RuleCatalog(),
+  }) {
+    if (severity == AnalysisSeverity.disabled) {
+      return const [];
+    }
+    final String file = sourceFileOf(config) ?? 'skills_lint.yaml';
+    return [
+      for (final UnknownRuleName finding in catalog.findUnknownNames(config, allowed: allowed))
+        ValidationError(
+          ruleId: ruleName,
+          file: file,
+          message: formatMessage(finding),
+          severity: severity,
+          region: finding.line == null ? null : SourceRegion(startLine: finding.line!),
+        ),
+    ];
+  }
+
+  /// Formats [finding] for console, JSON, and SARIF output.
+  static String formatMessage(UnknownRuleName finding) =>
+      '${finding.context}: Unknown rule "${finding.name}".'
+      '${finding.suggestion == null ? '' : ' Did you mean "${finding.suggestion}"?'}';
 }

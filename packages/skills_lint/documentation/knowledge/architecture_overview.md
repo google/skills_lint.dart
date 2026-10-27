@@ -27,9 +27,9 @@ The core analysis engine responsible for inspecting individual skills.
 - **Purity & Isolation:** Operates as a pure analysis unit without side effects, remaining entirely decoupled from CLI arguments, terminal I/O, or session orchestration.
 
 ### 4. [Rule Subsystem & Extensibility](../../lib/src/rules/)
-The extensible framework for authoring and running skill checks.
-- **Diagnostic Rules:** Independent rule checkers that validate specific constraints (such as metadata schemas, directory layout, path portability, and naming conventions).
-- **Rule Catalog:** [`RuleCatalog`](../../lib/src/rule_catalog.dart) holds the built-in checks and the caller's custom rules. Rule activation, SARIF rule metadata and unknown-rule-name warnings all read it, rather than combining `RuleRegistry.allChecks` with a `customRules` list themselves.
+The extensible framework for authoring and running checks.
+- **Diagnostic Rules:** Independent rule checkers that validate specific constraints on skills (such as metadata schemas, directory layout, path portability, and naming conventions), along with configuration-level rules (such as `unknown-rule-name`) that validate `Configuration` once per session before skill targets are evaluated.
+- **Rule Catalog:** [`RuleCatalog`](../../lib/src/rule_catalog.dart) holds the built-in checks and the caller's custom rules. Rule activation, SARIF rule metadata and `unknown-rule-name` validation all read it, rather than combining `RuleRegistry.allChecks` with a `customRules` list themselves.
 - **Auto-Fix Interface:** Rules that support automated remediation define pure transformation operations, taking current file content and returning modified content without directly touching the filesystem.
 
 ### 5. [Baseline & Suppression Subsystem](../../lib/src/skills_ignores_storage.dart)
