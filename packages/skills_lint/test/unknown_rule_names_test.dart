@@ -4,6 +4,7 @@
 
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/rule_registry.dart';
+import 'package:skills_lint/src/rules/unknown_rule_name_rule.dart';
 import 'package:skills_lint/src/unknown_rule_names.dart';
 import 'package:test/test.dart';
 
@@ -13,9 +14,9 @@ const _error = RuleConfigPatch(severity: AnalysisSeverity.error);
 
 void main() {
   group('findUnknownRuleNames', () {
-    test('names a misspelled rule, which the parser accepts, and suggests the closest rule', () {
-      // `check-relative-path` misspells `check-relative-paths`. The YAML is
-      // parsed to check that the parser reports no error for it.
+    test('names a misspelled rule, records its YAML line, and suggests the closest rule', () {
+      // `check-relative-path` misspells `check-relative-paths` on line 3.
+      // The YAML is parsed to check that the parser reports no error for it.
       final Configuration config = ConfigParser.parse('''
 skills_lint:
   rules:
@@ -23,9 +24,19 @@ skills_lint:
 ''');
 
       expect(config.parsingErrors, isEmpty);
-      expect(_messages(config, const []), [
-        'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
-      ]);
+      final List<UnknownRuleName> findings = findUnknownRuleNames(config, const []);
+      expect(findings, hasLength(1));
+      expect(findings.single.name, 'check-relative-path');
+      expect(findings.single.suggestion, 'check-relative-paths');
+      expect(findings.single.line, 3);
+      expect(
+        UnknownRuleNameRule.formatMessage(findings.single),
+        allOf(
+          contains('Global rules'),
+          contains('check-relative-path'),
+          contains('check-relative-paths'),
+        ),
+      );
     });
 
     group('suggests the rule for a common mistake:', () {
@@ -42,22 +53,31 @@ skills_lint:
         test(typo, () {
           final config = Configuration(ruleConfigs: {typo: _error});
 
-          expect(_messages(config, const []), [
-            'Global rules: Unknown rule "$typo". Did you mean "$rule"?',
-          ]);
+          final List<UnknownRuleName> findings = findUnknownRuleNames(config, const []);
+          expect(findings, hasLength(1));
+          expect(findings.single.name, typo);
+          expect(findings.single.suggestion, rule);
+          expect(
+            UnknownRuleNameRule.formatMessage(findings.single),
+            allOf(contains(typo), contains(rule)),
+          );
         });
       }
     });
 
-    group('names a rule class name without a suggestion:', () {
-      // A rule's Dart class name can differ from its rule name.
-      // `description-length` appears in a comment in api_defaults_test.dart
-      // for `description-too-long` (DescriptionLengthRule).
+    group('gives no suggestion when a mistake is too far from any rule name:', () {
+      // Writing a rule's Dart class stem (such as `description-length` for
+      // `DescriptionLengthRule` instead of `description-too-long`, or
+      // `name-format` for `NameFormatRule` instead of `invalid-skill-name`)
+      // exceeds the edit-distance threshold, so suggestion is null.
       for (final typo in ['description-length', 'name-format']) {
         test(typo, () {
           final config = Configuration(ruleConfigs: {typo: _error});
 
-          expect(_messages(config, const []), ['Global rules: Unknown rule "$typo".']);
+          final List<UnknownRuleName> findings = findUnknownRuleNames(config, const []);
+          expect(findings, hasLength(1));
+          expect(findings.single.name, typo);
+          expect(findings.single.suggestion, isNull);
         });
       }
     });
@@ -67,9 +87,11 @@ skills_lint:
       // from the custom rule `check-relative-p`. Both are close enough.
       const config = Configuration(ruleConfigs: {'check-relative-pathz': _error});
 
-      expect(_messages(config, [QuietRule(name: 'check-relative-p')]), [
-        'Global rules: Unknown rule "check-relative-pathz". Did you mean "check-relative-paths"?',
+      final List<UnknownRuleName> findings = findUnknownRuleNames(config, [
+        QuietRule(name: 'check-relative-p'),
       ]);
+      expect(findings, hasLength(1));
+      expect(findings.single.suggestion, 'check-relative-paths');
     });
 
     test('suggests nothing when a built-in and a custom rule are equally close', () {
@@ -77,15 +99,20 @@ skills_lint:
       // the custom rule `check-relative-patx`. Neither kind is preferred.
       const config = Configuration(ruleConfigs: {'check-relative-path': _error});
 
-      expect(_messages(config, [QuietRule(name: 'check-relative-patx')]), [
-        'Global rules: Unknown rule "check-relative-path".',
+      final List<UnknownRuleName> findings = findUnknownRuleNames(config, [
+        QuietRule(name: 'check-relative-patx'),
       ]);
+      expect(findings, hasLength(1));
+      expect(findings.single.suggestion, isNull);
     });
 
     test('names an unknown rule without a suggestion when nothing is close', () {
       const config = Configuration(ruleConfigs: {'no-such-rule-at-all': _error});
 
-      expect(_messages(config, const []), ['Global rules: Unknown rule "no-such-rule-at-all".']);
+      final List<UnknownRuleName> findings = findUnknownRuleNames(config, const []);
+      expect(findings, hasLength(1));
+      expect(findings.single.name, 'no-such-rule-at-all');
+      expect(findings.single.suggestion, isNull);
     });
 
     test('checks the rules of directory and individual skill entries', () {
@@ -99,9 +126,17 @@ skills_lint:
         ],
       );
 
-      expect(_messages(config, const []), [
-        'Directory entry rules for "skills": Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
-        'Individual skill entry rules for "one/skill": Unknown rule "bogus-rule-name-here".',
+      final List<String> messages = [
+        for (final finding in findUnknownRuleNames(config, const []))
+          UnknownRuleNameRule.formatMessage(finding),
+      ];
+      expect(messages, [
+        allOf(
+          contains('skills'),
+          contains('check-relative-path'),
+          contains('check-relative-paths'),
+        ),
+        allOf(contains('one/skill'), contains('bogus-rule-name-here')),
       ]);
     });
 
@@ -117,16 +152,17 @@ skills_lint:
 ''');
 
       expect(config.parsingErrors, isEmpty);
-      expect(_messages(config, [QuietRule()]), isEmpty);
+      expect(findUnknownRuleNames(config, [QuietRule()]), isEmpty);
     });
 
     test('suggests a custom rule for a misspelling of it', () {
       // `my-team-rul` misspells the custom rule `my-team-rule`.
       const config = Configuration(ruleConfigs: {'my-team-rul': _error});
 
-      expect(_messages(config, [QuietRule()]), [
-        'Global rules: Unknown rule "my-team-rul". Did you mean "my-team-rule"?',
-      ]);
+      final List<UnknownRuleName> findings = findUnknownRuleNames(config, [QuietRule()]);
+      expect(findings, hasLength(1));
+      expect(findings.single.name, 'my-team-rul');
+      expect(findings.single.suggestion, 'my-team-rule');
     });
 
     test('does not flag a name in allowed', () {
@@ -143,12 +179,31 @@ skills_lint:
         ruleConfigs: {for (final check in RuleRegistry.allChecks) check.name: _error},
       );
 
-      expect(_messages(config, const []), isEmpty);
+      expect(findUnknownRuleNames(config, const []), isEmpty);
+    });
+  });
+
+  group('UnknownRuleNameRule.validate', () {
+    test('attaches the configuration file and YAML line to the ValidationError', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint:
+  rules:
+    unknown-rule-name: error
+    check-relative-path: error
+''', configSource: const ConfigSource.file('/repo/skills_lint.yaml'));
+
+      final List<ValidationError> errors = UnknownRuleNameRule(
+        severity: AnalysisSeverity.error,
+      ).validate(config);
+
+      expect(errors, hasLength(1));
+      expect(errors.single.ruleId, UnknownRuleNameRule.ruleName);
+      expect(errors.single.file, endsWith('skills_lint.yaml'));
+      expect(errors.single.region?.startLine, 4);
+      expect(
+        errors.single.message,
+        allOf(contains('check-relative-path'), contains('check-relative-paths')),
+      );
     });
   });
 }
-
-/// The messages of [findUnknownRuleNames] for [config] and [customRules].
-List<String> _messages(Configuration config, List<SkillRule> customRules) => [
-  for (final UnknownRuleName unknown in findUnknownRuleNames(config, customRules)) unknown.message,
-];

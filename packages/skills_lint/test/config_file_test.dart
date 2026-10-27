@@ -1060,7 +1060,7 @@ skills_lint:
 
       const enabled = RuleConfigPatch(severity: AnalysisSeverity.error);
 
-      test('reports an unknown rule name as an error in JSON output and exits 1', () async {
+      test('reports an unknown rule name with its YAML line in SARIF output and exits 1', () async {
         // `trailing-whitespace` leaves out the `check-` prefix of
         // `check-trailing-whitespace`.
         await writeConfig(const {
@@ -1069,17 +1069,29 @@ skills_lint:
         });
 
         final TestProcess process = await startCli([
-          '--format=json',
+          '--format=sarif',
         ], workingDirectory: tempDir.path);
 
         await process.shouldExit(1);
         final String out = (await process.stdout.rest.toList()).join('\n');
-        expect(jsonEncode(jsonDecode(out)), contains('"ruleId":"${UnknownRuleNameRule.ruleName}"'));
+        final sarif = jsonDecode(out) as Map<String, Object?>;
+        final runs = sarif['runs']! as List<Object?>;
+        final results = (runs.single! as Map<String, Object?>)['results']! as List<Object?>;
+        final result = results.single! as Map<String, Object?>;
+        expect(result['ruleId'], UnknownRuleNameRule.ruleName);
+        final physicalLocation =
+            ((result['locations']! as List<Object?>).single!
+                    as Map<String, Object?>)['physicalLocation']!
+                as Map<String, Object?>;
+        final artifactLocation = physicalLocation['artifactLocation']! as Map<String, Object?>;
+        final region = physicalLocation['region']! as Map<String, Object?>;
+        expect(artifactLocation['uri'].toString(), endsWith('skills_lint.yaml'));
+        expect(region['startLine'], greaterThan(1));
         final String err = (await process.stderr.rest.toList()).join('\n');
         expect(
           err,
           contains(
-            'Configuration error: Global rules: Unknown rule "trailing-whitespace". '
+            'Configuration: Global rules: Unknown rule "trailing-whitespace". '
             'Did you mean "check-trailing-whitespace"?',
           ),
         );

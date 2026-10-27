@@ -12,7 +12,7 @@ import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../path_utils.dart';
 import '../skill_links.dart';
-import '../suggestions/sibling_suggestion.dart';
+import '../suggestions/closest_name.dart';
 
 /// Enforces that relative links in SKILL.md point to existing files.
 ///

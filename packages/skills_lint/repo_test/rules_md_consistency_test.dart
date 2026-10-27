@@ -123,16 +123,8 @@ List<String> _findFixableMismatches(
     if (check == null) {
       continue;
     }
-    if (RuleRegistry.configurationRuleNames.contains(name)) {
-      // A rule that checks the configuration has no SkillRule class, so it
-      // has no fix.
-      if (entry.value.fixable) {
-        mismatches.add('$name: RULES.md says fixable=true, but it checks the configuration');
-      }
-      continue;
-    }
     final SkillRule? rule = RuleRegistry.createRule(name, check.defaultSeverity);
-    if (rule == null) {
+    if (!RuleRegistry.configurationRuleNames.contains(name) && rule == null) {
       mismatches.add('$name: RuleRegistry.createRule returned null');
       continue;
     }

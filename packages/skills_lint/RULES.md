@@ -21,7 +21,7 @@ All rules are enabled / disabled / escalated the same three ways:
 - CLI: `--<rule-name>` (escalates to `error`),
   `--no-<rule-name>` (disables).
 - YAML config: `skills_lint.rules.<rule-name>: error|warning|disabled`.
-- Per-target YAML: `skills_lint.directories[].rules.<rule-name>: ...` or `skills_lint.individual_skills[].rules.<rule-name>: ...`.
+- Per-target YAML (for skill rules): `skills_lint.directories[].rules.<rule-name>: ...` or `skills_lint.individual_skills[].rules.<rule-name>: ...`. Rules that check the configuration itself, such as `unknown-rule-name`, run once per configuration and read only the top-level `rules` and the command line.
 
 The "Disable" line under each rule below names the negated CLI flag for
 quick reference.
@@ -273,24 +273,20 @@ governs how changes to these rules ship.
 
 - **Default severity:** disabled
 - **Fixable:** no
-- **What it checks:** every rule name in `skills_lint.yaml` is a rule
-  that skills_lint knows about: a built-in rule, or a custom rule passed
-  to `validateSkills(customRules: ...)`. It looks at the top-level
-  `rules` and at the `rules` of each `directories` and
-  `individual_skills` entry. It checks the configuration once per run,
-  so only the top-level `rules` and the command line can turn it on.
-  The `skills_lint` command doesn't know about custom rules, so if you
-  turn this rule on there, add your custom rule names to `allow`.
-- **Diagnostic shape:**
-  `Global rules: Unknown rule "<name>". Did you mean "<rule>"?`
-  For an entry, `Global rules` becomes `Directory entry rules for
-  "<path>"` or `Individual skill entry rules for "<path>"`. If the name
-  is close to a name skills_lint knows about, including custom rules, it
-  offers a suggestion. If two names are equally close, it offers none.
+- **What it checks:** every rule name in `skills_lint.yaml` is a built-in
+  rule or one of the `customRules` passed to `validateSkills`. It runs
+  once on the configuration file, so only the top-level `rules` and the
+  command line configure it. To use a rule name that should not trigger
+  this check, such as a custom rule when running the CLI or a rule from
+  a newer version of `skills_lint`, list the name in `allow`.
+- **Diagnostic shape:** names the configuration section and the unknown
+  rule name. If the name is close to a name `skills_lint` knows about,
+  including custom rules, then it will offer a suggestion. If two names
+  are equally close, it offers none. In SARIF output, the result points
+  to the line of the unknown rule name in `skills_lint.yaml`.
 - **Parameters:**
-  - `allow` (list of strings): names to accept anyway, such as a rule
-    that only a newer skills_lint has. Ignore files can't do this,
-    because they match findings in a skill's files.
+  - `allow` (list of strings): rule names to accept without reporting
+    them.
 - **Auto-fix behavior:** none.
 - **Disable:** `--no-unknown-rule-name` (also the default state).
 

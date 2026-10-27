@@ -40,7 +40,11 @@ class RuleConfig {
 /// overrides without wiping out unspecified base/global parameters.
 @immutable
 class RuleConfigPatch {
-  const RuleConfigPatch({this.severity, this.parameters});
+  const RuleConfigPatch({this.severity, this.parameters}) : _line = null;
+
+  /// Builds a patch that remembers the 1-based line on which its rule key
+  /// appeared in a configuration file.
+  const RuleConfigPatch._parsed({this.severity, this.parameters, required int this._line});
 
   /// The overridden severity value. If null, the base configuration's severity is preserved.
   final AnalysisSeverity? severity;
@@ -48,6 +52,8 @@ class RuleConfigPatch {
   /// The overridden parameters. Keys containing null values (e.g. from YAML `~`) will remove
   /// the parameter from the base configuration during merging.
   final CustomRuleParameters? parameters;
+
+  final int? _line;
 
   /// Converts this rule configuration patch into its YAML representation (String severity or Map).
   Object? toYaml() {
@@ -90,3 +96,21 @@ class RuleConfigPatch {
     return CustomRuleParameters(merged);
   }
 }
+
+/// Creates a [RuleConfigPatch] that records the 1-based [line] where its rule
+/// key was parsed.
+///
+/// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
+/// function.
+RuleConfigPatch parsedRuleConfigPatch({
+  AnalysisSeverity? severity,
+  CustomRuleParameters? parameters,
+  required int line,
+}) => RuleConfigPatch._parsed(severity: severity, parameters: parameters, line: line);
+
+/// Reads the 1-based line on which [patch]'s rule key was declared, or `null`
+/// for a patch built directly by a caller.
+///
+/// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
+/// function.
+int? ruleLineOf(RuleConfigPatch patch) => patch._line;

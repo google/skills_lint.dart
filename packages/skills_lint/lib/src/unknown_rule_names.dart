@@ -5,6 +5,7 @@
 import 'package:meta/meta.dart';
 
 import 'config_parser.dart';
+import 'models/rule_config.dart';
 import 'models/skill_rule.dart';
 import 'rule_registry.dart';
 import 'suggestions/closest_name.dart';
@@ -14,11 +15,10 @@ import 'suggestions/closest_name.dart';
 @immutable
 class UnknownRuleName {
   /// Creates a finding for [name], found in the rules map that [context]
-  /// labels, with an optional [suggestion].
-  const UnknownRuleName({required this.context, required this.name, this.suggestion});
+  /// labels, with an optional [suggestion] and 1-based [line].
+  const UnknownRuleName({required this.context, required this.name, this.suggestion, this.line});
 
-  /// The label of the rules map [name] appears in, such as
-  /// [ConfigParser.globalRulesLabel].
+  /// The label of the rules map [name] appears in, such as `'Global rules'`.
   final String context;
 
   /// The rule name as written.
@@ -30,9 +30,9 @@ class UnknownRuleName {
   /// close, there is no suggestion. See [closestName].
   final String? suggestion;
 
-  /// The text shown to the user.
-  String get message =>
-      '$context: Unknown rule "$name".${suggestion == null ? '' : ' Did you mean "$suggestion"?'}';
+  /// The 1-based line of [name] in the configuration file, or `null` when the
+  /// configuration was built in memory rather than parsed from YAML.
+  final int? line;
 }
 
 /// Finds each rule name in [config] that is neither a built-in rule, one of
@@ -52,24 +52,23 @@ List<UnknownRuleName> findUnknownRuleNames(
   ];
   final knownSet = {...knownNames, ...allowed};
 
-  Iterable<UnknownRuleName> check(Iterable<String> ruleNames, String context) => [
-    for (final name in ruleNames)
+  Iterable<UnknownRuleName> check(Map<String, RuleConfigPatch> rules, String context) => [
+    for (final MapEntry(key: name, value: patch) in rules.entries)
       if (!knownSet.contains(name))
-        UnknownRuleName(context: context, name: name, suggestion: closestName(name, knownNames)),
+        UnknownRuleName(
+          context: context,
+          name: name,
+          suggestion: closestName(name, knownNames),
+          line: ruleLineOf(patch),
+        ),
   ];
 
   return [
-    ...check(config.ruleConfigs.keys, ConfigParser.globalRulesLabel),
+    ...check(config.ruleConfigs, 'Global rules'),
     for (final LintTargetConfig target in config.directoryConfigs)
-      ...check(
-        target.ruleConfigs.keys,
-        ConfigParser.entryRulesLabel(ConfigParser.directoriesKey, _authoredPath(target)),
-      ),
+      ...check(target.ruleConfigs, 'Directory entry rules for "${_authoredPath(target)}"'),
     for (final LintTargetConfig target in config.individualSkillConfigs)
-      ...check(
-        target.ruleConfigs.keys,
-        ConfigParser.entryRulesLabel(ConfigParser.individualSkillsKey, _authoredPath(target)),
-      ),
+      ...check(target.ruleConfigs, 'Individual skill entry rules for "${_authoredPath(target)}"'),
   ];
 }
 

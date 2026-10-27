@@ -38,22 +38,6 @@ class ConfigParser {
   static const String rulesKey = 'rules';
   static const String directoriesKey = 'directories';
   static const String individualSkillsKey = 'individual_skills';
-
-  /// The label that starts a message about the top-level `rules` map.
-  static const String globalRulesLabel = 'Global rules';
-
-  /// The label that starts a message about an entry under [configKey]
-  /// ([directoriesKey] or [individualSkillsKey]).
-  static String entryLabel(String configKey) =>
-      configKey == directoriesKey ? 'Directory entry' : 'Individual skill entry';
-
-  /// The label that starts a message about the `rules` map of the entry for
-  /// [path] under [configKey].
-  static String entryRulesLabel(String configKey, Object? path) =>
-      _entryRulesLabel(entryLabel(configKey), path);
-
-  static String _entryRulesLabel(String entryLabel, Object? path) =>
-      '$entryLabel rules for "$path"';
   static const String pathKey = 'path';
   static const String ignoreFileKey = 'ignore_file';
   static const String severityKey = 'severity';
@@ -182,11 +166,12 @@ class ConfigParser {
         sourceFile,
       );
 
-      return Configuration(
+      return Configuration._parsed(
         directoryConfigs: directoryConfigs,
         individualSkillConfigs: individualSkillConfigs,
         ruleConfigs: rulesResult,
         parsingErrors: parsingErrors,
+        sourceFile: sourceFile,
       );
     }
     return const Configuration();
@@ -282,7 +267,7 @@ class ConfigParser {
     if (toolConfig.containsKey(rulesKey)) {
       final Object? rules = toolConfig[rulesKey];
       if (rules is YamlMap) {
-        return _parseRulesMap(rules, parsingErrors, globalRulesLabel);
+        return _parseRulesMap(rules, parsingErrors, 'Global rules');
       }
     }
     return const <String, RuleConfigPatch>{};
@@ -299,9 +284,11 @@ class ConfigParser {
   ) {
     final ruleConfigs = <String, RuleConfigPatch>{};
 
-    for (final Object? key in rulesMap.keys) {
-      final ruleName = key.toString();
-      final Object? value = rulesMap[key];
+    for (final MapEntry<Object?, YamlNode> entry in rulesMap.nodes.entries) {
+      final keyNode = entry.key! as YamlNode;
+      final ruleName = keyNode.value.toString();
+      final Object? value = entry.value.value;
+      final int line = keyNode.span.start.line + 1;
 
       // Rules must have a unique name so we can assume one match.
       final Iterable<CheckType> checkMatches = RuleRegistry.allChecks.where(
@@ -315,6 +302,7 @@ class ConfigParser {
         check,
         parsingErrors,
         contextLabel,
+        line: line,
       );
     }
 
@@ -333,8 +321,9 @@ class ConfigParser {
     String ruleName,
     CheckType? check,
     List<String> parsingErrors,
-    String contextLabel,
-  ) {
+    String contextLabel, {
+    required int line,
+  }) {
     if (value is! YamlMap) {
       final AnalysisSeverity? severity = _parseSeverity(
         value,
@@ -342,7 +331,7 @@ class ConfigParser {
         contextLabel,
         parsingErrors,
       );
-      return RuleConfigPatch(severity: severity);
+      return parsedRuleConfigPatch(severity: severity, line: line);
     }
 
     final AnalysisSeverity? severity = _parseSeverity(
@@ -368,7 +357,7 @@ class ConfigParser {
       }
     }
 
-    return RuleConfigPatch(severity: severity, parameters: customParams);
+    return parsedRuleConfigPatch(severity: severity, parameters: customParams, line: line);
   }
 
   /// Iterates a top-level YAML target list (`directories` or `individual_skills`)
@@ -393,7 +382,9 @@ class ConfigParser {
       return const <LintTargetConfig>[];
     }
 
-    final String entryLabelCap = entryLabel(configKey);
+    final entryLabelCap = configKey == directoriesKey
+        ? 'Directory entry'
+        : 'Individual skill entry';
     final entryLabelLower = configKey == directoriesKey
         ? 'directory entry'
         : 'individual skill entry';
@@ -507,7 +498,7 @@ class ConfigParser {
     }
     final Object? localRules = dir[rulesKey];
     if (localRules is YamlMap) {
-      return _parseRulesMap(localRules, parsingErrors, _entryRulesLabel(entryLabelCap, path));
+      return _parseRulesMap(localRules, parsingErrors, '$entryLabelCap rules for "$path"');
     }
     parsingErrors.add(
       '$entryLabelCap "$rulesKey" for "$path" must be a map; '
@@ -649,6 +640,13 @@ class LintTargetConfig {
 /// function, so the shape of [TargetDeclaration] can change freely.
 TargetDeclaration? declarationOf(LintTargetConfig target) => target._declaration;
 
+/// The configuration file [config] was parsed from, or `null` for an
+/// in-memory configuration.
+///
+/// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
+/// function.
+String? sourceFileOf(Configuration config) => config._sourceFile;
+
 /// Structured configuration for the linter.
 @immutable
 class Configuration {
@@ -657,10 +655,20 @@ class Configuration {
     this.individualSkillConfigs = const <LintTargetConfig>[],
     this.ruleConfigs = const <String, RuleConfigPatch>{},
     this.parsingErrors = const <String>[],
+  }) : _sourceFile = null;
+
+  const Configuration._parsed({
+    required this.directoryConfigs,
+    required this.individualSkillConfigs,
+    required this.ruleConfigs,
+    required this.parsingErrors,
+    required this._sourceFile,
   });
+
   final List<LintTargetConfig> directoryConfigs;
   final List<LintTargetConfig> individualSkillConfigs;
   final Map<String, RuleConfigPatch> ruleConfigs;
+  final String? _sourceFile;
 
   /// Problems in the configuration file, such as invalid YAML or an unknown
   /// key. The settings with problems are left out.
