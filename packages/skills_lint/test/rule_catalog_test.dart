@@ -121,6 +121,26 @@ skills_lint:
       }
     });
 
+    test('suggests the closest of several close names', () {
+      // `check-relative-pathz` is 1 edit from `check-relative-paths` and 4
+      // from the custom rule `check-relative-p`. Both are close enough.
+      const config = Configuration(ruleConfigs: {'check-relative-pathz': _error});
+
+      expect(_messages(config, [QuietRule(name: 'check-relative-p')]), [
+        'Global rules: Unknown rule "check-relative-pathz". Did you mean "check-relative-paths"?',
+      ]);
+    });
+
+    test('suggests nothing when a built-in and a custom rule are equally close', () {
+      // `check-relative-path` is 1 edit from both `check-relative-paths` and
+      // the custom rule `check-relative-patx`. Neither kind is preferred.
+      const config = Configuration(ruleConfigs: {'check-relative-path': _error});
+
+      expect(_messages(config, [QuietRule(name: 'check-relative-patx')]), [
+        'Global rules: Unknown rule "check-relative-path".',
+      ]);
+    });
+
     test('names an unknown rule without a suggestion when nothing is close', () {
       const config = Configuration(ruleConfigs: {'no-such-rule-at-all': _error});
 

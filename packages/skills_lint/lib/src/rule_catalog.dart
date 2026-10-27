@@ -122,6 +122,9 @@ class UnknownRuleName {
   final String name;
 
   /// The known rule name closest to [name], or `null` when none is close.
+  ///
+  /// Built-in and custom rule names are treated alike: when two are equally
+  /// close, there is no suggestion. See [closestName].
   final String? suggestion;
 
   /// The text shown to the user.
