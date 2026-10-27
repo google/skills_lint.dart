@@ -19,11 +19,11 @@
 - After a custom rule's fixer changes `name`, `--fix` renames the skill directory, and `--fix --dry-run` proposes the rename, only to a valid skill name that YAML reads as a string. It does not rename to `my_skill` or to an unquoted `123`.
 - `invalid-skill-name` reads a `name` that YAML loads as a number or boolean as the text written, so `name: 1e3` matches a `1e3` directory, and `name: 0x1f` no longer matches a `31` directory, nor `name: True` a `true` one.
 - `validateSkills` prints each `config.parsingErrors` entry to stderr as a `Configuration warning:` and still returns `true`, unlike the `skills_lint` command. To fail on them, check that `parsingErrors` is empty. [#152](https://github.com/google/skills_lint.dart/issues/152) tracks failing in 0.6.0.
-- An unknown rule name in `skills_lint.yaml` prints a `Configuration warning:` to stderr, with a "Did you mean" suggestion when a rule is close, and does not fail. Rules in `customRules` are not flagged. [#155](https://github.com/google/skills_lint.dart/issues/155) tracks failing in 0.6.0.
 - The `skills-lint-setup` example test fails when `skills_lint.yaml` has errors.
 
 ### New features
 
+- Added the `unknown-rule-name` rule, disabled by default. It reports a rule name in `skills_lint.yaml` that names no built-in or custom rule, with a "Did you mean" suggestion. Its `allow` parameter lists names to accept, such as rules from a newer skills_lint.
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
 - Added a `within-skill` parameter to `check-relative-paths` that reports relative links leaving the skill directory, which break when the skill is copied somewhere else on its own. Off by default. Enable it with `within-skill: true` or `--check-relative-paths-within-skill=true`.

@@ -32,18 +32,22 @@ class UnknownRuleName {
       '$context: Unknown rule "$name".${suggestion == null ? '' : ' Did you mean "$suggestion"?'}';
 }
 
-/// Finds each rule name in [config] that is neither a built-in rule nor one
-/// of [customRules].
+/// Finds each rule name in [config] that is neither a built-in rule, one of
+/// [customRules], nor in [allowed].
 ///
 /// Checks the top-level `rules` map and the `rules` map of every
 /// `directories` and `individual_skills` entry. [ConfigParser] cannot do this
 /// check, because it does not know which custom rules the caller passes.
-List<UnknownRuleName> findUnknownRuleNames(Configuration config, List<SkillRule> customRules) {
+List<UnknownRuleName> findUnknownRuleNames(
+  Configuration config,
+  List<SkillRule> customRules, {
+  Iterable<String> allowed = const [],
+}) {
   final List<String> knownNames = [
     for (final check in RuleRegistry.allChecks) check.name,
     for (final rule in customRules) rule.name,
   ];
-  final Set<String> knownSet = knownNames.toSet();
+  final knownSet = {...knownNames, ...allowed};
 
   Iterable<UnknownRuleName> check(Iterable<String> ruleNames, String context) => [
     for (final name in ruleNames)

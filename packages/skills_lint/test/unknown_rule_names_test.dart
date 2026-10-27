@@ -85,6 +85,15 @@ skills_lint:
       ]);
     });
 
+    test('does not flag a name in allowed', () {
+      const config = Configuration(ruleConfigs: {'rule-from-a-newer-version': _error});
+
+      expect(
+        findUnknownRuleNames(config, const [], allowed: ['rule-from-a-newer-version']),
+        isEmpty,
+      );
+    });
+
     test('does not flag any built-in rule', () {
       final config = Configuration(
         ruleConfigs: {for (final check in RuleRegistry.allChecks) check.name: _error},

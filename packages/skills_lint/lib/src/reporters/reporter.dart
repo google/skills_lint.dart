@@ -4,6 +4,7 @@
 
 import 'dart:io';
 
+import '../models/analysis_severity.dart';
 import '../models/output_format.dart';
 import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
@@ -71,6 +72,13 @@ abstract class Reporter {
   /// Called for each problem found in the configuration file.
   void onConfigurationWarning(String error) {
     err.writeln('Configuration warning: $error');
+  }
+
+  /// Called for each finding of a rule that checks the configuration file,
+  /// at that rule's [severity].
+  void onConfigurationProblem(String message, AnalysisSeverity severity) {
+    final label = severity == AnalysisSeverity.error ? 'error' : 'warning';
+    err.writeln('Configuration $label: $message');
   }
 
   /// Called when a rule fix fails due to an internal exception.

@@ -14,6 +14,7 @@ import 'package:skills_lint/src/rules/prevent_skills_sh_publishing_rule.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
+import 'package:skills_lint/src/rules/unknown_rule_name_rule.dart';
 
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
@@ -1057,49 +1058,67 @@ skills_lint:
             ).toYamlString(),
           );
 
-      // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
-      // Expect exit code 1 on an unknown rule name.
-      test('prints the warning on stderr, keeps JSON stdout parseable, and exits 0', () async {
+      const enabled = RuleConfigPatch(severity: AnalysisSeverity.error);
+
+      test('reports an unknown rule name as an error in JSON output and exits 1', () async {
         // `check-relative-path` misspells `check-relative-paths`.
         await writeConfig(const {
-          'check-relative-path': RuleConfigPatch(severity: AnalysisSeverity.error),
+          UnknownRuleNameRule.ruleName: enabled,
+          'check-relative-path': enabled,
         });
 
         final TestProcess process = await startCli([
           '--format=json',
         ], workingDirectory: tempDir.path);
 
-        await process.shouldExit(0);
+        await process.shouldExit(1);
         final String out = (await process.stdout.rest.toList()).join('\n');
-        expect(() => jsonDecode(out), returnsNormally);
+        expect(jsonEncode(jsonDecode(out)), contains('"ruleId":"${UnknownRuleNameRule.ruleName}"'));
         final String err = (await process.stderr.rest.toList()).join('\n');
         expect(
           err,
           contains(
-            'Configuration warning: Global rules: Unknown rule "check-relative-path". '
+            'Configuration error: Global rules: Unknown rule "check-relative-path". '
             'Did you mean "check-relative-paths"?',
           ),
         );
       });
 
-      test('prints no warning for known rule names', () async {
-        await writeConfig(const {
-          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+      // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
+      // Expect exit code 1 once the rule is enabled by default in 0.6.0.
+      test('ignores an unknown rule name by default', () async {
+        // `check-relative-path` misspells `check-relative-paths`.
+        await writeConfig(const {'check-relative-path': enabled});
+
+        final TestProcess process = await startCli([], workingDirectory: tempDir.path);
+
+        await process.shouldExit(0);
+        expect((await process.stderr.rest.toList()).join('\n'), isNot(contains('Unknown rule')));
+      });
+
+      test('accepts known rule names and names in allow', () async {
+        await writeConfig({
+          UnknownRuleNameRule.ruleName: RuleConfigPatch(
+            severity: AnalysisSeverity.error,
+            parameters: CustomRuleParameters(const {
+              UnknownRuleNameRule.allowParameter: ['rule-from-a-newer-version'],
+            }),
+          ),
+          RelativePathsRule.ruleName: enabled,
+          'rule-from-a-newer-version': enabled,
         });
 
         final TestProcess process = await startCli([], workingDirectory: tempDir.path);
 
         await process.shouldExit(0);
-        expect(
-          (await process.stderr.rest.toList()).join('\n'),
-          isNot(contains('Configuration warning')),
-        );
+        expect((await process.stderr.rest.toList()).join('\n'), isNot(contains('Unknown rule')));
       });
 
-      test('prints no warning with --ignore-config', () async {
+      test('reports nothing with --ignore-config', () async {
         // `check-relative-path` misspells `check-relative-paths`.
         await writeConfig(const {
-          'check-relative-path': RuleConfigPatch(severity: AnalysisSeverity.error),
+          UnknownRuleNameRule.ruleName: enabled,
+          'check-relative-path': enabled,
         });
 
         final TestProcess process = await startCli([
@@ -1109,10 +1128,7 @@ skills_lint:
         ], workingDirectory: tempDir.path);
 
         await process.shouldExit(0);
-        expect(
-          (await process.stderr.rest.toList()).join('\n'),
-          isNot(contains('Configuration warning')),
-        );
+        expect((await process.stderr.rest.toList()).join('\n'), isNot(contains('Unknown rule')));
       });
     });
   });

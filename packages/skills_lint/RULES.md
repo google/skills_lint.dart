@@ -269,6 +269,34 @@ governs how changes to these rules ship.
   `within-skill: true` for the same directory.
 - **Disable:** `--no-published-skill-name` (also the default state).
 
+## unknown-rule-name
+
+- **Default severity:** disabled
+- **Fixable:** no
+- **What it checks:** every rule name in `skills_lint.yaml`, in the
+  top-level `rules` map and in the `rules` map of each `directories`
+  and `individual_skills` entry, names a built-in rule or a custom rule
+  passed to `validateSkills(customRules: ...)`. It checks the
+  configuration, not skills, so it runs once per run, and its severity
+  and parameters come only from the top-level `rules` map and the
+  command line. The `skills_lint` command cannot load custom rules, so
+  enabling this rule there reports their names; leave it disabled, or
+  list them in `allow`.
+- **Diagnostic shape:**
+  `<label>: Unknown rule "<name>". Did you mean "<rule>"?`
+  where `<label>` is `Global rules`, `Directory entry rules for "<path>"`
+  or `Individual skill entry rules for "<path>"`. The `Did you mean`
+  clause appears only when a known rule name is close to `<name>`.
+  The text output prefixes it with `Configuration error:` (or
+  `Configuration warning:` at `warning` severity), and `--format=json`
+  and `--format=sarif` report it against the configuration file.
+- **Parameters:**
+  - `allow` (list of strings): rule names to accept, such as rules that
+    only a newer skills_lint has. Ignore files can't suppress this rule,
+    because they match findings in a skill's files.
+- **Auto-fix behavior:** none.
+- **Disable:** `--no-unknown-rule-name` (also the default state).
+
 ## valid-yaml-metadata
 
 - **Default severity:** error

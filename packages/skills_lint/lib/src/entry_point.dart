@@ -379,8 +379,6 @@ Future<Configuration?> _loadConfig(
   return config;
 }
 
-// TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
-// Update the [config] docs when unknown rule names fail validation.
 /// Validates skills based on the provided configuration.
 ///
 /// This is the public entrypoint for executing skill validation and emitting
@@ -401,12 +399,11 @@ Future<Configuration?> _loadConfig(
 /// [generateBaseline] writes current errors to a baseline file instead of reporting them.
 /// [ignoreFileOverride] is an optional path to a baseline file to use.
 /// [config] is the loaded configuration. Each entry in its
-/// [Configuration.parsingErrors], and each rule name in it that is neither
-/// built in nor in [customRules], is printed to standard error as a
+/// [Configuration.parsingErrors] is printed to standard error as a
 /// `Configuration warning:` line, and does not make validation fail. The
-/// `skills_lint` command fails on [Configuration.parsingErrors], so a caller
-/// that must fail on a broken configuration checks that
-/// [Configuration.parsingErrors] is empty.
+/// `skills_lint` command fails on these errors, so a caller that must fail
+/// on a broken configuration checks that [Configuration.parsingErrors] is
+/// empty.
 /// [customRules] contains programmatically injected custom skill rule checks.
 /// [format] specifies the output format for diagnostics (`text`, `json`, `sarif`).
 ///
@@ -523,7 +520,8 @@ Future<bool> validateSkillsInternal({
     fixApply: fixApply,
     format: format,
   );
-  session.reportConfigurationWarnings(includeParsingErrors: warnOnParsingErrors);
+  _reportConfigurationWarnings(session, enabled: warnOnParsingErrors);
+  session.reportUnknownRuleNames();
 
   for (final skill in effectiveIndividualSkills) {
     final bool keepGoing = await session.processIndividualSkill(
@@ -563,6 +561,14 @@ Future<bool> validateSkillsInternal({
     return true;
   }
   return !session.anyFailed;
+}
+
+/// Calls [ValidationSession.reportConfigurationWarnings] on [session] when
+/// [enabled] is true.
+void _reportConfigurationWarnings(ValidationSession session, {required bool enabled}) {
+  if (enabled) {
+    session.reportConfigurationWarnings();
+  }
 }
 
 /// Pairs each of [canonicalPaths] with the [rawPaths] entry it came from.
