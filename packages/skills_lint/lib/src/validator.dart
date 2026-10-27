@@ -5,7 +5,6 @@
 import 'dart:io';
 
 import 'package:logging/logging.dart';
-import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -39,12 +38,6 @@ class Validator {
          RuleCatalog(customRules: customRules ?? const []),
          _mergeOverrides(ruleOverrides, ruleConfigs),
        );
-
-  /// Creates a validator that runs the rules of [catalog] enabled by
-  /// [ruleConfigs].
-  @internal
-  Validator.withCatalog(RuleCatalog catalog, {Map<String, RuleConfig> ruleConfigs = const {}})
-    : this._fromCatalog(catalog, ruleConfigs);
 
   Validator._fromCatalog(RuleCatalog catalog, Map<String, RuleConfig> ruleConfigs)
     : _ruleConfigs = ruleConfigs,

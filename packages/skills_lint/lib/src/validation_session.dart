@@ -93,6 +93,7 @@ class ValidationSession {
     this.format = OutputFormat.text,
     @visibleForTesting PubArchiveLoader? pubArchiveLoader,
   }) : _pubArchiveLoader = pubArchiveLoader ?? PubArchiveLoader(),
+       _catalog = RuleCatalog(customRules: customRules),
        _reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
        resolvedRuleConfigs = mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
        ignoreFileOverride = _ingestOptionalPath(ignoreFileOverride),
@@ -147,9 +148,6 @@ class ValidationSession {
   final Map<String, RuleConfigPatch> resolvedRuleConfigs;
   final String? ignoreFileOverride;
   final List<SkillRule> customRules;
-
-  /// The built-in checks and [customRules], built once for the session.
-  late final RuleCatalog _catalog = RuleCatalog(customRules: customRules);
   final bool printWarnings;
   final bool fastFail;
   final bool quiet;
@@ -158,6 +156,10 @@ class ValidationSession {
   // TODO(reidbaker): Remove deprecated fixApply field on next major version bump.
   final bool fixApply;
   final OutputFormat format;
+
+  /// The built-in checks and [customRules].
+  final RuleCatalog _catalog;
+
   final Reporter _reporter;
   final PubArchiveLoader _pubArchiveLoader;
 
@@ -244,7 +246,7 @@ class ValidationSession {
 
     final Map<String, RuleConfig> resolvedConfigs = resolveRuleConfigsForPath(normalizedSkillPath);
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
-    final validator = Validator.withCatalog(_catalog, ruleConfigs: resolvedConfigs);
+    final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
 
     final String ignorePath = _resolveIgnorePath(localIgnoreFile, skillDir);
     final SkillsIgnores ignores = await _loadIgnores(
@@ -377,7 +379,7 @@ class ValidationSession {
     final String normalizedSkillPath = p.normalize(entity.path);
     final Map<String, RuleConfig> resolvedConfigs = resolveRuleConfigsForPath(normalizedSkillPath);
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
-    final validator = Validator.withCatalog(_catalog, ruleConfigs: resolvedConfigs);
+    final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
 
     final SkillsIgnores ignores = await _getIgnoresForSkill(
       localIgnoreFile,

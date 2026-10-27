@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:meta/meta.dart';
-
 import 'config_parser.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
@@ -22,15 +20,15 @@ const int _maxSuggestionDistance = 3;
 /// [Configuration] holds only what round-trips to YAML, so it cannot hold
 /// [SkillRule] objects. Code that needs every rule takes a [RuleCatalog]
 /// instead of a separate list of custom rules.
-@immutable
 class RuleCatalog {
   /// Creates a catalog of the built-in checks and [customRules].
   const RuleCatalog({this.customRules = const []});
 
-  /// The rules the caller supplied, in the order given.
+  /// The rules the caller supplied, in the order given. The list is not
+  /// copied.
   final List<SkillRule> customRules;
 
-  /// The built-in checks, in registry order.
+  /// The built-in checks, in registry order. Every catalog has the same ones.
   List<CheckType> get builtInChecks => RuleRegistry.allChecks;
 
   /// The names of every built-in check and custom rule, built-ins first.
