@@ -273,26 +273,23 @@ governs how changes to these rules ship.
 
 - **Default severity:** disabled
 - **Fixable:** no
-- **What it checks:** every rule name in `skills_lint.yaml`, in the
-  top-level `rules` map and in the `rules` map of each `directories`
-  and `individual_skills` entry, names a built-in rule or a custom rule
-  passed to `validateSkills(customRules: ...)`. It checks the
-  configuration, not skills, so it runs once per run, and its severity
-  and parameters come only from the top-level `rules` map and the
-  command line. The `skills_lint` command cannot load custom rules, so
-  enabling this rule there reports their names; leave it disabled, or
-  list them in `allow`.
+- **What it checks:** every rule name in `skills_lint.yaml` is a rule
+  that skills_lint knows about: a built-in rule, or a custom rule passed
+  to `validateSkills(customRules: ...)`. It looks at the top-level
+  `rules` and at the `rules` of each `directories` and
+  `individual_skills` entry. It checks the configuration once per run,
+  so only the top-level `rules` and the command line can turn it on.
+  The `skills_lint` command doesn't know about custom rules, so if you
+  turn this rule on there, add your custom rule names to `allow`.
 - **Diagnostic shape:**
-  `<label>: Unknown rule "<name>". Did you mean "<rule>"?`
-  where `<label>` is `Global rules`, `Directory entry rules for "<path>"`
-  or `Individual skill entry rules for "<path>"`. The `Did you mean`
-  clause appears only when a known rule name is close to `<name>`.
-  The text output prefixes it with `Configuration error:` (or
-  `Configuration warning:` at `warning` severity), and `--format=json`
-  and `--format=sarif` report it against the configuration file.
+  `Global rules: Unknown rule "<name>". Did you mean "<rule>"?`
+  For an entry, `Global rules` becomes `Directory entry rules for
+  "<path>"` or `Individual skill entry rules for "<path>"`. If the name
+  is close to a name skills_lint knows about, including custom rules, it
+  offers a suggestion. If two names are equally close, it offers none.
 - **Parameters:**
-  - `allow` (list of strings): rule names to accept, such as rules that
-    only a newer skills_lint has. Ignore files can't suppress this rule,
+  - `allow` (list of strings): names to accept anyway, such as a rule
+    that only a newer skills_lint has. Ignore files can't do this,
     because they match findings in a skill's files.
 - **Auto-fix behavior:** none.
 - **Disable:** `--no-unknown-rule-name` (also the default state).

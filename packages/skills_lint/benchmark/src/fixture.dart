@@ -43,9 +43,6 @@ skills_lint:
     check-relative-paths: error
     check-absolute-paths: error
     check-trailing-whitespace: error
-    unknown-rule-name: error
-    # Misspells check-relative-paths, so that unknown-rule-name reports it.
-    check-relative-path: error
     disallowed-field: error
     prevent-skills-sh-publishing: error
     pub-archive-includes-skill: error
