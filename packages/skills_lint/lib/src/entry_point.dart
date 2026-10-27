@@ -380,6 +380,8 @@ Future<Configuration?> _loadConfig(
   return config;
 }
 
+// TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
+// Update the [config] docs when unknown rule names fail validation.
 /// Validates skills based on the provided configuration.
 ///
 /// This is the public entrypoint for executing skill validation and emitting

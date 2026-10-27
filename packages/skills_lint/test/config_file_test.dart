@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -1035,6 +1036,84 @@ skills_lint:
       final List<String> stdout = await process.stdout.rest.toList();
       expect(stdout.join('\n'), contains('Validating skill: valid-skill'));
       await process.shouldExit(0);
+    });
+
+    group('unknown rule names', () {
+      setUp(() async {
+        final Directory skillDir = await Directory(
+          p.join(tempDir.path, 'skills', 'my-skill'),
+        ).create(recursive: true);
+        await File(
+          p.join(skillDir.path, 'SKILL.md'),
+        ).writeAsString('${buildFrontmatter(name: 'my-skill')}Body\n');
+      });
+
+      /// Writes a configuration that lists `skills` with [ruleConfigs].
+      Future<void> writeConfig(Map<String, RuleConfigPatch> ruleConfigs) =>
+          File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString(
+            Configuration(
+              directoryConfigs: const [LintTargetConfig(path: 'skills')],
+              ruleConfigs: ruleConfigs,
+            ).toYamlString(),
+          );
+
+      // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
+      // Expect exit code 1 on an unknown rule name.
+      test('prints the warning on stderr, keeps JSON stdout parseable, and exits 0', () async {
+        // `check-relative-path` misspells `check-relative-paths`.
+        await writeConfig(const {
+          'check-relative-path': RuleConfigPatch(severity: AnalysisSeverity.error),
+        });
+
+        final TestProcess process = await startCli([
+          '--format=json',
+        ], workingDirectory: tempDir.path);
+
+        await process.shouldExit(0);
+        final String out = (await process.stdout.rest.toList()).join('\n');
+        expect(() => jsonDecode(out), returnsNormally);
+        final String err = (await process.stderr.rest.toList()).join('\n');
+        expect(
+          err,
+          contains(
+            'Configuration warning: Global rules: Unknown rule "check-relative-path". '
+            'Did you mean "check-relative-paths"?',
+          ),
+        );
+      });
+
+      test('prints no warning for known rule names', () async {
+        await writeConfig(const {
+          RelativePathsRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+        });
+
+        final TestProcess process = await startCli([], workingDirectory: tempDir.path);
+
+        await process.shouldExit(0);
+        expect(
+          (await process.stderr.rest.toList()).join('\n'),
+          isNot(contains('Configuration warning')),
+        );
+      });
+
+      test('prints no warning with --ignore-config', () async {
+        // `check-relative-path` misspells `check-relative-paths`.
+        await writeConfig(const {
+          'check-relative-path': RuleConfigPatch(severity: AnalysisSeverity.error),
+        });
+
+        final TestProcess process = await startCli([
+          '--ignore-config',
+          '-d',
+          p.join(tempDir.path, 'skills'),
+        ], workingDirectory: tempDir.path);
+
+        await process.shouldExit(0);
+        expect(
+          (await process.stderr.rest.toList()).join('\n'),
+          isNot(contains('Configuration warning')),
+        );
+      });
     });
   });
 }

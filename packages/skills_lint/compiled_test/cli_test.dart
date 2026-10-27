@@ -21,7 +21,6 @@ import '../test/name_format_fix_test.dart' as name_format_fix;
 import '../test/pub_archive_includes_skill_cli_test.dart' as pub_archive_includes_skill_cli;
 import '../test/relative_paths_test.dart' as relative_paths;
 import '../test/test_utils.dart';
-import '../test/unknown_rule_names_test.dart' as unknown_rule_names;
 
 void main() {
   late Directory outputDir;
@@ -64,6 +63,5 @@ void main() {
     name_format_fix.defineCliTests();
     pub_archive_includes_skill_cli.defineCliTests();
     relative_paths.defineCliTests();
-    unknown_rule_names.defineCliTests();
   });
 }
