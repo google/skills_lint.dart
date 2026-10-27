@@ -21,8 +21,11 @@ void main() {
   final SampleSkill small = samples.firstWhere((t) => t.name == 'format-dart-code');
 
   test('has one violation for each registered rule, and plants every one', () {
-    expect(violations.keys.toSet(), _registeredRules);
-    expect({for (final rules in plantedViolations) ...rules}, _registeredRules);
+    // fixtureConfig plants the violations of the rules that check the
+    // configuration.
+    final Set<String> skillRules = _registeredRules.difference(RuleRegistry.configurationRuleNames);
+    expect(violations.keys.toSet(), skillRules);
+    expect({for (final rules in plantedViolations) ...rules}, skillRules);
     expect(plantedViolations.where((rules) => rules.length > 1), isNotEmpty);
   });
 
@@ -137,8 +140,10 @@ void defineCliTests() {
     expect(errors.where((skillErrors) => skillErrors.length > 1), isNotEmpty);
     expect(
       errors.where((skillErrors) => skillErrors.isNotEmpty),
-      hasLength(plantedViolations.length),
-      reason: 'Only the skills with planted violations report, so the sample skills are valid.',
+      hasLength(plantedViolations.length + RuleRegistry.configurationRuleNames.length),
+      reason:
+          'Only the skills with planted violations and the configuration report, so the '
+          'sample skills are valid.',
     );
   });
 }

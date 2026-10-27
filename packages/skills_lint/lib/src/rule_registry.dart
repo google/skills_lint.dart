@@ -18,6 +18,7 @@ import 'rules/pub_archive_includes_skill_rule.dart';
 import 'rules/published_skill_name_rule.dart';
 import 'rules/relative_paths_rule.dart';
 import 'rules/trailing_whitespace_rule.dart';
+import 'rules/unknown_rule_name_rule.dart';
 import 'rules/valid_yaml_metadata_rule.dart';
 
 /// Registry of all built-in rules.
@@ -86,11 +87,24 @@ class RuleRegistry {
       help: 'Check for trailing whitespace (allows exactly 2 spaces for line breaks).',
     ),
     const CheckType(
+      name: UnknownRuleNameRule.ruleName,
+      defaultSeverity: UnknownRuleNameRule.defaultSeverity,
+      help: 'Check that every rule name in skills_lint.yaml names a built-in or custom rule.',
+      parameterSchema: {UnknownRuleNameRule.allowParameter: RuleParameterType.stringList},
+    ),
+    const CheckType(
       name: ValidYamlMetadataRule.ruleName,
       defaultSeverity: ValidYamlMetadataRule.defaultSeverity,
       help: 'Check if YAML metadata is valid.',
     ),
   ];
+
+  /// The names of the checks in [allChecks] that check the configuration
+  /// file rather than skills.
+  ///
+  /// [createRule] returns `null` for them, and `ValidationSession` runs them
+  /// once per run.
+  static const Set<String> configurationRuleNames = {UnknownRuleNameRule.ruleName};
 
   /// Creates a rule instance by name, or returns null if not a class-based rule.
   ///

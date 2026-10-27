@@ -31,6 +31,7 @@ import 'rule_catalog.dart';
 import 'rule_registry.dart';
 import 'rules/name_format_rule.dart';
 import 'rules/pub_archive_includes_skill_rule.dart';
+import 'rules/unknown_rule_name_rule.dart';
 import 'skills_ignores_storage.dart';
 import 'validator.dart';
 
@@ -456,23 +457,61 @@ class ValidationSession {
     }
   }
 
-  /// Reports configuration warnings for [config] and the rule catalog.
-  ///
-  /// Reports each rule name in [config] that is neither built in nor in
-  /// [customRules] ([#155](https://github.com/google/skills_lint.dart/issues/155)
-  /// makes these fail). When [includeParsingErrors] is true, also reports each
-  /// entry in [Configuration.parsingErrors] of [config]. Does not mark the
-  /// session as failed.
-  // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
-  // Mark the session as failed for each unknown rule name.
-  void reportConfigurationWarnings({bool includeParsingErrors = true}) {
-    if (includeParsingErrors) {
+  /// Reports each entry in [Configuration.parsingErrors] of [config] as a
+  /// warning. Does not mark the session as failed.
+  void reportConfigurationWarnings() =>
       config.parsingErrors.forEach(_reporter.onConfigurationWarning);
+
+  /// Runs the `unknown-rule-name` rule on [config], with the severity and
+  /// `allow` parameter from its top-level `rules` map and from
+  /// [resolvedRuleConfigs].
+  ///
+  /// Each finding is reported, recorded in the results, and marks the session
+  /// failed when the severity is [AnalysisSeverity.error]. Does nothing when
+  /// the rule is disabled, its default.
+  void reportUnknownRuleNames() {
+    final RuleConfig rule = [config.ruleConfigs, resolvedRuleConfigs]
+        .map((patches) => patches[UnknownRuleNameRule.ruleName])
+        .nonNulls
+        .fold(
+          const RuleConfig(severity: UnknownRuleNameRule.defaultSeverity),
+          (RuleConfig base, RuleConfigPatch patch) => patch.applyTo(base),
+        );
+    if (rule.severity == AnalysisSeverity.disabled) {
+      return;
     }
-    for (final UnknownRuleName unknown in _catalog.findUnknownNames(config)) {
-      _reporter.onConfigurationWarning(unknown.message);
+    final List<UnknownRuleName> unknown = _catalog.findUnknownNames(
+      config,
+      allowed: rule.parameters.getStringList(UnknownRuleNameRule.allowParameter) ?? const [],
+    );
+    for (final finding in unknown) {
+      _reporter.onConfigurationProblem(finding.message, rule.severity);
+      _results.add(
+        ValidationResult(
+          validationErrors: [
+            ValidationError(
+              ruleId: UnknownRuleNameRule.ruleName,
+              file: _configFile,
+              message: finding.message,
+              severity: rule.severity,
+            ),
+          ],
+        ),
+      );
+    }
+    if (unknown.isNotEmpty && rule.severity == AnalysisSeverity.error) {
+      _anyFailed = true;
     }
   }
+
+  /// The configuration file [config] was read from, as recorded by its
+  /// targets, or `skills_lint.yaml` when none recorded it.
+  String get _configFile =>
+      [
+        ...config.directoryConfigs,
+        ...config.individualSkillConfigs,
+      ].map((target) => declarationOf(target)?.source?.file).nonNulls.firstOrNull ??
+      'skills_lint.yaml';
 
   /// If no skills were validated across the whole run, emit appropriate
   /// diagnostics and mark the session as failed.

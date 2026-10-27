@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/rules/description_length_rule.dart';
 import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
+import 'package:skills_lint/src/rules/unknown_rule_name_rule.dart';
 import 'package:skills_lint/src/rules/valid_yaml_metadata_rule.dart';
 import 'package:test/test.dart';
 
@@ -204,8 +205,8 @@ skills_lint:
     });
 
     // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
-    // Expect validateSkills to fail on an unknown rule name.
-    test('prints an unknown rule name with a suggestion and passes', () async {
+    // Expect the default to report the unknown name and fail in 0.6.0.
+    test('ignores an unknown rule name by default', () async {
       // `check-relative-path` misspells `check-relative-paths`.
       final (bool passed, String err) = await runWithConfig(
         const Configuration(
@@ -213,20 +214,38 @@ skills_lint:
         ).toYamlString(),
       );
 
+      expect(err, isNot(contains('Unknown rule')));
+      expect(passed, isTrue);
+    });
+
+    test('fails on an unknown rule name when unknown-rule-name is enabled', () async {
+      // `check-relative-path` misspells `check-relative-paths`.
+      final (bool passed, String err) = await runWithConfig(
+        const Configuration(
+          ruleConfigs: {
+            UnknownRuleNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+            'check-relative-path': RuleConfigPatch(severity: AnalysisSeverity.error),
+          },
+        ).toYamlString(),
+      );
+
       expect(
         err,
         contains(
-          'Configuration warning: Global rules: Unknown rule "check-relative-path". '
+          'Configuration error: Global rules: Unknown rule "check-relative-path". '
           'Did you mean "check-relative-paths"?',
         ),
       );
-      expect(passed, isTrue);
+      expect(passed, isFalse);
     });
 
     test('does not report a rule passed in customRules as unknown', () async {
       final (bool passed, String err) = await runWithConfig(
         const Configuration(
-          ruleConfigs: {'my-team-rule': RuleConfigPatch(severity: AnalysisSeverity.error)},
+          ruleConfigs: {
+            UnknownRuleNameRule.ruleName: RuleConfigPatch(severity: AnalysisSeverity.error),
+            'my-team-rule': RuleConfigPatch(severity: AnalysisSeverity.error),
+          },
         ).toYamlString(),
         validate: ({Configuration? config}) => validateSkills(
           individualSkillPaths: [_validSkillPath],
@@ -236,7 +255,7 @@ skills_lint:
         ),
       );
 
-      expect(err, isNot(contains('Configuration warning')));
+      expect(err, isNot(contains('Unknown rule')));
       expect(passed, isTrue);
     });
 

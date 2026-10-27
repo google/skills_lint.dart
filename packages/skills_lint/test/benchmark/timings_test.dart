@@ -27,9 +27,15 @@ void _timedRuleConfigsTests() {
       final Set<String> enabled = {
         for (final rule in Validator(ruleConfigs: timedRuleConfigs()).rules) rule.name,
       };
+      // A rule that checks the configuration is not a Validator rule, so it
+      // counts when the fixture configuration enables it.
+      final Map<String, RuleConfig> configured = timedRuleConfigs();
       final List<String> missing = [
         for (final check in RuleRegistry.allChecks)
-          if (!enabled.contains(check.name)) check.name,
+          if (RuleRegistry.configurationRuleNames.contains(check.name)
+              ? configured[check.name]?.severity != AnalysisSeverity.error
+              : !enabled.contains(check.name))
+            check.name,
       ];
       expect(
         missing,

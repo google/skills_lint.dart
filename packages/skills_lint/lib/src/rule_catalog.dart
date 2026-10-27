@@ -73,13 +73,17 @@ class RuleCatalog {
     return rules;
   }
 
-  /// Finds each rule name in [config] that is not in this catalog.
+  /// Finds each rule name in [config] that is neither in this catalog nor in
+  /// [allowed].
   ///
   /// Checks the top-level `rules` map and the `rules` map of every
   /// `directories` and `individual_skills` entry.
-  List<UnknownRuleName> findUnknownNames(Configuration config) {
+  List<UnknownRuleName> findUnknownNames(
+    Configuration config, {
+    Iterable<String> allowed = const [],
+  }) {
     final List<String> knownNames = names;
-    final Set<String> knownSet = knownNames.toSet();
+    final knownSet = {...knownNames, ...allowed};
 
     Iterable<UnknownRuleName> check(Iterable<String> ruleNames, String context) => [
       for (final name in ruleNames)
