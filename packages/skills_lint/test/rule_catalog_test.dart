@@ -7,26 +7,14 @@ import 'package:skills_lint/src/rule_catalog.dart';
 import 'package:skills_lint/src/rule_registry.dart';
 import 'package:test/test.dart';
 
-/// A custom rule named [name] at [severity] that never reports anything.
-class _QuietCustomRule extends SkillRule {
-  _QuietCustomRule([this.name = 'my-team-rule', this.severity = AnalysisSeverity.warning]);
-
-  @override
-  final String name;
-
-  @override
-  final AnalysisSeverity severity;
-
-  @override
-  Future<List<ValidationError>> validate(SkillContext context) async => const [];
-}
+import 'test_utils.dart';
 
 const _error = RuleConfigPatch(severity: AnalysisSeverity.error);
 
 void main() {
   group('RuleCatalog.activeRules', () {
     test('creates each enabled built-in check, then the custom rules', () {
-      final rule = _QuietCustomRule();
+      final rule = QuietRule();
       final List<SkillRule> rules = RuleCatalog(customRules: [rule]).activeRules(const {});
 
       expect(rules.last, same(rule));
@@ -42,7 +30,7 @@ void main() {
     test('leaves out a disabled built-in check and a disabled custom rule', () {
       final List<SkillRule> rules =
           RuleCatalog(
-            customRules: [_QuietCustomRule('off-rule', AnalysisSeverity.disabled)],
+            customRules: [QuietRule(name: 'off-rule', severity: AnalysisSeverity.disabled)],
           ).activeRules(const {
             'check-relative-paths': RuleConfig(severity: AnalysisSeverity.disabled),
           });
@@ -52,14 +40,22 @@ void main() {
     });
 
     test('throws on two enabled rules with one name', () {
-      final catalog = RuleCatalog(customRules: [_QuietCustomRule('dup'), _QuietCustomRule('dup')]);
+      final catalog = RuleCatalog(
+        customRules: [
+          QuietRule(name: 'dup'),
+          QuietRule(name: 'dup'),
+        ],
+      );
 
       expect(() => catalog.activeRules(const {}), throwsArgumentError);
     });
 
     test('allows a duplicate name when one of the rules is disabled', () {
       final catalog = RuleCatalog(
-        customRules: [_QuietCustomRule('dup'), _QuietCustomRule('dup', AnalysisSeverity.disabled)],
+        customRules: [
+          QuietRule(name: 'dup'),
+          QuietRule(name: 'dup', severity: AnalysisSeverity.disabled),
+        ],
       );
 
       expect(catalog.activeRules(const {}).where((r) => r.name == 'dup'), hasLength(1));
@@ -68,7 +64,7 @@ void main() {
 
   group('RuleCatalog.names', () {
     test('lists built-in checks first, then custom rules', () {
-      expect(RuleCatalog(customRules: [_QuietCustomRule()]).names, [
+      expect(RuleCatalog(customRules: [QuietRule()]).names, [
         for (final check in RuleRegistry.allChecks) check.name,
         'my-team-rule',
       ]);
@@ -89,6 +85,40 @@ skills_lint:
       expect(_messages(config, const []), [
         'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
       ]);
+    });
+
+    group('suggests the rule for a common mistake:', () {
+      const cases = {
+        'checkrelative-paths': 'check-relative-paths',
+        'Check-Relative-Paths': 'check-relative-paths',
+        'check_absolute_paths': 'check-absolute-paths',
+        'disallowed-feild': 'disallowed-field',
+        'valid-yaml-metdata': 'valid-yaml-metadata',
+        'published-skill-names': 'published-skill-name',
+        'trailing-whitespace': 'check-trailing-whitespace',
+      };
+      for (final MapEntry(key: typo, value: rule) in cases.entries) {
+        test(typo, () {
+          final config = Configuration(ruleConfigs: {typo: _error});
+
+          expect(_messages(config, const []), [
+            'Global rules: Unknown rule "$typo". Did you mean "$rule"?',
+          ]);
+        });
+      }
+    });
+
+    group('names a rule class name without a suggestion:', () {
+      // A rule's Dart class name can differ from its rule name.
+      // `description-length` appears in a comment in api_defaults_test.dart
+      // for `description-too-long` (DescriptionLengthRule).
+      for (final typo in ['description-length', 'name-format']) {
+        test(typo, () {
+          final config = Configuration(ruleConfigs: {typo: _error});
+
+          expect(_messages(config, const []), ['Global rules: Unknown rule "$typo".']);
+        });
+      }
     });
 
     test('names an unknown rule without a suggestion when nothing is close', () {
@@ -126,14 +156,14 @@ skills_lint:
 ''');
 
       expect(config.parsingErrors, isEmpty);
-      expect(_messages(config, [_QuietCustomRule()]), isEmpty);
+      expect(_messages(config, [QuietRule()]), isEmpty);
     });
 
     test('suggests a custom rule for a misspelling of it', () {
       // `my-team-rul` misspells the custom rule `my-team-rule`.
       const config = Configuration(ruleConfigs: {'my-team-rul': _error});
 
-      expect(_messages(config, [_QuietCustomRule()]), [
+      expect(_messages(config, [QuietRule()]), [
         'Global rules: Unknown rule "my-team-rul". Did you mean "my-team-rule"?',
       ]);
     });

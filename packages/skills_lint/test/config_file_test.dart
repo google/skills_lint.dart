@@ -1061,10 +1061,11 @@ skills_lint:
       const enabled = RuleConfigPatch(severity: AnalysisSeverity.error);
 
       test('reports an unknown rule name as an error in JSON output and exits 1', () async {
-        // `check-relative-path` misspells `check-relative-paths`.
+        // `trailing-whitespace` leaves out the `check-` prefix of
+        // `check-trailing-whitespace`.
         await writeConfig(const {
           UnknownRuleNameRule.ruleName: enabled,
-          'check-relative-path': enabled,
+          'trailing-whitespace': enabled,
         });
 
         final TestProcess process = await startCli([
@@ -1078,8 +1079,8 @@ skills_lint:
         expect(
           err,
           contains(
-            'Configuration error: Global rules: Unknown rule "check-relative-path". '
-            'Did you mean "check-relative-paths"?',
+            'Configuration error: Global rules: Unknown rule "trailing-whitespace". '
+            'Did you mean "check-trailing-whitespace"?',
           ),
         );
       });
@@ -1087,8 +1088,8 @@ skills_lint:
       // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
       // Expect exit code 1 once the rule is enabled by default in 0.6.0.
       test('ignores an unknown rule name by default', () async {
-        // `check-relative-path` misspells `check-relative-paths`.
-        await writeConfig(const {'check-relative-path': enabled});
+        // `valid-yaml-metdata` drops a letter of `valid-yaml-metadata`.
+        await writeConfig(const {'valid-yaml-metdata': enabled});
 
         final TestProcess process = await startCli([], workingDirectory: tempDir.path);
 
@@ -1115,10 +1116,10 @@ skills_lint:
       });
 
       test('reports nothing with --ignore-config', () async {
-        // `check-relative-path` misspells `check-relative-paths`.
+        // `published-skill-names` is the plural of `published-skill-name`.
         await writeConfig(const {
           UnknownRuleNameRule.ruleName: enabled,
-          'check-relative-path': enabled,
+          'published-skill-names': enabled,
         });
 
         final TestProcess process = await startCli([

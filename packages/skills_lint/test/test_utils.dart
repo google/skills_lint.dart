@@ -10,7 +10,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
+import 'package:skills_lint/src/models/skill_rule.dart';
+import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:tar/tar.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
@@ -200,4 +203,20 @@ class FakePub {
     }
     return ProcessResult(0, exitCode, '', stderr);
   }
+}
+
+/// A custom rule named [name] at [severity] that never reports anything.
+///
+/// For tests where only a custom rule's name matters.
+class QuietRule extends SkillRule {
+  QuietRule({this.name = 'my-team-rule', this.severity = AnalysisSeverity.warning});
+
+  @override
+  final String name;
+
+  @override
+  final AnalysisSeverity severity;
+
+  @override
+  Future<List<ValidationError>> validate(SkillContext context) async => const [];
 }
