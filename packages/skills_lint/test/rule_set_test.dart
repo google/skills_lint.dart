@@ -228,10 +228,7 @@ skills_lint:
     $_ruleName: error
 ''');
 
-      expect(
-        unknownRuleNameWarnings(config, RuleSet(customDefinitions: [_teamDefinition])),
-        isEmpty,
-      );
+      expect(findUnknownRuleNames(config, RuleSet(customDefinitions: [_teamDefinition])), isEmpty);
     });
 
     test('keep their default severity when the configuration sets only parameters', () {

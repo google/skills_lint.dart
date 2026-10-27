@@ -479,7 +479,9 @@ class ValidationSession {
     if (includeParsingErrors) {
       config.parsingErrors.forEach(_reporter.onConfigurationWarning);
     }
-    unknownRuleNameWarnings(config, ruleSet).forEach(_reporter.onConfigurationWarning);
+    for (final UnknownRuleName unknown in findUnknownRuleNames(config, ruleSet)) {
+      _reporter.onConfigurationWarning(unknown.message);
+    }
   }
 
   /// If no skills were validated across the whole run, emit appropriate

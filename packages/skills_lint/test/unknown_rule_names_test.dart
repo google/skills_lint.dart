@@ -53,6 +53,7 @@ void defineCliTests() {
     });
 
     test('prints a warning with a suggestion and exits 0', () async {
+      // The fixture misspells `check-relative-paths` as `check-relative-path`.
       await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
 skills_lint:
   directories:
@@ -75,6 +76,7 @@ skills_lint:
     });
 
     test('keeps JSON output on stdout parseable', () async {
+      // The fixture misspells `check-relative-paths` as `check-relative-path`.
       await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
 skills_lint:
   directories:
@@ -94,6 +96,7 @@ skills_lint:
     });
 
     test('prints no warning with --ignore-config', () async {
+      // The fixture misspells `check-relative-paths` as `check-relative-path`.
       await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
 skills_lint:
   rules:
@@ -134,6 +137,7 @@ void main() {
 
   group('unknownRuleNameWarnings', () {
     test('names a misspelled rule and suggests the closest rule', () {
+      // The fixture misspells `check-relative-paths` as `check-relative-path`.
       final Configuration config = ConfigParser.parse('''
 skills_lint:
   rules:
@@ -141,7 +145,7 @@ skills_lint:
 ''');
 
       expect(config.parsingErrors, isEmpty);
-      expect(unknownRuleNameWarnings(config, RuleSet()), [
+      expect(_messages(config, const []), [
         'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
       ]);
     });
@@ -153,12 +157,11 @@ skills_lint:
     no-such-rule-at-all: error
 ''');
 
-      expect(unknownRuleNameWarnings(config, RuleSet()), [
-        'Global rules: Unknown rule "no-such-rule-at-all".',
-      ]);
+      expect(_messages(config, const []), ['Global rules: Unknown rule "no-such-rule-at-all".']);
     });
 
     test('checks the rules of directory and individual skill entries', () {
+      // The fixture misspells `check-relative-paths` as `check-relative-path`.
       final Configuration config = ConfigParser.parse('''
 skills_lint:
   directories:
@@ -171,7 +174,7 @@ skills_lint:
         bogus-rule-name-here: error
 ''');
 
-      expect(unknownRuleNameWarnings(config, RuleSet()), [
+      expect(_messages(config, const []), [
         'Directory entry rules for "skills": Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
         'Individual skill entry rules for "one/skill": Unknown rule "bogus-rule-name-here".',
       ]);
@@ -187,7 +190,7 @@ skills_lint:
 ''');
 
       expect(config.parsingErrors, isEmpty);
-      expect(unknownRuleNameWarnings(config, RuleSet(customRules: [_QuietCustomRule()])), isEmpty);
+      expect(_messages(config, [_QuietCustomRule()]), isEmpty);
     });
 
     test('suggests a custom rule for a misspelling of it', () {
@@ -197,7 +200,7 @@ skills_lint:
     my-team-rul: error
 ''');
 
-      expect(unknownRuleNameWarnings(config, RuleSet(customRules: [_QuietCustomRule()])), [
+      expect(_messages(config, [_QuietCustomRule()]), [
         'Global rules: Unknown rule "my-team-rul". Did you mean "my-team-rule"?',
       ]);
     });
@@ -210,10 +213,7 @@ skills_lint:
 ''');
 
       expect(
-        unknownRuleNameWarnings(
-          config,
-          RuleSet(customRules: [_QuietCustomRule('team-rule-a'), _QuietCustomRule('team-rule-b')]),
-        ),
+        _messages(config, [_QuietCustomRule('team-rule-a'), _QuietCustomRule('team-rule-b')]),
         ['Global rules: Unknown rule "team-rule-c".'],
       );
     });
@@ -226,7 +226,7 @@ skills_lint:
         },
       );
 
-      expect(unknownRuleNameWarnings(config, RuleSet()), isEmpty);
+      expect(_messages(config, const []), isEmpty);
     });
   });
 
@@ -247,6 +247,7 @@ skills_lint:
     }
 
     test('prints a warning with a suggestion and passes', () async {
+      // The fixture misspells `check-relative-paths` as `check-relative-path`.
       final (bool passed, String err) = await validate('''
 skills_lint:
   rules:
@@ -278,3 +279,12 @@ skills_lint:
     });
   });
 }
+
+/// The messages of [findUnknownRuleNames] for [config] and [customRules].
+List<String> _messages(Configuration config, List<SkillRule> customRules) => [
+  for (final UnknownRuleName unknown in findUnknownRuleNames(
+    config,
+    RuleSet(customRules: customRules),
+  ))
+    unknown.message,
+];
