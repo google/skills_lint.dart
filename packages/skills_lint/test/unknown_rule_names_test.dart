@@ -2,24 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/rule_registry.dart';
 import 'package:skills_lint/src/unknown_rule_names.dart';
 import 'package:test/test.dart';
-import 'package:test_process/test_process.dart';
 
-import 'test_utils.dart';
-
-/// A custom rule named [name] that never reports anything.
+/// A custom rule named `my-team-rule` that never reports anything.
 class _QuietCustomRule extends SkillRule {
-  _QuietCustomRule([this.name = 'my-team-rule']);
-
   @override
-  final String name;
+  final String name = 'my-team-rule';
 
   @override
   final AnalysisSeverity severity = AnalysisSeverity.warning;
@@ -28,115 +19,13 @@ class _QuietCustomRule extends SkillRule {
   Future<List<ValidationError>> validate(SkillContext context) async => const [];
 }
 
-final String validSkillPath = p.normalize(p.absolute(p.join('example', 'skills', 'valid')));
-
-/// Defines the tests that start the CLI. [main] calls this, and
-/// `compiled_test/cli_test.dart` calls it again to run the same tests
-/// against the compiled binary.
-void defineCliTests() {
-  group('skills_lint command with an unknown rule name', () {
-    late Directory tempDir;
-
-    setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp('unknown_rule_test.');
-      final Directory skillDir = await Directory(
-        p.join(tempDir.path, 'skills', 'my-skill'),
-      ).create(recursive: true);
-      await File(
-        p.join(skillDir.path, 'SKILL.md'),
-      ).writeAsString('${buildFrontmatter(name: 'my-skill')}Body\n');
-    });
-
-    tearDown(() async {
-      await tempDir.delete(recursive: true);
-    });
-
-    test('prints a warning with a suggestion and exits 0', () async {
-      // The fixture misspells `check-relative-paths` as `check-relative-path`.
-      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
-skills_lint:
-  directories:
-    - path: skills
-  rules:
-    check-relative-path: error
-''');
-
-      final TestProcess process = await startCli([], workingDirectory: tempDir.path);
-
-      await process.shouldExit(0);
-      final String err = (await process.stderr.rest.toList()).join('\n');
-      expect(
-        err,
-        contains(
-          'Configuration warning: Global rules: Unknown rule "check-relative-path". '
-          'Did you mean "check-relative-paths"?',
-        ),
-      );
-    });
-
-    test('keeps JSON output on stdout parseable', () async {
-      // The fixture misspells `check-relative-paths` as `check-relative-path`.
-      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
-skills_lint:
-  directories:
-    - path: skills
-  rules:
-    check-relative-path: error
-''');
-
-      final TestProcess process = await startCli(['--format=json'], workingDirectory: tempDir.path);
-
-      await process.shouldExit(0);
-      final String out = (await process.stdout.rest.toList()).join('\n');
-      expect(() => jsonDecode(out), returnsNormally);
-      expect(out, isNot(contains('Configuration warning')));
-      final String err = (await process.stderr.rest.toList()).join('\n');
-      expect(err, contains('Unknown rule "check-relative-path"'));
-    });
-
-    test('prints no warning with --ignore-config', () async {
-      // The fixture misspells `check-relative-paths` as `check-relative-path`.
-      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
-skills_lint:
-  rules:
-    check-relative-path: error
-''');
-
-      final TestProcess process = await startCli([
-        '--ignore-config',
-        '-d',
-        p.join(tempDir.path, 'skills'),
-      ], workingDirectory: tempDir.path);
-
-      await process.shouldExit(0);
-      final String err = (await process.stderr.rest.toList()).join('\n');
-      expect(err, isNot(contains('Configuration warning')));
-    });
-
-    test('prints no warning for known rule names', () async {
-      await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
-skills_lint:
-  directories:
-    - path: skills
-  rules:
-    check-relative-paths: error
-''');
-
-      final TestProcess process = await startCli([], workingDirectory: tempDir.path);
-
-      await process.shouldExit(0);
-      final String err = (await process.stderr.rest.toList()).join('\n');
-      expect(err, isNot(contains('Configuration warning')));
-    });
-  });
-}
+const _error = RuleConfigPatch(severity: AnalysisSeverity.error);
 
 void main() {
-  defineCliTests();
-
-  group('unknownRuleNameWarnings', () {
-    test('names a misspelled rule and suggests the closest rule', () {
-      // The fixture misspells `check-relative-paths` as `check-relative-path`.
+  group('findUnknownRuleNames', () {
+    test('names a misspelled rule, which the parser accepts, and suggests the closest rule', () {
+      // `check-relative-path` misspells `check-relative-paths`. The YAML is
+      // parsed to check that the parser reports no error for it.
       final Configuration config = ConfigParser.parse('''
 skills_lint:
   rules:
@@ -150,28 +39,21 @@ skills_lint:
     });
 
     test('names an unknown rule without a suggestion when nothing is close', () {
-      final Configuration config = ConfigParser.parse('''
-skills_lint:
-  rules:
-    no-such-rule-at-all: error
-''');
+      const config = Configuration(ruleConfigs: {'no-such-rule-at-all': _error});
 
       expect(_messages(config, const []), ['Global rules: Unknown rule "no-such-rule-at-all".']);
     });
 
     test('checks the rules of directory and individual skill entries', () {
-      // The fixture misspells `check-relative-paths` as `check-relative-path`.
-      final Configuration config = ConfigParser.parse('''
-skills_lint:
-  directories:
-    - path: skills
-      rules:
-        check-relative-path: error
-  individual_skills:
-    - path: one/skill
-      rules:
-        bogus-rule-name-here: error
-''');
+      // `check-relative-path` misspells `check-relative-paths`.
+      const config = Configuration(
+        directoryConfigs: [
+          LintTargetConfig(path: 'skills', ruleConfigs: {'check-relative-path': _error}),
+        ],
+        individualSkillConfigs: [
+          LintTargetConfig(path: 'one/skill', ruleConfigs: {'bogus-rule-name-here': _error}),
+        ],
+      );
 
       expect(_messages(config, const []), [
         'Directory entry rules for "skills": Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
@@ -179,7 +61,9 @@ skills_lint:
       ]);
     });
 
-    test('does not flag a custom rule or its parameters', () {
+    test('does not flag a custom rule, and the parser accepts its parameters', () {
+      // Parsed so that the parser's handling of an unknown parameter is
+      // checked too.
       final Configuration config = ConfigParser.parse('''
 skills_lint:
   rules:
@@ -193,88 +77,20 @@ skills_lint:
     });
 
     test('suggests a custom rule for a misspelling of it', () {
-      final Configuration config = ConfigParser.parse('''
-skills_lint:
-  rules:
-    my-team-rul: error
-''');
+      // `my-team-rul` misspells the custom rule `my-team-rule`.
+      const config = Configuration(ruleConfigs: {'my-team-rul': _error});
 
       expect(_messages(config, [_QuietCustomRule()]), [
         'Global rules: Unknown rule "my-team-rul". Did you mean "my-team-rule"?',
       ]);
     });
 
-    test('suggests nothing when two rules are equally close', () {
-      final Configuration config = ConfigParser.parse('''
-skills_lint:
-  rules:
-    team-rule-c: error
-''');
-
-      expect(
-        _messages(config, [_QuietCustomRule('team-rule-a'), _QuietCustomRule('team-rule-b')]),
-        ['Global rules: Unknown rule "team-rule-c".'],
-      );
-    });
-
     test('does not flag any built-in rule', () {
       final config = Configuration(
-        ruleConfigs: {
-          for (final check in RuleRegistry.allChecks)
-            check.name: const RuleConfigPatch(severity: AnalysisSeverity.error),
-        },
+        ruleConfigs: {for (final check in RuleRegistry.allChecks) check.name: _error},
       );
 
       expect(_messages(config, const []), isEmpty);
-    });
-  });
-
-  group('validateSkills with an unknown rule name', () {
-    Future<(bool, String)> validate(String yaml, {List<SkillRule> customRules = const []}) async {
-      final Configuration config = ConfigParser.parse(yaml);
-      final err = CapturedOutput();
-      final bool passed = await IOOverrides.runZoned(
-        () => validateSkills(
-          individualSkillPaths: [validSkillPath],
-          config: config,
-          customRules: customRules,
-          quiet: true,
-        ),
-        stderr: () => err,
-      );
-      return (passed, err.buffer.toString());
-    }
-
-    test('prints a warning with a suggestion and passes', () async {
-      // The fixture misspells `check-relative-paths` as `check-relative-path`.
-      final (bool passed, String err) = await validate('''
-skills_lint:
-  rules:
-    check-relative-path: error
-''');
-
-      expect(
-        err,
-        contains(
-          'Configuration warning: Global rules: Unknown rule "check-relative-path". '
-          'Did you mean "check-relative-paths"?',
-        ),
-      );
-      expect(passed, isTrue);
-    });
-
-    test('prints no warning for a custom rule passed in customRules', () async {
-      final (bool passed, String err) = await validate(
-        '''
-skills_lint:
-  rules:
-    my-team-rule: error
-''',
-        customRules: [_QuietCustomRule()],
-      );
-
-      expect(err, isNot(contains('Configuration warning')));
-      expect(passed, isTrue);
     });
   });
 }

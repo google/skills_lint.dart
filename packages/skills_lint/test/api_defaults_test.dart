@@ -203,6 +203,43 @@ skills_lint:
       expect(passed, isTrue);
     });
 
+    // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
+    // Expect validateSkills to fail on an unknown rule name.
+    test('prints an unknown rule name with a suggestion and passes', () async {
+      // `check-relative-path` misspells `check-relative-paths`.
+      final (bool passed, String err) = await runWithConfig(
+        const Configuration(
+          ruleConfigs: {'check-relative-path': RuleConfigPatch(severity: AnalysisSeverity.error)},
+        ).toYamlString(),
+      );
+
+      expect(
+        err,
+        contains(
+          'Configuration warning: Global rules: Unknown rule "check-relative-path". '
+          'Did you mean "check-relative-paths"?',
+        ),
+      );
+      expect(passed, isTrue);
+    });
+
+    test('does not report a rule passed in customRules as unknown', () async {
+      final (bool passed, String err) = await runWithConfig(
+        const Configuration(
+          ruleConfigs: {'my-team-rule': RuleConfigPatch(severity: AnalysisSeverity.error)},
+        ).toYamlString(),
+        validate: ({Configuration? config}) => validateSkills(
+          individualSkillPaths: [_validSkillPath],
+          config: config,
+          customRules: [_QuietCustomRule()],
+          quiet: true,
+        ),
+      );
+
+      expect(err, isNot(contains('Configuration warning')));
+      expect(passed, isTrue);
+    });
+
     test('validateSkillsInternal leaves configuration errors to its caller', () async {
       // The CLI reports configuration errors itself before it calls
       // validateSkillsInternal, so they must not print twice.
@@ -376,6 +413,18 @@ skills_lint:
 ''';
 
 final String _validSkillPath = p.normalize(p.absolute(p.join('example', 'skills', 'valid')));
+
+/// A custom rule named `my-team-rule` that never reports anything.
+class _QuietCustomRule extends SkillRule {
+  @override
+  final String name = 'my-team-rule';
+
+  @override
+  final AnalysisSeverity severity = AnalysisSeverity.warning;
+
+  @override
+  Future<List<ValidationError>> validate(SkillContext context) async => const [];
+}
 
 /// Calls [validateSkills] on the valid example skill.
 Future<bool> _validateSkills({Configuration? config}) =>

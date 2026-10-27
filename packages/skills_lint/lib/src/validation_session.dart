@@ -458,6 +458,8 @@ class ValidationSession {
   /// makes these fail). When [includeParsingErrors] is true, also reports each
   /// entry in [Configuration.parsingErrors] of [config]. Does not mark the
   /// session as failed.
+  // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
+  // Mark the session as failed for each unknown rule name.
   void reportConfigurationWarnings({bool includeParsingErrors = true}) {
     if (includeParsingErrors) {
       config.parsingErrors.forEach(_reporter.onConfigurationWarning);
