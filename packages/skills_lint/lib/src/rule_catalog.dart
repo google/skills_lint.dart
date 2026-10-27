@@ -2,17 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 import 'config_parser.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/rule_config.dart';
 import 'models/skill_rule.dart';
 import 'rule_registry.dart';
-import 'suggestions/levenshtein.dart';
-
-/// The largest edit distance at which a known rule name is suggested for an
-/// unknown one.
-const int _maxSuggestionDistance = 3;
+import 'suggestions/closest_name.dart';
 
 /// The rules one validation run can use: the built-in checks in
 /// [RuleRegistry.allChecks] and the caller's [customRules].
@@ -75,59 +73,56 @@ class RuleCatalog {
     return rules;
   }
 
-  /// Lists a warning for each rule name in [config] that is not in this
-  /// catalog.
+  /// Finds each rule name in [config] that is not in this catalog.
   ///
   /// Checks the top-level `rules` map and the `rules` map of every
-  /// `directories` and `individual_skills` entry. When a known rule name is
-  /// close to the unknown one, the warning suggests it.
-  List<String> unknownNameWarnings(Configuration config) {
+  /// `directories` and `individual_skills` entry.
+  List<UnknownRuleName> findUnknownNames(Configuration config) {
     final List<String> knownNames = names;
     final Set<String> knownSet = knownNames.toSet();
 
-    final warnings = <String>[];
-    void checkRules(Iterable<String> ruleNames, String contextLabel) {
-      for (final name in ruleNames) {
-        if (knownSet.contains(name)) {
-          continue;
-        }
-        final String? suggestion = _closest(name, knownNames);
-        final suggestionClause = suggestion == null ? '' : ' Did you mean "$suggestion"?';
-        warnings.add('$contextLabel: Unknown rule "$name".$suggestionClause');
-      }
-    }
+    Iterable<UnknownRuleName> check(Iterable<String> ruleNames, String context) => [
+      for (final name in ruleNames)
+        if (!knownSet.contains(name))
+          UnknownRuleName(context: context, name: name, suggestion: closestName(name, knownNames)),
+    ];
 
-    checkRules(config.ruleConfigs.keys, 'Global rules');
-    for (final LintTargetConfig target in config.directoryConfigs) {
-      checkRules(target.ruleConfigs.keys, 'Directory entry rules for "${_authoredPath(target)}"');
-    }
-    for (final LintTargetConfig target in config.individualSkillConfigs) {
-      checkRules(
-        target.ruleConfigs.keys,
-        'Individual skill entry rules for "${_authoredPath(target)}"',
-      );
-    }
-    return warnings;
+    return [
+      ...check(config.ruleConfigs.keys, ConfigParser.globalRulesLabel),
+      for (final LintTargetConfig target in config.directoryConfigs)
+        ...check(
+          target.ruleConfigs.keys,
+          ConfigParser.entryRulesLabel(ConfigParser.directoriesKey, _authoredPath(target)),
+        ),
+      for (final LintTargetConfig target in config.individualSkillConfigs)
+        ...check(
+          target.ruleConfigs.keys,
+          ConfigParser.entryRulesLabel(ConfigParser.individualSkillsKey, _authoredPath(target)),
+        ),
+    ];
   }
 }
 
-/// Finds the name in [candidates] closest to [name], or `null` when none is
-/// within [_maxSuggestionDistance] or two are equally close.
-String? _closest(String name, Iterable<String> candidates) {
-  String? best;
-  int bestDistance = _maxSuggestionDistance + 1;
-  var tied = false;
-  for (final candidate in candidates) {
-    final int distance = levenshtein(name, candidate);
-    if (distance < bestDistance) {
-      best = candidate;
-      bestDistance = distance;
-      tied = false;
-    } else if (distance == bestDistance && candidate != best) {
-      tied = true;
-    }
-  }
-  return tied ? null : best;
+/// A rule name in a configuration that is not in a [RuleCatalog].
+@immutable
+class UnknownRuleName {
+  /// Creates a finding for [name], found in the rules map that [context]
+  /// labels, with an optional [suggestion].
+  const UnknownRuleName({required this.context, required this.name, this.suggestion});
+
+  /// The label of the rules map [name] appears in, such as
+  /// [ConfigParser.globalRulesLabel].
+  final String context;
+
+  /// The rule name as written.
+  final String name;
+
+  /// The known rule name closest to [name], or `null` when none is close.
+  final String? suggestion;
+
+  /// The text shown to the user.
+  String get message =>
+      '$context: Unknown rule "$name".${suggestion == null ? '' : ' Did you mean "$suggestion"?'}';
 }
 
 /// Reads [target]'s path as written in the configuration file, matching the
