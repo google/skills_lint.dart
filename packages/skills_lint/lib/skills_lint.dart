@@ -22,5 +22,5 @@ export 'src/models/skill_rule.dart';
 export 'src/models/source_region.dart';
 export 'src/models/validation_error.dart';
 export 'src/models/validation_result.dart';
-export 'src/rule_set.dart';
+export 'src/rule_set.dart' show RuleDefinition, SkillRuleFactory;
 export 'src/validator.dart';

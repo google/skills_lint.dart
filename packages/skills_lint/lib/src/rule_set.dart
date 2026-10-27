@@ -11,13 +11,11 @@ import 'rule_registry.dart';
 
 /// Builds a [SkillRule] from the severity and parameters that the
 /// configuration gives it.
-///
-/// Returns `null` when no rule should run.
 typedef SkillRuleFactory =
-    SkillRule? Function(AnalysisSeverity severity, CustomRuleParameters? parameters);
+    SkillRule Function(AnalysisSeverity severity, CustomRuleParameters parameters);
 
-/// Describes a rule that a configuration can name: its [check] (name, default
-/// severity, help text and parameter schema) and how to [create] it.
+/// Describes a custom rule that a configuration can name: its [check] (name,
+/// default severity, help text and parameter schema) and how to [create] it.
 ///
 /// `skills_lint.yaml` refers to a rule by name and gives its severity and
 /// parameters, so a configuration that turns on a custom rule round-trips
@@ -37,77 +35,79 @@ typedef SkillRuleFactory =
 final class RuleDefinition {
   /// Creates a definition for a rule that the configuration can enable,
   /// disable and give parameters to.
-  ///
-  /// The configuration's parameters are checked against the constraints in
-  /// [check] before [create] runs.
-  const RuleDefinition({required this.check, required this.create})
-    : isCustom = true,
-      _fixedRule = null;
-
-  /// Creates a definition for a built-in rule in [RuleRegistry.allChecks].
-  RuleDefinition._builtIn(this.check)
-    : create = ((severity, parameters) =>
-          RuleRegistry.createRule(check.name, severity, parameters)),
-      isCustom = false,
-      _fixedRule = null;
-
-  /// Creates a definition that always yields [rule], whatever the
-  /// configuration says about it.
-  ///
-  /// This is how a [SkillRule] passed as `customRules` runs.
-  RuleDefinition._fixed(SkillRule rule)
-    : check = CheckType(
-        name: rule.name,
-        defaultSeverity: rule.severity,
-        help: 'Custom rule ${rule.name}.',
-      ),
-      create = ((_, _) => rule),
-      isCustom = true,
-      _fixedRule = rule;
+  const RuleDefinition({required this.check, required this.create});
 
   /// The rule's name, default severity, help text and parameter schema.
   final CheckType check;
 
   /// Builds the rule from its configured severity and parameters.
+  ///
+  /// It is not called for a rule that the configuration disables.
   final SkillRuleFactory create;
-
-  /// Whether the caller supplied this rule rather than `skills_lint`.
-  final bool isCustom;
-
-  /// The rule that a definition from `customRules` always yields.
-  final SkillRule? _fixedRule;
 
   /// The rule's name, as written in configuration.
   String get name => check.name;
-
-  /// Whether the configuration sets this rule's severity and parameters.
-  ///
-  /// A rule passed as `customRules` is not configurable.
-  bool get isConfigurable => _fixedRule == null;
 }
 
 /// The rules one validation run knows about: every built-in rule, then the
-/// caller's custom rules.
+/// caller's [RuleDefinition]s, then the caller's [SkillRule]s.
 ///
 /// Building, reporting and checking configured rule names all read this one
-/// list.
+/// object.
 final class RuleSet {
   /// Creates a set of the built-in rules plus [customDefinitions] and
   /// [customRules].
+  ///
+  /// Throws an [ArgumentError] when a name in [customDefinitions] is already
+  /// taken by a built-in rule or another definition.
   RuleSet({
     List<RuleDefinition> customDefinitions = const [],
     List<SkillRule> customRules = const [],
-  }) : definitions = List.unmodifiable([
-         for (final CheckType check in RuleRegistry.allChecks) RuleDefinition._builtIn(check),
-         ...customDefinitions,
-         for (final SkillRule rule in customRules) RuleDefinition._fixed(rule),
-       ]);
+  }) : _customDefinitions = List.unmodifiable(customDefinitions),
+       _customRules = List.unmodifiable(customRules) {
+    final Set<String> names = {for (final CheckType check in RuleRegistry.allChecks) check.name};
+    for (final RuleDefinition definition in _customDefinitions) {
+      if (!names.add(definition.name)) {
+        throw ArgumentError('Duplicate rule name detected: ${definition.name}');
+      }
+    }
+  }
 
-  /// Built-in rules first, then custom rules, in the order given.
-  final List<RuleDefinition> definitions;
+  final List<RuleDefinition> _customDefinitions;
+  final List<SkillRule> _customRules;
+
+  /// Every rule's check and whether the caller supplied it, in order.
+  ///
+  /// A rule from `customRules` gets a check whose default severity is the
+  /// rule's severity.
+  Iterable<({CheckType check, bool isCustom})> get checks sync* {
+    for (final CheckType check in RuleRegistry.allChecks) {
+      yield (check: check, isCustom: false);
+    }
+    for (final RuleDefinition definition in _customDefinitions) {
+      yield (check: definition.check, isCustom: true);
+    }
+    for (final SkillRule rule in _customRules) {
+      yield (
+        check: CheckType(
+          name: rule.name,
+          defaultSeverity: rule.severity,
+          help: 'Custom rule ${rule.name}.',
+        ),
+        isCustom: true,
+      );
+    }
+  }
 
   /// The names of every rule in this set.
-  Iterable<String> get names => definitions.map((RuleDefinition d) => d.name);
+  Iterable<String> get names => checks.map((c) => c.check.name);
+
+  /// The checks of the rules whose severity and parameters come from the
+  /// configuration: the built-in rules and the custom definitions.
+  Iterable<CheckType> get configurableChecks => [
+    ...RuleRegistry.allChecks,
+    for (final RuleDefinition definition in _customDefinitions) definition.check,
+  ];
 
   /// Builds the rules that run under [ruleConfigs], leaving out disabled
   /// rules.
@@ -116,41 +116,48 @@ final class RuleSet {
   /// A rule from `customRules` ignores [ruleConfigs].
   ///
   /// Throws an [ArgumentError] when two enabled rules share a name, or when a
-  /// configured parameter breaks a constraint of its rule.
+  /// configured parameter of a custom definition breaks a constraint.
   List<SkillRule> buildRules(Map<String, RuleConfig> ruleConfigs) {
     final rules = <SkillRule>[];
     final seenNames = <String>{};
-    for (final RuleDefinition definition in definitions) {
-      final SkillRule? rule = _build(definition, ruleConfigs);
-      if (rule == null || rule.severity == AnalysisSeverity.disabled) {
-        continue;
+    void addRule(SkillRule rule) {
+      if (rule.severity == AnalysisSeverity.disabled) {
+        return;
       }
       if (!seenNames.add(rule.name)) {
         throw ArgumentError('Duplicate rule name detected: ${rule.name}');
       }
       rules.add(rule);
     }
+
+    for (final CheckType check in RuleRegistry.allChecks) {
+      final RuleConfig config = _configFor(check, ruleConfigs);
+      final SkillRule? rule = config.severity == AnalysisSeverity.disabled
+          ? null
+          : RuleRegistry.createRule(check.name, config.severity, config.parameters);
+      if (rule != null) {
+        addRule(rule);
+      }
+    }
+    for (final RuleDefinition definition in _customDefinitions) {
+      final RuleConfig config = _configFor(definition.check, ruleConfigs);
+      if (config.severity != AnalysisSeverity.disabled) {
+        // TODO(reidbaker-agent): Report unrecognized or mistyped parameters of
+        // custom definitions as configuration warnings, as ConfigParser does
+        // for built-in rules, instead of throwing.
+        final List<String> errors = definition.check.validateConstrainedParameters(
+          config.parameters,
+        );
+        if (errors.isNotEmpty) {
+          throw ArgumentError(errors.join('\n'));
+        }
+        addRule(definition.create(config.severity, config.parameters));
+      }
+    }
+    _customRules.forEach(addRule);
     return rules;
   }
 
-  static SkillRule? _build(RuleDefinition definition, Map<String, RuleConfig> ruleConfigs) {
-    if (!definition.isConfigurable) {
-      return definition._fixedRule;
-    }
-    final RuleConfig config =
-        ruleConfigs[definition.name] ?? RuleConfig(severity: definition.check.defaultSeverity);
-    if (config.severity == AnalysisSeverity.disabled) {
-      return null;
-    }
-    final CustomRuleParameters parameters = config.parameters;
-    // TODO(reidbaker-agent): Report unrecognized or mistyped parameters of custom
-    // definitions as configuration warnings. ConfigParser checks only built-in rules.
-    if (definition.isCustom) {
-      final List<String> errors = definition.check.validateConstrainedParameters(parameters);
-      if (errors.isNotEmpty) {
-        throw ArgumentError(errors.join('\n'));
-      }
-    }
-    return definition.create(config.severity, parameters);
-  }
+  static RuleConfig _configFor(CheckType check, Map<String, RuleConfig> ruleConfigs) =>
+      ruleConfigs[check.name] ?? RuleConfig(severity: check.defaultSeverity);
 }

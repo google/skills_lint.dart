@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:skills_lint/skills_lint.dart' hide RuleDefinition, RuleSet;
+import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/config_serializer.dart';
 import 'package:skills_lint/src/models/sarif/sarif.dart';
 import 'package:skills_lint/src/rule_set.dart';
@@ -55,7 +55,7 @@ final RuleDefinition _teamDefinition = RuleDefinition(
       ),
     },
   ),
-  create: (severity, parameters) => _TeamRule(severity, parameters?.getInt(_maxParameter)),
+  create: (severity, parameters) => _TeamRule(severity, parameters.getInt(_maxParameter)),
 );
 
 _TeamRule? _builtTeamRule(RuleSet ruleSet, Map<String, RuleConfig> ruleConfigs) =>
@@ -102,6 +102,8 @@ void main() {
       expect(rule, isNull);
     });
 
+    // Pins the current behavior; the TODO(reidbaker-agent) in
+    // RuleSet.buildRules tracks reporting this as a configuration warning.
     test('rejects a configured parameter that breaks its constraint', () {
       final ruleSet = RuleSet(customDefinitions: [_teamDefinition]);
 
@@ -133,6 +135,41 @@ void main() {
       expect(rules, contains(same(fixed)));
     });
 
+    test('throws when a custom definition takes the name of a built-in rule', () {
+      final definition = RuleDefinition(
+        check: const CheckType(
+          name: 'path-does-not-exist',
+          defaultSeverity: AnalysisSeverity.disabled,
+          help: 'Shadows a built-in rule.',
+        ),
+        create: (severity, _) => _FixedRule('path-does-not-exist', severity),
+      );
+
+      expect(
+        () => RuleSet(customDefinitions: [definition]),
+        throwsA(
+          isA<ArgumentError>().having(
+            (ArgumentError e) => e.message,
+            'message',
+            'Duplicate rule name detected: path-does-not-exist',
+          ),
+        ),
+      );
+    });
+
+    test('throws when two custom definitions share a name', () {
+      expect(
+        () => RuleSet(customDefinitions: [_teamDefinition, _teamDefinition]),
+        throwsA(
+          isA<ArgumentError>().having(
+            (ArgumentError e) => e.message,
+            'message',
+            'Duplicate rule name detected: $_ruleName',
+          ),
+        ),
+      );
+    });
+
     test('throws when two enabled rules share a name', () {
       final ruleSet = RuleSet(
         customDefinitions: [_teamDefinition],
@@ -149,6 +186,19 @@ void main() {
           ),
         ),
       );
+    });
+  });
+
+  group('Validator', () {
+    test('builds custom definitions with the configured severity', () {
+      final validator = Validator(
+        ruleConfigs: {_ruleName: const RuleConfig(severity: AnalysisSeverity.error)},
+        customRuleDefinitions: [_teamDefinition],
+      );
+
+      final _TeamRule? rule = validator.rules.whereType<_TeamRule>().firstOrNull;
+
+      expect(rule?.severity, AnalysisSeverity.error);
     });
   });
 

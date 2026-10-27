@@ -29,29 +29,19 @@ class Validator {
   ///
   /// * [ruleConfigs] defines resolved severity and options for the validation rules.
   /// * [customRules] specifies custom rules to be included in the validation.
-  /// * [ruleSet] lists the rules this validator knows about. It defaults to
-  ///   the built-in rules plus [customRules]; pass one or the other.
+  /// * [customRuleDefinitions] lists custom rules whose severity and
+  ///   parameters come from [ruleConfigs], like built-in rules.
   Validator({
     // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
     @Deprecated('Use ruleConfigs instead') Map<String, AnalysisSeverity>? ruleOverrides,
     Map<String, RuleConfig>? ruleConfigs,
     List<SkillRule>? customRules,
-    RuleSet? ruleSet,
+    List<RuleDefinition> customRuleDefinitions = const [],
   }) : _ruleConfigs = _mergeOverrides(ruleOverrides, ruleConfigs),
-       _rules = _resolveRuleSet(
-         ruleSet,
-         customRules,
+       _rules = RuleSet(
+         customDefinitions: customRuleDefinitions,
+         customRules: customRules ?? const [],
        ).buildRules(_mergeOverrides(ruleOverrides, ruleConfigs));
-
-  static RuleSet _resolveRuleSet(RuleSet? ruleSet, List<SkillRule>? customRules) {
-    if (ruleSet == null) {
-      return RuleSet(customRules: customRules ?? const []);
-    }
-    if (customRules != null && customRules.isNotEmpty) {
-      throw ArgumentError('Pass custom rules in ruleSet or customRules, not both.');
-    }
-    return ruleSet;
-  }
 
   static Map<String, RuleConfig> _mergeOverrides(
     Map<String, AnalysisSeverity>? deprecatedOverrides,

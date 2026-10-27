@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/rule_registry.dart';
+import 'package:skills_lint/src/rule_set.dart';
 import 'package:skills_lint/src/unknown_rule_names.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';

@@ -401,8 +401,8 @@ Future<Configuration?> _loadConfig(
 /// [ignoreFileOverride] is an optional path to a baseline file to use.
 /// [config] is the loaded configuration. Each entry in its
 /// [Configuration.parsingErrors], and each rule name in it that is neither
-/// built in nor in [customRules] or [customRuleDefinitions], is printed to standard error as a
-/// `Configuration warning:` line, and does not make validation fail. The
+/// built in nor in [customRules] or [customRuleDefinitions], is printed to
+/// standard error as a `Configuration warning:` line, and does not make validation fail. The
 /// `skills_lint` command fails on [Configuration.parsingErrors], so a caller
 /// that must fail on a broken configuration checks that
 /// [Configuration.parsingErrors] is empty.
@@ -410,7 +410,9 @@ Future<Configuration?> _loadConfig(
 /// [customRuleDefinitions] lists custom rules that [config] enables, disables
 /// and gives parameters to by name, like built-in rules. Unlike
 /// [customRules], their severity and parameters come from the configuration
-/// and round-trip through `skills_lint.yaml`.
+/// and round-trip through `skills_lint.yaml`. Throws an [ArgumentError] when
+/// a definition's name is taken by a built-in rule or another definition, or
+/// when a configured parameter breaks one of its [CheckType] constraints.
 /// [format] specifies the output format for diagnostics (`text`, `json`, `sarif`).
 ///
 /// Returns a [Future] that resolves to `true` if all skills validated successfully

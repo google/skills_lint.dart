@@ -14,6 +14,7 @@ import 'config_parser.dart';
 import 'fixable_rule.dart';
 import 'missing_target_diagnostic.dart';
 import 'models/analysis_severity.dart';
+import 'models/check_type.dart';
 import 'models/ignore_entry.dart';
 import 'models/output_format.dart';
 import 'models/pub_archive.dart';
@@ -84,7 +85,7 @@ class ValidationSession {
     Map<String, RuleConfigPatch> resolvedRuleConfigs = const {},
     required String? ignoreFileOverride,
     required this.customRules,
-    List<RuleDefinition> customRuleDefinitions = const [],
+    this.customRuleDefinitions = const [],
     required this.printWarnings,
     required this.fastFail,
     required this.quiet,
@@ -150,6 +151,9 @@ class ValidationSession {
   final Map<String, RuleConfigPatch> resolvedRuleConfigs;
   final String? ignoreFileOverride;
   final List<SkillRule> customRules;
+
+  /// Custom rules whose severity and parameters come from the configuration.
+  final List<RuleDefinition> customRuleDefinitions;
 
   /// The built-in rules plus every custom rule this session runs.
   final RuleSet ruleSet;
@@ -247,7 +251,11 @@ class ValidationSession {
 
     final Map<String, RuleConfig> resolvedConfigs = resolveRuleConfigsForPath(normalizedSkillPath);
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
-    final validator = Validator(ruleConfigs: resolvedConfigs, ruleSet: ruleSet);
+    final validator = Validator(
+      ruleConfigs: resolvedConfigs,
+      customRules: customRules,
+      customRuleDefinitions: customRuleDefinitions,
+    );
 
     final String ignorePath = _resolveIgnorePath(localIgnoreFile, skillDir);
     final SkillsIgnores ignores = await _loadIgnores(
@@ -380,7 +388,11 @@ class ValidationSession {
     final String normalizedSkillPath = p.normalize(entity.path);
     final Map<String, RuleConfig> resolvedConfigs = resolveRuleConfigsForPath(normalizedSkillPath);
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
-    final validator = Validator(ruleConfigs: resolvedConfigs, ruleSet: ruleSet);
+    final validator = Validator(
+      ruleConfigs: resolvedConfigs,
+      customRules: customRules,
+      customRuleDefinitions: customRuleDefinitions,
+    );
 
     final SkillsIgnores ignores = await _getIgnoresForSkill(
       localIgnoreFile,
@@ -534,10 +546,8 @@ class ValidationSession {
     final resolvedConfigs = <String, RuleConfig>{};
 
     // Initialize with all checks defaults
-    for (final RuleDefinition definition in ruleSet.definitions) {
-      if (definition.isConfigurable) {
-        resolvedConfigs[definition.name] = RuleConfig(severity: definition.check.defaultSeverity);
-      }
+    for (final CheckType check in ruleSet.configurableChecks) {
+      resolvedConfigs[check.name] = RuleConfig(severity: check.defaultSeverity);
     }
 
     void applyPatchMap(Map<String, RuleConfigPatch> patches) {

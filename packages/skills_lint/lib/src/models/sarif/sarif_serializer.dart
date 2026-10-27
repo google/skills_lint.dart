@@ -85,8 +85,7 @@ class SarifSerializer {
     final rules = <SarifRule>[];
     final seen = <String>{};
 
-    for (final RuleDefinition definition in ruleSet.definitions) {
-      final CheckType check = definition.check;
+    for (final (:CheckType check, :bool isCustom) in ruleSet.checks) {
       if (!seen.add(check.name)) {
         continue;
       }
@@ -99,7 +98,7 @@ class SarifSerializer {
             level: severityToSarifLevel(check.defaultSeverity),
           ),
           properties: {
-            SarifRule.keyTags: definition.isCustom
+            SarifRule.keyTags: isCustom
                 ? const ['lint', 'quality', 'custom-rule']
                 : const ['lint', 'quality'],
             SarifRule.keyProblemSeverity: 'recommendation',
