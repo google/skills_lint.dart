@@ -2,73 +2,68 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:meta/meta.dart';
+
 import 'config_parser.dart';
 import 'models/skill_rule.dart';
 import 'rule_registry.dart';
-import 'suggestions/levenshtein.dart';
+import 'suggestions/closest_name.dart';
 
-/// The largest edit distance at which a known rule name is suggested for an
-/// unknown one.
-const int _maxSuggestionDistance = 3;
+/// A rule name in a configuration that is neither a built-in rule nor a
+/// custom rule.
+@immutable
+class UnknownRuleName {
+  /// Creates a finding for [name], found in the rules map that [context]
+  /// labels, with an optional [suggestion].
+  const UnknownRuleName({required this.context, required this.name, this.suggestion});
 
-/// Lists a warning message for each rule name in [config] that is neither a
-/// built-in rule nor one of [customRules].
+  /// The label of the rules map [name] appears in, such as
+  /// [ConfigParser.globalRulesLabel].
+  final String context;
+
+  /// The rule name as written.
+  final String name;
+
+  /// The known rule name closest to [name], or `null` when none is close.
+  final String? suggestion;
+
+  /// The text shown to the user.
+  String get message =>
+      '$context: Unknown rule "$name".${suggestion == null ? '' : ' Did you mean "$suggestion"?'}';
+}
+
+/// Finds each rule name in [config] that is neither a built-in rule nor one
+/// of [customRules].
 ///
 /// Checks the top-level `rules` map and the `rules` map of every
 /// `directories` and `individual_skills` entry. [ConfigParser] cannot do this
 /// check, because it does not know which custom rules the caller passes.
-///
-/// When a known rule name is close to the unknown one, the message suggests
-/// it.
-List<String> unknownRuleNameWarnings(Configuration config, List<SkillRule> customRules) {
+List<UnknownRuleName> findUnknownRuleNames(Configuration config, List<SkillRule> customRules) {
   final List<String> knownNames = [
     for (final check in RuleRegistry.allChecks) check.name,
     for (final rule in customRules) rule.name,
   ];
   final Set<String> knownSet = knownNames.toSet();
 
-  final warnings = <String>[];
-  void checkRules(Iterable<String> ruleNames, String contextLabel) {
-    for (final name in ruleNames) {
-      if (knownSet.contains(name)) {
-        continue;
-      }
-      final String? suggestion = _closest(name, knownNames);
-      final suggestionClause = suggestion == null ? '' : ' Did you mean "$suggestion"?';
-      warnings.add('$contextLabel: Unknown rule "$name".$suggestionClause');
-    }
-  }
+  Iterable<UnknownRuleName> check(Iterable<String> ruleNames, String context) => [
+    for (final name in ruleNames)
+      if (!knownSet.contains(name))
+        UnknownRuleName(context: context, name: name, suggestion: closestName(name, knownNames)),
+  ];
 
-  checkRules(config.ruleConfigs.keys, 'Global rules');
-  for (final LintTargetConfig target in config.directoryConfigs) {
-    checkRules(target.ruleConfigs.keys, 'Directory entry rules for "${_authoredPath(target)}"');
-  }
-  for (final LintTargetConfig target in config.individualSkillConfigs) {
-    checkRules(
-      target.ruleConfigs.keys,
-      'Individual skill entry rules for "${_authoredPath(target)}"',
-    );
-  }
-  return warnings;
-}
-
-/// Finds the name in [candidates] closest to [name], or `null` when none is
-/// within [_maxSuggestionDistance] or two are equally close.
-String? _closest(String name, Iterable<String> candidates) {
-  String? best;
-  int bestDistance = _maxSuggestionDistance + 1;
-  var tied = false;
-  for (final candidate in candidates) {
-    final int distance = levenshtein(name, candidate);
-    if (distance < bestDistance) {
-      best = candidate;
-      bestDistance = distance;
-      tied = false;
-    } else if (distance == bestDistance && candidate != best) {
-      tied = true;
-    }
-  }
-  return tied ? null : best;
+  return [
+    ...check(config.ruleConfigs.keys, ConfigParser.globalRulesLabel),
+    for (final LintTargetConfig target in config.directoryConfigs)
+      ...check(
+        target.ruleConfigs.keys,
+        ConfigParser.entryRulesLabel(ConfigParser.directoriesKey, _authoredPath(target)),
+      ),
+    for (final LintTargetConfig target in config.individualSkillConfigs)
+      ...check(
+        target.ruleConfigs.keys,
+        ConfigParser.entryRulesLabel(ConfigParser.individualSkillsKey, _authoredPath(target)),
+      ),
+  ];
 }
 
 /// Reads [target]'s path as written in the configuration file, matching the

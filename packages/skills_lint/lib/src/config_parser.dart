@@ -38,6 +38,22 @@ class ConfigParser {
   static const String rulesKey = 'rules';
   static const String directoriesKey = 'directories';
   static const String individualSkillsKey = 'individual_skills';
+
+  /// The label that starts a message about the top-level `rules` map.
+  static const String globalRulesLabel = 'Global rules';
+
+  /// The label that starts a message about an entry under [configKey]
+  /// ([directoriesKey] or [individualSkillsKey]).
+  static String entryLabel(String configKey) =>
+      configKey == directoriesKey ? 'Directory entry' : 'Individual skill entry';
+
+  /// The label that starts a message about the `rules` map of the entry for
+  /// [path] under [configKey].
+  static String entryRulesLabel(String configKey, Object? path) =>
+      _entryRulesLabel(entryLabel(configKey), path);
+
+  static String _entryRulesLabel(String entryLabel, Object? path) =>
+      '$entryLabel rules for "$path"';
   static const String pathKey = 'path';
   static const String ignoreFileKey = 'ignore_file';
   static const String severityKey = 'severity';
@@ -266,7 +282,7 @@ class ConfigParser {
     if (toolConfig.containsKey(rulesKey)) {
       final Object? rules = toolConfig[rulesKey];
       if (rules is YamlMap) {
-        return _parseRulesMap(rules, parsingErrors, 'Global rules');
+        return _parseRulesMap(rules, parsingErrors, globalRulesLabel);
       }
     }
     return const <String, RuleConfigPatch>{};
@@ -377,9 +393,7 @@ class ConfigParser {
       return const <LintTargetConfig>[];
     }
 
-    final entryLabelCap = configKey == directoriesKey
-        ? 'Directory entry'
-        : 'Individual skill entry';
+    final String entryLabelCap = entryLabel(configKey);
     final entryLabelLower = configKey == directoriesKey
         ? 'directory entry'
         : 'individual skill entry';
@@ -493,7 +507,7 @@ class ConfigParser {
     }
     final Object? localRules = dir[rulesKey];
     if (localRules is YamlMap) {
-      return _parseRulesMap(localRules, parsingErrors, '$entryLabelCap rules for "$path"');
+      return _parseRulesMap(localRules, parsingErrors, _entryRulesLabel(entryLabelCap, path));
     }
     parsingErrors.add(
       '$entryLabelCap "$rulesKey" for "$path" must be a map; '
