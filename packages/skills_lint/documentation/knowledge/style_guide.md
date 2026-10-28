@@ -148,6 +148,72 @@ Group constants by concept (for example CLI flags, then messages). Separate each
 
 ---
 
+## 🧱 Parse at the Boundary & Make Illegal States Unrepresentable
+
+Parse untyped external data (YAML, JSON, CLI arguments, filesystem paths) once where it enters the system into typed Dart classes, records, enums, or `File`/`Directory` objects. Do not pass raw `Map<String, dynamic>` option bags, boolean origin flags, or three or more positional `String` parameters across internal APIs, and do not re-parse strings that `package:yaml` already typed.
+
+```dart
+// BAD: Passing raw dynamic maps, re-parsing YAML booleans, or using boolean origin flags.
+class RelativePathsRule extends SkillRule {
+  RelativePathsRule({Map<String, dynamic>? options})
+    : checkDirectories =
+          options?['check-directories'] == true ||
+          options?['check-directories'] == 'true';
+  final bool checkDirectories;
+}
+
+// GOOD: Parse once at the config boundary; accept a typed parameter with its canonical default.
+class RelativePathsRule extends SkillRule {
+  RelativePathsRule({this.checkDirectories = defaultCheckDirectories});
+
+  static const bool defaultCheckDirectories = false;
+  final bool checkDirectories;
+}
+```
+
+```dart
+// BAD: Multiple positional String parameters and raw path strings passed into file utilities.
+YamlEditResult buildSuppressionEdit(
+  String content,
+  String targetKey,
+  String ruleId,
+  String severity,
+);
+Future<List<String>> findUnformattedFiles(String rootDirPath);
+
+// GOOD: Named parameters or a typed record/model, and `Directory`/`File` at the API boundary.
+YamlEditResult buildSuppressionEdit(
+  String content, {
+  required String targetKey,
+  required String ruleId,
+  required String severity,
+});
+Future<List<File>> findUnformattedFiles(Directory rootDir);
+```
+
+---
+
+## 🎯 Single Source of Truth (One Decision in One Place)
+
+Every default parameter value, schema key, URI scheme allowlist, file extension set, or path-normalization helper lives in one canonical place. Callers and registries forward or reference that definition rather than repeating the literal.
+
+```dart
+// BAD: Repeating the default value (`false`) in both the rule registry and the rule constructor.
+// In rule_registry.dart:
+RelativePathsRule(
+  checkDirectories: (options['check-directories'] as bool?) ?? false,
+)
+
+// GOOD: Reference the class constant from the owning rule.
+RelativePathsRule(
+  checkDirectories:
+      options[RelativePathsRule.keyCheckDirectories] as bool? ??
+      RelativePathsRule.defaultCheckDirectories,
+)
+```
+
+---
+
 ## 📦 Value Objects and Immutability
 
 1. Annotate value model classes with `@immutable` (from `package:meta`).
@@ -161,6 +227,23 @@ Extract multi-line strings, diagnostics, and formatted markdown message construc
 
 ---
 
+## 🔄 Refactoring & Addressing Review Feedback
+
+When a requirement or review comment exposes that a helper, class, or test has mixed responsibilities, redesign the data flow rather than bolting a boolean toggle or extra conditional branch onto the existing signature.
+
+```dart
+// BAD: Bolting a boolean mode flag onto a checker when a test needs filesystem-walk vs git-tracked discovery.
+Future<List<File>> findMissingCopyrightHeaders(
+  Directory root, {
+  bool useGitLsFiles = true,
+});
+
+// GOOD: Separate file discovery from header checking so callers pass the exact iterable of files they want checked.
+Future<List<File>> findMissingCopyrightHeaders(Iterable<File> files);
+```
+
+---
+
 ## Tests
 
 Tests give confidence that the code keeps working through refactors and added features, and that customers don't break. A failing test is often read only in CI logs, from an OS the author didn't run.
@@ -169,6 +252,9 @@ Tests give confidence that the code keeps working through refactors and added fe
 - A failing test's output must be enough to debug from CI logs alone. Name the input, the expected value and the actual value.
 - Every `skip:` or `testOn:` gives the reason at that spot.
 - "Hard to test" is not a reason to skip unit tests for pure logic. Pure logic is the cheapest code to test.
+- **Verify the test fails first (Red-First):** For every bug fix or diagnostic rule check, confirm the test fails without the fix for the expected reason.
+- **Test round-trip contracts on fixes and serializers:** Every test of an auto-fix (`SkillRule.fix`), YAML editor, or baseline/config generator feeds the modified output back through the parser or `Validator` and asserts that the target violation is resolved and no unintended diagnostics are introduced.
+- **Isolate the rule under test in fixtures:** Minimal `SKILL.md` fixtures include valid required frontmatter (`name` and `description`) unless the test targets missing frontmatter, so unrelated rule failures cannot mask or mimic the diagnostic under test.
 - Tests of the shipped skills_lint package go in `test/`. Scans that fail when the repo drifts go in `repo_test/`, and unit tests of their checker code go in `repo_test/checkers/`. See [Where tests go](../../../../CONTRIBUTING.md#where-tests-go).
 
 ---
