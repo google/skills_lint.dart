@@ -274,16 +274,22 @@ governs how changes to these rules ship.
 - **Default severity:** disabled
 - **Fixable:** no
 - **What it checks:** every rule name in `skills_lint.yaml` is a built-in
-  rule or one of the `customRules` passed to `validateSkills`. It runs
-  once on the configuration file, so only the top-level `rules` and the
-  command line configure it. To use a rule name that should not trigger
+  rule or one of the `customRules` passed to `validateSkills`. It checks
+  the top-level `rules` map and the `rules` map of every `directories`
+  and `individual_skills` entry. It runs once on the configuration file,
+  so only the top-level `rules` and the command line set its own
+  severity and `allow` list. To use a rule name that should not trigger
   this check, such as a custom rule when running the CLI or a rule from
   a newer version of `skills_lint`, list the name in `allow`.
 - **Diagnostic shape:** names the configuration section and the unknown
   rule name. If the name is close to a name `skills_lint` knows about,
-  including custom rules, then it will offer a suggestion. If two names
-  are equally close, it offers none. In SARIF output, the result points
-  to the line of the unknown rule name in `skills_lint.yaml`.
+  including custom rules, then it will offer a suggestion. If several
+  names are equally close, it lists all of them. In SARIF output, the
+  result points to the line of the unknown rule name in
+  `skills_lint.yaml`.
+- **Ignores:** findings belong to the configuration file, not to a skill,
+  so `--generate-baseline` does not write them and ignore files cannot
+  suppress them. Use `allow` to accept a name.
 - **Parameters:**
   - `allow` (list of strings): rule names to accept without reporting
     them.

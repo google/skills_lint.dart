@@ -31,11 +31,11 @@ void main() {
       // Missing target: DETAILS.md; actual file on disk: DETAILS.md (typo).
       await File(p.join(tempDir.path, 'DETAILS.md')).writeAsString('details');
       // Original link was just `DEATILS.md` — no parent dir to preserve.
-      final String? result = findSiblingSuggestion(
+      final List<String> result = findSiblingSuggestions(
         originalLink: 'DEATILS.md',
         resolvedPath: p.join(tempDir.path, 'DEATILS.md'),
       );
-      expect(result, 'DETAILS.md');
+      expect(result, ['DETAILS.md']);
     });
 
     test('preserves the directory prefix when the link had one', () async {
@@ -44,43 +44,43 @@ void main() {
 
       // Original link was `references/DEATILS.md` — the suggestion should
       // include the same prefix so the user can paste it back verbatim.
-      final String? result = findSiblingSuggestion(
+      final List<String> result = findSiblingSuggestions(
         originalLink: 'references/DEATILS.md',
         resolvedPath: p.join(refs.path, 'DEATILS.md'),
       );
-      expect(result, 'references/DETAILS.md');
+      expect(result, ['references/DETAILS.md']);
     });
 
     test('returns null when no candidate is close to the missing basename', () async {
       await File(p.join(tempDir.path, 'COMPLETELY_UNRELATED.txt')).writeAsString('nope');
-      final String? result = findSiblingSuggestion(
+      final List<String> result = findSiblingSuggestions(
         originalLink: 'MISSING.md',
         resolvedPath: p.join(tempDir.path, 'MISSING.md'),
       );
-      expect(result, isNull);
+      expect(result, isEmpty);
     });
 
     test('returns null when the parent directory does not exist', () {
-      final String? result = findSiblingSuggestion(
+      final List<String> result = findSiblingSuggestions(
         originalLink: 'nonexistent/X.md',
         resolvedPath: p.join(tempDir.path, 'nonexistent', 'X.md'),
       );
-      expect(result, isNull);
+      expect(result, isEmpty);
     });
 
     test('ignores directories — only files are candidates', () async {
       // Create a *directory* whose name is close to the missing file's
       // basename. It should not be offered as a suggestion.
       await Directory(p.join(tempDir.path, 'DETAILS.md')).create();
-      final String? result = findSiblingSuggestion(
+      final List<String> result = findSiblingSuggestions(
         originalLink: 'DEATILS.md',
         resolvedPath: p.join(tempDir.path, 'DEATILS.md'),
       );
-      expect(result, isNull);
+      expect(result, isEmpty);
     });
   });
 
-  group('closestSiblingName', () {
+  group('closestSiblingNames', () {
     late Directory tempDir;
 
     setUp(() {
@@ -98,19 +98,19 @@ void main() {
       File(p.join(tempDir.path, 'skill')).writeAsStringSync('not a directory');
       Directory(p.join(tempDir.path, 'skils_')).createSync();
 
-      expect(closestSiblingName(tempDir, 'skills', kind: SiblingKind.directory), 'skils_');
+      expect(closestSiblingNames(tempDir, 'skills', kind: SiblingKind.directory), ['skils_']);
     });
 
-    test('suggests nothing for a link when two files are equally close', () {
+    test('suggests every file that is equally close, sorted', () {
       File(p.join(tempDir.path, 'details.md')).writeAsStringSync('a');
       File(p.join(tempDir.path, 'detais.md')).writeAsStringSync('b');
 
       expect(
-        findSiblingSuggestion(
+        findSiblingSuggestions(
           originalLink: 'detals.md',
           resolvedPath: p.join(tempDir.path, 'detals.md'),
         ),
-        isNull,
+        ['details.md', 'detais.md'],
       );
     });
   });

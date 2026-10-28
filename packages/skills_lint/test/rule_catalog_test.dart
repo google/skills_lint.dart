@@ -2,6 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/rule_catalog.dart';
 import 'package:skills_lint/src/rule_registry.dart';
@@ -84,8 +87,8 @@ void _testNames() {
 
 void _testFindUnknownNames() {
   group('RuleCatalog.findUnknownNames', () {
-    test('names a misspelled rule, records its YAML line, and suggests the closest rule', () {
-      // `check-relative-path` misspells `check-relative-paths` on line 3.
+    test('names a misspelled rule, records where it is, and suggests the closest rule', () {
+      // `check-relative-path` misspells `check-relative-paths`.
       // The YAML is parsed to check that the parser reports no error for it.
       final Configuration config = ConfigParser.parse('''
 skills_lint:
@@ -97,8 +100,12 @@ skills_lint:
       final List<UnknownRuleName> findings = const RuleCatalog().findUnknownNames(config);
       expect(findings, hasLength(1));
       expect(findings.single.name, 'check-relative-path');
-      expect(findings.single.suggestion, 'check-relative-paths');
-      expect(findings.single.line, 3);
+      expect(findings.single.suggestions, ['check-relative-paths']);
+      expect(findings.single.key, (
+        section: 'rules',
+        entryIndex: null,
+        ruleName: 'check-relative-path',
+      ));
       expect(
         UnknownRuleNameRule.formatMessage(findings.single),
         allOf(
@@ -126,7 +133,7 @@ skills_lint:
           final List<UnknownRuleName> findings = const RuleCatalog().findUnknownNames(config);
           expect(findings, hasLength(1));
           expect(findings.single.name, typo);
-          expect(findings.single.suggestion, rule);
+          expect(findings.single.suggestions, [rule]);
           expect(
             UnknownRuleNameRule.formatMessage(findings.single),
             allOf(contains(typo), contains(rule)),
@@ -139,7 +146,7 @@ skills_lint:
       // Writing a rule's Dart class stem (such as `description-length` for
       // `DescriptionLengthRule` instead of `description-too-long`, or
       // `name-format` for `NameFormatRule` instead of `invalid-skill-name`)
-      // exceeds the edit-distance threshold, so suggestion is null.
+      // exceeds the edit-distance threshold, so there is no suggestion.
       for (final typo in ['description-length', 'name-format']) {
         test(typo, () {
           final config = Configuration(ruleConfigs: {typo: _error});
@@ -147,7 +154,7 @@ skills_lint:
           final List<UnknownRuleName> findings = const RuleCatalog().findUnknownNames(config);
           expect(findings, hasLength(1));
           expect(findings.single.name, typo);
-          expect(findings.single.suggestion, isNull);
+          expect(findings.single.suggestions, isEmpty);
         });
       }
     });
@@ -161,10 +168,10 @@ skills_lint:
         customRules: [QuietRule(name: 'check-relative-p')],
       ).findUnknownNames(config);
       expect(findings, hasLength(1));
-      expect(findings.single.suggestion, 'check-relative-paths');
+      expect(findings.single.suggestions, ['check-relative-paths']);
     });
 
-    test('suggests nothing when a built-in and a custom rule are equally close', () {
+    test('suggests both when a built-in and a custom rule are equally close', () {
       // `check-relative-path` is 1 edit from both `check-relative-paths` and
       // the custom rule `check-relative-patx`. Neither kind is preferred.
       const config = Configuration(ruleConfigs: {'check-relative-path': _error});
@@ -173,7 +180,7 @@ skills_lint:
         customRules: [QuietRule(name: 'check-relative-patx')],
       ).findUnknownNames(config);
       expect(findings, hasLength(1));
-      expect(findings.single.suggestion, isNull);
+      expect(findings.single.suggestions, ['check-relative-paths', 'check-relative-patx']);
     });
 
     test('names an unknown rule without a suggestion when nothing is close', () {
@@ -182,7 +189,7 @@ skills_lint:
       final List<UnknownRuleName> findings = const RuleCatalog().findUnknownNames(config);
       expect(findings, hasLength(1));
       expect(findings.single.name, 'no-such-rule-at-all');
-      expect(findings.single.suggestion, isNull);
+      expect(findings.single.suggestions, isEmpty);
     });
 
     test('checks the rules of directory and individual skill entries', () {
@@ -234,7 +241,7 @@ skills_lint:
       ).findUnknownNames(config);
       expect(findings, hasLength(1));
       expect(findings.single.name, 'my-team-rul');
-      expect(findings.single.suggestion, 'my-team-rule');
+      expect(findings.single.suggestions, ['my-team-rule']);
     });
 
     test('does not flag a name in allowed', () {
@@ -258,26 +265,89 @@ skills_lint:
 
 void _testUnknownRuleNameRule() {
   group('UnknownRuleNameRule.validate', () {
-    test('attaches the configuration file and YAML line to the ValidationError', () {
-      final Configuration config = ConfigParser.parse('''
+    late Directory tempDir;
+    late String configFile;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('unknown_rule_name_test.');
+      configFile = p.join(tempDir.path, 'skills_lint.yaml');
+    });
+
+    tearDown(() => tempDir.deleteSync(recursive: true));
+
+    List<ValidationError> validateFile(String yaml, {bool passFile = true}) {
+      File(configFile).writeAsStringSync(yaml);
+      final Configuration config = ConfigParser.parse(
+        yaml,
+        configSource: ConfigSource.file(configFile),
+      );
+      return UnknownRuleNameRule(
+        severity: AnalysisSeverity.error,
+      ).validate(config, configFile: passFile ? configFile : null);
+    }
+
+    test('points a top-level rule name at its line in the configuration file', () {
+      final List<ValidationError> errors = validateFile('''
 skills_lint:
   rules:
     unknown-rule-name: error
     check-relative-path: error
-''', configSource: const ConfigSource.file('/repo/skills_lint.yaml'));
-
-      final List<ValidationError> errors = UnknownRuleNameRule(
-        severity: AnalysisSeverity.error,
-      ).validate(config);
+''');
 
       expect(errors, hasLength(1));
       expect(errors.single.ruleId, UnknownRuleNameRule.ruleName);
-      expect(errors.single.file, endsWith('skills_lint.yaml'));
+      expect(errors.single.file, configFile);
       expect(errors.single.region?.startLine, 4);
       expect(
         errors.single.message,
         allOf(contains('check-relative-path'), contains('check-relative-paths')),
       );
+    });
+
+    test('has no line for a configuration parsed without a file', () {
+      final List<ValidationError> errors = validateFile('''
+skills_lint:
+  rules:
+    check-relative-path: error
+''', passFile: false);
+
+      expect(errors, hasLength(1));
+      expect(errors.single.file, 'skills_lint.yaml');
+      expect(errors.single.region, isNull);
+    });
+
+    test('tells apart two directory entries with the same path', () {
+      final List<ValidationError> errors = validateFile('''
+skills_lint:
+  directories:
+    - path: skills
+      rules:
+        check-relative-paths: error
+    - path: skills
+      rules:
+        check-relative-path: error
+''');
+
+      expect(errors, hasLength(1));
+      expect(errors.single.region?.startLine, 8);
+    });
+
+    test('has no line when a dropped entry shifts the entry index', () {
+      // The first entry has no path, so the parser drops it. The typo is in
+      // the second YAML entry, which is the first parsed entry. Index 0 in
+      // the YAML has no such rule, so no line is better than a wrong one.
+      final List<ValidationError> errors = validateFile('''
+skills_lint:
+  directories:
+    - rules:
+        check-relative-paths: error
+    - path: skills
+      rules:
+        check-relative-path: error
+''');
+
+      expect(errors, hasLength(1));
+      expect(errors.single.region, isNull);
     });
   });
 }

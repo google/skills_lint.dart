@@ -157,11 +157,15 @@ Future<void> runApp(List<String> args) async {
     return;
   }
 
-  final Configuration? config = await _loadConfig(results, format: format);
-  if (config == null) {
+  final ({Configuration config, String? configFile})? loaded = await _loadConfig(
+    results,
+    format: format,
+  );
+  if (loaded == null) {
     exitCode = 1;
     return;
   }
+  final Configuration config = loaded.config;
 
   // Do not resolve these paths here. [validateSkillsInternal] anchors them in
   // one place, so a flag and a programmatic call resolve the same string to
@@ -210,6 +214,7 @@ Future<void> runApp(List<String> args) async {
       fixApply: fixApply,
       ignoreFileOverride: ignoreFileOverride,
       config: config,
+      configFile: loaded.configFile,
       format: format,
     );
     if (success) {
@@ -338,18 +343,39 @@ ArgParser _createArgParser(String helpFlag) {
   return parser;
 }
 
-Future<Configuration?> _loadConfig(
+/// The configuration file the command line reads, or `null` under
+/// `--ignore-config` ([ignoreConfig]) or when the file does not exist.
+///
+/// [configPath] is the `--config` value, or `null` for the default
+/// `skills_lint.yaml`.
+@visibleForTesting
+String? cliConfigFile({required bool ignoreConfig, String? configPath}) {
+  if (ignoreConfig) {
+    return null;
+  }
+  final String resolved = resolveConfigPath(configPath);
+  return File(resolved).existsSync() ? resolved : null;
+}
+
+/// Loads the configuration the command line asks for, with the file it came
+/// from, or returns `null` when the run should stop.
+///
+/// The file is `null` under `--ignore-config` or when there is no
+/// configuration file.
+Future<({Configuration config, String? configFile})?> _loadConfig(
   ArgResults results, {
   OutputFormat format = OutputFormat.text,
 }) async {
   final ignoreConfig = results[_ignoreConfigFlag] as bool;
   final Configuration config;
+  String? configFile;
   if (ignoreConfig) {
     config = const Configuration();
   } else {
     try {
       final configPath = results[_configOption] as String?;
       config = await ConfigParser.loadConfig(path: configPath);
+      configFile = cliConfigFile(ignoreConfig: ignoreConfig, configPath: configPath);
     } on FileSystemException catch (e) {
       _log.severe('Error: ${e.message} (${e.path})');
       return null;
@@ -376,7 +402,7 @@ Future<Configuration?> _loadConfig(
       return null;
     }
   }
-  return config;
+  return (config: config, configFile: configFile);
 }
 
 /// Validates skills based on the provided configuration.
@@ -448,6 +474,9 @@ Future<bool> validateSkills({
 /// When [warnOnParsingErrors] is true, each entry in
 /// [Configuration.parsingErrors] of [config] is reported as a warning.
 ///
+/// [configFile] is the file [config] was loaded from, if any. Checks of the
+/// configuration use it to point findings at a line.
+///
 /// Returns `true` if all validations passed (or if generating a baseline), `false` otherwise.
 @visibleForTesting
 Future<bool> validateSkillsInternal({
@@ -463,6 +492,7 @@ Future<bool> validateSkillsInternal({
   bool fixApply = false,
   String? ignoreFileOverride,
   Configuration? config,
+  String? configFile,
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
   // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/152 - remove this flag when config errors fail validateSkills.
@@ -519,6 +549,7 @@ Future<bool> validateSkillsInternal({
     fix: fix,
     fixApply: fixApply,
     format: format,
+    configFile: configFile,
   );
   _reportConfigurationWarnings(session, enabled: warnOnParsingErrors);
   session.reportUnknownRuleNames();

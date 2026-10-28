@@ -74,6 +74,9 @@ class ValidationSession {
   /// * [fixApply] is the deprecated flag indicating if fixes should be automatically applied.
   // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
   /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
+  /// * [configFile] is the file [config] was loaded from, or `null` when it
+  ///   was built in memory. Checks of the configuration use it to point
+  ///   findings at a line.
   /// * [pubArchiveLoader] lists the files pub publishes. Tests pass one with a
   ///   fake process runner.
   ValidationSession({
@@ -92,6 +95,7 @@ class ValidationSession {
     // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
     required this.fixApply,
     this.format = OutputFormat.text,
+    this.configFile,
     @visibleForTesting PubArchiveLoader? pubArchiveLoader,
   }) : _pubArchiveLoader = pubArchiveLoader ?? PubArchiveLoader(),
        _catalog = RuleCatalog(customRules: customRules),
@@ -153,6 +157,10 @@ class ValidationSession {
   final bool fastFail;
   final bool quiet;
   final bool generateBaseline;
+
+  /// The file [config] was loaded from, or `null` when it was built in
+  /// memory.
+  final String? configFile;
   final bool fix;
   // TODO(reidbaker): Remove deprecated fixApply field on next major version bump.
   final bool fixApply;
@@ -470,12 +478,16 @@ class ValidationSession {
   /// failed when the severity is [AnalysisSeverity.error]. Does nothing when
   /// the rule is disabled, its default.
   void reportUnknownRuleNames() {
-    final RuleConfig ruleConfig = resolveGlobalRuleConfigs()[UnknownRuleNameRule.ruleName]!;
+    final RuleConfig ruleConfig = resolveTopLevelRuleConfigs()[UnknownRuleNameRule.ruleName]!;
     final rule = UnknownRuleNameRule(
       severity: ruleConfig.severity,
       allowed: ruleConfig.parameters.getStringList(UnknownRuleNameRule.allowParameter) ?? const [],
     );
-    final List<ValidationError> errors = rule.validate(config, catalog: _catalog);
+    final List<ValidationError> errors = rule.validate(
+      config,
+      catalog: _catalog,
+      configFile: configFile,
+    );
     for (final error in errors) {
       _reporter.onConfigurationProblem(error.message);
       _results.add(ValidationResult(validationErrors: [error]));
@@ -547,9 +559,10 @@ class ValidationSession {
   /// `rules` map of [config], and [resolvedRuleConfigs].
   ///
   /// Configuration-level rules use this directly; [resolveRuleConfigsForPath]
-  /// layers target-specific overrides on top of the global `rules` map.
+  /// layers `directories` and `individual_skills` overrides on top of the
+  /// top-level `rules` map.
   @visibleForTesting
-  Map<String, RuleConfig> resolveGlobalRuleConfigs() =>
+  Map<String, RuleConfig> resolveTopLevelRuleConfigs() =>
       _resolveRuleConfigs(targetPatches: const []);
 
   @visibleForTesting
