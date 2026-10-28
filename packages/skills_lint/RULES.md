@@ -70,8 +70,10 @@ governs how changes to these rules ship.
   `Linked file does not exist: <path> (resolved to <absolute path>). Did you mean "<sibling>"?`
   The `Did you mean` clause is only included when a near-miss file
   is found in the same directory; it's scored by string similarity
-  against the missing basename. The suggestion preserves the link's
-  original directory prefix, normalized to forward slashes.
+  against the missing basename. When several files are equally close,
+  it lists all of them, sorted: `Did you mean "<a>" or "<b>"?`. Each
+  suggestion preserves the link's original directory prefix, normalized
+  to forward slashes.
   With `within-skill: true`, a link outside the skill directory is
   reported as:
   `Linked file is outside the skill directory: <path> (resolved to <absolute path>). The link breaks when the skill is installed on its own. Link to an absolute URL, or copy the content into the skill directory.`
@@ -284,9 +286,9 @@ governs how changes to these rules ship.
 - **Diagnostic shape:** names the configuration section and the unknown
   rule name. If the name is close to a name `skills_lint` knows about,
   including custom rules, then it will offer a suggestion. If several
-  names are equally close, it lists all of them. In SARIF output, the
-  result points to the line of the unknown rule name in
-  `skills_lint.yaml`.
+  names are equally close, it lists all of them. In JSON and SARIF
+  output, the result names `skills_lint.yaml` as its file and points to
+  the line of the unknown rule name.
 - **Ignores:** findings belong to the configuration file, not to a skill,
   so `--generate-baseline` does not write them and ignore files cannot
   suppress them. Use `allow` to accept a name.

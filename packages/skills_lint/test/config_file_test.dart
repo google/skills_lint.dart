@@ -1103,6 +1103,46 @@ skills_lint:
         );
       });
 
+      test('reports an unknown rule name with its file and line in JSON output', () async {
+        await writeConfig(const {
+          UnknownRuleNameRule.ruleName: enabled,
+          'trailing-whitespace': enabled,
+        });
+
+        final TestProcess process = await startCli([
+          '--format=json',
+        ], workingDirectory: tempDir.path);
+
+        await process.shouldExit(1);
+        final Object? json = jsonDecode((await process.stdout.rest.toList()).join('\n'));
+        final Map<String, Object?> error = _findErrors(
+          json,
+        ).singleWhere((e) => e['ruleId'] == UnknownRuleNameRule.ruleName);
+        expect(error['file'].toString(), endsWith('skills_lint.yaml'));
+        final int expectedLine =
+            File(p.join(tempDir.path, 'skills_lint.yaml')).readAsLinesSync().indexWhere(
+              (String l) => l.trim().startsWith('trailing-whitespace'),
+            ) +
+            1;
+        expect((error['region']! as Map<String, Object?>)['startLine'], expectedLine);
+      });
+
+      test('reads its severity and allow list from the command line', () async {
+        // The configuration does not enable the rule. The command line does,
+        // and allows one of the two unknown names.
+        await writeConfig(const {'valid-yaml-metdata': enabled, 'rule-from-later': enabled});
+
+        final TestProcess process = await startCli([
+          '--unknown-rule-name',
+          '--unknown-rule-name-allow=rule-from-later',
+        ], workingDirectory: tempDir.path);
+
+        await process.shouldExit(1);
+        final String err = (await process.stderr.rest.toList()).join('\n');
+        expect(err, contains('Unknown rule "valid-yaml-metdata"'));
+        expect(err, isNot(contains('Unknown rule "rule-from-later"')));
+      });
+
       // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
       // Expect exit code 1 once the rule is enabled by default in 0.6.0.
       test('ignores an unknown rule name by default', () async {
@@ -1152,6 +1192,14 @@ skills_lint:
     });
   });
 }
+
+/// Collects every map with a `ruleId` key in decoded JSON output.
+List<Map<String, Object?>> _findErrors(Object? json) => switch (json) {
+  final Map<String, Object?> map when map.containsKey('ruleId') => [map],
+  final Map<String, Object?> map => [for (final v in map.values) ..._findErrors(v)],
+  final List<Object?> list => [for (final v in list) ..._findErrors(v)],
+  _ => const [],
+};
 
 void main() {
   defineCliTests();

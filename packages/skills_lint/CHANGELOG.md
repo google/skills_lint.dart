@@ -6,13 +6,14 @@
 
 ### New rules
 
+- Added the `unknown-rule-name` rule, disabled by default. It reports a rule name in `skills_lint.yaml` that names no built-in or custom rule, with a "Did you mean" suggestion. Its `allow` parameter lists names to accept, such as rules from a newer skills_lint.
 - Added the `pub-archive-includes-skill` rule, disabled by default. It reports a skill in a package's `skills/` directory, or a package file that `SKILL.md` links to, that `dart pub publish` would leave out, and links to files outside the package. It needs `dart` on `PATH`.
 
 ### Behavior changes
 
 - When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
 - In `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
-- `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link.
+- When several files are equally close to a broken link, `check-relative-paths` lists all of them in its "Did you mean" suggestion, sorted, instead of one that depended on the order the file system lists them in.
 - `invalid-skill-name` `--fix` writes only a directory name that is a valid skill name. For a directory such as `my_skill`, it leaves `name` unchanged and reports the mismatch.
 - `check-trailing-whitespace` treats a lone carriage return (`\r`) as a line break. It reports trailing whitespace before one, and running `--fix` twice gives the same result as running it once.
 - `check-relative-paths` decodes percent escapes before it looks for the file, so `[doc](my%20file.md)` resolves to `my file.md`. A file named literally `my%20file.md` no longer matches it.
@@ -23,7 +24,6 @@
 
 ### New features
 
-- Added the `unknown-rule-name` rule, disabled by default. It reports a rule name in `skills_lint.yaml` that names no built-in or custom rule, with a "Did you mean" suggestion. Its `allow` parameter lists names to accept, such as rules from a newer skills_lint.
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
 - Added a `within-skill` parameter to `check-relative-paths` that reports relative links leaving the skill directory, which break when the skill is copied somewhere else on its own. Off by default. Enable it with `within-skill: true` or `--check-relative-paths-within-skill=true`.
