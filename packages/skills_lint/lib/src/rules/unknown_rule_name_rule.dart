@@ -7,6 +7,7 @@ import '../models/analysis_severity.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
+import '../suggestions/closest_name.dart';
 import '../unknown_rule_names.dart';
 
 /// Checks that every rule name in `skills_lint.yaml` names a built-in rule or
@@ -60,8 +61,11 @@ class UnknownRuleNameRule {
     ];
   }
 
-  /// Formats [finding] for console, JSON, and SARIF output.
+  /// Builds the plain-text message for [finding], such as
+  /// `Global rules: Unknown rule "x". Did you mean "y"?`.
+  ///
+  /// Reporters decide how to present it; this only builds the text.
   static String formatMessage(UnknownRuleName finding) =>
       '${finding.context}: Unknown rule "${finding.name}".'
-      '${finding.suggestion == null ? '' : ' Did you mean "${finding.suggestion}"?'}';
+      '${finding.suggestions.isEmpty ? '' : ' ${didYouMean(finding.suggestions)}'}';
 }

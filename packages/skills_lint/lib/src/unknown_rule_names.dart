@@ -15,8 +15,13 @@ import 'suggestions/closest_name.dart';
 @immutable
 class UnknownRuleName {
   /// Creates a finding for [name], found in the rules map that [context]
-  /// labels, with an optional [suggestion] and 1-based [line].
-  const UnknownRuleName({required this.context, required this.name, this.suggestion, this.line});
+  /// labels, with any [suggestions] and an optional 1-based [line].
+  const UnknownRuleName({
+    required this.context,
+    required this.name,
+    this.suggestions = const [],
+    this.line,
+  });
 
   /// The label of the rules map [name] appears in, such as `'Global rules'`.
   final String context;
@@ -24,11 +29,12 @@ class UnknownRuleName {
   /// The rule name as written.
   final String name;
 
-  /// The known rule name closest to [name], or `null` when none is close.
+  /// The known rule names closest to [name], sorted, or empty when none is
+  /// close.
   ///
-  /// Built-in and custom rule names are treated alike: when two are equally
-  /// close, there is no suggestion. See [closestName].
-  final String? suggestion;
+  /// Built-in and custom rule names are treated alike. When several are
+  /// equally close, all of them are listed. See [closestNames].
+  final List<String> suggestions;
 
   /// The 1-based line of [name] in the configuration file, or `null` when the
   /// configuration was built in memory rather than parsed from YAML.
@@ -58,7 +64,7 @@ List<UnknownRuleName> findUnknownRuleNames(
         UnknownRuleName(
           context: context,
           name: name,
-          suggestion: closestName(name, knownNames),
+          suggestions: closestNames(name, knownNames, maxDistance: thirdOfLength(name)),
           line: ruleLineOf(patch),
         ),
   ];

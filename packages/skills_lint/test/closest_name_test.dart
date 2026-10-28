@@ -6,52 +6,70 @@ import 'package:skills_lint/src/suggestions/closest_name.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('closestName', () {
-    test('picks the closest candidate within the threshold', () {
+  group('closestNames', () {
+    test('picks the closest candidate within maxDistance', () {
       expect(
-        closestName('check-relative-path', ['check-relative-paths', 'check-absolute-paths']),
-        'check-relative-paths',
+        closestNames('check-relative-path', [
+          'check-relative-paths',
+          'check-absolute-paths',
+        ], maxDistance: 6),
+        ['check-relative-paths'],
       );
     });
 
     test('compares without regard to case and keeps the candidate as written', () {
-      expect(closestName('readme.md', ['README.MD', 'other.txt']), 'README.MD');
+      expect(closestNames('readme.md', ['README.MD', 'other.txt'], maxDistance: 3), ['README.MD']);
     });
 
-    test('returns null when no candidate is within a third of the length', () {
-      expect(closestName('abcdef', ['uvwxyz']), isNull);
+    test('returns nothing when no candidate is within maxDistance', () {
+      // 'abcdef' and 'abcxyz' have edit distance 3.
+      expect(closestNames('abcdef', ['abcxyz'], maxDistance: 2), isEmpty);
+      expect(closestNames('abcdef', ['abcxyz'], maxDistance: 3), ['abcxyz']);
+      expect(closestNames('abcdef', ['abcxyz'], maxDistance: 0), isEmpty);
     });
 
-    test('allows distance 1 for names shorter than three characters', () {
-      expect(closestName('ab', ['ac']), 'ac');
+    test('returns every equally close candidate, sorted', () {
+      expect(closestNames('team-rule-c', ['team-rule-b', 'team-rule-a'], maxDistance: 3), [
+        'team-rule-a',
+        'team-rule-b',
+      ]);
     });
 
-    test('uses maxDistance when supplied', () {
-      // 'abcdef' and 'abcxyz' have edit distance 3, which exceeds the
-      // default threshold of 2 (6 ~/ 3) but is within maxDistance: 3.
-      expect(closestName('abcdef', ['abcxyz']), isNull);
-      expect(closestName('abcdef', ['abcxyz'], maxDistance: 3), 'abcxyz');
-      expect(closestName('abcdef', ['abcxyz'], maxDistance: 0), isNull);
+    test('returns the same result for any candidate order', () {
+      const candidates = ['abcdefxx', 'abcdefyy', 'abcdefgx'];
+      for (final List<String> order in [candidates, candidates.reversed.toList()]) {
+        expect(closestNames('abcdefgh', order, maxDistance: 2), ['abcdefgx']);
+      }
     });
 
-    test('returns null when two different candidates are equally close', () {
-      expect(closestName('team-rule-c', ['team-rule-a', 'team-rule-b']), isNull);
-    });
-
-    test('does not count a repeated candidate as a tie', () {
-      expect(closestName('team-rule-c', ['team-rule-a', 'team-rule-a']), 'team-rule-a');
-    });
-
-    test('a closer candidate after a tie wins', () {
-      expect(closestName('abcdefgh', ['abcdefxx', 'abcdefyy', 'abcdefgx']), 'abcdefgx');
+    test('removes repeated candidates', () {
+      expect(closestNames('team-rule-c', ['team-rule-a', 'team-rule-a'], maxDistance: 3), [
+        'team-rule-a',
+      ]);
     });
 
     test('skips a candidate equal to the name', () {
-      expect(closestName('same', ['same']), isNull);
+      expect(closestNames('same', ['same'], maxDistance: 1), isEmpty);
     });
 
-    test('returns null for an empty name', () {
-      expect(closestName('', ['a']), isNull);
+    test('returns nothing for an empty name', () {
+      expect(closestNames('', ['a'], maxDistance: 1), isEmpty);
+    });
+  });
+
+  group('thirdOfLength', () {
+    test('is a third of the length, and at least 1', () {
+      expect(thirdOfLength('abcdef'), 2);
+      expect(thirdOfLength('ab'), 1);
+      expect(thirdOfLength(''), 0);
+    });
+  });
+
+  group('didYouMean', () {
+    test('formats one, two, and three names', () {
+      expect(didYouMean(['a']), 'Did you mean "a"?');
+      expect(didYouMean(['a', 'b']), 'Did you mean "a" or "b"?');
+      expect(didYouMean(['a', 'b', 'c'], quote: '`'), 'Did you mean `a`, `b`, or `c`?');
     });
   });
 }

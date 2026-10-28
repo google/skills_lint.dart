@@ -464,7 +464,7 @@ class ValidationSession {
   /// failed when the severity is [AnalysisSeverity.error]. Does nothing when
   /// the rule is disabled, its default.
   void reportUnknownRuleNames() {
-    final RuleConfig ruleConfig = resolveGlobalRuleConfigs()[UnknownRuleNameRule.ruleName]!;
+    final RuleConfig ruleConfig = resolveTopLevelRuleConfigs()[UnknownRuleNameRule.ruleName]!;
     final rule = UnknownRuleNameRule(
       severity: ruleConfig.severity,
       allowed: ruleConfig.parameters.getStringList(UnknownRuleNameRule.allowParameter) ?? const [],
@@ -541,9 +541,10 @@ class ValidationSession {
   /// `rules` map of [config], and [resolvedRuleConfigs].
   ///
   /// Configuration-level rules use this directly; [resolveRuleConfigsForPath]
-  /// layers target-specific overrides on top of the global `rules` map.
+  /// layers `directories` and `individual_skills` overrides on top of the
+  /// top-level `rules` map.
   @visibleForTesting
-  Map<String, RuleConfig> resolveGlobalRuleConfigs() =>
+  Map<String, RuleConfig> resolveTopLevelRuleConfigs() =>
       _resolveRuleConfigs(targetPatches: const []);
 
   @visibleForTesting

@@ -82,13 +82,15 @@ class RelativePathsRule extends SkillRule {
       }
       final linkedFile = File(resolvedPath);
       if (!linkedFile.existsSync()) {
-        final String? suggestion = findSiblingSuggestion(
+        final List<String> suggestions = findSiblingSuggestions(
           originalLink: path,
           resolvedPath: resolvedPath,
         );
-        final suggestionClause = suggestion != null ? ' Did you mean "$suggestion"?' : '';
+        final suggestionClause = suggestions.isEmpty ? '' : ' ${didYouMean(suggestions)}';
         final String skillDirName = basename(context.directory.path);
-        final suggestionMarkdown = suggestion != null ? '\n\n*Did you mean `$suggestion`?*' : '';
+        final suggestionMarkdown = suggestions.isEmpty
+            ? ''
+            : '\n\n*${didYouMean(suggestions, quote: '`')}*';
         errors.add(
           ValidationError(
             ruleId: name,
@@ -142,17 +144,15 @@ class RelativePathsRule extends SkillRule {
   }
 }
 
-/// Looks for a near-miss sibling **file** next to the missing
-/// [resolvedPath] and, if one exists, returns the full suggested link as
-/// it should appear in the SKILL.md author's markdown — the original
-/// link's directory prefix joined to the matched basename, normalized to
-/// forward slashes so the suggestion is portable across platforms.
+/// Looks for near-miss sibling **files** next to the missing
+/// [resolvedPath] and returns each suggested link as it should appear in the
+/// SKILL.md author's markdown: the original link's directory prefix joined to
+/// the matched basename, normalized to forward slashes so the suggestion is
+/// portable across platforms.
 ///
-/// Returns `null` when:
-/// - the original link has no parent dir on disk,
-/// - the parent dir can't be listed (e.g. permission error),
-/// - no candidate is close enough to the missing basename,
-/// - or two candidates are equally close.
+/// When several files are equally close, all are returned, sorted. Returns
+/// an empty list when the parent directory is missing or cannot be listed,
+/// or when no candidate is close enough to the missing basename.
 ///
 /// [originalLink] is the link text as written in the SKILL.md
 /// (`docs/DEATILS.md`); [resolvedPath] is the same link resolved
@@ -162,19 +162,14 @@ class RelativePathsRule extends SkillRule {
 /// candidate set — links almost always point at files, and suggesting
 /// a directory would be misleading.
 @visibleForTesting
-String? findSiblingSuggestion({required String originalLink, required String resolvedPath}) {
-  final String? best = closestSiblingName(
-    Directory(dirname(resolvedPath)),
-    basename(resolvedPath),
-    kind: SiblingKind.file,
-  );
-  if (best == null) {
-    return null;
-  }
-
+List<String> findSiblingSuggestions({required String originalLink, required String resolvedPath}) {
   final String dir = dirname(originalLink);
-  if (dir == '.' || dir.isEmpty) {
-    return best;
-  }
-  return join(dir, best).replaceAll(r'\', '/');
+  return [
+    for (final name in closestSiblingNames(
+      Directory(dirname(resolvedPath)),
+      basename(resolvedPath),
+      kind: SiblingKind.file,
+    ))
+      if (dir == '.' || dir.isEmpty) name else join(dir, name).replaceAll(r'\', '/'),
+  ];
 }

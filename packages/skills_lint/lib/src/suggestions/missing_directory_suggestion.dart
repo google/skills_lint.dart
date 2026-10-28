@@ -137,16 +137,16 @@ String? _withOneFolderCorrected(String resolvedPath) {
   }
 
   final List<String> missing = p.split(p.relative(resolvedPath, from: existing));
-  final String? match = closestSiblingName(
-    Directory(existing),
-    missing.first,
-    kind: SiblingKind.directory,
-  );
-  if (match == null) {
-    return null;
-  }
-  final String candidate = p.joinAll(<String>[existing, match, ...missing.skip(1)]);
-  return _isDirectory(candidate) ? candidate : null;
+  final List<String> candidates = [
+    for (final match in closestSiblingNames(
+      Directory(existing),
+      missing.first,
+      kind: SiblingKind.directory,
+    ))
+      p.joinAll(<String>[existing, match, ...missing.skip(1)]),
+  ].where(_isDirectory).toList();
+  // Only a single existing path is a confident correction.
+  return candidates.length == 1 ? candidates.single : null;
 }
 
 /// Whether [path] is an existing directory, or `false` when the operating

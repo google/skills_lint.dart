@@ -27,7 +27,7 @@ skills_lint:
       final List<UnknownRuleName> findings = findUnknownRuleNames(config, const []);
       expect(findings, hasLength(1));
       expect(findings.single.name, 'check-relative-path');
-      expect(findings.single.suggestion, 'check-relative-paths');
+      expect(findings.single.suggestions, ['check-relative-paths']);
       expect(findings.single.line, 3);
       expect(
         UnknownRuleNameRule.formatMessage(findings.single),
@@ -56,7 +56,7 @@ skills_lint:
           final List<UnknownRuleName> findings = findUnknownRuleNames(config, const []);
           expect(findings, hasLength(1));
           expect(findings.single.name, typo);
-          expect(findings.single.suggestion, rule);
+          expect(findings.single.suggestions, [rule]);
           expect(
             UnknownRuleNameRule.formatMessage(findings.single),
             allOf(contains(typo), contains(rule)),
@@ -77,7 +77,7 @@ skills_lint:
           final List<UnknownRuleName> findings = findUnknownRuleNames(config, const []);
           expect(findings, hasLength(1));
           expect(findings.single.name, typo);
-          expect(findings.single.suggestion, isNull);
+          expect(findings.single.suggestions, isEmpty);
         });
       }
     });
@@ -91,10 +91,10 @@ skills_lint:
         QuietRule(name: 'check-relative-p'),
       ]);
       expect(findings, hasLength(1));
-      expect(findings.single.suggestion, 'check-relative-paths');
+      expect(findings.single.suggestions, ['check-relative-paths']);
     });
 
-    test('suggests nothing when a built-in and a custom rule are equally close', () {
+    test('suggests both when a built-in and a custom rule are equally close', () {
       // `check-relative-path` is 1 edit from both `check-relative-paths` and
       // the custom rule `check-relative-patx`. Neither kind is preferred.
       const config = Configuration(ruleConfigs: {'check-relative-path': _error});
@@ -103,7 +103,7 @@ skills_lint:
         QuietRule(name: 'check-relative-patx'),
       ]);
       expect(findings, hasLength(1));
-      expect(findings.single.suggestion, isNull);
+      expect(findings.single.suggestions, ['check-relative-paths', 'check-relative-patx']);
     });
 
     test('names an unknown rule without a suggestion when nothing is close', () {
@@ -112,7 +112,7 @@ skills_lint:
       final List<UnknownRuleName> findings = findUnknownRuleNames(config, const []);
       expect(findings, hasLength(1));
       expect(findings.single.name, 'no-such-rule-at-all');
-      expect(findings.single.suggestion, isNull);
+      expect(findings.single.suggestions, isEmpty);
     });
 
     test('checks the rules of directory and individual skill entries', () {
@@ -162,7 +162,7 @@ skills_lint:
       final List<UnknownRuleName> findings = findUnknownRuleNames(config, [QuietRule()]);
       expect(findings, hasLength(1));
       expect(findings.single.name, 'my-team-rul');
-      expect(findings.single.suggestion, 'my-team-rule');
+      expect(findings.single.suggestions, ['my-team-rule']);
     });
 
     test('does not flag a name in allowed', () {
