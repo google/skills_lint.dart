@@ -332,10 +332,27 @@ skills_lint:
       expect(errors.single.region?.startLine, 8);
     });
 
-    test('has no line when a dropped entry shifts the entry index', () {
+    test('points at the right entry when a dropped entry has the same typo', () {
+      // The first entry has no path, so the parser drops it, but it has the
+      // same typo as the second entry. The finding belongs to the second
+      // entry, on line 7.
+      final List<ValidationError> errors = validateFile('''
+skills_lint:
+  directories:
+    - rules:
+        check-relative-path: error
+    - path: skills
+      rules:
+        check-relative-path: error
+''');
+
+      expect(errors, hasLength(1));
+      expect(errors.single.region?.startLine, 7);
+    });
+
+    test('skips a dropped entry when it finds the entry', () {
       // The first entry has no path, so the parser drops it. The typo is in
-      // the second YAML entry, which is the first parsed entry. Index 0 in
-      // the YAML has no such rule, so no line is better than a wrong one.
+      // the second YAML entry, which is the first parsed entry, on line 7.
       final List<ValidationError> errors = validateFile('''
 skills_lint:
   directories:
@@ -347,7 +364,7 @@ skills_lint:
 ''');
 
       expect(errors, hasLength(1));
-      expect(errors.single.region, isNull);
+      expect(errors.single.region?.startLine, 7);
     });
   });
 }

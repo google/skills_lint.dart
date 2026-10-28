@@ -153,4 +153,4 @@ class UnknownRuleName {
 
 /// Reads [target]'s path as written in the configuration file, matching the
 /// labels [ConfigParser] uses in its errors.
-Object? _authoredPath(LintTargetConfig target) => target.toYaml()[ConfigParser.pathKey];
+String _authoredPath(LintTargetConfig target) => declarationOf(target)?.declaredPath ?? target.path;

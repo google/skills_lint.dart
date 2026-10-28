@@ -28,9 +28,7 @@ typedef RuleKeyPath = ({String section, int? entryIndex, String ruleName});
 /// found for certain.
 ///
 /// Returns `null` when the file cannot be read or parsed, or when the entry
-/// at the key's `entryIndex` does not contain the rule name. The parser
-/// drops invalid target entries, so the index can point at a different YAML
-/// entry; in that case no line is better than a wrong one.
+/// at the key's `entryIndex` does not contain the rule name.
 int? lineOfRuleKey(String configFile, RuleKeyPath key) {
   final YamlNode root;
   try {
@@ -59,5 +57,17 @@ int? lineOfRuleKey(String configFile, RuleKeyPath key) {
 
 YamlNode? _child(YamlNode? node, String key) => node is YamlMap ? node.nodes[key] : null;
 
-YamlNode? _entry(YamlNode? node, int index) =>
-    node is YamlList && index < node.nodes.length ? node.nodes[index] : null;
+/// The [index]th entry of [node] that [ConfigParser] keeps as a target: a map
+/// whose `path` is a string. Skipping the entries the parser drops keeps
+/// [index] aligned with [Configuration.directoryConfigs] and
+/// [Configuration.individualSkillConfigs].
+YamlNode? _entry(YamlNode? node, int index) {
+  if (node is! YamlList) {
+    return null;
+  }
+  final List<YamlMap> kept = [
+    for (final YamlNode item in node.nodes)
+      if (item is YamlMap && item[ConfigParser.pathKey] is String) item,
+  ];
+  return index < kept.length ? kept[index] : null;
+}
