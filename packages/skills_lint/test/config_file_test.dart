@@ -1061,6 +1061,7 @@ skills_lint:
       const enabled = RuleConfigPatch(severity: AnalysisSeverity.error);
 
       test('reports an unknown rule name with its YAML line in SARIF output and exits 1', () async {
+        // No --config flag: the default skills_lint.yaml still gets a line.
         // `trailing-whitespace` leaves out the `check-` prefix of
         // `check-trailing-whitespace`.
         await writeConfig(const {
@@ -1086,7 +1087,12 @@ skills_lint:
         final artifactLocation = physicalLocation['artifactLocation']! as Map<String, Object?>;
         final region = physicalLocation['region']! as Map<String, Object?>;
         expect(artifactLocation['uri'].toString(), endsWith('skills_lint.yaml'));
-        expect(region['startLine'], greaterThan(1));
+        final int expectedLine =
+            File(p.join(tempDir.path, 'skills_lint.yaml')).readAsLinesSync().indexWhere(
+              (String l) => l.trim().startsWith('trailing-whitespace'),
+            ) +
+            1;
+        expect(region['startLine'], expectedLine);
         final String err = (await process.stderr.rest.toList()).join('\n');
         expect(
           err,

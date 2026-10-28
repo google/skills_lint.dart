@@ -166,12 +166,11 @@ class ConfigParser {
         sourceFile,
       );
 
-      return Configuration._parsed(
+      return Configuration(
         directoryConfigs: directoryConfigs,
         individualSkillConfigs: individualSkillConfigs,
         ruleConfigs: rulesResult,
         parsingErrors: parsingErrors,
-        sourceFile: sourceFile,
       );
     }
     return const Configuration();
@@ -215,10 +214,7 @@ class ConfigParser {
   /// a [FileSystemException]. If no path is provided and the default `skills_lint.yaml`
   /// file does not exist in the current working directory, an empty [Configuration] is returned.
   static Future<Configuration> loadConfig({String? path}) async {
-    final String resolvedPath = canonicalizePath(
-      path ?? 'skills_lint.yaml',
-      baseDirectory: Directory.current.path,
-    );
+    final String resolvedPath = resolveConfigPath(path);
     final configFile = File(resolvedPath);
 
     if (!configFile.existsSync()) {
@@ -284,11 +280,9 @@ class ConfigParser {
   ) {
     final ruleConfigs = <String, RuleConfigPatch>{};
 
-    for (final MapEntry<Object?, YamlNode> entry in rulesMap.nodes.entries) {
-      final keyNode = entry.key! as YamlNode;
-      final ruleName = keyNode.value.toString();
-      final Object? value = entry.value.value;
-      final int line = keyNode.span.start.line + 1;
+    for (final Object? key in rulesMap.keys) {
+      final ruleName = key.toString();
+      final Object? value = rulesMap[key];
 
       // Rules must have a unique name so we can assume one match.
       final Iterable<CheckType> checkMatches = RuleRegistry.allChecks.where(
@@ -302,7 +296,6 @@ class ConfigParser {
         check,
         parsingErrors,
         contextLabel,
-        line: line,
       );
     }
 
@@ -321,9 +314,8 @@ class ConfigParser {
     String ruleName,
     CheckType? check,
     List<String> parsingErrors,
-    String contextLabel, {
-    required int line,
-  }) {
+    String contextLabel,
+  ) {
     if (value is! YamlMap) {
       final AnalysisSeverity? severity = _parseSeverity(
         value,
@@ -331,7 +323,7 @@ class ConfigParser {
         contextLabel,
         parsingErrors,
       );
-      return parsedRuleConfigPatch(severity: severity, line: line);
+      return RuleConfigPatch(severity: severity);
     }
 
     final AnalysisSeverity? severity = _parseSeverity(
@@ -357,7 +349,7 @@ class ConfigParser {
       }
     }
 
-    return parsedRuleConfigPatch(severity: severity, parameters: customParams, line: line);
+    return RuleConfigPatch(severity: severity, parameters: customParams);
   }
 
   /// Iterates a top-level YAML target list (`directories` or `individual_skills`)
@@ -640,12 +632,13 @@ class LintTargetConfig {
 /// function, so the shape of [TargetDeclaration] can change freely.
 TargetDeclaration? declarationOf(LintTargetConfig target) => target._declaration;
 
-/// The configuration file [config] was parsed from, or `null` for an
-/// in-memory configuration.
+/// The absolute path [ConfigParser.loadConfig] reads for [path], or for the
+/// default `skills_lint.yaml` in the current directory when [path] is `null`.
 ///
 /// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
 /// function.
-String? sourceFileOf(Configuration config) => config._sourceFile;
+String resolveConfigPath(String? path) =>
+    canonicalizePath(path ?? 'skills_lint.yaml', baseDirectory: Directory.current.path);
 
 /// Structured configuration for the linter.
 @immutable
@@ -655,20 +648,10 @@ class Configuration {
     this.individualSkillConfigs = const <LintTargetConfig>[],
     this.ruleConfigs = const <String, RuleConfigPatch>{},
     this.parsingErrors = const <String>[],
-  }) : _sourceFile = null;
-
-  const Configuration._parsed({
-    required this.directoryConfigs,
-    required this.individualSkillConfigs,
-    required this.ruleConfigs,
-    required this.parsingErrors,
-    required this._sourceFile,
   });
-
   final List<LintTargetConfig> directoryConfigs;
   final List<LintTargetConfig> individualSkillConfigs;
   final Map<String, RuleConfigPatch> ruleConfigs;
-  final String? _sourceFile;
 
   /// Problems in the configuration file, such as invalid YAML or an unknown
   /// key. The settings with problems are left out.

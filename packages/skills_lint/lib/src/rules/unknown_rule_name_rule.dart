@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import '../config_locator.dart';
 import '../config_parser.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_rule.dart';
@@ -40,11 +41,19 @@ class UnknownRuleNameRule {
 
   /// Validates the rule names in [config] against the built-in rules,
   /// [customRules], and [allowed].
-  List<ValidationError> validate(Configuration config, {List<SkillRule> customRules = const []}) {
+  ///
+  /// [configFile] is the file [config] was loaded from. When it is given,
+  /// each finding points to the line of its rule name. Without it, such as
+  /// for a configuration parsed from a string, findings have no line.
+  List<ValidationError> validate(
+    Configuration config, {
+    List<SkillRule> customRules = const [],
+    String? configFile,
+  }) {
     if (severity == AnalysisSeverity.disabled) {
       return const [];
     }
-    final String file = sourceFileOf(config) ?? 'skills_lint.yaml';
+    final String file = configFile ?? 'skills_lint.yaml';
     return [
       for (final UnknownRuleName finding in findUnknownRuleNames(
         config,
@@ -56,7 +65,10 @@ class UnknownRuleNameRule {
           file: file,
           message: formatMessage(finding),
           severity: severity,
-          region: finding.line == null ? null : SourceRegion(startLine: finding.line!),
+          region: switch (configFile == null ? null : lineOfRuleKey(configFile, finding.key)) {
+            null => null,
+            final int line => SourceRegion(startLine: line),
+          },
         ),
     ];
   }
