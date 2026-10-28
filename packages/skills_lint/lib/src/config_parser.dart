@@ -490,7 +490,19 @@ class ConfigParser {
     }
     final Object? localRules = dir[rulesKey];
     if (localRules is YamlMap) {
-      return _parseRulesMap(localRules, parsingErrors, '$entryLabelCap rules for "$path"');
+      final label = '$entryLabelCap rules for "$path"';
+      final Map<String, RuleConfigPatch> parsed = _parseRulesMap(localRules, parsingErrors, label);
+      // Configuration rules run once per run and read only the top-level
+      // `rules` map, so a target cannot configure them.
+      for (final String name in RuleRegistry.configurationRuleNames) {
+        if (parsed.remove(name) != null) {
+          parsingErrors.add(
+            '$label: "$name" only reads the top-level "$rulesKey" map; '
+            'remove it from this entry.',
+          );
+        }
+      }
+      return parsed;
     }
     parsingErrors.add(
       '$entryLabelCap "$rulesKey" for "$path" must be a map; '

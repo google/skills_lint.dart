@@ -6,7 +6,7 @@
 
 ### New rules
 
-- Added the `unknown-rule-name` rule, disabled by default. It reports a rule name in `skills_lint.yaml` that names no built-in or custom rule, with a "Did you mean" suggestion. Its `allow` parameter lists names to accept, such as rules from a newer skills_lint.
+- Added the `unknown-rule-name` rule, disabled by default. It reports rule names in `skills_lint.yaml` that match no built-in or custom rule and suggests close matches. Configure it only in the top-level `rules` map or on the command line.
 - Added the `pub-archive-includes-skill` rule, disabled by default. It reports a skill in a package's `skills/` directory, or a package file that `SKILL.md` links to, that `dart pub publish` would leave out, and links to files outside the package. It needs `dart` on `PATH`.
 
 ### Behavior changes

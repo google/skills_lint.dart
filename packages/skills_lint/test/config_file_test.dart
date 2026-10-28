@@ -1143,6 +1143,47 @@ skills_lint:
         expect(err, isNot(contains('Unknown rule "rule-from-later"')));
       });
 
+      group('set under a target entry', () {
+        // `unknown-rule-name` reads only the top-level `rules` map.
+        Future<void> writeTargetConfig() =>
+            File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString('''
+skills_lint:
+  directories:
+    - path: skills
+      rules:
+        unknown-rule-name: error
+''');
+        const expected =
+            'Directory entry rules for "skills": "unknown-rule-name" only reads the '
+            'top-level "rules" map; remove it from this entry.';
+
+        test('is a configuration error and exits 1', () async {
+          await writeTargetConfig();
+
+          final TestProcess process = await startCli([], workingDirectory: tempDir.path);
+
+          await process.shouldExit(1);
+          expect(
+            (await process.stderr.rest.toList()).join('\n'),
+            contains('Configuration error: $expected'),
+          );
+        });
+
+        test('is a warning with --allow-misconfigured-keys', () async {
+          await writeTargetConfig();
+
+          final TestProcess process = await startCli([
+            '--allow-misconfigured-keys',
+          ], workingDirectory: tempDir.path);
+
+          await process.shouldExit(0);
+          expect(
+            (await process.stderr.rest.toList()).join('\n'),
+            contains('Configuration warning: $expected'),
+          );
+        });
+      });
+
       // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/155
       // Expect exit code 1 once the rule is enabled by default in 0.6.0.
       test('ignores an unknown rule name by default', () async {

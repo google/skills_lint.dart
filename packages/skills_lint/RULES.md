@@ -21,7 +21,7 @@ All rules are enabled / disabled / escalated the same three ways:
 - CLI: `--<rule-name>` (escalates to `error`),
   `--no-<rule-name>` (disables).
 - YAML config: `skills_lint.rules.<rule-name>: error|warning|disabled`.
-- Per-target YAML (for skill rules): `skills_lint.directories[].rules.<rule-name>: ...` or `skills_lint.individual_skills[].rules.<rule-name>: ...`. Rules that check the configuration itself, such as `unknown-rule-name`, run once per configuration and read only the top-level `rules` and the command line.
+- Per-target YAML (for skill rules): `skills_lint.directories[].rules.<rule-name>: ...` or `skills_lint.individual_skills[].rules.<rule-name>: ...`. Rules that check the configuration itself, such as `unknown-rule-name`, run once per configuration and read only the top-level `rules` and the command line. Setting one under a `directories` or `individual_skills` entry is a configuration error.
 
 The "Disable" line under each rule below names the negated CLI flag for
 quick reference.
@@ -280,7 +280,8 @@ governs how changes to these rules ship.
   the top-level `rules` map and the `rules` map of every `directories`
   and `individual_skills` entry. It runs once on the configuration file,
   so only the top-level `rules` and the command line set its own
-  severity and `allow` list. To use a rule name that should not trigger
+  severity and `allow` list. Setting it under a target entry is a
+  configuration error. To use a rule name that should not trigger
   this check, such as a custom rule when running the CLI or a rule from
   a newer version of `skills_lint`, list the name in `allow`.
 - **Diagnostic shape:** names the configuration section and the unknown
