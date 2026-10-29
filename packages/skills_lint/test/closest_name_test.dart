@@ -52,8 +52,9 @@ void main() {
       expect(closestNames('readme.md', ['README.md', 'readme.mdx'], maxDistance: 0), ['README.md']);
     });
 
-    test('returns nothing for an empty name', () {
+    test('returns nothing for an empty name or negative maxDistance', () {
       expect(closestNames('', ['a'], maxDistance: 1), isEmpty);
+      expect(closestNames('a', ['a'], maxDistance: -1), isEmpty);
     });
   });
 

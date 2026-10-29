@@ -3,9 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 
 /// Wording for configured rule names that match no built-in rule.
+///
+/// @docImport 'config_parser.dart';
 library;
 
-import 'config_parser.dart';
 import 'models/rule_config.dart';
 import 'models/skill_rule.dart';
 import 'rule_registry.dart';
@@ -17,7 +18,7 @@ import 'validator.dart';
 ///
 /// These are the built-in checks plus [Validator.skillFileInaccessible].
 /// That one is not a check, but the validator reads its severity.
-final Set<String> configurableRuleNames = {
+Set<String> get configurableRuleNames => {
   ...RuleRegistry.ruleNames,
   Validator.skillFileInaccessible,
 };
@@ -25,30 +26,26 @@ final Set<String> configurableRuleNames = {
 /// Describes [name], a configured rule name that is not in
 /// [configurableRuleNames], for `Configuration.parsingErrors`.
 ///
-/// [context] labels where [name] is, such as `Global rules`. [location] is
-/// `file:line` when the configuration came from a file. The message offers
+/// [context] labels where [name] is, such as `Global rules`. The message offers
 /// the closest configurable names. When none is close, it says the name may
 /// come from a newer skills_lint.
-String unknownRuleNameMessage(String name, {required String context, String? location}) {
+String unknownRuleNameMessage(String name, {required String context}) {
   final List<String> suggestions = closestNames(
     name,
     configurableRuleNames,
     maxDistance: oneThirdDistanceLimit(name),
   );
-  final where = location == null ? '' : ' ($location)';
   final hint = suggestions.isEmpty
       ? ' If it is a rule from a newer skills_lint, upgrade skills_lint.'
       : ' ${didYouMean(suggestions)}';
-  return '$context: Unknown rule "$name"$where.$hint';
+  return '$context: Unknown rule "$name".$hint';
 }
 
 /// Describes a plain `<<` key in a rules map. package:yaml does not support
 /// YAML merge keys, so it reads `<<` as a rule name.
-String mergeKeyMessage({required String context, String? location}) {
-  final where = location == null ? '' : ' ($location)';
-  return '$context: YAML merge keys ("<<") are not supported; '
-      "write out each rule's settings$where.";
-}
+String mergeKeyMessage({required String context}) =>
+    '$context: YAML merge keys ("<<") are not supported; '
+    "write out each rule's settings.";
 
 /// Describes each name in [rules] that is not in [configurableRuleNames].
 ///

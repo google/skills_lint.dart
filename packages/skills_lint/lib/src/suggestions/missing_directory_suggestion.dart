@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../path_utils.dart';
+import 'closest_name.dart';
 import 'sibling_suggestion.dart';
 
 /// Suggests the path the user most likely meant by [declaredText], written
@@ -137,10 +138,12 @@ String? _withOneFolderCorrected(String resolvedPath) {
   }
 
   final List<String> missing = p.split(p.relative(resolvedPath, from: existing));
+  final String missingFolder = missing.first;
   final String? match = closestSiblingName(
     Directory(existing),
-    missing.first,
+    missingFolder,
     kind: SiblingKind.directory,
+    maxDistance: oneThirdDistanceLimit(missingFolder),
   );
   if (match == null) {
     return null;

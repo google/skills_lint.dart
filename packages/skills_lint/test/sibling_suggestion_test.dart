@@ -98,7 +98,11 @@ void main() {
       File(p.join(tempDir.path, 'skill')).writeAsStringSync('not a directory');
       Directory(p.join(tempDir.path, 'skils_')).createSync();
 
-      expect(closestSiblingName(tempDir, 'skills', kind: SiblingKind.directory), 'skils_');
+      expect(
+        closestSiblingName(tempDir, 'skills', kind: SiblingKind.directory, maxDistance: 2),
+        'skils_',
+      );
+      expect(closestSiblingName(tempDir, '', kind: SiblingKind.directory, maxDistance: 2), isNull);
     });
 
     test('suggests nothing for a link when two files are equally close', () {

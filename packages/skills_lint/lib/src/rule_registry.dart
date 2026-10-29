@@ -22,11 +22,11 @@ import 'rules/valid_yaml_metadata_rule.dart';
 
 /// Registry of all built-in rules.
 class RuleRegistry {
-  /// All registered rules and their default configurations.
-  // TODO(reidbaker): Break out flags vs options here so entry_point can generate appropriate CLI arguments.
   /// The names of [allChecks].
   static Iterable<String> get ruleNames => allChecks.map((CheckType check) => check.name);
 
+  /// All registered rules and their default configurations.
+  // TODO(reidbaker): Break out flags vs options here so entry_point can generate appropriate CLI arguments.
   static final List<CheckType> allChecks = [
     const CheckType(
       name: PathDoesNotExistRule.ruleName,

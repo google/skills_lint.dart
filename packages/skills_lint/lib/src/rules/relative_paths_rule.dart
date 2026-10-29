@@ -14,6 +14,7 @@ import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../path_utils.dart';
 import '../skill_links.dart';
+import '../suggestions/closest_name.dart';
 import '../suggestions/did_you_mean.dart';
 import '../suggestions/sibling_suggestion.dart';
 
@@ -168,10 +169,12 @@ class RelativePathsRule extends SkillRule {
 /// a directory would be misleading.
 @visibleForTesting
 String? findSiblingSuggestion({required String originalLink, required String resolvedPath}) {
+  final String missingName = basename(resolvedPath);
   final String? best = closestSiblingName(
     Directory(dirname(resolvedPath)),
-    basename(resolvedPath),
+    missingName,
     kind: SiblingKind.file,
+    maxDistance: oneThirdDistanceLimit(missingName),
   );
   if (best == null) {
     return null;

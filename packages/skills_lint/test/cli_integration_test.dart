@@ -1317,11 +1317,7 @@ skills_lint:
 
           expect(
             result.stderr,
-            matches(
-              RegExp(
-                r'Configuration error: .*Unknown rule "check-relative-path".*skills_lint\.yaml:3',
-              ),
-            ),
+            contains('Configuration error: Global rules: Unknown rule "check-relative-path".'),
           );
           expect(result.stderr, contains('"check-relative-paths"'));
           expect(result.stderr, contains('Fix or remove'));
@@ -1347,7 +1343,7 @@ skills_lint:
         expect('Unknown rule'.allMatches(result.stderr), hasLength(1));
       });
 
-      test('names the file given to --config', () async {
+      test('fails on an unknown rule in the file given to --config', () async {
         final String custom = p.join(tempDir.path, 'lint.yaml');
         File(configPath).renameSync(custom);
 
@@ -1358,7 +1354,10 @@ skills_lint:
           tempDir.path,
         ], 1);
 
-        expect(result.stderr, contains('${p.separator}lint.yaml:3).'));
+        expect(
+          result.stderr,
+          contains('Configuration error: Global rules: Unknown rule "check-relative-path".'),
+        );
       });
 
       test('names the target entry a typo is in', () async {

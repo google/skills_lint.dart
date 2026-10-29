@@ -17,7 +17,7 @@ The orchestration layer manages the execution session from invocation to termina
 ### 2. [Configuration & Resolution Engine](../../lib/src/config_parser.dart)
 Responsible for loading, validating, resolving, and serializing user settings across different scopes.
 - **Schema & Target Parsing:** Ingests repository configuration from disk or in-memory sources, parsing global rule definitions along with directory-level and skill-level overrides.
-- **Configuration Errors:** A problem in the configuration is a configuration error, never a rule finding.
+- **Configuration Validation:** Reports invalid settings during configuration loading rather than as skill rule findings.
 - **Hierarchical Precedence:** Resolves effective rule sets and parameter values deterministically by layering scopes: CLI overrides take highest precedence, followed by path-specific target configurations, global repository configurations, and built-in defaults.
 - **Bidirectional Serialization:** Supports programmatic serialization and deserialization, enabling automated tooling, test harnesses, and migration workflows to generate and transform configuration definitions with lossless round-trip fidelity.
 

@@ -24,14 +24,22 @@ enum SiblingKind {
 /// `null` when nothing is close enough.
 ///
 /// Only entries of [kind] are candidates. Names are compared without regard
-/// to case, and a candidate qualifies when its edit distance is at most a
-/// third of the length of [missingName] (and at least 1).
+/// to case, and a candidate qualifies when its edit distance is at most
+/// [maxDistance].
 ///
 /// Returns `null` when [parent] does not exist or cannot be listed, when no
 /// candidate qualifies, or when two candidates are equally close. Listing
 /// order depends on the file system, so picking either one of a tie would
 /// make the suggestion differ between platforms.
-String? closestSiblingName(Directory parent, String missingName, {required SiblingKind kind}) {
+String? closestSiblingName(
+  Directory parent,
+  String missingName, {
+  required SiblingKind kind,
+  required int maxDistance,
+}) {
+  if (missingName.isEmpty) {
+    return null;
+  }
   final List<FileSystemEntity> entries;
   try {
     entries = parent.listSync();
@@ -43,6 +51,6 @@ String? closestSiblingName(Directory parent, String missingName, {required Sibli
       if ((entity is Directory) == (kind == SiblingKind.directory) &&
           p.basename(entity.path) != missingName)
         p.basename(entity.path),
-  ], maxDistance: oneThirdDistanceLimit(missingName));
-  return closest.length == 1 ? closest.single : null;
+  ], maxDistance: maxDistance);
+  return closest.singleOrNull;
 }

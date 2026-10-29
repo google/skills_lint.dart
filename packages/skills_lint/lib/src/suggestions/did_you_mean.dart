@@ -6,7 +6,7 @@
 /// `Did you mean "a" or "b"?`, wrapping each name in [quote].
 ///
 /// [names] must not be empty.
-String didYouMean(List<String> names, {String quote = '"'}) {
+String didYouMean(Iterable<String> names, {String quote = '"'}) {
   final List<String> quoted = [for (final name in names) '$quote$name$quote'];
   final String choices = switch (quoted) {
     [] => throw ArgumentError.value(names, 'names', 'must not be empty'),

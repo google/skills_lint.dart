@@ -5,6 +5,8 @@
 /// Picks the candidate names closest to a name that matches none of them.
 library;
 
+import 'dart:math' as math;
+
 import 'levenshtein.dart';
 
 /// Finds the names in [candidates] closest to [name], sorted, or an empty
@@ -42,5 +44,4 @@ List<String> closestNames(String name, Iterable<String> candidates, {required in
 ///
 /// This is one possible `maxDistance` for [closestNames], not a default.
 /// Each caller picks the limit that fits what it compares.
-int oneThirdDistanceLimit(String name) =>
-    name.isEmpty ? 0 : (name.length ~/ 3).clamp(1, name.length);
+int oneThirdDistanceLimit(String name) => name.isEmpty ? 0 : math.max(1, name.length ~/ 3);

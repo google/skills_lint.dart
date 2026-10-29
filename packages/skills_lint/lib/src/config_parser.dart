@@ -43,6 +43,17 @@ class ConfigParser {
   static const String ignoreFileKey = 'ignore_file';
   static const String severityKey = 'severity';
 
+  /// The diagnostic label for rules under the top-level `rules` map.
+  static const String globalRulesLabel = 'Global rules';
+
+  /// The diagnostic label for rules under a `directories` entry at [path].
+  static String directoryRulesLabel(String path) => 'Directory entry rules for "$path"';
+
+  /// The diagnostic label for rules under an `individual_skills` entry at
+  /// [path].
+  static String individualSkillRulesLabel(String path) =>
+      'Individual skill entry rules for "$path"';
+
   static const Set<String> _allowedTopLevelKeys = {rulesKey, directoriesKey, individualSkillsKey};
   static const Set<String> _allowedDirectoryKeys = {pathKey, rulesKey, ignoreFileKey};
 
@@ -151,7 +162,6 @@ class ConfigParser {
       final Map<String, RuleConfigPatch> rulesResult = _parseDefaultRules(
         toolConfig,
         parsingErrors,
-        sourceFile,
       );
       final List<LintTargetConfig> directoryConfigs = _parseConfigList(
         toolConfig,
@@ -264,12 +274,11 @@ class ConfigParser {
   static Map<String, RuleConfigPatch> _parseDefaultRules(
     YamlMap toolConfig,
     List<String> parsingErrors,
-    String? sourceFile,
   ) {
     if (toolConfig.containsKey(rulesKey)) {
       final Object? rules = toolConfig[rulesKey];
       if (rules is YamlMap) {
-        return _parseRulesMap(rules, parsingErrors, 'Global rules', sourceFile);
+        return _parseRulesMap(rules, parsingErrors, globalRulesLabel);
       }
     }
     return const <String, RuleConfigPatch>{};
@@ -280,23 +289,21 @@ class ConfigParser {
   /// Validates that parameter keys and value types match their definitions in the registry,
   /// appending any validation errors to [parsingErrors] labeled by [contextLabel].
   /// A rule name that is not in [configurableRuleNames] is an error, and its
-  /// entry is left out. The message gives its line in [sourceFile] when that
-  /// is known.
+  /// entry is left out.
   static Map<String, RuleConfigPatch> _parseRulesMap(
     YamlMap rulesMap,
     List<String> parsingErrors,
     String contextLabel,
-    String? sourceFile,
   ) {
     final ruleConfigs = <String, RuleConfigPatch>{};
 
     for (final MapEntry<Object?, YamlNode> entry in rulesMap.nodes.entries) {
       final Object? key = entry.key;
-      final ruleName = key is YamlNode ? key.value.toString() : key.toString();
+      final ruleName = key.toString();
       final Object? value = entry.value.value;
 
       if (!configurableRuleNames.contains(ruleName)) {
-        parsingErrors.add(_unknownRuleError(key, ruleName, contextLabel, sourceFile));
+        parsingErrors.add(_unknownRuleError(key, ruleName, contextLabel));
         continue;
       }
 
@@ -320,24 +327,14 @@ class ConfigParser {
 
   /// Describes [ruleName], the rule name in [key] that is not in
   /// [configurableRuleNames], for a parsing error.
-  static String _unknownRuleError(
-    Object? key,
-    String ruleName,
-    String contextLabel,
-    String? sourceFile,
-  ) {
-    String? location;
-    if (sourceFile != null && key is YamlNode) {
-      location = '$sourceFile:${key.span.start.line + 1}';
-    }
-
+  static String _unknownRuleError(Object? key, String ruleName, String contextLabel) {
     // package:yaml does not support merge keys, so `<<: *anchor` arrives as
     // a rule named "<<". A quoted "<<" is an ordinary name.
     final bool isMergeKey = key is YamlScalar && key.style == ScalarStyle.PLAIN && ruleName == '<<';
     if (isMergeKey) {
-      return mergeKeyMessage(context: contextLabel, location: location);
+      return mergeKeyMessage(context: contextLabel);
     }
-    return unknownRuleNameMessage(ruleName, context: contextLabel, location: location);
+    return unknownRuleNameMessage(ruleName, context: contextLabel);
   }
 
   /// Parses a single rule's configuration value into a [RuleConfigPatch].
@@ -380,8 +377,13 @@ class ConfigParser {
         ? CustomRuleParameters(parameters)
         : null;
 
-    if (customParams != null && check != null) {
-      final List<String> errors = check.validateParameters(customParams);
+    if (customParams != null) {
+      final List<String> errors =
+          check?.validateParameters(customParams) ??
+          [
+            for (final String key in customParams.params.keys)
+              'Unrecognized parameter "$key" for rule "$ruleName".',
+          ];
       for (final error in errors) {
         parsingErrors.add('$contextLabel: $error');
       }
@@ -479,7 +481,6 @@ class ConfigParser {
       path,
       entryLabelCap,
       parsingErrors,
-      sourceFile,
     );
 
     final ({String? authored, String? resolved}) ignoreFile = _parseIgnoreFileForTarget(
@@ -523,19 +524,16 @@ class ConfigParser {
     String path,
     String entryLabelCap,
     List<String> parsingErrors,
-    String? sourceFile,
   ) {
     if (!dir.containsKey(rulesKey)) {
       return const <String, RuleConfigPatch>{};
     }
     final Object? localRules = dir[rulesKey];
     if (localRules is YamlMap) {
-      return _parseRulesMap(
-        localRules,
-        parsingErrors,
-        '$entryLabelCap rules for "$path"',
-        sourceFile,
-      );
+      final String label = entryLabelCap == 'Directory entry'
+          ? directoryRulesLabel(path)
+          : individualSkillRulesLabel(path);
+      return _parseRulesMap(localRules, parsingErrors, label);
     }
     parsingErrors.add(
       '$entryLabelCap "$rulesKey" for "$path" must be a map; '
@@ -588,7 +586,7 @@ class LintTargetConfig {
     required this.path,
     this.ruleConfigs = const <String, RuleConfigPatch>{},
     this.ignoreFile,
-  }) : _authoredPath = null,
+  }) : authoredPath = null,
        _authoredIgnoreFile = null,
        _declaration = null;
 
@@ -599,7 +597,7 @@ class LintTargetConfig {
     required this.path,
     required this.ruleConfigs,
     required this.ignoreFile,
-    required this._authoredPath,
+    required this.authoredPath,
     required this._authoredIgnoreFile,
     required TargetDeclaration this._declaration,
   });
@@ -627,7 +625,7 @@ class LintTargetConfig {
   /// and `pkg/skills` anchored to `/repo` both resolve to `/repo/pkg/skills`,
   /// so [toYaml] emits this text instead and rewriting a configuration file
   /// leaves its paths as the author typed them.
-  final String? _authoredPath;
+  final String? authoredPath;
 
   /// [ignoreFile] as spelled in the configuration file, or `null` for a target
   /// built by a caller rather than read from a file.
@@ -639,7 +637,7 @@ class LintTargetConfig {
 
   /// Converts this target configuration into its YAML representation.
   Map<String, Object?> toYaml() {
-    final map = <String, Object?>{ConfigParser.pathKey: _authoredPath ?? path};
+    final map = <String, Object?>{ConfigParser.pathKey: authoredPath ?? path};
     if (ruleConfigs.isNotEmpty) {
       map[ConfigParser.rulesKey] = <String, Object?>{
         for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries)
