@@ -386,17 +386,24 @@ class ConfigParser {
       if (dir is! YamlMap || !dir.containsKey(pathKey)) {
         continue;
       }
-      final LintTargetConfig? config = _parseTargetEntry(
-        dir,
-        entryLabelCap,
-        entryLabelLower,
-        parsingErrors,
-        anchorDirectory,
-        sourceFile,
-      );
-      if (config != null) {
-        configs.add(config);
+      if (!isTargetEntry(dir)) {
+        final Object? pathValue = dir[pathKey];
+        parsingErrors.add(
+          '$entryLabelCap "$pathKey" must be a string; got "$pathValue" '
+          '(${pathValue.runtimeType}). Skipping entry.',
+        );
+        continue;
       }
+      configs.add(
+        _parseTargetEntry(
+          dir,
+          entryLabelCap,
+          entryLabelLower,
+          parsingErrors,
+          anchorDirectory,
+          sourceFile,
+        ),
+      );
     }
     return configs;
   }
@@ -406,12 +413,12 @@ class ConfigParser {
   /// Validates the `path` string, anchors it to [anchorDirectory], and checks
   /// for unrecognized keys. Delegates parsing of sub-keys to
   /// [_parseLocalRulesForTarget] (`rules`) and [_parseIgnoreFileForTarget]
-  /// (`ignore_file`). Returns `null` if `path` is invalid or missing.
+  /// (`ignore_file`). [dir] must satisfy [isTargetEntry].
   ///
   /// Diagnostics quote the path as authored so that error messages match the
   /// configuration file. The returned target also records where it was
   /// declared, read back with [declarationOf].
-  static LintTargetConfig? _parseTargetEntry(
+  static LintTargetConfig _parseTargetEntry(
     YamlMap dir,
     String entryLabelCap,
     String entryLabelLower,
@@ -419,15 +426,7 @@ class ConfigParser {
     String anchorDirectory,
     String? sourceFile,
   ) {
-    final Object? pathValue = dir[pathKey];
-    if (pathValue is! String) {
-      parsingErrors.add(
-        '$entryLabelCap "$pathKey" must be a string; got "$pathValue" '
-        '(${pathValue.runtimeType}). Skipping entry.',
-      );
-      return null;
-    }
-    final String path = pathValue;
+    final path = dir[pathKey]! as String;
 
     for (final Object? key in dir.keys) {
       final keyStr = key.toString();
@@ -643,6 +642,14 @@ class LintTargetConfig {
 /// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
 /// function, so the shape of [TargetDeclaration] can change freely.
 TargetDeclaration? declarationOf(LintTargetConfig target) => target._declaration;
+
+/// Whether [entry] of a `directories` or `individual_skills` list becomes a
+/// target: a map whose `path` is a string. [ConfigParser] skips every other
+/// entry.
+///
+/// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
+/// function.
+bool isTargetEntry(Object? entry) => entry is YamlMap && entry[ConfigParser.pathKey] is String;
 
 /// The absolute path [ConfigParser.loadConfig] reads for [path], or for the
 /// default `skills_lint.yaml` in the current directory when [path] is `null`.

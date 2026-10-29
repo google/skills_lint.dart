@@ -5,8 +5,9 @@
 // declarationOf reads where a configuration target was declared. It exists
 // so the tool can explain a missing target; hiding it keeps that data out of
 // the public API, so its shape can change without a breaking release.
-// resolveConfigPath is an internal helper shared with the command line.
-export 'src/config_parser.dart' hide declarationOf, resolveConfigPath;
+// resolveConfigPath and isTargetEntry are internal helpers shared with the
+// command line and config_locator.dart.
+export 'src/config_parser.dart' hide declarationOf, isTargetEntry, resolveConfigPath;
 export 'src/config_source.dart';
 export 'src/entry_point.dart';
 export 'src/missing_defaults_exception.dart';

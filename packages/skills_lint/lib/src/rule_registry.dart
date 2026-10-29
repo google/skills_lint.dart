@@ -106,6 +106,13 @@ class RuleRegistry {
   /// once per run.
   static const Set<String> configurationRuleNames = {UnknownRuleNameRule.ruleName};
 
+  /// The file a configuration rule names when the run does not know which
+  /// file the configuration came from, such as a `Configuration` passed to
+  /// `validateSkills`.
+  ///
+  /// Reporters show such a finding without a file or location.
+  static const String unknownConfigurationFile = 'configuration';
+
   /// Creates a rule instance by name, or returns null if not a class-based rule.
   ///
   /// Throws an [ArgumentError] if a parameter in [parameters] that declares a

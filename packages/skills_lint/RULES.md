@@ -290,9 +290,14 @@ A configuration rule: it checks `skills_lint.yaml`, not skills.
   rule name. If the name is close to a name `skills_lint` knows about,
   including custom rules, then it will offer a suggestion. If several
   names are equally close, it lists all of them. In JSON and SARIF
-  output, the result names the configuration file the run loaded, such
-  as the one `--config` names, and points to the line of the unknown
-  rule name.
+  output, the result names the configuration file the command line
+  loaded, such as the one `--config` names, and points to the line of
+  the unknown rule name. A configuration passed to `validateSkills` has
+  no known file, so its findings have no file or line, and SARIF output
+  gives them no location. In text output, an `error` prints as
+  `Configuration error: <file>:<line>: <message>`, and a `warning` as
+  `Configuration warning: ...`, unless `--quiet` or
+  `--no-print-warnings` is set.
 - **Ignores:** findings belong to the configuration file, not to a skill,
   so `--generate-baseline` does not write them and ignore files cannot
   suppress them. Use `allow` to accept a name.

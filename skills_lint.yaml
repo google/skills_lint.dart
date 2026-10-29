@@ -2,6 +2,7 @@ skills_lint:
   rules:
     check-relative-paths: error
     check-absolute-paths: error
+    unknown-rule-name: error
   directories:
     - path: ".agents/skills"
       rules:

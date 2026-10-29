@@ -230,7 +230,7 @@ skills_lint:
       );
     });
 
-    test('has no line for a configuration parsed without a file', () {
+    test('names no file or line for a configuration without a file', () {
       final List<ValidationError> errors = validateFile('''
 skills_lint:
   rules:
@@ -238,7 +238,7 @@ skills_lint:
 ''', passFile: false);
 
       expect(errors, hasLength(1));
-      expect(errors.single.file, 'skills_lint.yaml');
+      expect(errors.single.file, RuleRegistry.unknownConfigurationFile);
       expect(errors.single.region, isNull);
     });
 

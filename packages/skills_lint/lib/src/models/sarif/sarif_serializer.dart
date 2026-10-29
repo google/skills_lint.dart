@@ -150,15 +150,18 @@ class SarifSerializer {
       message: SarifMessage(text: error.message, markdown: error.markdownMessage),
       ruleIndex: ruleIndexMap[error.ruleId],
       locations: [
-        SarifLocation(
-          physicalLocation: SarifPhysicalLocation(
-            artifactLocation: SarifArtifactLocation(
-              uri: resolved.uri,
-              uriBaseId: resolved.uriBaseId,
+        // A configuration finding from an unknown file has no location.
+        if (error.file != RuleRegistry.unknownConfigurationFile ||
+            !RuleRegistry.configurationRuleNames.contains(error.ruleId))
+          SarifLocation(
+            physicalLocation: SarifPhysicalLocation(
+              artifactLocation: SarifArtifactLocation(
+                uri: resolved.uri,
+                uriBaseId: resolved.uriBaseId,
+              ),
+              region: region,
             ),
-            region: region,
           ),
-        ),
       ],
     );
   }

@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -233,11 +234,52 @@ skills_lint:
       expect(
         err,
         contains(
-          'Configuration: Global rules: Unknown rule "check_absolute_paths". '
+          'Configuration error: Global rules: Unknown rule "check_absolute_paths". '
           'Did you mean "check-absolute-paths"?',
         ),
       );
       expect(passed, isFalse);
+    });
+
+    test('names no file for a configuration passed to validateSkills', () async {
+      // validateSkills does not know which file the configuration came from,
+      // even when it was loaded from one, so the finding has no file or line.
+      final Directory tempDir = Directory.systemTemp.createTempSync('api_config_file.');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final configFile = File(p.join(tempDir.path, 'team.yaml'))
+        ..writeAsStringSync('''
+skills_lint:
+  rules:
+    unknown-rule-name: error
+    check_absolute_paths: error
+''');
+      final Configuration config = await ConfigParser.loadConfig(path: configFile.path);
+      final out = CapturedOutput();
+      final err = CapturedOutput();
+
+      final bool passed = await IOOverrides.runZoned(
+        () => validateSkills(
+          individualSkillPaths: [_validSkillPath],
+          config: config,
+          format: OutputFormat.sarif,
+        ),
+        stdout: () => out,
+        stderr: () => err,
+      );
+
+      expect(passed, isFalse);
+      expect(
+        err.buffer.toString(),
+        contains('Configuration error: Global rules: Unknown rule "check_absolute_paths".'),
+      );
+      expect(err.buffer.toString(), isNot(contains('skills_lint.yaml')));
+      final sarif = jsonDecode(out.buffer.toString()) as Map<String, Object?>;
+      final runs = sarif['runs']! as List<Object?>;
+      final results = (runs.single! as Map<String, Object?>)['results']! as List<Object?>;
+      final Map<String, Object?> result = results.cast<Map<String, Object?>>().singleWhere(
+        (r) => r['ruleId'] == UnknownRuleNameRule.ruleName,
+      );
+      expect(result.containsKey('locations'), isFalse);
     });
 
     test('does not report a rule passed in customRules as unknown', () async {

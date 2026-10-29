@@ -1109,7 +1109,7 @@ skills_lint:
         expect(
           err,
           contains(
-            'Configuration: Global rules: Unknown rule "trailing-whitespace". '
+            'skills_lint.yaml:$typoLine: Global rules: Unknown rule "trailing-whitespace". '
             'Did you mean "check-trailing-whitespace"?',
           ),
         );
@@ -1147,6 +1147,78 @@ skills_lint:
         ).singleWhere((e) => e['ruleId'] == UnknownRuleNameRule.ruleName);
         expect(error['file'].toString(), endsWith('skills_lint.yaml'));
         expect((error['region']! as Map<String, Object?>)['startLine'], typoLine);
+      });
+
+      group('at warning severity', () {
+        const warningConfig = '''
+skills_lint:
+  directories:
+    - path: skills
+  rules:
+    unknown-rule-name: warning
+    trailing-whitespace: error
+''';
+
+        setUp(() => File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString(warningConfig));
+
+        test('prints a warning with its file and line and exits 0', () async {
+          final TestProcess process = await startCli([], workingDirectory: tempDir.path);
+
+          await process.shouldExit(0);
+          expect(
+            (await process.stderr.rest.toList()).join('\n'),
+            allOf(
+              contains('Configuration warning: '),
+              contains('skills_lint.yaml:6: Global rules: Unknown rule "trailing-whitespace".'),
+            ),
+          );
+        });
+
+        for (final flag in ['--quiet', '--no-print-warnings']) {
+          test('prints nothing with $flag', () async {
+            final TestProcess process = await startCli([flag], workingDirectory: tempDir.path);
+
+            await process.shouldExit(0);
+            expect(
+              (await process.stderr.rest.toList()).join('\n'),
+              isNot(contains('Unknown rule')),
+            );
+          });
+        }
+      });
+
+      test(
+        '--generate-baseline does not write a finding, so the next run still reports it',
+        () async {
+          await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString(typoConfig);
+
+          final TestProcess baseline = await startCli([
+            '--generate-baseline',
+          ], workingDirectory: tempDir.path);
+          await baseline.shouldExit(0);
+          for (final File ignoreFile
+              in tempDir
+                  .listSync(recursive: true)
+                  .whereType<File>()
+                  .where((f) => p.basename(f.path).endsWith('ignore.json'))) {
+            expect(ignoreFile.readAsStringSync(), isNot(contains(UnknownRuleNameRule.ruleName)));
+          }
+
+          final TestProcess rerun = await startCli([], workingDirectory: tempDir.path);
+          await rerun.shouldExit(1);
+          expect((await rerun.stderr.rest.toList()).join('\n'), contains('Unknown rule'));
+        },
+      );
+
+      test('--fix leaves the configuration file unchanged and still reports', () async {
+        final configFile = File(p.join(tempDir.path, 'skills_lint.yaml'));
+        await configFile.writeAsString(typoConfig);
+
+        final TestProcess process = await startCli(['--fix'], workingDirectory: tempDir.path);
+
+        await process.shouldExit(1);
+        expect((await process.stderr.rest.toList()).join('\n'), contains('Unknown rule'));
+        expect(configFile.readAsStringSync(), typoConfig);
       });
 
       test('reads its severity and allow list from the command line', () async {

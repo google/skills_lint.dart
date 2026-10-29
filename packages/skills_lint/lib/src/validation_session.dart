@@ -483,7 +483,7 @@ class ValidationSession {
       configFile: configFile,
     );
     for (final error in errors) {
-      _reporter.onConfigurationProblem(error.message);
+      _reporter.onConfigurationProblem(error);
       _results.add(ValidationResult(validationErrors: [error]));
     }
     if (errors.any((e) => e.severity == AnalysisSeverity.error)) {

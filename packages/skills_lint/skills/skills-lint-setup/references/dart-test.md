@@ -22,6 +22,8 @@ package publishes; leave them out for skills it doesn't publish, such as
 
 ```yaml
 skills_lint:
+  rules:
+    unknown-rule-name: error
   directories:
     # A package publishes its skills from skills/.
     - path: "skills"
@@ -35,6 +37,7 @@ skills_lint:
     - path: ".agents/skills"
 ```
 
+- `unknown-rule-name` reports a misspelled rule name in this file.
 - `check-relative-paths` checks that every relative link resolves.
   `within-skill: true` also reports links that leave the skill's own folder,
   because an installed skill can be copied without the files around it.

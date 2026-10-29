@@ -2,7 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import '../models/analysis_severity.dart';
 import '../models/skill_rule.dart';
+import '../models/validation_error.dart';
 import '../models/validation_result.dart';
 import 'reporter.dart';
 
@@ -27,6 +29,16 @@ class TextReporter extends Reporter {
 
   final bool quiet;
   final bool printWarnings;
+
+  /// Writes [error] as [Reporter.onConfigurationProblem] does, except a
+  /// warning when [quiet] is set or [printWarnings] is not.
+  @override
+  void onConfigurationProblem(ValidationError error) {
+    if (error.severity == AnalysisSeverity.warning && (quiet || !printWarnings)) {
+      return;
+    }
+    super.onConfigurationProblem(error);
+  }
 
   @override
   void onDirectoryEvaluating(String directoryPath) {

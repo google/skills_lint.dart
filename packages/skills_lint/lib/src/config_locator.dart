@@ -24,8 +24,7 @@ import 'config_parser.dart';
 /// and is `null` for the top-level `rules` map.
 typedef RuleKeyPath = ({String section, int? entryIndex, String ruleName});
 
-/// The 1-based line of [key] in [configFile], or `null` when it cannot be
-/// found for certain.
+/// The 1-based line of [key] in [configFile] as the file reads now, or `null`.
 ///
 /// Returns `null` when the file cannot be read or parsed, or when the entry
 /// at the key's `entryIndex` does not contain the rule name.
@@ -57,17 +56,13 @@ int? lineOfRuleKey(String configFile, RuleKeyPath key) {
 
 YamlNode? _child(YamlNode? node, String key) => node is YamlMap ? node.nodes[key] : null;
 
-/// The [index]th entry of [node] that [ConfigParser] keeps as a target: a map
-/// whose `path` is a string. Skipping the entries the parser drops keeps
-/// [index] aligned with [Configuration.directoryConfigs] and
+/// The [index]th entry of [node] that satisfies [isTargetEntry], so [index]
+/// matches the position in [Configuration.directoryConfigs] or
 /// [Configuration.individualSkillConfigs].
 YamlNode? _entry(YamlNode? node, int index) {
   if (node is! YamlList) {
     return null;
   }
-  final List<YamlMap> kept = [
-    for (final YamlNode item in node.nodes)
-      if (item is YamlMap && item[ConfigParser.pathKey] is String) item,
-  ];
+  final List<YamlNode> kept = node.nodes.where(isTargetEntry).toList();
   return index < kept.length ? kept[index] : null;
 }

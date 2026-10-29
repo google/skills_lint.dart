@@ -8,6 +8,7 @@ import '../models/analysis_severity.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
+import '../rule_registry.dart';
 import '../suggestions/did_you_mean.dart';
 import '../unknown_rule_names.dart';
 
@@ -53,7 +54,7 @@ class UnknownRuleNameRule {
     if (severity == AnalysisSeverity.disabled) {
       return const [];
     }
-    final String file = configFile ?? 'skills_lint.yaml';
+    final String file = configFile ?? RuleRegistry.unknownConfigurationFile;
     return [
       for (final UnknownRuleName finding in findUnknownRuleNames(
         config,

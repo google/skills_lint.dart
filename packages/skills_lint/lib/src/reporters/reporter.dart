@@ -4,9 +4,13 @@
 
 import 'dart:io';
 
+import '../models/analysis_severity.dart';
 import '../models/output_format.dart';
 import '../models/skill_rule.dart';
+import '../models/source_region.dart';
+import '../models/validation_error.dart';
 import '../models/validation_result.dart';
+import '../rule_registry.dart';
 import 'json_reporter.dart';
 import 'sarif_reporter.dart';
 import 'text_reporter.dart';
@@ -74,8 +78,19 @@ abstract class Reporter {
   }
 
   /// Called for each finding of a rule that checks the configuration file.
-  void onConfigurationProblem(String message) {
-    err.writeln('Configuration: $message');
+  ///
+  /// Writes the severity, the file and line when [error] has a region, and
+  /// the message, such as
+  /// `Configuration error: skills_lint.yaml:6: Global rules: ...`.
+  void onConfigurationProblem(ValidationError error) {
+    final SourceRegion? region = error.region;
+    final String where = switch ((error.file, region)) {
+      (RuleRegistry.unknownConfigurationFile, _) => '',
+      (final String file, null) => '$file: ',
+      (final String file, final SourceRegion region) => '$file:${region.startLine}: ',
+    };
+    final label = error.severity == AnalysisSeverity.error ? 'error' : 'warning';
+    err.writeln('Configuration $label: $where${error.message}');
   }
 
   /// Called when a rule fix fails due to an internal exception.
