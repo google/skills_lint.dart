@@ -10,9 +10,14 @@ import 'package:test/test.dart';
 import 'src/readme_anchors.dart';
 import 'src/repo_paths.dart';
 
-/// The dart.dev page on package skills, added in
+/// The dart.dev page that links to README sections, added in
 /// https://github.com/dart-lang/site-www/pull/7572.
-const String _dartDevPackageSkills = 'dart.dev /tools/pub/package-skills (dart-lang/site-www#7572)';
+///
+/// Its source is `src/content/ai/package-skills.md` in dart-lang/site-www.
+/// Search that file for `skills_lint#` to find every linked anchor.
+const String _dartDevPackageSkills =
+    'https://dart.dev/ai/package-skills '
+    '(dart-lang/site-www: src/content/ai/package-skills.md)';
 
 /// README anchors that pages outside this repository link to, as
 /// `pub.dev/packages/skills_lint#<anchor>`, mapped to the page that links.
