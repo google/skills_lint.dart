@@ -51,179 +51,195 @@ const Map<RuleParameterType, List<Object>> _values = {
   ],
 };
 
+late Directory _tempDir;
+
+/// The `directories` target that holds the skill.
+String get _directoryPath => p.join(_tempDir.path, 'skills');
+
+/// The skill, which is also the `individual_skills` target.
+String get _skillPath => p.join(_directoryPath, 'my-skill');
+
+/// Every pair of layers where the second takes precedence over the first.
+/// The CLI and the Dart API supply the same argument, so they don't pair.
+final List<(Layer, Layer)> _precedencePairs = [
+  for (final Layer lower in Layer.values)
+    for (final Layer higher in Layer.values)
+      if (lower.index < higher.index && (lower.isYaml || higher.isYaml)) (lower, higher),
+];
+
 void main() {
-  late Directory tempDir;
-  late String directoryPath;
-  late String skillPath;
-
-  setUp(() {
-    tempDir = Directory.systemTemp.createTempSync('rule_settings_supply_');
-    directoryPath = p.join(tempDir.path, 'skills');
-    skillPath = p.join(directoryPath, 'my-skill');
-  });
-
-  tearDown(() => tempDir.deleteSync(recursive: true));
-
-  /// Supplies [settings] for [check] through each of their layers and returns
-  /// the configuration that applies to the skill.
-  RuleConfig resolve(CheckType check, Map<Layer, Setting> settings) {
-    Map<String, Object?> yamlRule(Setting setting) => {
-      if (setting.severity != null) 'severity': setting.severity!.name,
-      ...setting.parameters,
-    };
-    Map<String, Object?> yamlRules(Layer layer) => {
-      if (settings[layer] case final Setting setting) check.name: yamlRule(setting),
-    };
-
-    final yaml = <String, Object?>{
-      'rules': yamlRules(Layer.topLevel),
-      'directories': [
-        {'path': directoryPath, 'rules': yamlRules(Layer.directory)},
-      ],
-      'individual_skills': [
-        {'path': skillPath, 'rules': yamlRules(Layer.individualSkill)},
-      ],
-    };
-    // JSON is valid YAML.
-    final Configuration config = ConfigParser.parse(
-      jsonEncode({'skills_lint': yaml}),
-      configSource: ConfigSource.directory(tempDir.path),
-    );
-    expect(config.parsingErrors, isEmpty);
-
-    final args = <String>[];
-    if (settings[Layer.cli] case final Setting setting) {
-      if (setting.severity case final AnalysisSeverity severity) {
-        args.add(severity == AnalysisSeverity.error ? '--${check.name}' : '--no-${check.name}');
-      }
-      for (final MapEntry<String, Object?> entry in setting.parameters.entries) {
-        final flag = '--${check.parameterFlag(entry.key)}';
-        final Object? value = entry.value;
-        if (value is List) {
-          args.addAll([for (final Object? item in value) '$flag=$item']);
-        } else {
-          args.add('$flag=$value');
-        }
-      }
-    }
-    final Map<String, RuleConfigPatch> cliPatches = resolveRuleConfigsFromCli(
-      createArgParser('help').parse(args),
-    );
-
-    final Map<String, RuleConfigPatch> apiPatches = {
-      if (settings[Layer.api] case final Setting setting)
-        check.name: RuleConfigPatch(
-          severity: setting.severity,
-          parameters: setting.parameters.isEmpty ? null : CustomRuleParameters(setting.parameters),
-        ),
-    };
-    expect(
-      cliPatches.isEmpty || apiPatches.isEmpty,
-      isTrue,
-      reason: 'The CLI and the Dart API each supply the same override argument.',
-    );
-
-    final session = ValidationSession(
-      config: config,
-      resolvedRuleConfigs: {...cliPatches, ...apiPatches},
-      ignoreFileOverride: null,
-      customRules: const [],
-      printWarnings: false,
-      fastFail: false,
-      quiet: true,
-      generateBaseline: false,
-      fix: false,
-      fixApply: false,
-    );
-    return session.resolveRuleConfigsForPath(skillPath)[check.name]!;
-  }
-
-  /// A severity that [layer] can supply and that differs from [other].
-  AnalysisSeverity severityFor(Layer layer, {required AnalysisSeverity other}) {
-    if (layer == Layer.cli) {
-      return other == AnalysisSeverity.error ? AnalysisSeverity.disabled : AnalysisSeverity.error;
-    }
-    return other == AnalysisSeverity.warning ? AnalysisSeverity.error : AnalysisSeverity.warning;
-  }
-
-  /// Every pair of layers where the second takes precedence over the first.
-  /// The CLI and the Dart API supply the same argument, so they don't pair.
-  final List<(Layer, Layer)> precedencePairs = [
-    for (final Layer lower in Layer.values)
-      for (final Layer higher in Layer.values)
-        if (lower.index < higher.index && (lower.isYaml || higher.isYaml)) (lower, higher),
-  ];
+  setUp(() => _tempDir = Directory.systemTemp.createTempSync('rule_settings_supply_'));
+  tearDown(() => _tempDir.deleteSync(recursive: true));
 
   for (final CheckType check in RuleRegistry.allChecks) {
     group('${check.name} settings', () {
-      for (final Layer layer in Layer.values) {
-        test('severity from ${layer.name} applies', () {
-          final AnalysisSeverity severity = severityFor(layer, other: check.defaultSeverity);
-
-          final RuleConfig resolved = resolve(check, {
-            layer: (severity: severity, parameters: const {}),
-          });
-
-          expect(resolved.severity, severity);
-        });
-      }
-
-      for (final (Layer lower, Layer higher) in precedencePairs) {
-        test('severity from ${higher.name} overrides ${lower.name}', () {
-          final AnalysisSeverity lowerSeverity = severityFor(
-            lower,
-            other: severityFor(higher, other: check.defaultSeverity),
-          );
-          final AnalysisSeverity higherSeverity = severityFor(higher, other: lowerSeverity);
-
-          final RuleConfig resolved = resolve(check, {
-            lower: (severity: lowerSeverity, parameters: const {}),
-            higher: (severity: higherSeverity, parameters: const {}),
-          });
-
-          expect(resolved.severity, higherSeverity);
-        });
-      }
-
+      _defineSeverityTests(check);
       for (final MapEntry<String, RuleParameterType> param in check.parameterSchema.entries) {
-        final List<Object> values = _values[param.value]!;
-
-        for (final Layer layer in Layer.values) {
-          test('${param.key} from ${layer.name} applies', () {
-            final RuleConfig resolved = resolve(check, {
-              layer: (severity: null, parameters: {param.key: values[1]}),
-            });
-
-            expect(resolved.parameters[param.key], values[1]);
-          });
-        }
-
-        for (final (Layer lower, Layer higher) in precedencePairs) {
-          test('${param.key} from ${higher.name} overrides ${lower.name}', () {
-            final RuleConfig resolved = resolve(check, {
-              lower: (severity: null, parameters: {param.key: values[0]}),
-              higher: (severity: null, parameters: {param.key: values[1]}),
-            });
-
-            expect(resolved.parameters[param.key], values[1]);
-          });
-
-          test('${param.key} from ${lower.name} survives a severity from ${higher.name}', () {
-            final RuleConfig resolved = resolve(check, {
-              lower: (severity: null, parameters: {param.key: values[0]}),
-              higher: (
-                severity: severityFor(higher, other: check.defaultSeverity),
-                parameters: const {},
-              ),
-            });
-
-            expect(resolved.parameters[param.key], values[0]);
-          });
-        }
+        _defineParameterTests(check, param.key, _values[param.value]!);
       }
     });
   }
 
+  _defineValidateSkillsTests();
+}
+
+void _defineSeverityTests(CheckType check) {
+  for (final Layer layer in Layer.values) {
+    test('severity from ${layer.name} applies', () {
+      final AnalysisSeverity severity = _severityFor(layer, other: check.defaultSeverity);
+
+      final RuleConfig resolved = _resolve(check, {
+        layer: (severity: severity, parameters: const {}),
+      });
+
+      expect(resolved.severity, severity);
+    });
+  }
+
+  for (final (Layer lower, Layer higher) in _precedencePairs) {
+    test('severity from ${higher.name} overrides ${lower.name}', () {
+      final AnalysisSeverity lowerSeverity = _severityFor(
+        lower,
+        other: _severityFor(higher, other: check.defaultSeverity),
+      );
+      final AnalysisSeverity higherSeverity = _severityFor(higher, other: lowerSeverity);
+
+      final RuleConfig resolved = _resolve(check, {
+        lower: (severity: lowerSeverity, parameters: const {}),
+        higher: (severity: higherSeverity, parameters: const {}),
+      });
+
+      expect(resolved.severity, higherSeverity);
+    });
+  }
+}
+
+/// Defines tests for the parameter [name] of [check], using the two distinct
+/// [values] described in [_values].
+void _defineParameterTests(CheckType check, String name, List<Object> values) {
+  for (final Layer layer in Layer.values) {
+    test('$name from ${layer.name} applies', () {
+      final RuleConfig resolved = _resolve(check, {
+        layer: (severity: null, parameters: {name: values[1]}),
+      });
+
+      expect(resolved.parameters[name], values[1]);
+    });
+  }
+
+  for (final (Layer lower, Layer higher) in _precedencePairs) {
+    test('$name from ${higher.name} overrides ${lower.name}', () {
+      final RuleConfig resolved = _resolve(check, {
+        lower: (severity: null, parameters: {name: values[0]}),
+        higher: (severity: null, parameters: {name: values[1]}),
+      });
+
+      expect(resolved.parameters[name], values[1]);
+    });
+
+    test('$name from ${lower.name} survives a severity from ${higher.name}', () {
+      final RuleConfig resolved = _resolve(check, {
+        lower: (severity: null, parameters: {name: values[0]}),
+        higher: (
+          severity: _severityFor(higher, other: check.defaultSeverity),
+          parameters: const {},
+        ),
+      });
+
+      expect(resolved.parameters[name], values[0]);
+    });
+  }
+}
+
+/// A severity that [layer] can supply and that differs from [other].
+AnalysisSeverity _severityFor(Layer layer, {required AnalysisSeverity other}) {
+  if (layer == Layer.cli) {
+    return other == AnalysisSeverity.error ? AnalysisSeverity.disabled : AnalysisSeverity.error;
+  }
+  return other == AnalysisSeverity.warning ? AnalysisSeverity.error : AnalysisSeverity.warning;
+}
+
+/// Supplies [settings] for [check] through each of their layers and returns
+/// the configuration that applies to the skill.
+RuleConfig _resolve(CheckType check, Map<Layer, Setting> settings) {
+  final Configuration config = _parseYaml(check, settings);
+  expect(config.parsingErrors, isEmpty);
+
+  final Map<String, RuleConfigPatch> cliPatches = resolveRuleConfigsFromCli(
+    createArgParser('help').parse(_cliArgs(check, settings[Layer.cli])),
+  );
+  final Map<String, RuleConfigPatch> apiPatches = {
+    if (settings[Layer.api] case final Setting setting)
+      check.name: RuleConfigPatch(
+        severity: setting.severity,
+        parameters: setting.parameters.isEmpty ? null : CustomRuleParameters(setting.parameters),
+      ),
+  };
+  expect(
+    cliPatches.isEmpty || apiPatches.isEmpty,
+    isTrue,
+    reason: 'The CLI and the Dart API each supply the same override argument.',
+  );
+
+  final session = ValidationSession(
+    config: config,
+    resolvedRuleConfigs: {...cliPatches, ...apiPatches},
+    ignoreFileOverride: null,
+    customRules: const [],
+    printWarnings: false,
+    fastFail: false,
+    quiet: true,
+    generateBaseline: false,
+    fix: false,
+    fixApply: false,
+  );
+  return session.resolveRuleConfigsForPath(_skillPath)[check.name]!;
+}
+
+/// Parses a `skills_lint.yaml` that supplies the YAML layers of [settings].
+Configuration _parseYaml(CheckType check, Map<Layer, Setting> settings) {
+  Map<String, Object?> rules(Layer layer) => {
+    if (settings[layer] case final Setting setting)
+      check.name: {
+        if (setting.severity case final AnalysisSeverity severity) 'severity': severity.name,
+        ...setting.parameters,
+      },
+  };
+
+  final Map<String, Object?> yaml = {
+    'skills_lint': {
+      'rules': rules(Layer.topLevel),
+      'directories': [
+        {'path': _directoryPath, 'rules': rules(Layer.directory)},
+      ],
+      'individual_skills': [
+        {'path': _skillPath, 'rules': rules(Layer.individualSkill)},
+      ],
+    },
+  };
+  // JSON is valid YAML.
+  return ConfigParser.parse(jsonEncode(yaml), configSource: ConfigSource.directory(_tempDir.path));
+}
+
+/// The CLI arguments that supply [setting] for [check].
+List<String> _cliArgs(CheckType check, Setting? setting) {
+  if (setting == null) {
+    return const [];
+  }
+  return [
+    if (setting.severity == AnalysisSeverity.error)
+      '--${check.name}'
+    else if (setting.severity != null)
+      '--no-${check.name}',
+    for (final MapEntry<String, Object?> entry in setting.parameters.entries)
+      for (final Object? value in [
+        if (entry.value case final List<Object?> list) ...list else entry.value,
+      ])
+        '--${check.parameterFlag(entry.key)}=$value',
+  ];
+}
+
+void _defineValidateSkillsTests() {
   group('validateSkills applies the setting that takes precedence', () {
     const String rule = TrailingWhitespaceRule.ruleName;
 
@@ -235,17 +251,17 @@ void main() {
       AnalysisSeverity? directory,
       AnalysisSeverity? api,
     }) async {
-      await File(p.join(skillPath, 'SKILL.md')).create(recursive: true);
-      await File(p.join(skillPath, 'SKILL.md')).writeAsString(
+      await File(p.join(_skillPath, 'SKILL.md')).create(recursive: true);
+      await File(p.join(_skillPath, 'SKILL.md')).writeAsString(
         '${buildFrontmatter(name: 'my-skill', description: 'A test skill.')}Trailing space. \n',
       );
       return validateSkills(
-        individualSkillPaths: [skillPath],
+        individualSkillPaths: [_skillPath],
         config: Configuration(
           ruleConfigs: {if (topLevel != null) rule: RuleConfigPatch(severity: topLevel)},
           directoryConfigs: [
             LintTargetConfig(
-              path: directoryPath,
+              path: _directoryPath,
               ruleConfigs: {if (directory != null) rule: RuleConfigPatch(severity: directory)},
             ),
           ],
