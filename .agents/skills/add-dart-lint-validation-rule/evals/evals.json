@@ -14,7 +14,7 @@
         "The agent successfully authored `RequireSpecificMetadataRule` extending `SkillRule` in `lib/src/rules/require_specific_metadata_rule.dart`.",
         "The rule was properly added to `RuleRegistry.allChecks` and the `createRule` switch statement in `lib/src/rule_registry.dart`.",
         "The `validate` method correctly parses `context.parsedYaml` to check for `required_version` in the metadata.",
-        "The agent authored unit tests using an in-memory `SkillContext` in `test/require_specific_metadata_rule_test.dart`.",
+        "The agent authored unit tests using an in-memory `SkillContext` (with `parsedYaml` populated via `loadYaml` or `createTestSkillContext`) in `test/require_specific_metadata_rule_test.dart`.",
         "The toggleable flag `--[no-]require-specific-metadata` was correctly documented in `README.md`.",
         "A proper rule documentation entry was added in `RULES.md`, including severity, fixability, and diagnostic shape."
       ]

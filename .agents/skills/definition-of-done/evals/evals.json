@@ -6,7 +6,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Modify packages/skills_lint/lib/src/suggestions/levenshtein.dart to add a comment explaining how the algorithm calculates distance (e.g. tracking deletion, insertion, substitution cost), and add a dartdoc comment to its public `levenshtein` function. Make sure you finish the task completely.",
+      "prompt": "Modify packages/skills_lint/lib/src/suggestions/levenshtein.dart to add a comment explaining how the algorithm calculates distance (e.g. tracking deletion, insertion, substitution cost), and update the dartdoc comment on its public `levenshtein` function. Make sure you finish the task completely.",
       "expected_chat_output": [
         "The agent confirms it added an explanatory comment about how edit distance is calculated to packages/skills_lint/lib/src/suggestions/levenshtein.dart.",
         "The agent outputs a text list of all definition-of-done rules in the format '[x] Identifier: Explanation' (if done) or '[ ] Identifier: Skipped explanation' (if skipped).",
