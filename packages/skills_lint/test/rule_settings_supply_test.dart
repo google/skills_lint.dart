@@ -6,13 +6,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:skills_lint/src/config_parser.dart';
-import 'package:skills_lint/src/config_source.dart';
-import 'package:skills_lint/src/entry_point.dart';
-import 'package:skills_lint/src/models/analysis_severity.dart';
+import 'package:skills_lint/skills_lint.dart';
+import 'package:skills_lint/src/entry_point.dart' show createArgParser;
 import 'package:skills_lint/src/models/check_type.dart';
-import 'package:skills_lint/src/models/custom_rule_parameters.dart';
-import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/rule_parameter_type.dart';
 import 'package:skills_lint/src/rule_registry.dart';
 import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
@@ -29,7 +25,7 @@ enum Layer {
   cli,
   api;
 
-  bool get isYaml => index <= individualSkill.index;
+  bool get isYaml => const {topLevel, directory, individualSkill}.contains(this);
 }
 
 /// One rule's settings as supplied through one [Layer].
@@ -243,18 +239,24 @@ void _defineValidateSkillsTests() {
   group('validateSkills applies the setting that takes precedence', () {
     const String rule = TrailingWhitespaceRule.ruleName;
 
-    /// Validates a skill with trailing whitespace in `skills/my-skill`, with
-    /// [rule] set to [topLevel] in `rules`, to [directory] in a `directories`
-    /// entry for `skills`, and to [api] in `resolvedRuleConfigs`.
+    setUp(() {
+      Directory(_skillPath).createSync(recursive: true);
+      File(p.join(_skillPath, 'SKILL.md')).writeAsStringSync(
+        '${buildFrontmatter(name: 'my-skill', description: 'A test skill.')}Trailing space. \n',
+      );
+    });
+
+    /// Validates the skill in `skills/my-skill`, which has trailing
+    /// whitespace, with [rule] set to [topLevel] in `rules`, to [directory] in
+    /// a `directories` entry for `skills`, to [individualSkill] in an
+    /// `individual_skills` entry for the skill, and to [api] in
+    /// `resolvedRuleConfigs`.
     Future<bool> validate({
       AnalysisSeverity? topLevel,
       AnalysisSeverity? directory,
+      AnalysisSeverity? individualSkill,
       AnalysisSeverity? api,
-    }) async {
-      await File(p.join(_skillPath, 'SKILL.md')).create(recursive: true);
-      await File(p.join(_skillPath, 'SKILL.md')).writeAsString(
-        '${buildFrontmatter(name: 'my-skill', description: 'A test skill.')}Trailing space. \n',
-      );
+    }) {
       return validateSkills(
         individualSkillPaths: [_skillPath],
         config: Configuration(
@@ -263,6 +265,14 @@ void _defineValidateSkillsTests() {
             LintTargetConfig(
               path: _directoryPath,
               ruleConfigs: {if (directory != null) rule: RuleConfigPatch(severity: directory)},
+            ),
+          ],
+          individualSkillConfigs: [
+            LintTargetConfig(
+              path: _skillPath,
+              ruleConfigs: {
+                if (individualSkill != null) rule: RuleConfigPatch(severity: individualSkill),
+              },
             ),
           ],
         ),
@@ -283,13 +293,30 @@ void _defineValidateSkillsTests() {
       );
     });
 
-    test('resolvedRuleConfigs over the configuration', () async {
+    test('an individual_skills entry over a directories entry', () async {
       expect(
-        await validate(directory: AnalysisSeverity.error, api: AnalysisSeverity.disabled),
+        await validate(
+          directory: AnalysisSeverity.error,
+          individualSkill: AnalysisSeverity.disabled,
+        ),
         isTrue,
       );
       expect(
-        await validate(directory: AnalysisSeverity.disabled, api: AnalysisSeverity.error),
+        await validate(
+          directory: AnalysisSeverity.disabled,
+          individualSkill: AnalysisSeverity.error,
+        ),
+        isFalse,
+      );
+    });
+
+    test('resolvedRuleConfigs over the configuration', () async {
+      expect(
+        await validate(individualSkill: AnalysisSeverity.error, api: AnalysisSeverity.disabled),
+        isTrue,
+      );
+      expect(
+        await validate(individualSkill: AnalysisSeverity.disabled, api: AnalysisSeverity.error),
         isFalse,
       );
     });
