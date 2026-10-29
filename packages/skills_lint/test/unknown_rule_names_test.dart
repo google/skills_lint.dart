@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
+import 'package:skills_lint/src/path_utils.dart';
 import 'package:skills_lint/src/unknown_rule_names.dart';
 import 'package:test/test.dart';
 
@@ -112,7 +113,7 @@ skills_lint:
 ''');
 
         final Configuration config = await ConfigParser.loadConfig(path: configPath);
-        final String file = p.canonicalize(configPath);
+        final String file = canonicalizePath(configPath, baseDirectory: Directory.current.path);
 
         expect(config.parsingErrors, [
           startsWith('Global rules: Unknown rule "check-relative-path" ($file:3).'),
@@ -133,7 +134,10 @@ skills_lint:
 
         final Configuration config = await ConfigParser.loadConfig(path: configPath);
 
-        expect(config.parsingErrors.single, contains('(${p.canonicalize(configPath)}:3)'));
+        expect(
+          config.parsingErrors.single,
+          contains('(${canonicalizePath(configPath, baseDirectory: Directory.current.path)}:3)'),
+        );
       });
     });
   });
