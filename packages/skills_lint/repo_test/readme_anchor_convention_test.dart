@@ -6,12 +6,15 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:yaml/yaml.dart';
 
 import 'src/readme_anchors.dart';
 import 'src/repo_paths.dart';
 
-/// The prefix of every link into this package's README on pub.dev.
-const String _readmeUrl = 'https://pub.dev/packages/skills_lint';
+const String _pubDevPackagesUrl = 'https://pub.dev/packages/';
+
+/// The package page on pub.dev, which shows this package's README.
+const String _readmeUrl = '${_pubDevPackagesUrl}skills_lint';
 
 /// A link from a page outside this repository into this package's docs.
 ///
@@ -25,7 +28,7 @@ typedef ExternalLink = ({String target, String linkedFrom});
 /// Add an entry when another page starts linking to this package. To remove
 /// or rename a linked README section on purpose, update the `linkedFrom` page
 /// first, then delete the entry. A `target` without an anchor is the package
-/// page itself; it is listed so the pages that link to it are known.
+/// page itself, which keeps working while the package keeps its name.
 const List<ExternalLink> externalLinks = [
   (target: '$_readmeUrl#rule-precedence', linkedFrom: _dartDevPubPackageSkills),
   (target: '$_readmeUrl#built-in-rules', linkedFrom: _dartDevPubPackageSkills),
@@ -38,13 +41,28 @@ const List<ExternalLink> externalLinks = [
 
 const String _dartDevPubPackageSkills = 'https://dart.dev/tools/pub/package-skills';
 
-/// Fails when a link in [externalLinks] would stop reaching its section.
+/// Fails when a link in [externalLinks] would stop working.
 ///
-/// pub.dev renders README.md and derives each heading's anchor from its text.
-/// If a heading is renamed or removed, the outside link still loads the page
-/// but no longer jumps to the section, and nothing else in this repo notices.
-/// This test reads the local README only and makes no network requests.
+/// pub.dev serves the package page at `$_readmeUrl`, from the package name,
+/// renders README.md there, and derives each heading's anchor from its text.
+/// If the package is renamed, or a linked heading is renamed or removed, the
+/// outside link breaks or no longer jumps to its section, and nothing else in
+/// this repo notices. These tests read local files only and make no network
+/// requests.
 void main() {
+  test('the package name still matches externally linked package URLs', () {
+    // Read the pubspec `dart test` runs in rather than the one behind
+    // packageRoot: after a rename, package:skills_lint resolves elsewhere.
+    final pubspec = loadYaml(File('pubspec.yaml').readAsStringSync()) as YamlMap;
+    expect(
+      '$_pubDevPackagesUrl${pubspec['name']}',
+      _readmeUrl,
+      reason:
+          'Pages outside this repo link to $_readmeUrl:\n'
+          '${{for (final ExternalLink link in externalLinks) link.linkedFrom}.join('\n')}',
+    );
+  });
+
   test('every externally linked README anchor still has a heading', () {
     final String readme = File(p.join(packageRoot, 'README.md')).readAsStringSync();
     final Set<String> anchors = headingAnchors(readme).toSet();
