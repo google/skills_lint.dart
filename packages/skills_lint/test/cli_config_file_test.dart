@@ -5,7 +5,7 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:skills_lint/src/entry_point.dart';
+import 'package:skills_lint/src/cli_config_file.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -21,11 +21,11 @@ void main() {
 
     tearDown(() => tempDir.deleteSync(recursive: true));
 
-    test('is the file --config names when it exists', () {
+    test('is configPath when that file exists', () {
       expect(cliConfigFile(ignoreConfig: false, configPath: configFile), configFile);
     });
 
-    test('is null under --ignore-config, even when the file exists', () {
+    test('is null when ignoreConfig is set, even when the file exists', () {
       expect(cliConfigFile(ignoreConfig: true, configPath: configFile), isNull);
     });
 

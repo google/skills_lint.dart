@@ -9,7 +9,7 @@ import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../rule_catalog.dart';
-import '../suggestions/closest_name.dart';
+import '../suggestions/did_you_mean.dart';
 
 /// Checks that every rule name in `skills_lint.yaml` names a built-in rule or
 /// a custom rule.
@@ -41,9 +41,9 @@ class UnknownRuleNameRule {
 
   /// Validates the rule names in [config] against [catalog] and [allowed].
   ///
-  /// [configFile] is the file [config] was loaded from. When it is given,
-  /// each finding points to the line of its rule name. Without it, such as
-  /// for a configuration parsed from a string, findings have no line.
+  /// [configFile] is the file [config] was loaded from. Each finding points
+  /// to the line of its rule name in [configFile]. When [configFile] is
+  /// `null`, findings have no line.
   List<ValidationError> validate(
     Configuration config, {
     RuleCatalog catalog = const RuleCatalog(),

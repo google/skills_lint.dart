@@ -142,6 +142,7 @@ String? _withOneFolderCorrected(String resolvedPath) {
       Directory(existing),
       missing.first,
       kind: SiblingKind.directory,
+      maxDistance: thirdOfLength(missing.first),
     ))
       p.joinAll(<String>[existing, match, ...missing.skip(1)]),
   ].where(_isDirectory).toList();

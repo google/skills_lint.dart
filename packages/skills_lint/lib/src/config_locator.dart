@@ -2,11 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Finds where a rule name appears in a configuration file, after a check
-/// has already reported it.
+/// Finds where a rule name appears in a configuration file.
 ///
-/// [Configuration] does not record source locations. Checks that need a line
-/// look it up here, only when they have a finding.
+/// [Configuration] does not record source locations, so a check that reports
+/// a problem in the configuration file calls [lineOfRuleKey] to find the
+/// line.
 library;
 
 import 'dart:io';

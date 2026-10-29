@@ -186,9 +186,10 @@ If the rule interacts with CLI flags or configuration files, add a test in `test
 
 Before you write the rule, decide what each output format shows for one
 finding: `text` (console), `json`, and `sarif`. Read
-`lib/src/models/output_format.dart` for the current list. For each format,
-check the file, line, subject, and message. SARIF needs a file and a line
-for IDEs and code scanning to point at the problem. Add a test for each
+`lib/src/models/output_format.dart` for the current list. A finding is a
+`ValidationError` (`lib/src/models/validation_error.dart`); for each format,
+check how it shows each field the rule sets. SARIF viewers and code scanning
+can only point at a problem that has a file and a line. Add a test for each
 format that the rule changes, and describe the result in the rule's
 **Diagnostic shape** entry in `RULES.md`.
 

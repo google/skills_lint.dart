@@ -86,6 +86,8 @@ class RuleCatalog {
     final List<String> knownNames = names;
     final knownSet = {...knownNames, ...allowed};
 
+    /// Reports each name in [ruleConfigs] that is not known, labeled with
+    /// [context] and located by [section] and [entryIndex].
     Iterable<UnknownRuleName> check(
       Map<String, RuleConfigPatch> ruleConfigs,
       String context, {
