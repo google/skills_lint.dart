@@ -10,51 +10,60 @@ import 'package:test/test.dart';
 import 'src/readme_anchors.dart';
 import 'src/repo_paths.dart';
 
-/// The dart.dev page that links to README sections, added in
-/// https://github.com/dart-lang/site-www/pull/7572.
-///
-/// Its source is `src/content/ai/package-skills.md` in dart-lang/site-www.
-/// Search that file for `skills_lint#` to find every linked anchor.
-const String _dartDevPackageSkills =
-    'https://dart.dev/ai/package-skills '
-    '(dart-lang/site-www: src/content/ai/package-skills.md)';
+/// The prefix of every link into this package's README on pub.dev.
+const String _readmeUrl = 'https://pub.dev/packages/skills_lint';
 
-/// README anchors that pages outside this repository link to, as
-/// `pub.dev/packages/skills_lint#<anchor>`, mapped to the page that links.
+/// A link from a page outside this repository into this package's docs.
 ///
-/// When another page starts linking to a README section, add its anchor here
-/// with that page. Remove an entry only once no page links to it.
-const Map<String, String> externallyLinkedAnchors = {
-  'rule-precedence': _dartDevPackageSkills,
-  '3-custom-rules': _dartDevPackageSkills,
-  'built-in-rules': _dartDevPackageSkills,
-  'recipes': _dartDevPackageSkills,
-};
+/// `target` is the full URL the outside page links to. `linkedFrom` is the
+/// URL of the page that contains the link: the page to update if the target
+/// is removed on purpose.
+typedef ExternalLink = ({String target, String linkedFrom});
 
-/// Fails when a README heading that another site links to is renamed.
+/// Links into this package's docs that pages outside this repository rely on.
 ///
-/// pub.dev renders README.md and gives each heading an anchor. If a heading
-/// is renamed or renumbered, links to the old anchor still load the page but
-/// no longer jump to the section, and nothing else in this repo notices.
+/// Add an entry when another page starts linking to a README section. To
+/// remove a section on purpose, update the `linkedFrom` page first, then
+/// delete the entry.
+const List<ExternalLink> externalLinks = [
+  (target: '$_readmeUrl#rule-precedence', linkedFrom: 'https://dart.dev/ai/package-skills'),
+  (target: '$_readmeUrl#built-in-rules', linkedFrom: 'https://dart.dev/ai/package-skills'),
+  (target: '$_readmeUrl#3-custom-rules', linkedFrom: 'https://dart.dev/ai/package-skills'),
+  (target: '$_readmeUrl#recipes', linkedFrom: 'https://dart.dev/ai/package-skills'),
+];
+
+/// Fails when a link in [externalLinks] would stop reaching its section.
+///
+/// pub.dev renders README.md and derives each heading's anchor from its text.
+/// If a heading is renamed or removed, the outside link still loads the page
+/// but no longer jumps to the section, and nothing else in this repo notices.
 /// This test reads the local README only and makes no network requests.
-///
-/// Change this test if pub.dev stops deriving anchors from heading text.
 void main() {
-  test('README headings still provide every externally linked anchor', () {
+  test('every externally linked README anchor still has a heading', () {
     final String readme = File(p.join(packageRoot, 'README.md')).readAsStringSync();
     final Set<String> anchors = headingAnchors(readme).toSet();
-    final List<String> missing = [
-      for (final MapEntry<String, String> entry in externallyLinkedAnchors.entries)
-        if (!anchors.contains(entry.key)) '#${entry.key}: linked from ${entry.value}',
+    final List<String> broken = [
+      for (final ExternalLink link in externalLinks)
+        if (!anchors.contains(_readmeAnchor(link.target)))
+          '${link.target}\n  linked from ${link.linkedFrom}',
     ];
     expect(
-      missing,
+      broken,
       isEmpty,
       reason:
-          'packages/skills_lint/README.md has no heading for ${missing.length} '
-          'externally linked anchor(s):\n${missing.join('\n')}\n\n'
-          'Fix: restore the heading text, or update the linking page and then '
-          'the list in repo_test/readme_anchor_convention_test.dart.',
+          'README.md no longer has a heading for these links:\n'
+          '${broken.join('\n')}\n\n'
+          'Restore the heading text. If the section was removed on purpose, '
+          'update the linking page, then delete the entry from externalLinks.',
     );
   });
+}
+
+/// The README anchor in [target], which must be a `$_readmeUrl#<anchor>` URL.
+String _readmeAnchor(String target) {
+  const prefix = '$_readmeUrl#';
+  if (!target.startsWith(prefix) || target.length == prefix.length) {
+    fail('$target is not a $prefix<anchor> link; this test checks README anchors only.');
+  }
+  return target.substring(prefix.length);
 }
