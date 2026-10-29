@@ -98,7 +98,9 @@ void main() {
       File(p.join(tempDir.path, 'skill')).writeAsStringSync('not a directory');
       Directory(p.join(tempDir.path, 'skils_')).createSync();
 
-      expect(closestSiblingNames(tempDir, 'skills', kind: SiblingKind.directory), ['skils_']);
+      expect(closestSiblingNames(tempDir, 'skills', kind: SiblingKind.directory, maxDistance: 2), [
+        'skils_',
+      ]);
     });
 
     test('suggests every file that is equally close, sorted', () {

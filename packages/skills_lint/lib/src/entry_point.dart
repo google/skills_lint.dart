@@ -12,6 +12,7 @@ import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
 
+import 'cli_config_file.dart';
 import 'config_parser.dart';
 import 'missing_defaults_exception.dart';
 import 'models/analysis_severity.dart';
@@ -341,20 +342,6 @@ ArgParser _createArgParser(String helpFlag) {
     );
 
   return parser;
-}
-
-/// The configuration file the command line reads, or `null` under
-/// `--ignore-config` ([ignoreConfig]) or when the file does not exist.
-///
-/// [configPath] is the `--config` value, or `null` for the default
-/// `skills_lint.yaml`.
-@visibleForTesting
-String? cliConfigFile({required bool ignoreConfig, String? configPath}) {
-  if (ignoreConfig) {
-    return null;
-  }
-  final String resolved = resolveConfigPath(configPath);
-  return File(resolved).existsSync() ? resolved : null;
 }
 
 /// Loads the configuration the command line asks for, with the file it came

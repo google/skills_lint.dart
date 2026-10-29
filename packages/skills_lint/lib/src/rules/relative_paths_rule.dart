@@ -13,6 +13,7 @@ import '../models/validation_error.dart';
 import '../path_utils.dart';
 import '../skill_links.dart';
 import '../suggestions/closest_name.dart';
+import '../suggestions/did_you_mean.dart';
 
 /// Enforces that relative links in SKILL.md point to existing files.
 ///
@@ -169,6 +170,7 @@ List<String> findSiblingSuggestions({required String originalLink, required Stri
       Directory(dirname(resolvedPath)),
       basename(resolvedPath),
       kind: SiblingKind.file,
+      maxDistance: thirdOfLength(basename(resolvedPath)),
     ))
       if (dir == '.' || dir.isEmpty) name else join(dir, name).replaceAll(r'\', '/'),
   ];

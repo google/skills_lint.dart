@@ -21,7 +21,7 @@ All rules are enabled / disabled / escalated the same three ways:
 - CLI: `--<rule-name>` (escalates to `error`),
   `--no-<rule-name>` (disables).
 - YAML config: `skills_lint.rules.<rule-name>: error|warning|disabled`.
-- Per-target YAML (for skill rules): `skills_lint.directories[].rules.<rule-name>: ...` or `skills_lint.individual_skills[].rules.<rule-name>: ...`. Rules that check the configuration itself, such as `unknown-rule-name`, run once per configuration and read only the top-level `rules` and the command line. Setting one under a `directories` or `individual_skills` entry is a configuration error.
+- Per-target YAML (for skill rules): `skills_lint.directories[].rules.<rule-name>: ...` or `skills_lint.individual_skills[].rules.<rule-name>: ...`. Rules that check the configuration itself, such as `unknown-rule-name`, run once per configuration and read only the top-level `rules` and the command line. Setting a configuration rule under a `directories` or `individual_skills` entry is a configuration error.
 
 The "Disable" line under each rule below names the negated CLI flag for
 quick reference.
@@ -273,6 +273,8 @@ governs how changes to these rules ship.
 
 ## unknown-rule-name
 
+A configuration rule: it checks `skills_lint.yaml`, not skills.
+
 - **Default severity:** disabled
 - **Fixable:** no
 - **What it checks:** every rule name in `skills_lint.yaml` is a built-in
@@ -288,8 +290,9 @@ governs how changes to these rules ship.
   rule name. If the name is close to a name `skills_lint` knows about,
   including custom rules, then it will offer a suggestion. If several
   names are equally close, it lists all of them. In JSON and SARIF
-  output, the result names `skills_lint.yaml` as its file and points to
-  the line of the unknown rule name.
+  output, the result names the configuration file the run loaded, such
+  as the one `--config` names, and points to the line of the unknown
+  rule name.
 - **Ignores:** findings belong to the configuration file, not to a skill,
   so `--generate-baseline` does not write them and ignore files cannot
   suppress them. Use `allow` to accept a name.

@@ -48,8 +48,8 @@ void main() {
       ]);
     });
 
-    test('skips a candidate equal to the name', () {
-      expect(closestNames('same', ['same'], maxDistance: 1), isEmpty);
+    test('with maxDistance 0, finds a name that differs only in case', () {
+      expect(closestNames('readme.md', ['README.md', 'readme.mdx'], maxDistance: 0), ['README.md']);
     });
 
     test('returns nothing for an empty name', () {
@@ -62,14 +62,6 @@ void main() {
       expect(thirdOfLength('abcdef'), 2);
       expect(thirdOfLength('ab'), 1);
       expect(thirdOfLength(''), 0);
-    });
-  });
-
-  group('didYouMean', () {
-    test('formats one, two, and three names', () {
-      expect(didYouMean(['a']), 'Did you mean "a"?');
-      expect(didYouMean(['a', 'b']), 'Did you mean "a" or "b"?');
-      expect(didYouMean(['a', 'b', 'c'], quote: '`'), 'Did you mean `a`, `b`, or `c`?');
     });
   });
 }

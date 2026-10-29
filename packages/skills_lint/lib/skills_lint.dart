@@ -8,7 +8,7 @@
 // resolveConfigPath is an internal helper shared with the command line.
 export 'src/config_parser.dart' hide declarationOf, resolveConfigPath;
 export 'src/config_source.dart';
-export 'src/entry_point.dart' hide cliConfigFile;
+export 'src/entry_point.dart';
 export 'src/missing_defaults_exception.dart';
 export 'src/models/analysis_severity.dart';
 export 'src/models/custom_rule_parameters.dart';

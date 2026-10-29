@@ -1060,39 +1060,51 @@ skills_lint:
 
       const enabled = RuleConfigPatch(severity: AnalysisSeverity.error);
 
+      // Written as text, not with writeConfig, so the line of the typo is
+      // visible here. `trailing-whitespace` leaves out the `check-` prefix
+      // of `check-trailing-whitespace`, on line 6.
+      const typoConfig = '''
+skills_lint:
+  directories:
+    - path: skills
+  rules:
+    unknown-rule-name: error
+    trailing-whitespace: error
+''';
+      const typoLine = 6;
+
+      /// The single SARIF result of [process] and its physical location.
+      Future<({Map<String, Object?> result, Map<String, Object?> location})> sarifResult(
+        TestProcess process,
+      ) async {
+        final String out = (await process.stdout.rest.toList()).join('\n');
+        final sarif = jsonDecode(out) as Map<String, Object?>;
+        final runs = sarif['runs']! as List<Object?>;
+        final results = (runs.single! as Map<String, Object?>)['results']! as List<Object?>;
+        final result = results.single! as Map<String, Object?>;
+        final location =
+            ((result['locations']! as List<Object?>).single!
+                    as Map<String, Object?>)['physicalLocation']!
+                as Map<String, Object?>;
+        return (result: result, location: location);
+      }
+
       test('reports an unknown rule name with its YAML line in SARIF output and exits 1', () async {
         // No --config flag: the default skills_lint.yaml still gets a line.
-        // `trailing-whitespace` leaves out the `check-` prefix of
-        // `check-trailing-whitespace`.
-        await writeConfig(const {
-          UnknownRuleNameRule.ruleName: enabled,
-          'trailing-whitespace': enabled,
-        });
+        await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString(typoConfig);
 
         final TestProcess process = await startCli([
           '--format=sarif',
         ], workingDirectory: tempDir.path);
 
         await process.shouldExit(1);
-        final String out = (await process.stdout.rest.toList()).join('\n');
-        final sarif = jsonDecode(out) as Map<String, Object?>;
-        final runs = sarif['runs']! as List<Object?>;
-        final results = (runs.single! as Map<String, Object?>)['results']! as List<Object?>;
-        final result = results.single! as Map<String, Object?>;
+        final (:Map<String, Object?> result, :Map<String, Object?> location) = await sarifResult(
+          process,
+        );
         expect(result['ruleId'], UnknownRuleNameRule.ruleName);
-        final physicalLocation =
-            ((result['locations']! as List<Object?>).single!
-                    as Map<String, Object?>)['physicalLocation']!
-                as Map<String, Object?>;
-        final artifactLocation = physicalLocation['artifactLocation']! as Map<String, Object?>;
-        final region = physicalLocation['region']! as Map<String, Object?>;
+        final artifactLocation = location['artifactLocation']! as Map<String, Object?>;
         expect(artifactLocation['uri'].toString(), endsWith('skills_lint.yaml'));
-        final int expectedLine =
-            File(p.join(tempDir.path, 'skills_lint.yaml')).readAsLinesSync().indexWhere(
-              (String l) => l.trim().startsWith('trailing-whitespace'),
-            ) +
-            1;
-        expect(region['startLine'], expectedLine);
+        expect((location['region']! as Map<String, Object?>)['startLine'], typoLine);
         final String err = (await process.stderr.rest.toList()).join('\n');
         expect(
           err,
@@ -1103,11 +1115,26 @@ skills_lint:
         );
       });
 
+      test('names the file --config loads in SARIF output', () async {
+        await File(p.join(tempDir.path, 'team-lint.yaml')).writeAsString(typoConfig);
+
+        final TestProcess process = await startCli([
+          '--config',
+          'team-lint.yaml',
+          '--format=sarif',
+        ], workingDirectory: tempDir.path);
+
+        await process.shouldExit(1);
+        final (:Map<String, Object?> result, :Map<String, Object?> location) = await sarifResult(
+          process,
+        );
+        final artifactLocation = location['artifactLocation']! as Map<String, Object?>;
+        expect(artifactLocation['uri'].toString(), endsWith('team-lint.yaml'));
+        expect((location['region']! as Map<String, Object?>)['startLine'], typoLine);
+      });
+
       test('reports an unknown rule name with its file and line in JSON output', () async {
-        await writeConfig(const {
-          UnknownRuleNameRule.ruleName: enabled,
-          'trailing-whitespace': enabled,
-        });
+        await File(p.join(tempDir.path, 'skills_lint.yaml')).writeAsString(typoConfig);
 
         final TestProcess process = await startCli([
           '--format=json',
@@ -1119,12 +1146,7 @@ skills_lint:
           json,
         ).singleWhere((e) => e['ruleId'] == UnknownRuleNameRule.ruleName);
         expect(error['file'].toString(), endsWith('skills_lint.yaml'));
-        final int expectedLine =
-            File(p.join(tempDir.path, 'skills_lint.yaml')).readAsLinesSync().indexWhere(
-              (String l) => l.trim().startsWith('trailing-whitespace'),
-            ) +
-            1;
-        expect((error['region']! as Map<String, Object?>)['startLine'], expectedLine);
+        expect((error['region']! as Map<String, Object?>)['startLine'], typoLine);
       });
 
       test('reads its severity and allow list from the command line', () async {
