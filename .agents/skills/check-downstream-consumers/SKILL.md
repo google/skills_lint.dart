@@ -1,99 +1,197 @@
 ---
 name: check-downstream-consumers
 description: >
-  Validates an in-progress PR or feature branch of skills_lint against known downstream ecosystem consumers.
-  Use when assessing breaking changes across external repositories during PR evaluation, testing migrations against the changelog, or determining necessary backwards compatibility shims.
+  Validates an in-progress PR or release candidate of skills_lint against known downstream ecosystem consumers, and rolls or upgrades skills_lint in downstream consumer repositories when requested.
+  Use when assessing breaking changes across external repositories during PR evaluation, testing migrations against the changelog, determining backwards compatibility shims, or rolling a skills_lint commit ref or version into a downstream consumer repository.
 metadata:
   internal: true
 ---
 
-# Check Downstream Consumers & Evaluate Breaking Changes
+# Check Downstream Consumers & Roll `skills_lint` Upgrades
 
-> [!IMPORTANT]
-> **No Downstream Commits Allowed**
-> This skill is focused entirely on evaluating breaking changes within `skills_lint` during PR review and changelog validation. All modifications applied to downstream consumer repositories (such as temporarily editing `pubspec.yaml` `ref:` hashes or updating calling syntax to verify migrations) are strictly **diagnostic and transient**. You must **never stage, commit, or push** code inside external downstream repositories during this workflow.
+## Operating Modes
 
-## 1. Preparation & Repository Verification
+This skill supports two distinct operating modes:
 
-1. **Verify Local Linter State (`skills_lint`)**
-   - Ensure your working directory in `skills_lint` is clean (`git status`).
-   - Verify all existing tests pass cleanly (`dart test`).
-   - Push current commits to the remote branch so downstream consumers can resolve git hashes directly via the network.
-   - Record the latest remote git SHA-1 commit hash (e.g., `1e1f280...`).
-
-2. **Locate & Check Out Downstream Consumers**
-   - Read [`resources/known_consumers.md`](resources/known_consumers.md) to review typical consumer repositories (`flutter/flutter`, `flutter/devtools`, `dart-lang/site-www`, etc.) and their specific consumption subdirectories.
-   - **Discovering Local Checkouts**: If you do not already know the exact directory paths where these consumer repositories live on disk:
-     1. **Check Workspace Knowledge**: Inspect active workspace definitions and machine-specific local Knowledge Items (`KIs`), which frequently record configured system directory structures.
-     2. **Inspect Adjacent Parent Directories**: Check common sibling paths right around your current repository root (for example, listing adjacent directories under `..` or running localized, depth-limited searches like `find .. -maxdepth 3 -name pubspec.yaml`).
-     3. **Ask Before Running Blind Traversals**: Never execute unbounded root filesystem sweeps (`find / -name ...`). If a target repository cannot be found within adjacent workspace boundaries, immediately ask the user whether the repository is checked out locally and prompt for its path before evaluating.
-   - For every target checked out on disk, verify its git state is clean and resting on its primary upstream branch (`main` or `master`). Do not run tests against dirty or out-of-date branches.
+- **Mode 1: Diagnostic PR Check (Default — No Downstream Commits)**
+  Evaluates an in-progress `skills_lint` branch or release candidate against known downstream consumers to catch breaking changes, verify `@Deprecated` backward-compatibility shims, and validate `CHANGELOG.md` migration instructions. All edits made inside downstream consumer checkouts during Mode 1 are strictly **diagnostic and transient**; restore every downstream checkout (`git restore .`) after evaluation and **never stage, commit, or push** code inside external repositories.
+- **Mode 2: Downstream Roll / Upgrade PR (Only When Explicitly Requested)**
+  Rolls a released version or target `skills_lint` commit `ref:` into a downstream consumer repository, updates centralized configuration and validation test harnesses, recalculates package hashes when required, and prepares a submission branch and pull request command for that consumer repository.
 
 ---
 
-## 2. Pointing Consumers to the In-Progress Hash
+## 1. Preparation & Pre-Flight Repository Verification
 
-For each downstream consumer under evaluation:
+1. **Verify Local Linter State (`skills_lint`)**
+   - Run `git status` in `skills_lint` to confirm the working tree is clean.
+   - Run `dart test` to confirm the `skills_lint` test suite passes.
+   - Push the target commits to the remote branch so downstream consumers can resolve git hashes over the network.
+   - Record the remote git SHA-1 commit hash (or released version tag) to test or roll.
+
+2. **Locate & Sync Downstream Consumer Checkouts**
+   - Read [`resources/known_consumers.md`](resources/known_consumers.md) to review known consumer repositories (`flutter/flutter`, `flutter/devtools`, `flutter/packages`, `dart-lang/site-www`, `dart-lang/skills`, `kevmoo/dash_skills`, etc.) and their consumption subdirectories.
+   - **Discovering Local Checkouts**: If the local filesystem paths of these consumer repositories are not already known:
+     1. **Check Workspace Knowledge**: Inspect active workspace definitions and machine-specific local Knowledge Items (`KIs`), which record configured directory layouts.
+     2. **Inspect Adjacent Parent Directories**: Check sibling directories around the repository root (for example, listing adjacent directories under `..` or running depth-limited searches such as `find .. -maxdepth 3 -name pubspec.yaml`).
+     3. **Ask Before Running Blind Traversals**: Never run unbounded root filesystem sweeps (`find / -name ...`). If a target repository is not found in adjacent workspace paths, ask the user whether the repository is checked out locally and request its path.
+   - **Pre-Flight Consumer Sync**: Before modifying or testing any downstream checkout:
+     1. Run `git status` to confirm the consumer repository has no active work in progress.
+     2. Check out the primary tracking branch (`main` or `master`).
+     3. Fast-forward from the authoritative upstream remote.
+     4. If post-checkout hooks report engine or workspace updates (such as in `flutter/flutter`), run `gclient sync` before proceeding.
+
+---
+
+## 2. Updating the Dependency & Running Verification Tests
+
+For each downstream consumer under evaluation or roll:
 
 1. **Update `pubspec.yaml`**
-   - Locate the target's relevant dependency specification (e.g., `dev/tools/pubspec.yaml` or `tool/pubspec.yaml`).
-   - Update the `ref:` field under the `git` configuration for `skills_lint` to exact match the in-progress commit hash:
+   - Locate the target consumer package's `pubspec.yaml` (e.g., `dev/tools/pubspec.yaml` or `tool/pubspec.yaml`).
+   - Update the `skills_lint` version constraint or pinned Git `ref:` field to the target commit hash:
      ```yaml
      skills_lint:
        git:
          url: https://github.com/google/skills_lint.dart
          path: packages/skills_lint
-         ref: <LATEST_COMMIT_HASH>
+         ref: <TARGET_COMMIT_HASH>
      ```
 
-2. **Resolve Dependencies & Run Verification Tests (Legacy Check)**
-   - Execute dependency resolution according to the consumer environment (Flutter workspaces require `flutter pub get`; standard pure Dart repositories require `dart pub get`).
-   - Run the consumer's verification tests against their existing code (typically targeting tests like `test/validate_skills_test.dart` or running `flutter test` / `dart test`).
-   - Confirm that all existing tests and static analyses compile and pass cleanly when using their established calling syntax. This ensures backward-compatibility deprecation shims function properly right alongside legacy calling conventions.
+2. **Resolve Dependencies & Run Baseline Tests (Backward-Compatibility Check)**
+   - Resolve dependencies using the consumer environment's package manager:
+     - **Standard Dart consumers**: Run `dart pub get` and `dart test`.
+     - **Flutter consumers**: Run `flutter pub get` and `flutter test`.
+     - **`flutter/flutter` root checkout**:
+       - **Package Resolution**: Run `bin/flutter pub get` at the `flutter/flutter` repository root instead of `dart pub get` to prevent SDK version mismatch errors.
+       - **Checksum Integrity**: Updating dependencies in `flutter/flutter` invalidates autogenerated pubspec checksum hashes; run `bin/flutter update-packages --update-hashes` from the repository root to recalculate them.
+       - **Test Execution**: Run `bin/flutter test dev/tools/test/validate_skills_test.dart` from the repository root.
+   - Confirm whether existing validation tests and static analysis pass before modifying consumer call sites. Passing baseline tests confirm that `@Deprecated` shims preserve compatibility with existing consumer calls.
 
-3. **Perform Diagnostic API Migration & Boundary Verification**
-   After verifying across each target consumer that legacy calls function properly without regressions in Step 2:
-   - **Migrate Consumer Calling Syntax**: For every repository in the set of downstream targets under evaluation (whether a single target, a requested subset, or all known consumers), update its codebase to remove any usage of deprecated getters, parameters, or constructors directly, replacing them with the new API surface introduced in `skills_lint` (for example, transitioning `resolvedRules` arguments to `resolvedRuleConfigs`).
-   - **Verify Public Boundary Resolution**: Execute strict static analysis (`dart analyze --fatal-infos <modified_test_or_package_path>`) within the consumer's package directory after completing the migration.
-     - Confirm that all newly exposed classes and parameters resolve cleanly through the public library barrier (`import 'package:skills_lint/skills_lint.dart';`).
-     - Any syntax check reporting `Undefined class` or requiring internal implementation imports (`import 'package:skills_lint/src/...';`) to compile indicates an explicit **public export deficit** inside `lib/skills_lint.dart`.
-   - **Run Migrated Test Suite**: Re-run the complete downstream consumer test harness against the migrated code (`flutter test` / `dart test`) to guarantee exact behavioral alignment before accepting the upstream change.
+3. **Perform API Migration & Validation Harness Updates**
+   - **Migrate Consumer Calling Syntax**: Update deprecated getters, parameters, or constructors in the consumer's validation entrypoint to use the current `skills_lint` API surface (for example, migrating `resolvedRules` to `resolvedRuleConfigs`).
+   - **Centralized Configuration (`skills_lint.yaml`)**: Configure rules and target paths via `skills_lint.yaml` relative to the consumer repository root, keeping directory-level rules nested under a `rules:` map:
+     ```yaml
+     skills_lint:
+       rules:
+         check-relative-paths: error
+         check-absolute-paths: error
+         check-trailing-whitespace: error
+       directories:
+         - path: ".agents/skills"
+     ```
+   - **Validation Test Implementation Patterns**:
+     - Load `Configuration` via `ConfigParser.loadConfig` and pass the loaded `Configuration` to `validateSkills`. When the test runner executes from a stable repository root, omit `skillDirPaths` to inherit directory targets from `skills_lint.yaml`.
+     - **Absolute Isolation Pattern in Sub-Package CI Runners**: When a downstream test harness changes working directories at runtime (such as CI runners executing inside sub-packages), resolve both `skills_lint.yaml` and `skillDirPaths` via dynamic repository-root paths (`path.join(repoRoot.path, ...)`):
+       ```dart
+       import 'package:path/path.dart' as path;
+       import 'package:skills_lint/skills_lint.dart';
+
+       const String _configFileName = 'skills_lint.yaml';
+
+       test('Validate Repository Skills', () async {
+         final Configuration config = await ConfigParser.loadConfig(
+           path: path.join(repoRoot.path, 'path', 'to', _configFileName),
+         );
+         expect(
+           config.directoryConfigs,
+           isNotEmpty,
+           reason: 'Configuration directoryConfigs should not be empty.',
+         );
+         final bool isValid = await validateSkills(
+           skillDirPaths: [skillsDirectory],
+           config: config,
+         );
+         expect(isValid, isTrue);
+       });
+       ```
+     - **Secondary Custom-Rule Test Blocks**: If a consumer has a second test block that runs only custom rules without loading the shared `skills_lint.yaml`, pass `skillDirPaths` explicitly and disable built-in rules via `resolvedRuleConfigs` (`RuleConfigPatch(severity: AnalysisSeverity.disabled)`) so built-in rules do not run twice:
+       ```dart
+       test('Custom Rule Validation', () async {
+         final bool isValid = await validateSkills(
+           skillDirPaths: ['path/to/skills'],
+           customRules: [MyCustomRule()],
+           resolvedRuleConfigs: {
+             'check-absolute-paths': const RuleConfigPatch(
+               severity: AnalysisSeverity.disabled,
+             ),
+             'check-relative-paths': const RuleConfigPatch(
+               severity: AnalysisSeverity.disabled,
+             ),
+             'check-trailing-whitespace': const RuleConfigPatch(
+               severity: AnalysisSeverity.disabled,
+             ),
+             'description-too-long': const RuleConfigPatch(
+               severity: AnalysisSeverity.disabled,
+             ),
+             'disallowed-field': const RuleConfigPatch(
+               severity: AnalysisSeverity.disabled,
+             ),
+             'invalid-skill-name': const RuleConfigPatch(
+               severity: AnalysisSeverity.disabled,
+             ),
+             'valid-yaml-metadata': const RuleConfigPatch(
+               severity: AnalysisSeverity.disabled,
+             ),
+           },
+         );
+         expect(isValid, isTrue);
+       });
+       ```
+     - **Clean Up Resolved `TODO`s**: When upgrading an existing validation test block, audit adjacent `TODO` or issue-tracker comments and remove any comment whose config-loading refactor or tracked issue is resolved by the upgrade.
+   - **Verify Public Boundary Resolution**: Run `dart analyze --fatal-infos <modified_test_or_package_path>` and `dart format` within the consumer package:
+     - Confirm that every required class and parameter resolves through the public barrel (`import 'package:skills_lint/skills_lint.dart';`).
+     - Any `Undefined class` error or requirement to import `package:skills_lint/src/...` indicates a **public export deficit** in `lib/skills_lint.dart`.
+   - **Re-run Consumer Test Suite**: Re-run the consumer's validation test suite (`bin/flutter test`, `flutter test`, or `dart test`) to verify that the migrated code passes.
 
 ---
 
 ## 3. Breaking Change Evaluation & Decision Protocol
 
-Whenever tests fail or dependency resolution encounters API friction, you must evaluate the nature of the breakage and pause for a deliberate human-in-the-loop decision before taking action.
+When baseline or migrated tests fail, or when dependency resolution encounters API friction, pause and present the options to the human reviewer before deciding whether to mitigate in `skills_lint` or require a downstream migration.
 
 ### Analyzing the Failure
-1. **Diagnose**: Identify exact causes (e.g., renamed public parameters, removed model types, altered getter return types, or modified severity profiles).
-2. **Mitigation Options**: Determine if a backwards-compatible code layer can seamlessly bridge the change without compromising new features (e.g., `@Deprecated` getters mapping new types back to legacy structures, constructor parameter forwarding, or fallback exports).
-3. **Changelog Integrity**: Verify whether the breaking behavior and its required migration steps are fully documented in `skills_lint/CHANGELOG.md`.
+1. **Diagnose**: Identify the cause (renamed public parameters, removed model types, altered getter return types, or changed rule severity profiles).
+2. **Mitigation Options**: Check whether a backward-compatible layer in `skills_lint` can bridge the change (`@Deprecated` getters, constructor parameter forwarding, or barrel exports).
+3. **Changelog Integrity**: Verify whether the breaking change and its migration steps are documented in `packages/skills_lint/CHANGELOG.md`.
 
 ### The Human Collaboration Point
-Present your diagnostic summary to the human and request a deliberate path forward. The choice between mitigating a break inside the linter versus making a breaking change in downstream libraries is strictly a human decision based on ecosystem trade-offs.
+Present the diagnostic summary to the human reviewer and choose one of the two pathways:
 
-#### Pathway A: Backwards Compatibility Mitigation (Approved by Human)
-If the decision is to soften or eliminate the breaking change from `skills_lint`:
-1. Modify `skills_lint` code to introduce the backward-compatible shim (such as deprecated getters/constructors or compatibility exports).
-2. Add regression tests to ensure both legacy consumer calls and new patterns function properly without throwing exceptions, while verifying mutually exclusive flags fail gracefully if combined.
-3. Ensure temporary shims are appropriately documented and tagged with tracking issues (`// TODO(...)`) for future removal.
-4. Format code (`dart format .`), verify static analysis (`dart analyze --fatal-infos`), and confirm tests pass locally (`dart test`).
-5. Commit and push the updated branch, capture the refreshed SHA-1 commit hash, update the downstream `pubspec.yaml`, and run tests again until the consumer cleanly compiles and passes.
+#### Pathway A: Backward-Compatibility Mitigation in `skills_lint` (Approved by Human)
+1. Add the backward-compatible shim in `skills_lint` (such as `@Deprecated` getters/constructors or public barrel exports).
+2. Add regression tests covering both deprecated consumer calls and current API calls, verifying that mutually exclusive parameters fail gracefully when combined.
+3. Tag temporary shims with tracking issues (`// TODO(...)`) for removal in a future breaking release.
+4. Run `dart format .`, `dart analyze --fatal-infos`, and `dart test` in `skills_lint`.
+5. Commit and push the updated `skills_lint` branch, record the new commit SHA, update the downstream `pubspec.yaml`, and re-run consumer verification.
 
 #### Pathway B: Downstream Migration via Changelog (Break Accepted)
-If the human instructs you not to mitigate (or if mitigation is structurally impossible) and accepts the breaking change:
-1. **Attempt Downstream Upgrade**: Upgrade the downstream library's calling code **strictly following the migration instructions written in `skills_lint/CHANGELOG.md`**.
-2. **Evaluate Changelog Quality**: If the instructions written in the `CHANGELOG.md` are incomplete, confusing, or insufficient to cleanly migrate the downstream code, treat this as an explicit evaluation failure. Immediately propose targeted additions and clarity improvements to `skills_lint/CHANGELOG.md`.
-3. **Verify Build & Tests**: After updating both the consumer codebase and any changelog enhancements, re-run dependency checks (`pub get`) and test suites until the downstream package runs cleanly.
-
-*Constraint — **Do Not Commit**: Remember that any migration edits made across the downstream codebase exist purely to verify that `skills_lint/CHANGELOG.md` instructions function cleanly in practice. Do **not** stage or commit these edits inside the consumer repository.*
+1. **Attempt Downstream Upgrade**: Migrate the downstream consumer's calling code **strictly following the migration instructions in `packages/skills_lint/CHANGELOG.md`**.
+2. **Evaluate Changelog Quality**: If the instructions in `packages/skills_lint/CHANGELOG.md` are incomplete or ambiguous during migration, treat that gap as an evaluation finding and update `packages/skills_lint/CHANGELOG.md` so the migration steps are self-contained.
+3. **Verify Build & Tests**: Re-run dependency resolution and the consumer's test suite until the downstream package passes cleanly.
 
 ---
 
-## 4. Iteration Loop & Repository Cleanup
+## 4. Finalizing by Mode
 
-After successfully evaluating and resolving one target repository:
-1. **Clean Up Consumer State**: Because downstream edits are entirely transient, restore the external consumer repository cleanly back to its initial git state (`git checkout -- .` or `git restore .` across the modified paths) before proceeding to the next candidate, unless expressly instructed by the user to leave uncommitted changes on disk for local inspection.
-2. **Record Evaluation Summary**: Update and maintain clear summaries documenting which repositories passed cleanly without changes, which required local mitigations inside `skills_lint`, and which proved out changelog migration workflows.
-3. **Check Reviewer Intent**: Ask the human reviewer whether to proceed directly to evaluating the next remaining repository listed in [`resources/known_consumers.md`](resources/known_consumers.md) or halt execution.
+### Mode 1 Finalization: Diagnostic Cleanup (Default — No Downstream Commits)
+After evaluating each target repository in Mode 1:
+1. **Restore Consumer Checkout**: Revert all diagnostic edits in the external consumer repository (`git checkout -- .` or `git restore .`) unless the user explicitly asks to keep uncommitted changes on disk for local inspection.
+2. **Record Evaluation Summary**: Report which repositories passed unmodified, which required backward-compatibility shims in `skills_lint`, and which validated `CHANGELOG.md` migration guidance.
+3. **Check Reviewer Intent**: Ask the human reviewer whether to proceed to the next consumer in [`resources/known_consumers.md`](resources/known_consumers.md) or conclude the evaluation.
+
+### Mode 2 Finalization: Downstream Roll PR Creation (Only When Requested)
+When the user explicitly asks to roll `skills_lint` into a downstream consumer repository and prepare a roll PR:
+1. **Stage & Commit on a Dated Roll Branch**:
+   - Create a descriptive branch suffixed with the date in `YYYY-MM-DD` format (for example, `roll-skills-lint-YYYY-MM-DD`).
+   - Verify `dart format` and `dart analyze --fatal-infos` pass on all touched files (and `bin/flutter update-packages --update-hashes` in `flutter/flutter`).
+   - Commit the dependency roll, configuration updates, and test harness changes with a concise commit message.
+2. **Discover and Populate the Target Repository's PR Template**:
+   - **Locate Template**: Search `.github/`, `.github/PULL_REQUEST_TEMPLATE/`, or the consumer repository root for `PULL_REQUEST_TEMPLATE.md` or `pull_request_template.md`.
+   - **Extract & Populate Structure**: Read the discovered template and fill in every required section, issue link, and verification checklist (`[x]`) summarizing the `skills_lint` roll, configuration changes, and test updates.
+   - **Fallback**: If the consumer repository has no PR template, construct a concise body summarizing the roll commit hash, configuration/test updates, and verification test results.
+3. **Output or Execute the PR Command**:
+   ```bash
+   gh pr create \
+     --title "Update skills_lint dependency to <hash> and centralize config" \
+     --body "<populated repository template content>"
+   ```
