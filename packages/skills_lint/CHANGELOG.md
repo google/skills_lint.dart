@@ -3,9 +3,6 @@
 ### Breaking changes
 
 - Requires Dart 3.12 or later.
-- A configured rule name that matches no built-in rule is a configuration error, added to `Configuration.parsingErrors`. The `skills_lint` command used to ignore it; it now prints `Configuration error: Global rules: Unknown rule "<name>" (<file>:<line>). Did you mean "<rule>"?` and exits 1.
-- This includes names of custom rules, because configuration has no effect on custom rules. Remove those entries.
-- `validateSkills` also warns about each `resolvedRuleConfigs` key that names no built-in rule.
 
 ### New rules
 
@@ -13,6 +10,7 @@
 
 ### Behavior changes
 
+- A rule name in the configuration that matches no built-in rule is a configuration error. The message suggests the closest rule names.
 - When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
 - In `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
 - `check-relative-paths` no longer offers a "Did you mean" file when two files are equally close to a broken link.

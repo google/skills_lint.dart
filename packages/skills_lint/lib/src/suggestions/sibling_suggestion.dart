@@ -43,6 +43,6 @@ String? closestSiblingName(Directory parent, String missingName, {required Sibli
       if ((entity is Directory) == (kind == SiblingKind.directory) &&
           p.basename(entity.path) != missingName)
         p.basename(entity.path),
-  ], maxDistance: typoDistanceLimit(missingName));
+  ], maxDistance: oneThirdDistanceLimit(missingName));
   return closest.length == 1 ? closest.single : null;
 }

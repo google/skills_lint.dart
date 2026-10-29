@@ -452,11 +452,31 @@ class ValidationSession {
   }
 
   /// Reports each entry in [Configuration.parsingErrors] of [config], and
-  /// each key of [resolvedRuleConfigs] that names no configurable rule, as a
+  /// each rule name supplied in code that names no configurable rule, as a
   /// warning. Does not mark the session as failed.
+  ///
+  /// [ConfigParser] leaves unknown names out of what it parses, so any left in
+  /// [config] came from a [Configuration] built in code.
   void reportConfigurationWarnings() => [
     ...config.parsingErrors,
-    ...unknownOverrideMessages(resolvedRuleConfigs, customRules),
+    ...unknownRuleMessages(config.ruleConfigs, context: 'Global rules', customRules: customRules),
+    for (final LintTargetConfig target in config.directoryConfigs)
+      ...unknownRuleMessages(
+        target.ruleConfigs,
+        context: 'Directory entry rules for "${target.path}"',
+        customRules: customRules,
+      ),
+    for (final LintTargetConfig target in config.individualSkillConfigs)
+      ...unknownRuleMessages(
+        target.ruleConfigs,
+        context: 'Individual skill entry rules for "${target.path}"',
+        customRules: customRules,
+      ),
+    ...unknownRuleMessages(
+      resolvedRuleConfigs,
+      context: 'resolvedRuleConfigs',
+      customRules: customRules,
+    ),
   ].forEach(_reporter.onConfigurationWarning);
 
   /// If no skills were validated across the whole run, emit appropriate

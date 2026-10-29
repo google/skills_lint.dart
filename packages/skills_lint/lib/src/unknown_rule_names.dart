@@ -5,14 +5,18 @@
 /// Wording for configured rule names that match no built-in rule.
 library;
 
+import 'config_parser.dart';
 import 'models/rule_config.dart';
 import 'models/skill_rule.dart';
 import 'rule_registry.dart';
 import 'suggestions/closest_name.dart';
+import 'suggestions/did_you_mean.dart';
 import 'validator.dart';
 
-/// The rule names a configuration can set: every built-in check, and
-/// [Validator.skillFileInaccessible], whose severity the validator also reads.
+/// The rule names that a configuration can set.
+///
+/// These are the built-in checks plus [Validator.skillFileInaccessible].
+/// That one is not a check, but the validator reads its severity.
 final Set<String> configurableRuleNames = {
   ...RuleRegistry.ruleNames,
   Validator.skillFileInaccessible,
@@ -29,12 +33,12 @@ String unknownRuleNameMessage(String name, {required String context, String? loc
   final List<String> suggestions = closestNames(
     name,
     configurableRuleNames,
-    maxDistance: typoDistanceLimit(name),
+    maxDistance: oneThirdDistanceLimit(name),
   );
   final where = location == null ? '' : ' ($location)';
   final hint = suggestions.isEmpty
       ? ' If it is a rule from a newer skills_lint, upgrade skills_lint.'
-      : ' ${_didYouMean(suggestions)}';
+      : ' ${didYouMean(suggestions)}';
   return '$context: Unknown rule "$name"$where.$hint';
 }
 
@@ -46,18 +50,20 @@ String mergeKeyMessage({required String context, String? location}) {
       "write out each rule's settings$where.";
 }
 
-/// Describes each key of [overrides] that is not in [configurableRuleNames].
+/// Describes each name in [rules] that is not in [configurableRuleNames].
 ///
-/// Configuration has no effect on custom rules, so a key that names one of
-/// [customRules] gets a message that says so instead.
-List<String> unknownOverrideMessages(
-  Map<String, RuleConfigPatch> overrides,
-  List<SkillRule> customRules,
-) {
+/// For rules that a caller supplies in code, such as `resolvedRuleConfigs` or
+/// a [Configuration] built without [ConfigParser]. [context] labels where
+/// [rules] came from. Configuration has no effect on custom rules, so a name
+/// of one of [customRules] gets a message that says so instead.
+List<String> unknownRuleMessages(
+  Map<String, RuleConfigPatch> rules, {
+  required String context,
+  required List<SkillRule> customRules,
+}) {
   final Set<String> customNames = {for (final rule in customRules) rule.name};
-  const context = 'resolvedRuleConfigs';
   return [
-    for (final String name in overrides.keys)
+    for (final String name in rules.keys)
       if (customNames.contains(name))
         '$context: "$name" is a custom rule, and configuration has no effect on '
             'custom rules (https://github.com/google/skills_lint.dart/issues/163). '
@@ -65,17 +71,4 @@ List<String> unknownOverrideMessages(
       else if (!configurableRuleNames.contains(name))
         unknownRuleNameMessage(name, context: context),
   ];
-}
-
-/// Formats [names] as a question, such as `Did you mean "a"?` or
-/// `Did you mean "a" or "b"?`. [names] must not be empty.
-String _didYouMean(List<String> names) {
-  final List<String> quoted = [for (final name in names) '"$name"'];
-  final String choices = switch (quoted) {
-    [] => throw ArgumentError.value(names, 'names', 'must not be empty'),
-    [final only] => only,
-    [final first, final second] => '$first or $second',
-    [...final others, final last] => '${others.join(', ')}, or $last',
-  };
-  return 'Did you mean $choices?';
 }

@@ -57,11 +57,11 @@ void main() {
     });
   });
 
-  group('typoDistanceLimit', () {
+  group('oneThirdDistanceLimit', () {
     test('is a third of the length, at least 1 for a non-empty name, and 0 for an empty one', () {
-      expect(typoDistanceLimit('abcdef'), 2);
-      expect(typoDistanceLimit('ab'), 1);
-      expect(typoDistanceLimit(''), 0);
+      expect(oneThirdDistanceLimit('abcdef'), 2);
+      expect(oneThirdDistanceLimit('ab'), 1);
+      expect(oneThirdDistanceLimit(''), 0);
     });
   });
 }

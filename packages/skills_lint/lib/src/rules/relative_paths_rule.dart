@@ -3,8 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:io';
+
 import 'package:meta/meta.dart';
 import 'package:path/path.dart';
+
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
@@ -12,6 +14,7 @@ import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../path_utils.dart';
 import '../skill_links.dart';
+import '../suggestions/did_you_mean.dart';
 import '../suggestions/sibling_suggestion.dart';
 
 /// Enforces that relative links in SKILL.md point to existing files.
@@ -86,9 +89,11 @@ class RelativePathsRule extends SkillRule {
           originalLink: path,
           resolvedPath: resolvedPath,
         );
-        final suggestionClause = suggestion != null ? ' Did you mean "$suggestion"?' : '';
+        final suggestionClause = suggestion != null ? ' ${didYouMean([suggestion])}' : '';
         final String skillDirName = basename(context.directory.path);
-        final suggestionMarkdown = suggestion != null ? '\n\n*Did you mean `$suggestion`?*' : '';
+        final suggestionMarkdown = suggestion != null
+            ? '\n\n*${didYouMean([suggestion], quote: '`')}*'
+            : '';
         errors.add(
           ValidationError(
             ruleId: name,

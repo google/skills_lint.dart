@@ -204,10 +204,8 @@ Then you can simply run:
 dart run skills_lint
 ```
 
-A rule name that matches no built-in rule is a configuration error, like an
-unknown key, and the command fails. The error names the closest rules and the
-file and line of the name. Custom rules can't be configured in
-`skills_lint.yaml`, so their names are errors too.
+A rule name that matches no built-in rule is a configuration error. Custom
+rules can't be configured in `skills_lint.yaml`.
 
 ### Rule Precedence
 

@@ -296,14 +296,7 @@ class ConfigParser {
       final Object? value = entry.value.value;
 
       if (!configurableRuleNames.contains(ruleName)) {
-        final String? location = sourceFile == null || key is! YamlNode
-            ? null
-            : '$sourceFile:${key.span.start.line + 1}';
-        parsingErrors.add(
-          key is YamlScalar && key.style == ScalarStyle.PLAIN && ruleName == '<<'
-              ? mergeKeyMessage(context: contextLabel, location: location)
-              : unknownRuleNameMessage(ruleName, context: contextLabel, location: location),
-        );
+        parsingErrors.add(_unknownRuleError(key, ruleName, contextLabel, sourceFile));
         continue;
       }
 
@@ -323,6 +316,28 @@ class ConfigParser {
     }
 
     return ruleConfigs;
+  }
+
+  /// Describes [ruleName], the rule name in [key] that is not in
+  /// [configurableRuleNames], for a parsing error.
+  static String _unknownRuleError(
+    Object? key,
+    String ruleName,
+    String contextLabel,
+    String? sourceFile,
+  ) {
+    String? location;
+    if (sourceFile != null && key is YamlNode) {
+      location = '$sourceFile:${key.span.start.line + 1}';
+    }
+
+    // package:yaml does not support merge keys, so `<<: *anchor` arrives as
+    // a rule named "<<". A quoted "<<" is an ordinary name.
+    final bool isMergeKey = key is YamlScalar && key.style == ScalarStyle.PLAIN && ruleName == '<<';
+    if (isMergeKey) {
+      return mergeKeyMessage(context: contextLabel, location: location);
+    }
+    return unknownRuleNameMessage(ruleName, context: contextLabel, location: location);
   }
 
   /// Parses a single rule's configuration value into a [RuleConfigPatch].

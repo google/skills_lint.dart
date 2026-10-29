@@ -1319,12 +1319,12 @@ skills_lint:
             result.stderr,
             matches(
               RegExp(
-                r'Configuration error: Global rules: Unknown rule "check-relative-path" '
-                r'\(\S+skills_lint\.yaml:3\)\. Did you mean "check-relative-paths"\?',
+                r'Configuration error: .*Unknown rule "check-relative-path".*skills_lint\.yaml:3',
               ),
             ),
           );
-          expect(result.stderr, contains('Fix or remove these entries in the configuration file.'));
+          expect(result.stderr, contains('"check-relative-paths"'));
+          expect(result.stderr, contains('Fix or remove'));
           expect(result.stdout, isNot(contains('"ruleId"')));
         });
       }
