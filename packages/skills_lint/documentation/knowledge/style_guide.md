@@ -152,14 +152,14 @@ Group constants by concept (for example CLI flags, then messages). Separate each
 
 These rules apply [Parse at the Boundary and Single Source of Truth](architecture_overview.md#-durable-design-patterns) to a single function.
 
-- Take typed values such as classes, records, enums, `File` or `Directory`. Don't take a `Map<String, dynamic>` of options or a path as a `String`.
+- Take typed values such as classes, records or enums. Don't take a `Map<String, dynamic>` of options.
 - Don't parse again a value that is already typed. A `bool` from YAML is a `bool`; don't also compare it to `'true'`.
 - Use named parameters when a function takes three or more parameters of the same type.
 - Reference a default or constant from the class that owns it. Don't repeat the literal.
 
 ```dart
 // BAD: Untyped options, a re-parsed boolean and positional strings of the same type.
-Report check(Map<String, dynamic> options, String root) {
+Report check(Directory root, Map<String, dynamic> options) {
   final strict = options['strict'] == true || options['strict'] == 'true';
   // ...
 }
