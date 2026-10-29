@@ -148,68 +148,33 @@ Group constants by concept (for example CLI flags, then messages). Separate each
 
 ---
 
-## 🧱 Parse at the Boundary & Make Illegal States Unrepresentable
+## 🧩 Function Signatures
 
-Parse untyped external data (YAML, JSON, CLI arguments, filesystem paths) once where it enters the system into typed Dart classes, records, enums, or `File`/`Directory` objects. Do not pass raw `Map<String, dynamic>` option bags, boolean origin flags, or three or more positional `String` parameters across internal APIs, and do not re-parse strings that `package:yaml` already typed.
+These rules apply [Parse at the Boundary and Single Source of Truth](architecture_overview.md#-durable-design-patterns) to a single function.
 
-```dart
-// BAD: Passing raw dynamic maps, re-parsing YAML booleans, or using boolean origin flags.
-class RelativePathsRule extends SkillRule {
-  RelativePathsRule({Map<String, dynamic>? options})
-    : checkDirectories =
-          options?['check-directories'] == true ||
-          options?['check-directories'] == 'true';
-  final bool checkDirectories;
-}
-
-// GOOD: Parse once at the config boundary; accept a typed parameter with its canonical default.
-class RelativePathsRule extends SkillRule {
-  RelativePathsRule({this.checkDirectories = defaultCheckDirectories});
-
-  static const bool defaultCheckDirectories = false;
-  final bool checkDirectories;
-}
-```
+- Take typed values such as classes, records, enums, `File` or `Directory`. Don't take a `Map<String, dynamic>` of options or a path as a `String`.
+- Don't parse again a value that is already typed. A `bool` from YAML is a `bool`; don't also compare it to `'true'`.
+- Use named parameters when a function takes three or more parameters of the same type.
+- Reference a default or constant from the class that owns it. Don't repeat the literal.
 
 ```dart
-// BAD: Multiple positional String parameters and raw path strings passed into file utilities.
-YamlEditResult buildSuppressionEdit(
-  String content,
-  String targetKey,
-  String ruleId,
-  String severity,
-);
-Future<List<String>> findUnformattedFiles(String rootDirPath);
+// BAD: Untyped options, a re-parsed boolean and positional strings of the same type.
+Report check(Map<String, dynamic> options, String root) {
+  final strict = options['strict'] == true || options['strict'] == 'true';
+  // ...
+}
+Edit addSuppression(String content, String key, String ruleId, String severity);
 
-// GOOD: Named parameters or a typed record/model, and `Directory`/`File` at the API boundary.
-YamlEditResult buildSuppressionEdit(
+// GOOD: Typed parameters, the owner's default, and named parameters.
+Report check(Directory root, {bool strict = Checker.defaultStrict}) {
+  // ...
+}
+Edit addSuppression(
   String content, {
-  required String targetKey,
+  required String key,
   required String ruleId,
   required String severity,
 });
-Future<List<File>> findUnformattedFiles(Directory rootDir);
-```
-
----
-
-## 🎯 Single Source of Truth (One Decision in One Place)
-
-Every default parameter value, schema key, URI scheme allowlist, file extension set, or path-normalization helper lives in one canonical place. Callers and registries forward or reference that definition rather than repeating the literal.
-
-```dart
-// BAD: Repeating the default value (`false`) in both the rule registry and the rule constructor.
-// In rule_registry.dart:
-RelativePathsRule(
-  checkDirectories: (options['check-directories'] as bool?) ?? false,
-)
-
-// GOOD: Reference the class constant from the owning rule.
-RelativePathsRule(
-  checkDirectories:
-      options[RelativePathsRule.keyCheckDirectories] as bool? ??
-      RelativePathsRule.defaultCheckDirectories,
-)
 ```
 
 ---
@@ -227,19 +192,16 @@ Extract multi-line strings, diagnostics, and formatted markdown message construc
 
 ---
 
-## 🔄 Refactoring & Addressing Review Feedback
+## 🔄 Mode Flags
 
-When a requirement or review comment exposes that a helper, class, or test has mixed responsibilities, redesign the data flow rather than bolting a boolean toggle or extra conditional branch onto the existing signature.
+When a function needs to do two different jobs, split it. Don't add a boolean parameter that picks the job. Do the same when a requirement or a review comment shows that a function already mixes two jobs.
 
 ```dart
-// BAD: Bolting a boolean mode flag onto a checker when a test needs filesystem-walk vs git-tracked discovery.
-Future<List<File>> findMissingCopyrightHeaders(
-  Directory root, {
-  bool useGitLsFiles = true,
-});
+// BAD: A flag picks how the function finds files.
+Future<List<File>> findMissingHeaders(Directory root, {bool useGit = true});
 
-// GOOD: Separate file discovery from header checking so callers pass the exact iterable of files they want checked.
-Future<List<File>> findMissingCopyrightHeaders(Iterable<File> files);
+// GOOD: The caller finds the files; the function checks only the files it gets.
+Future<List<File>> findMissingHeaders(Iterable<File> files);
 ```
 
 ---
@@ -252,9 +214,9 @@ Tests give confidence that the code keeps working through refactors and added fe
 - A failing test's output must be enough to debug from CI logs alone. Name the input, the expected value and the actual value.
 - Every `skip:` or `testOn:` gives the reason at that spot.
 - "Hard to test" is not a reason to skip unit tests for pure logic. Pure logic is the cheapest code to test.
-- **Verify the test fails first (Red-First):** For every bug fix or diagnostic rule check, confirm the test fails without the fix for the expected reason.
-- **Test round-trip contracts on fixes and serializers:** Every test of an auto-fix (`SkillRule.fix`), YAML editor, or baseline/config generator feeds the modified output back through the parser or `Validator` and asserts that the target violation is resolved and no unintended diagnostics are introduced.
-- **Isolate the rule under test in fixtures:** Minimal `SKILL.md` fixtures include valid required frontmatter (`name` and `description`) unless the test targets missing frontmatter, so unrelated rule failures cannot mask or mimic the diagnostic under test.
+- Confirm that each test for a bug fix or a rule fails without the change, and fails for the expected reason.
+- A test of an auto-fix, a YAML editor, or a baseline or config generator feeds the output back through the parser or the validator. It asserts that the target violation is gone and that no other diagnostic appears.
+- A minimal `SKILL.md` fixture has the required frontmatter fields, unless the test is about missing frontmatter. That way, another rule's failure can't hide or mimic the diagnostic under test.
 - Tests of the shipped skills_lint package go in `test/`. Scans that fail when the repo drifts go in `repo_test/`, and unit tests of their checker code go in `repo_test/checkers/`. See [Where tests go](../../../../CONTRIBUTING.md#where-tests-go).
 
 ---
