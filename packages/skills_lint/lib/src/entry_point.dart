@@ -24,6 +24,7 @@ import 'models/skill_rule.dart';
 import 'models/validation_target.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
+import 'unknown_rule_names.dart';
 import 'validation_session.dart';
 import 'version.dart';
 
@@ -316,7 +317,8 @@ ArgParser _createArgParser(String helpFlag) {
       _allowMisconfiguredKeysFlag,
       negatable: false,
       hide: true,
-      help: 'Allow misconfigured keys in skills_lint.yaml.',
+      help:
+          'Report misconfigured keys in skills_lint.yaml, including unknown rule names, as warnings instead of errors.',
     )
     ..addOption(
       _configOption,
@@ -359,17 +361,27 @@ Future<Configuration?> _loadConfig(
     _log.info('Ignoring configuration file due to $_ignoreConfigFlag flag');
   }
 
-  if (config.parsingErrors.isNotEmpty) {
+  // The command line runs only built-in rules, and the argument parser
+  // rejects unknown rule flags, so built-in names are the full set here.
+  final List<String> configurationErrors = [
+    ...config.parsingErrors,
+    ...unknownRuleNameErrors(
+      config,
+      knownNames: [for (final CheckType check in RuleRegistry.allChecks) check.name],
+      configFile: ignoreConfig ? null : _existingConfigFile(results[_configOption] as String?),
+    ),
+  ];
+  if (configurationErrors.isNotEmpty) {
     final allowMisconfiguredKeys = results[_allowMisconfiguredKeysFlag] as bool;
     if (allowMisconfiguredKeys) {
       _log.warning(
         'DEPRECATION WARNING: --allow-misconfigured-keys is deprecated and will be removed in a future release. Fix misconfigured configuration keys rather than bypassing validation.',
       );
-      for (final String error in config.parsingErrors) {
+      for (final error in configurationErrors) {
         _log.warning('Configuration warning: $error');
       }
     } else {
-      for (final String error in config.parsingErrors) {
+      for (final error in configurationErrors) {
         _log.severe('Configuration error: $error');
       }
       _log.severe('Use --$_allowMisconfiguredKeysFlag to ignore these errors.');
@@ -377,6 +389,13 @@ Future<Configuration?> _loadConfig(
     }
   }
   return config;
+}
+
+/// The configuration file [ConfigParser.loadConfig] reads for [configPath],
+/// or `null` when it does not exist.
+String? _existingConfigFile(String? configPath) {
+  final String path = resolveConfigPath(configPath);
+  return File(path).existsSync() ? path : null;
 }
 
 /// Validates skills based on the provided configuration.

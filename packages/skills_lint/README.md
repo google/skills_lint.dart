@@ -154,6 +154,7 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `--version`: Print the skills_lint version and exit. All other flags are ignored. Arguments that fail to parse, such as an unknown flag or `--format xml`, exit with a usage error.
 - `-c`, `--config`: Path to a configuration file. Defaults to `skills_lint.yaml` in the current directory. Paths declared inside a configuration file resolve relative to that file's directory.
 - `--ignore-config`: Ignore the YAML configuration file entirely.
+- `--allow-misconfigured-keys`: *Deprecated.* Report misconfigured keys in the configuration file as warnings and continue, instead of failing. Misconfigured keys include unknown rule names.
 - `--ignore-file`: Path to a JSON file listing lints to ignore for the run. Each entry names a `rule_id` and a `file_name`. An optional `subject` limits the entry to the findings about one thing in that file; [`RULES.md`](RULES.md) says which rules set one, and in what format.
 - `--generate-baseline`: Write every current error into `skills_lint_ignore.json` so existing violations are ignored on future runs.
 - `--[no-]check-trailing-whitespace`: Enable/disable checking for trailing whitespace. (Disabled by default).
@@ -195,7 +196,7 @@ skills_lint:
   individual_skills:
     - path: "my_custom_standalone_skill"
       rules:
-        missing_install_script: warning
+        check-trailing-whitespace: warning
       ignore_file: "my_ignores.json"
 ```
 
@@ -203,6 +204,12 @@ Then you can simply run:
 ```bash
 dart run skills_lint
 ```
+
+A rule name that matches no built-in rule, and no custom rule passed to
+`validateSkills`, is a misconfigured key, like an unknown top-level key.
+The `skills_lint` command reports it as a `Configuration error:` and fails;
+`validateSkills` prints it as a `Configuration warning:`. The message names
+the closest rules and, when the configuration came from a file, its line.
 
 ### Rule Precedence
 

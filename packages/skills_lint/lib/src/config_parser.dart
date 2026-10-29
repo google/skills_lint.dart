@@ -214,10 +214,7 @@ class ConfigParser {
   /// a [FileSystemException]. If no path is provided and the default `skills_lint.yaml`
   /// file does not exist in the current working directory, an empty [Configuration] is returned.
   static Future<Configuration> loadConfig({String? path}) async {
-    final String resolvedPath = canonicalizePath(
-      path ?? 'skills_lint.yaml',
-      baseDirectory: Directory.current.path,
-    );
+    final String resolvedPath = resolveConfigPath(path);
     final configFile = File(resolvedPath);
 
     if (!configFile.existsSync()) {
@@ -634,6 +631,14 @@ class LintTargetConfig {
 /// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
 /// function, so the shape of [TargetDeclaration] can change freely.
 TargetDeclaration? declarationOf(LintTargetConfig target) => target._declaration;
+
+/// The absolute path [ConfigParser.loadConfig] reads for [path], or for the
+/// default `skills_lint.yaml` in the current directory when [path] is `null`.
+///
+/// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
+/// function.
+String resolveConfigPath(String? path) =>
+    canonicalizePath(path ?? 'skills_lint.yaml', baseDirectory: Directory.current.path);
 
 /// Structured configuration for the linter.
 @immutable

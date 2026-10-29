@@ -31,6 +31,7 @@ import 'rule_registry.dart';
 import 'rules/name_format_rule.dart';
 import 'rules/pub_archive_includes_skill_rule.dart';
 import 'skills_ignores_storage.dart';
+import 'unknown_rule_names.dart';
 import 'validator.dart';
 
 final _log = Logger('skills_lint');
@@ -450,10 +451,21 @@ class ValidationSession {
     }
   }
 
-  /// Reports each entry in [Configuration.parsingErrors] of [config] as a
-  /// warning. Does not mark the session as failed.
-  void reportConfigurationWarnings() =>
-      config.parsingErrors.forEach(_reporter.onConfigurationWarning);
+  /// Reports each entry in [Configuration.parsingErrors] of [config], and
+  /// each rule name in [config] or [resolvedRuleConfigs] that is neither a
+  /// built-in rule nor one of [customRules], as a warning. Does not mark the
+  /// session as failed.
+  void reportConfigurationWarnings() => [
+    ...config.parsingErrors,
+    ...unknownRuleNameErrors(
+      config,
+      knownNames: [
+        for (final CheckType check in RuleRegistry.allChecks) check.name,
+        for (final SkillRule rule in customRules) rule.name,
+      ],
+      overrides: resolvedRuleConfigs,
+    ),
+  ].forEach(_reporter.onConfigurationWarning);
 
   /// If no skills were validated across the whole run, emit appropriate
   /// diagnostics and mark the session as failed.

@@ -20,6 +20,7 @@
 - `invalid-skill-name` reads a `name` that YAML loads as a number or boolean as the text written, so `name: 1e3` matches a `1e3` directory, and `name: 0x1f` no longer matches a `31` directory, nor `name: True` a `true` one.
 - `validateSkills` prints each `config.parsingErrors` entry to stderr as a `Configuration warning:` and still returns `true`, unlike the `skills_lint` command. To fail on them, check that `parsingErrors` is empty. [#152](https://github.com/google/skills_lint.dart/issues/152) tracks failing in 0.6.0.
 - The `skills-lint-setup` example test fails when `skills_lint.yaml` has errors.
+- A rule name in the configuration that matches no rule is a misconfigured key. The `skills_lint` command used to ignore it; it now prints `Configuration error: Unknown rule "<name>" in <where> (<file>:<line>). Did you mean "<rule>"?` and exits 1, before any validation and without SARIF or JSON output. `<where>` is `rules`, `directories["<path>"].rules`, or `individual_skills["<path>"].rules`. `--allow-misconfigured-keys` turns these into warnings. `validateSkills` prints them as `Configuration warning:` lines, including unknown keys of `resolvedRuleConfigs`, and still returns `true`. Names of the `customRules` passed to `validateSkills` are known. Unknown rule names are not added to `Configuration.parsingErrors`, because the parser does not know the custom rules. Baselines and ignore files do not suppress them.
 
 ### New features
 
