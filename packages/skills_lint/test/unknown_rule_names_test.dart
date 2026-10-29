@@ -11,43 +11,47 @@ import 'package:test/test.dart';
 
 import 'test_utils.dart';
 
-const _known = ['check-relative-paths', 'check-trailing-whitespace', 'valid-yaml-metadata'];
-
 void main() {
-  group('unknownRuleNameErrors', () {
-    test('reports a top-level typo with a suggestion', () {
+  group('unknownRuleNameMessage', () {
+    test('lists every equally close name', () {
+      expect(
+        unknownRuleNameMessage('check-reloluxe-paths', context: 'Global rules'),
+        'Global rules: Unknown rule "check-reloluxe-paths". '
+        'Did you mean "check-absolute-paths" or "check-relative-paths"?',
+      );
+    });
+
+    test('treats skill-file-inaccessible as configurable', () {
+      expect(configurableRuleNames, contains('skill-file-inaccessible'));
+    });
+  });
+
+  group('ConfigParser reports unknown rule names', () {
+    test('in the top-level rules, with a suggestion', () {
       final Configuration config = ConfigParser.parse('''
 skills_lint:
   rules:
     check-relative-path: error
 ''');
 
-      expect(unknownRuleNameErrors(config, knownNames: _known), [
-        'Unknown rule "check-relative-path" in rules. Did you mean "check-relative-paths"?',
+      expect(config.parsingErrors, [
+        'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
       ]);
     });
 
-    test('reports no suggestion when nothing is close', () {
+    test('with a version hint when nothing is close', () {
       final Configuration config = ConfigParser.parse('''
 skills_lint:
   rules:
     zzz: error
 ''');
 
-      expect(unknownRuleNameErrors(config, knownNames: _known), ['Unknown rule "zzz" in rules.']);
-    });
-
-    test('lists every equally close name', () {
-      const config = Configuration(
-        ruleConfigs: {'rule-c': RuleConfigPatch(severity: AnalysisSeverity.error)},
-      );
-
-      expect(unknownRuleNameErrors(config, knownNames: ['rule-a', 'rule-b']), [
-        'Unknown rule "rule-c" in rules. Did you mean "rule-a" or "rule-b"?',
+      expect(config.parsingErrors, [
+        'Global rules: Unknown rule "zzz". If it is a rule from a newer skills_lint, upgrade skills_lint.',
       ]);
     });
 
-    test('names the target entry a typo is in', () {
+    test('in target entries', () {
       final Configuration config = ConfigParser.parse('''
 skills_lint:
   directories:
@@ -60,75 +64,89 @@ skills_lint:
         check-trailing-whitespac: error
 ''');
 
-      expect(unknownRuleNameErrors(config, knownNames: _known), [
-        'Unknown rule "valid-yaml-metadat" in directories[".agents/skills"].rules. Did you mean "valid-yaml-metadata"?',
-        'Unknown rule "check-trailing-whitespac" in individual_skills["one/skill"].rules. Did you mean "check-trailing-whitespace"?',
+      expect(config.parsingErrors, [
+        'Directory entry rules for ".agents/skills": Unknown rule "valid-yaml-metadat". Did you mean "valid-yaml-metadata"?',
+        'Individual skill entry rules for "one/skill": Unknown rule "check-trailing-whitespac". Did you mean "check-trailing-whitespace"?',
       ]);
     });
 
-    test('checks override keys', () {
-      expect(
-        unknownRuleNameErrors(
-          const Configuration(),
-          knownNames: _known,
-          overrides: {'valid-yaml-metadat': const RuleConfigPatch()},
-        ),
-        [
-          'Unknown rule "valid-yaml-metadat" in resolvedRuleConfigs. Did you mean "valid-yaml-metadata"?',
-        ],
-      );
+    test('but accepts skill-file-inaccessible', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint:
+  rules:
+    skill-file-inaccessible: warning
+''');
+
+      expect(config.parsingErrors, isEmpty);
+      expect(config.ruleConfigs.keys, ['skill-file-inaccessible']);
     });
 
-    test('accepts every known name', () {
+    test('including custom rule names, which configuration does not affect', () {
       final Configuration config = ConfigParser.parse('''
 skills_lint:
   rules:
     my-custom-rule: error
-    check-relative-paths: warning
 ''');
 
-      expect(unknownRuleNameErrors(config, knownNames: [..._known, 'my-custom-rule']), isEmpty);
+      expect(config.parsingErrors.single, contains('Unknown rule "my-custom-rule"'));
     });
 
-    group('with a configuration file', () {
+    group('from a file', () {
       late Directory tempDir;
-      late String configPath;
 
-      setUp(() {
-        tempDir = Directory.systemTemp.createTempSync('unknown_rule_names_test.');
-        configPath = p.join(tempDir.path, 'custom.yaml');
+      setUp(() => tempDir = Directory.systemTemp.createTempSync('unknown_rule_names_test.'));
+      tearDown(() => tempDir.deleteSync(recursive: true));
+
+      test('with the file and line of each name, including multi-line and flow entries', () async {
+        final String configPath = p.join(tempDir.path, 'custom.yaml');
         File(configPath).writeAsStringSync('''
 skills_lint:
   rules:
     check-relative-path: error
   directories:
-    - path: a
-    - path: b
+    - path:
+        skills
       rules:
         valid-yaml-metadat: error
+    - {path: a, rules: {nope-rule: error}}
 ''');
-      });
 
-      tearDown(() => tempDir.deleteSync(recursive: true));
-
-      test('shows the file and line of each typo', () async {
         final Configuration config = await ConfigParser.loadConfig(path: configPath);
+        final String file = p.canonicalize(configPath);
 
-        expect(unknownRuleNameErrors(config, knownNames: _known, configFile: configPath), [
-          'Unknown rule "check-relative-path" in rules ($configPath:3). Did you mean "check-relative-paths"?',
-          'Unknown rule "valid-yaml-metadat" in directories["b"].rules ($configPath:8). Did you mean "valid-yaml-metadata"?',
+        expect(config.parsingErrors, [
+          startsWith('Global rules: Unknown rule "check-relative-path" ($file:3).'),
+          startsWith(
+            'Directory entry rules for "skills": Unknown rule "valid-yaml-metadat" ($file:8).',
+          ),
+          startsWith('Directory entry rules for "a": Unknown rule "nope-rule" ($file:9).'),
         ]);
       });
 
-      test('finds the file from the parsed targets when none is given', () async {
+      test('with the file and line when there are only top-level rules', () async {
+        final String configPath = p.join(tempDir.path, 'skills_lint.yaml');
+        File(configPath).writeAsStringSync('''
+skills_lint:
+  rules:
+    check-relative-path: error
+''');
+
         final Configuration config = await ConfigParser.loadConfig(path: configPath);
 
-        expect(
-          unknownRuleNameErrors(config, knownNames: _known).first,
-          contains('($configPath:3)'),
-        );
+        expect(config.parsingErrors.single, contains('(${p.canonicalize(configPath)}:3)'));
       });
     });
+  });
+
+  test('the setup example harness pattern fails on a typo', () {
+    final Configuration config = ConfigParser.parse('''
+skills_lint:
+  rules:
+    check-relative-path: error
+''');
+
+    // Mirrors skills/skills-lint-setup/references/validate_skills_example.dart.
+    expect(config.parsingErrors, isNot(isEmpty));
   });
 
   group('validateSkills', () {
@@ -166,43 +184,20 @@ skills_lint:
       return (passed, err.buffer.toString());
     }
 
-    test('warns about a typo in an in-code configuration and passes', () async {
+    test('warns about a typo in the configuration and passes', () async {
       final (bool passed, String err) = await run(
-        config: const Configuration(
-          ruleConfigs: {'check-relative-path': RuleConfigPatch(severity: AnalysisSeverity.error)},
-        ),
+        config: ConfigParser.parse('''
+skills_lint:
+  rules:
+    check-relative-path: error
+'''),
       );
 
       expect(
         err,
-        contains(
-          'Configuration warning: Unknown rule "check-relative-path" in rules. '
-          'Did you mean "check-relative-paths"?',
-        ),
+        contains('Configuration warning: Global rules: Unknown rule "check-relative-path".'),
       );
       expect(passed, isTrue);
-    });
-
-    test('shows file and line for a loaded configuration', () async {
-      final String configPath = p.join(tempDir.path, 'skills_lint.yaml');
-      File(configPath).writeAsStringSync('''
-skills_lint:
-  individual_skills:
-    - path: my-skill
-      rules:
-        check-relative-path: error
-''');
-      final Configuration config = await ConfigParser.loadConfig(path: configPath);
-
-      final (_, String err) = await run(config: config);
-
-      expect(
-        err,
-        contains(
-          'Configuration warning: Unknown rule "check-relative-path" in '
-          'individual_skills["my-skill"].rules ($configPath:5).',
-        ),
-      );
     });
 
     test('warns about a typo in resolvedRuleConfigs', () async {
@@ -213,20 +208,32 @@ skills_lint:
       expect(
         err,
         contains(
-          'Configuration warning: Unknown rule "valid-yaml-metadat" in resolvedRuleConfigs.',
+          'Configuration warning: resolvedRuleConfigs: Unknown rule "valid-yaml-metadat". '
+          'Did you mean "valid-yaml-metadata"?',
         ),
       );
     });
 
-    test('knows the names of custom rules', () async {
+    test('explains that resolvedRuleConfigs cannot configure a custom rule', () async {
       final (_, String err) = await run(
-        config: const Configuration(
-          ruleConfigs: {'my-custom-rule': RuleConfigPatch(severity: AnalysisSeverity.error)},
-        ),
+        resolvedRuleConfigs: {'my-custom-rule': const RuleConfigPatch()},
         customRules: [_NoopRule()],
       );
 
-      expect(err, isNot(contains('Unknown rule')));
+      expect(
+        err,
+        contains(
+          'resolvedRuleConfigs: "my-custom-rule" is a custom rule, and configuration has no effect',
+        ),
+      );
+    });
+
+    test('accepts built-in names in resolvedRuleConfigs', () async {
+      final (_, String err) = await run(
+        resolvedRuleConfigs: {'valid-yaml-metadata': const RuleConfigPatch()},
+      );
+
+      expect(err, isNot(contains('Configuration warning')));
     });
   });
 }

@@ -452,19 +452,11 @@ class ValidationSession {
   }
 
   /// Reports each entry in [Configuration.parsingErrors] of [config], and
-  /// each rule name in [config] or [resolvedRuleConfigs] that is neither a
-  /// built-in rule nor one of [customRules], as a warning. Does not mark the
-  /// session as failed.
+  /// each key of [resolvedRuleConfigs] that names no configurable rule, as a
+  /// warning. Does not mark the session as failed.
   void reportConfigurationWarnings() => [
     ...config.parsingErrors,
-    ...unknownRuleNameErrors(
-      config,
-      knownNames: [
-        for (final CheckType check in RuleRegistry.allChecks) check.name,
-        for (final SkillRule rule in customRules) rule.name,
-      ],
-      overrides: resolvedRuleConfigs,
-    ),
+    ...unknownOverrideMessages(resolvedRuleConfigs, customRules),
   ].forEach(_reporter.onConfigurationWarning);
 
   /// If no skills were validated across the whole run, emit appropriate

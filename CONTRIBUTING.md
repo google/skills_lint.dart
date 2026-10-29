@@ -68,6 +68,13 @@ void main() {
 }
 ```
 
+`config.parsingErrors` lists each problem in `skills_lint.yaml`, including
+rule names that match no built-in rule. `validateSkills` prints them as
+`Configuration warning:` lines and still passes, so a test that must fail on
+them checks that `config.parsingErrors` is empty, as the
+[`skills-lint-setup` example](packages/skills_lint/skills/skills-lint-setup/references/validate_skills_example.dart)
+does.
+
 `Validator` and `ValidationResult` are also exposed for tests that
 need to inspect errors programmatically. Custom rule authoring lives
 in the

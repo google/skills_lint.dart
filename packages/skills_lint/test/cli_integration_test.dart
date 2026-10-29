@@ -1319,12 +1319,12 @@ skills_lint:
             result.stderr,
             matches(
               RegExp(
-                r'Configuration error: Unknown rule "check-relative-path" in rules '
+                r'Configuration error: Global rules: Unknown rule "check-relative-path" '
                 r'\(\S+skills_lint\.yaml:3\)\. Did you mean "check-relative-paths"\?',
               ),
             ),
           );
-          expect(result.stderr, contains('Use --allow-misconfigured-keys to ignore these errors.'));
+          expect(result.stderr, contains('Fix or remove these entries in the configuration file.'));
           expect(result.stdout, isNot(contains('"ruleId"')));
         });
       }
@@ -1342,7 +1342,7 @@ skills_lint:
 
         expect(
           result.stderr,
-          contains('Configuration warning: Unknown rule "check-relative-path" in rules'),
+          contains('Configuration warning: Global rules: Unknown rule "check-relative-path"'),
         );
         expect('Unknown rule'.allMatches(result.stderr), hasLength(1));
       });
@@ -1375,7 +1375,7 @@ skills_lint:
         expect(
           result.stderr,
           contains(
-            'Configuration error: Unknown rule "valid-yaml-metadat" in directories["."].rules',
+            'Configuration error: Directory entry rules for ".": Unknown rule "valid-yaml-metadat"',
           ),
         );
       });

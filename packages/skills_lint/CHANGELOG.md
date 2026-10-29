@@ -3,10 +3,9 @@
 ### Breaking changes
 
 - Requires Dart 3.12 or later.
-- The `skills_lint` command fails on a configured rule name that matches no rule, instead of ignoring it. It prints `Configuration error: Unknown rule "<name>" in <where> (<file>:<line>). Did you mean "<rule>"?` and exits 1.
-- `--allow-misconfigured-keys` turns unknown rule names into warnings, as it does for unknown keys. Baselines and ignore files do not suppress them.
-- `validateSkills` prints unknown rule names, including `resolvedRuleConfigs` keys, as `Configuration warning:` lines and returns `true` ([#152](https://github.com/google/skills_lint.dart/issues/152)). It knows `customRules` names.
-- A configuration file shared with a harness that registers custom rules fails the command line on those names. Configure such rules with `resolvedRuleConfigs` in that harness.
+- A configured rule name that matches no built-in rule is a configuration error, added to `Configuration.parsingErrors`. The `skills_lint` command used to ignore it; it now prints `Configuration error: Global rules: Unknown rule "<name>" (<file>:<line>). Did you mean "<rule>"?` and exits 1.
+- This includes names of custom rules, because configuration has no effect on custom rules. Remove those entries.
+- `validateSkills` also warns about each `resolvedRuleConfigs` key that names no built-in rule.
 
 ### New rules
 

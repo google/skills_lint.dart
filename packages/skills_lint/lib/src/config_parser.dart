@@ -18,6 +18,7 @@ import 'models/rule_config.dart';
 import 'models/target_declaration.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
+import 'unknown_rule_names.dart';
 
 final Logger _log = Logger('skills_lint');
 
@@ -150,6 +151,7 @@ class ConfigParser {
       final Map<String, RuleConfigPatch> rulesResult = _parseDefaultRules(
         toolConfig,
         parsingErrors,
+        sourceFile,
       );
       final List<LintTargetConfig> directoryConfigs = _parseConfigList(
         toolConfig,
@@ -214,7 +216,10 @@ class ConfigParser {
   /// a [FileSystemException]. If no path is provided and the default `skills_lint.yaml`
   /// file does not exist in the current working directory, an empty [Configuration] is returned.
   static Future<Configuration> loadConfig({String? path}) async {
-    final String resolvedPath = resolveConfigPath(path);
+    final String resolvedPath = canonicalizePath(
+      path ?? 'skills_lint.yaml',
+      baseDirectory: Directory.current.path,
+    );
     final configFile = File(resolvedPath);
 
     if (!configFile.existsSync()) {
@@ -259,11 +264,12 @@ class ConfigParser {
   static Map<String, RuleConfigPatch> _parseDefaultRules(
     YamlMap toolConfig,
     List<String> parsingErrors,
+    String? sourceFile,
   ) {
     if (toolConfig.containsKey(rulesKey)) {
       final Object? rules = toolConfig[rulesKey];
       if (rules is YamlMap) {
-        return _parseRulesMap(rules, parsingErrors, 'Global rules');
+        return _parseRulesMap(rules, parsingErrors, 'Global rules', sourceFile);
       }
     }
     return const <String, RuleConfigPatch>{};
@@ -273,16 +279,33 @@ class ConfigParser {
   ///
   /// Validates that parameter keys and value types match their definitions in the registry,
   /// appending any validation errors to [parsingErrors] labeled by [contextLabel].
+  /// A rule name that is not in [configurableRuleNames] is an error. Its entry
+  /// is kept, so the configuration still round-trips, and has no effect. The
+  /// message gives its line in [sourceFile] when that is known.
   static Map<String, RuleConfigPatch> _parseRulesMap(
     YamlMap rulesMap,
     List<String> parsingErrors,
     String contextLabel,
+    String? sourceFile,
   ) {
     final ruleConfigs = <String, RuleConfigPatch>{};
 
-    for (final Object? key in rulesMap.keys) {
-      final ruleName = key.toString();
-      final Object? value = rulesMap[key];
+    for (final MapEntry<Object?, YamlNode> entry in rulesMap.nodes.entries) {
+      final Object? key = entry.key;
+      final ruleName = key is YamlNode ? key.value.toString() : key.toString();
+      final Object? value = entry.value.value;
+
+      if (!configurableRuleNames.contains(ruleName)) {
+        parsingErrors.add(
+          unknownRuleNameMessage(
+            ruleName,
+            context: contextLabel,
+            location: sourceFile == null || key is! YamlNode
+                ? null
+                : '$sourceFile:${key.span.start.line + 1}',
+          ),
+        );
+      }
 
       // Rules must have a unique name so we can assume one match.
       final Iterable<CheckType> checkMatches = RuleRegistry.allChecks.where(
@@ -441,6 +464,7 @@ class ConfigParser {
       path,
       entryLabelCap,
       parsingErrors,
+      sourceFile,
     );
 
     final ({String? authored, String? resolved}) ignoreFile = _parseIgnoreFileForTarget(
@@ -484,13 +508,19 @@ class ConfigParser {
     String path,
     String entryLabelCap,
     List<String> parsingErrors,
+    String? sourceFile,
   ) {
     if (!dir.containsKey(rulesKey)) {
       return const <String, RuleConfigPatch>{};
     }
     final Object? localRules = dir[rulesKey];
     if (localRules is YamlMap) {
-      return _parseRulesMap(localRules, parsingErrors, '$entryLabelCap rules for "$path"');
+      return _parseRulesMap(
+        localRules,
+        parsingErrors,
+        '$entryLabelCap rules for "$path"',
+        sourceFile,
+      );
     }
     parsingErrors.add(
       '$entryLabelCap "$rulesKey" for "$path" must be a map; '
@@ -631,14 +661,6 @@ class LintTargetConfig {
 /// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
 /// function, so the shape of [TargetDeclaration] can change freely.
 TargetDeclaration? declarationOf(LintTargetConfig target) => target._declaration;
-
-/// The absolute path [ConfigParser.loadConfig] reads for [path], or for the
-/// default `skills_lint.yaml` in the current directory when [path] is `null`.
-///
-/// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
-/// function.
-String resolveConfigPath(String? path) =>
-    canonicalizePath(path ?? 'skills_lint.yaml', baseDirectory: Directory.current.path);
 
 /// Structured configuration for the linter.
 @immutable

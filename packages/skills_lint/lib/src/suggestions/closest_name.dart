@@ -37,6 +37,6 @@ List<String> closestNames(String name, Iterable<String> candidates, {required in
   return best.toList()..sort();
 }
 
-/// A third of the length of [name], and at least 1: an edit distance limit
-/// for callers of [closestNames] that suggest a fix for a typo.
-int thirdOfLength(String name) => name.isEmpty ? 0 : (name.length ~/ 3).clamp(1, name.length);
+/// The edit distance limit for a typo of [name]: a third of its length, and
+/// at least 1 for a name that is not empty. It is 0 for an empty name.
+int typoDistanceLimit(String name) => name.isEmpty ? 0 : (name.length ~/ 3).clamp(1, name.length);
