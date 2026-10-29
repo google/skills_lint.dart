@@ -1307,7 +1307,7 @@ skills_lint:
         return (stdout: out, stderr: err);
       }
 
-      for (final format in ['text', 'json', 'sarif']) {
+      void failsWithFormat(String format) {
         test('fails as a configuration error with --format=$format', () async {
           final ({String stdout, String stderr}) result = await run([
             '--format=$format',
@@ -1329,6 +1329,10 @@ skills_lint:
         });
       }
 
+      failsWithFormat('text');
+      failsWithFormat('json');
+      failsWithFormat('sarif');
+
       test('is a warning with --allow-misconfigured-keys', () async {
         final ({String stdout, String stderr}) result = await run([
           '--allow-misconfigured-keys',
@@ -1340,6 +1344,7 @@ skills_lint:
           result.stderr,
           contains('Configuration warning: Unknown rule "check-relative-path" in rules'),
         );
+        expect('Unknown rule'.allMatches(result.stderr), hasLength(1));
       });
 
       test('names the file given to --config', () async {
