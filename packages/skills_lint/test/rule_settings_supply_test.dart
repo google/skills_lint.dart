@@ -19,12 +19,24 @@ import 'test_utils.dart';
 /// The ways a rule's settings can be supplied, from lowest to highest
 /// precedence.
 enum Layer {
+  /// The top-level `rules:` map in skills_lint.yaml.
   topLevel,
+
+  /// The `rules:` map of a `directories[]` entry in skills_lint.yaml.
   directory,
+
+  /// The `rules:` map of an `individual_skills[]` entry in skills_lint.yaml.
   individualSkill,
+
+  /// Command-line flags, such as `--<rule>`, which the CLI turns into
+  /// `resolvedRuleConfigs`.
   cli,
+
+  /// The `resolvedRuleConfigs` argument that Dart callers pass to
+  /// `validateSkills`.
   api;
 
+  /// Whether this layer is written in skills_lint.yaml.
   bool get isYaml => const {topLevel, directory, individualSkill}.contains(this);
 }
 
