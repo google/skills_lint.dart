@@ -22,7 +22,7 @@ const int _headerSize = 32;
 const int _lcVersionMinMacosx = 0x24;
 const int _lcBuildVersion = 0x32;
 
-/// Returns the minimum macOS version in the load commands of [binary], a
+/// Reads the minimum macOS version in the load commands of [binary], a
 /// little-endian 64-bit Mach-O file, such as `14.0` or `10.13.4`.
 ///
 /// Throws a [ReleaseException] if [binary] is not such a file or has no

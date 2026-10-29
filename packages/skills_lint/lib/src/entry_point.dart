@@ -398,7 +398,12 @@ Future<Configuration?> _loadConfig(
 /// [quiet] suppresses non-error/warning output.
 /// [generateBaseline] writes current errors to a baseline file instead of reporting them.
 /// [ignoreFileOverride] is an optional path to a baseline file to use.
-/// [config] is the loaded configuration.
+/// [config] is the loaded configuration. Each entry in its
+/// [Configuration.parsingErrors] is printed to standard error as a
+/// `Configuration warning:` line, and does not make validation fail. The
+/// `skills_lint` command fails on these errors, so a caller that must fail
+/// on a broken configuration checks that [Configuration.parsingErrors] is
+/// empty.
 /// [customRules] contains programmatically injected custom skill rule checks.
 /// [format] specifies the output format for diagnostics (`text`, `json`, `sarif`).
 ///
@@ -432,12 +437,16 @@ Future<bool> validateSkills({
     config: config,
     customRules: customRules,
     format: format,
+    warnOnParsingErrors: true,
   );
 }
 
 /// Internal implementation of skill validation that supports fixing.
 ///
 /// Kept internal to avoid exposing experimental fix parameters in the public API.
+///
+/// When [warnOnParsingErrors] is true, each entry in
+/// [Configuration.parsingErrors] of [config] is reported as a warning.
 ///
 /// Returns `true` if all validations passed (or if generating a baseline), `false` otherwise.
 @visibleForTesting
@@ -456,6 +465,8 @@ Future<bool> validateSkillsInternal({
   Configuration? config,
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
+  // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/152 - remove this flag when config errors fail validateSkills.
+  bool warnOnParsingErrors = false,
 }) async {
   if (hasInvalidFixFormatCombination(fix: fix || fixApply, format: format)) {
     throw ArgumentError(
@@ -509,6 +520,7 @@ Future<bool> validateSkillsInternal({
     fixApply: fixApply,
     format: format,
   );
+  _reportConfigurationWarnings(session, enabled: warnOnParsingErrors);
 
   for (final skill in effectiveIndividualSkills) {
     final bool keepGoing = await session.processIndividualSkill(
@@ -548,6 +560,14 @@ Future<bool> validateSkillsInternal({
     return true;
   }
   return !session.anyFailed;
+}
+
+/// Calls [ValidationSession.reportConfigurationWarnings] on [session] when
+/// [enabled] is true.
+void _reportConfigurationWarnings(ValidationSession session, {required bool enabled}) {
+  if (enabled) {
+    session.reportConfigurationWarnings();
+  }
 }
 
 /// Pairs each of [canonicalPaths] with the [rawPaths] entry it came from.

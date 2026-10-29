@@ -96,7 +96,7 @@ String binaryName(String target) => 'skills_lint-$target';
 /// The name of the archive for [target].
 String archiveName(String target) => 'skills_lint-$target.tar.gz';
 
-/// Returns the target that runs on [abi], or `null` if no archive is built
+/// Finds the target that runs on [abi], or `null` if no archive is built
 /// for it.
 ///
 /// `dart compile exe` builds for the host only, so this is the only target

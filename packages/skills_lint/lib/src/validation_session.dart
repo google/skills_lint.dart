@@ -450,6 +450,11 @@ class ValidationSession {
     }
   }
 
+  /// Reports each entry in [Configuration.parsingErrors] of [config] as a
+  /// warning. Does not mark the session as failed.
+  void reportConfigurationWarnings() =>
+      config.parsingErrors.forEach(_reporter.onConfigurationWarning);
+
   /// If no skills were validated across the whole run, emit appropriate
   /// diagnostics and mark the session as failed.
   void reportNoSkillsValidated(List<String> rootPaths) {

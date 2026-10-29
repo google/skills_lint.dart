@@ -17,23 +17,25 @@ Before stating that a task is complete, you MUST execute and pass the following 
 2.  **Analysis**: Run `dart analyze --fatal-infos` and ensure there are zero issues (including info-level issues).
     Then check new code against the [Style Guide](../../../packages/skills_lint/documentation/knowledge/style_guide.md) for rules the analyzer cannot check.
 3.  **Metrics**: From the repository root, run `dart run cognitive_complexity --fail-threshold 20 --exclude 'third_party/**' --exclude 'packages/skills_lint/evals/test_data/**' --exclude '.worktrees/**' --exclude '.claude/**' .` and ensure there are zero issues. This checks the cognitive complexity of every Dart file except vendored code in `third_party/`, the eval inputs in `packages/skills_lint/evals/test_data/`, and git worktrees in `.worktrees/` and `.claude/`. It is the exact command CI runs in [`.github/workflows/skills_lint_workflow.yaml`](../../../.github/workflows/skills_lint_workflow.yaml), and [`packages/skills_lint/repo_test/workflow_consistency_test.dart`](../../../packages/skills_lint/repo_test/workflow_consistency_test.dart) fails if the two differ.
-4.  **Tests**: Run `dart test` from `packages/skills_lint` and ensure all tests pass successfully. This runs the tests of the shipped package in `test/`. Then run `dart test repo_test` for the repo tests in `repo_test/`, and `dart test compiled_test`, which compiles the CLI and runs the CLI tests against the binary. See [Where tests go](../../../CONTRIBUTING.md#where-tests-go) for where a new test belongs.
+4.  **Unused code**: From `packages/skills_lint`, run `dart run undead --fail-on-undead .` and `dart run undead --fail-on-undead ../../release` and ensure each exits 0. They fail on declarations in the package and in `release/` that only tests use, and on declarations that nothing uses and that the package does not export. They treat exported public API as used, so they don't find unused API. They also skip declarations annotated `@visibleForTesting`, even when only tests use them. CI runs the same commands, and [the workflow consistency test](../../../packages/skills_lint/repo_test/workflow_consistency_test.dart) fails if the two lists differ.
+5.  **Tests**: Run `dart test` from `packages/skills_lint` and ensure all tests pass successfully. This runs the tests of the shipped package in `test/`. Then run `dart test repo_test` for the repo tests in `repo_test/`, and `dart test compiled_test`, which compiles the CLI and runs the CLI tests against the binary. See [Where tests go](../../../CONTRIBUTING.md#where-tests-go) for where a new test belongs.
     If the change touches `release/`, also run the Format, Analysis and Tests checks in `release/`. [`.github/workflows/skills_lint_workflow.yaml`](../../../.github/workflows/skills_lint_workflow.yaml) runs them in CI.
-5.  **Skills**: If any skill files were modified, run `dart run skills_lint -d .agents/skills` to ensure they are valid.
-6.  **Changelog**: If the task introduces user-facing CLI flags, package API changes, bug fixes, or user-facing behavioral changes, update `CHANGELOG.md`.
+6.  **Skills**: If any skill files were modified, run `dart run skills_lint -d .agents/skills` to ensure they are valid.
+7.  **Changelog**: If the task introduces user-facing CLI flags, package API changes, bug fixes, or user-facing behavioral changes, update `CHANGELOG.md`.
     - **Do NOT log internal chores**: Do not add entries for internal CI workflows, dev dependency updates/migrations, test refactoring, or repository infrastructure scripts.
     - **Explicit N/A**: If the task is internal-only, leave `CHANGELOG.md` untouched and output `[x] Changelog: (N/A) <reason>`.
     - **Label**: Internal-only PRs get the `skip-changelog-check` label. Without it, the Health changelog check fails the PR.
     - Audit all entries against the *previously released version* (do not document changes to intermediate PR development code or new unreleased APIs as breaking changes).
+    - Put each entry under a heading from [Changelog sections](../../../CONTRIBUTING.md#changelog-sections). Change only the `-wip` section. Released sections stay as published, whitespace included.
     - Write entries for users. Incidental fixes that no user would notice get no entry.
     - Changes to message wording get no entry.
-7.  **Temporal**: Code, comments and docs describe the code as it is. They don't compare it with an earlier version or with your change. See [Temporal Words](../../../packages/skills_lint/documentation/knowledge/style_guide.md#temporal-words) for examples and the reason.
-8.  **Documentation**: Update every document the change affects. If you change CLI flags, output, or config parsing, check `README.md`, `RULES.md`, and the other docs next to the code. Documented behavior must match the code.
-9.  **No Silent Deletions**: Diff the branch against its merge base. Name every removed comment, docstring, test, or eval assertion in the PR description, with the reason. Restore any removal you did not intend.
-10. **Citations**: Open every URL the change adds. Each URL must resolve and support the claim it is attached to. Cite the Agent Skills specification only for rules the specification states.
-11. **Comments**: Comments describe what the code does. Don't describe what isn't there, what a caller does, or work that was not done, unless someone is likely to redo it by accident.
-12. **Doc scope**: Dartdoc states what callers rely on.
-13. **API surface**: If the change adds or alters anything users or callers see, fill in the API surface section of the [PR description](../contributor-pr-description/SKILL.md).
+8.  **Temporal**: Code, comments and docs describe the code as it is. They don't compare it with an earlier version or with your change. See [Temporal Words](../../../packages/skills_lint/documentation/knowledge/style_guide.md#temporal-words) for examples and the reason.
+9.  **Documentation**: Update every document the change affects. If you change CLI flags, output, or config parsing, check `README.md`, `RULES.md`, and the other docs next to the code. Documented behavior must match the code.
+10. **No Silent Deletions**: Diff the branch against its merge base. Name every removed comment, docstring, test, or eval assertion in the PR description, with the reason. Restore any removal you did not intend.
+11. **Citations**: Open every URL the change adds. Each URL must resolve and support the claim it is attached to. Cite the Agent Skills specification only for rules the specification states.
+12. **Comments**: Comments describe what the code does. Don't describe what isn't there, what a caller does, or work that was not done, unless someone is likely to redo it by accident.
+13. **Doc scope**: Dartdoc states what callers rely on.
+14. **API surface**: If the change adds or alters anything users or callers see, fill in the API surface section of the [PR description](../contributor-pr-description/SKILL.md).
 
 ## 🚦 Output Formatting
 
