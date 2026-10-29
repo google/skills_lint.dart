@@ -22,15 +22,21 @@ typedef ExternalLink = ({String target, String linkedFrom});
 
 /// Links into this package's docs that pages outside this repository rely on.
 ///
-/// Add an entry when another page starts linking to a README section. To
-/// remove a section on purpose, update the `linkedFrom` page first, then
-/// delete the entry.
+/// Add an entry when another page starts linking to this package. To remove
+/// or rename a linked README section on purpose, update the `linkedFrom` page
+/// first, then delete the entry. A `target` without an anchor is the package
+/// page itself; it is listed so the pages that link to it are known.
 const List<ExternalLink> externalLinks = [
-  (target: '$_readmeUrl#rule-precedence', linkedFrom: 'https://dart.dev/ai/package-skills'),
-  (target: '$_readmeUrl#built-in-rules', linkedFrom: 'https://dart.dev/ai/package-skills'),
-  (target: '$_readmeUrl#3-custom-rules', linkedFrom: 'https://dart.dev/ai/package-skills'),
-  (target: '$_readmeUrl#recipes', linkedFrom: 'https://dart.dev/ai/package-skills'),
+  (target: '$_readmeUrl#rule-precedence', linkedFrom: _dartDevPubPackageSkills),
+  (target: '$_readmeUrl#built-in-rules', linkedFrom: _dartDevPubPackageSkills),
+  (target: '$_readmeUrl#3-custom-rules', linkedFrom: _dartDevPubPackageSkills),
+  (target: '$_readmeUrl#recipes', linkedFrom: _dartDevPubPackageSkills),
+  (target: _readmeUrl, linkedFrom: _dartDevPubPackageSkills),
+  (target: _readmeUrl, linkedFrom: 'https://dart.dev/ai/package-skills'),
+  (target: _readmeUrl, linkedFrom: 'https://docs.flutter.dev/ai/tools'),
 ];
+
+const String _dartDevPubPackageSkills = 'https://dart.dev/tools/pub/package-skills';
 
 /// Fails when a link in [externalLinks] would stop reaching its section.
 ///
@@ -44,7 +50,7 @@ void main() {
     final Set<String> anchors = headingAnchors(readme).toSet();
     final List<String> broken = [
       for (final ExternalLink link in externalLinks)
-        if (!anchors.contains(_readmeAnchor(link.target)))
+        if (_readmeAnchor(link.target) case final String anchor when !anchors.contains(anchor))
           '${link.target}\n  linked from ${link.linkedFrom}',
     ];
     expect(
@@ -59,11 +65,17 @@ void main() {
   });
 }
 
-/// The README anchor in [target], which must be a `$_readmeUrl#<anchor>` URL.
-String _readmeAnchor(String target) {
+/// The README anchor in [target], or `null` when [target] is the package page
+/// itself.
+///
+/// [target] must be `$_readmeUrl` or `$_readmeUrl#<anchor>`.
+String? _readmeAnchor(String target) {
+  if (target == _readmeUrl) {
+    return null;
+  }
   const prefix = '$_readmeUrl#';
   if (!target.startsWith(prefix) || target.length == prefix.length) {
-    fail('$target is not a $prefix<anchor> link; this test checks README anchors only.');
+    fail('$target is not $_readmeUrl or a $prefix<anchor> link.');
   }
   return target.substring(prefix.length);
 }
