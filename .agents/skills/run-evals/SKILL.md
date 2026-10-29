@@ -29,24 +29,21 @@ The runner requires one of the **5 reserved keywords** (`content`, `triggers`, `
 
 ### Discovery & Target Resolution
 
-See [`evals/README.md`](../../../packages/skills_lint/evals/README.md) for the suite and rubric schema (`repo_criteria`, `"type"`, `"test_data"`).
+See [`evals/README.md`](../../../packages/skills_lint/evals/README.md#evaluation-file--rubric-schema) for the suite and rubric schema (`repo_criteria`, `"type"`, `"test_data"`).
 
 1. **Target Resolution**:
-   - **`<skill>` name**: Resolve `.agents/skills/<skill>` first, falling back to `<target-package-root>/skills/<skill>` (where `<target-package-root>` is the directory containing the `.agents` or `skills` folder, such as `packages/skills_lint`).
-   - **Explicit `<file_path>`**: Evaluate the targeted file directly (for example, `packages/skills_lint/evals/code_quality_rubric_evals.json`), even when marked with `"test_data": true`.
+   - **`<skill>` name**: Resolve `.agents/skills/<skill>` first, falling back to `<target-package-root>/skills/<skill>` (where `<target-package-root>` is the package directory containing `skills/` and `evals/`, such as `packages/skills_lint`).
+   - **Explicit `<file_path>`**: Evaluate the targeted file directly (for example, [`packages/skills_lint/evals/code_quality_rubric_evals.json`](../../../packages/skills_lint/evals/code_quality_rubric_evals.json)), even when marked with `"test_data": true`.
    - **Catalog sweep** (no target or `all`): Discover top-level skill suites (`.agents/skills/<skill>/evals/` and `<target-package-root>/skills/<skill>/evals/`) and top-level cross-skill suites (`<target-package-root>/evals/*_evals.json`). Nested files inside `test_data/` or `resources/` subdirectories are fixture inputs and are never discovered as test suites.
 2. **Test Data Filtering (`"test_data": true`)**:
    - Default mode sweeps (`/run-evals content`, `/run-evals triggers`, `/run-evals audit`) skip any suite with `"test_data": true` at the root.
    - Passing `all` (`/run-evals all [skill]` or `/run-evals <mode> all`) or an explicit `<file_path>` includes suites marked with `"test_data": true`.
-3. **Rubric Type Partitioning (`"type": "audit" | "content"`)**:
-   - Rubrics referenced in `repo_criteria` declare `"type": "audit"` (checked statically during Audit without spawning subagents) or `"type": "content"` (graded by the Agent Judge during Content).
-   - If `"type"` is omitted, suites with `positive_triggers` run as triggers, suites with `prompt` run as content, and files with only criteria assertions run as content rubrics.
 
 ---
 
 ## Audit Evaluations (`/run-evals audit`)
 
-1. **Load Referenced Rubrics**: Resolve target `evals.json` suites per [Discovery & Target Resolution](#discovery--target-resolution). Inspect `repo_criteria` in each target suite and load only the referenced criteria files that declare `"type": "audit"`. If a target declares no audit rubrics in `repo_criteria`, skip static audit checks for that target.
+1. **Load Referenced Rubrics**: Resolve target `evals.json` and `*_evals.json` suites per [Discovery & Target Resolution](#discovery--target-resolution). Inspect `repo_criteria` in each target suite and load only the referenced criteria files that declare `"type": "audit"`. If a target declares no audit rubrics in `repo_criteria`, skip static audit checks for that target.
 2. **Static Evaluation**: Statically inspect the target `evals.json` against each criteria assertion defined in the loaded audit rubric files without spawning execution subagents.
    - **Per-Item Test Data Meta-Evaluations**: If an eval item in a meta-eval suite (such as `eval_quality_rubric_evals.json`) specifies a per-item `"test_data"` file path, statically inspect the fixture file referenced in `test_data` against the audit rubric assertions.
 3. **Report Findings**: Output audit status. When running as part of a multi-stage pipeline, record all passed and failed assertions for each eval ID and proceed to the next stage.
