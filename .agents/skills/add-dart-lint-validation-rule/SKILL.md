@@ -180,6 +180,9 @@ If the rule interacts with CLI flags or configuration files, add a test in `test
 > [!IMPORTANT]
 > When writing integration tests that use config files and `TestProcess`, ensure that paths in the config file and paths passed to the CLI match in style (both relative or both absolute) to avoid issues with path matching in `entry_point.dart`.
 
+### Every Way to Supply a Setting
+Users can set a rule's severity and parameters in more than one place: the configuration file (for all skills and for each target), the CLI, and the Dart API. Test that each way reaches the rule, and that a setting from a more specific place overrides a less specific one. [rule_settings_supply_test.dart](../../../packages/skills_lint/test/rule_settings_supply_test.dart) checks how settings resolve for every registered rule. Add tests where your rule reads a setting in its own way, and test that each parameter changes what the rule reports.
+
 ---
 
 ## 📚 Documentation Updates
@@ -202,6 +205,7 @@ When a new rule is introduced, verify that you synchronize sibling markdown file
 - [ ] Rule class created in `lib/src/rules/`.
 - [ ] Rule registered in `lib/src/rule_registry.dart`.
 - [ ] Unit tests added in `test/` using in-memory `SkillContext`.
+- [ ] Each way to supply the rule's settings is tested, including which one takes precedence.
 - [ ] **CRITICAL**: Usage flag correctly documented in `README.md` under Flags (ensure flag string matches `ruleName` EXACTLY and format is correct).
 - [ ] Rule documented in `RULES.md`.
 - [ ] Schema documented in `documentation/knowledge/SPECIFICATION.md` (if applicable).
