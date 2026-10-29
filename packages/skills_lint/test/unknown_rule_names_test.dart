@@ -52,6 +52,39 @@ skills_lint:
       ]);
     });
 
+    test('and leaves them out of the configuration', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint:
+  rules:
+    check-relative-path: error
+    check-absolute-paths: error
+''');
+
+      expect(config.ruleConfigs.keys, ['check-absolute-paths']);
+      expect(config.toYamlString(), isNot(contains('check-relative-path:')));
+    });
+
+    test('with a message of its own for a plain YAML merge key', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint:
+  rules:
+    base: &base
+      severity: error
+    <<: *base
+  directories:
+    - path: a
+      rules:
+        "<<": error
+''');
+
+      expect(config.parsingErrors, [
+        startsWith('Global rules: Unknown rule "base".'),
+        'Global rules: YAML merge keys ("<<") are not supported; write out each rule\'s settings.',
+        startsWith('Directory entry rules for "a": Unknown rule "<<".'),
+      ]);
+      expect(config.ruleConfigs, isEmpty);
+    });
+
     test('in target entries', () {
       final Configuration config = ConfigParser.parse('''
 skills_lint:

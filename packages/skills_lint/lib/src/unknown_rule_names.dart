@@ -38,6 +38,14 @@ String unknownRuleNameMessage(String name, {required String context, String? loc
   return '$context: Unknown rule "$name"$where.$hint';
 }
 
+/// Describes a plain `<<` key in a rules map. package:yaml does not support
+/// YAML merge keys, so it reads `<<` as a rule name.
+String mergeKeyMessage({required String context, String? location}) {
+  final where = location == null ? '' : ' ($location)';
+  return '$context: YAML merge keys ("<<") are not supported; '
+      "write out each rule's settings$where.";
+}
+
 /// Describes each key of [overrides] that is not in [configurableRuleNames].
 ///
 /// Configuration has no effect on custom rules, so a key that names one of

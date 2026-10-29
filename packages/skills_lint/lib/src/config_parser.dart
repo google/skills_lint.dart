@@ -279,9 +279,9 @@ class ConfigParser {
   ///
   /// Validates that parameter keys and value types match their definitions in the registry,
   /// appending any validation errors to [parsingErrors] labeled by [contextLabel].
-  /// A rule name that is not in [configurableRuleNames] is an error. Its entry
-  /// is kept, so the configuration still round-trips, and has no effect. The
-  /// message gives its line in [sourceFile] when that is known.
+  /// A rule name that is not in [configurableRuleNames] is an error, and its
+  /// entry is left out. The message gives its line in [sourceFile] when that
+  /// is known.
   static Map<String, RuleConfigPatch> _parseRulesMap(
     YamlMap rulesMap,
     List<String> parsingErrors,
@@ -296,15 +296,15 @@ class ConfigParser {
       final Object? value = entry.value.value;
 
       if (!configurableRuleNames.contains(ruleName)) {
+        final String? location = sourceFile == null || key is! YamlNode
+            ? null
+            : '$sourceFile:${key.span.start.line + 1}';
         parsingErrors.add(
-          unknownRuleNameMessage(
-            ruleName,
-            context: contextLabel,
-            location: sourceFile == null || key is! YamlNode
-                ? null
-                : '$sourceFile:${key.span.start.line + 1}',
-          ),
+          key is YamlScalar && key.style == ScalarStyle.PLAIN && ruleName == '<<'
+              ? mergeKeyMessage(context: contextLabel, location: location)
+              : unknownRuleNameMessage(ruleName, context: contextLabel, location: location),
         );
+        continue;
       }
 
       // Rules must have a unique name so we can assume one match.
@@ -675,8 +675,9 @@ class Configuration {
   final List<LintTargetConfig> individualSkillConfigs;
   final Map<String, RuleConfigPatch> ruleConfigs;
 
-  /// Problems in the configuration file, such as invalid YAML or an unknown
-  /// key. The settings with problems are left out.
+  /// Problems in the configuration file, such as invalid YAML, an unknown
+  /// key, or a rule name that matches no built-in rule. Entries under an
+  /// unknown key or rule name are left out of the configuration.
   ///
   /// The `skills_lint` command fails on these; `validateSkills` only warns
   /// ([#152](https://github.com/google/skills_lint.dart/issues/152) makes it

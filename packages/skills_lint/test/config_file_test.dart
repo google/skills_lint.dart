@@ -1390,7 +1390,7 @@ skills_lint:
     test('round-trips rule configurations with rich parameter types', () {
       final config = Configuration(
         ruleConfigs: {
-          'custom-rule': RuleConfigPatch(
+          'check-relative-paths': RuleConfigPatch(
             severity: AnalysisSeverity.error,
             parameters: CustomRuleParameters(const {
               'count': 42,
