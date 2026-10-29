@@ -23,8 +23,9 @@ Add a built-in validation rule to `skills_lint`, expose the rule as a CLI flag, 
 
 ## 2. Registration in [`lib/src/rule_registry.dart`](../../../packages/skills_lint/lib/src/rule_registry.dart)
 
-- Add a `CheckType` to `RuleRegistry.allChecks` (with `parameterSchema` and `parameterConstraints` when parameterized).
-- Add a case in `RuleRegistry.createRule(String name, AnalysisSeverity severity, [CustomRuleParameters? parameters])` that reads `parameters` and falls back to the rule class's default constants.
+- Add a `CheckType` to `RuleRegistry.allChecks` (with `parameterSchema` and `parameterConstraints` when parameterized; add a rejected test value in [`test/parameter_constraint_test.dart`](../../../packages/skills_lint/test/parameter_constraint_test.dart)).
+- Add a case in `RuleRegistry.createRule` that passes `severity` and any parsed `parameters` (falling back to the rule's default constants) to the rule constructor.
+- Enable the rule in `fixtureConfig` and add a planted violation to `violations` and `plantedViolations` in [`benchmark/src/fixture.dart`](../../../packages/skills_lint/benchmark/src/fixture.dart) ([`test/benchmark/fixture_test.dart`](../../../packages/skills_lint/test/benchmark/fixture_test.dart)).
 
 ## 3. Tests in `test/rules/`
 
