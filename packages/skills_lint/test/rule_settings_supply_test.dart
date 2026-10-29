@@ -2,7 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -176,13 +175,7 @@ RuleConfig _resolve(CheckType check, Map<Layer, Setting> settings) {
   final Map<String, RuleConfigPatch> cliPatches = resolveRuleConfigsFromCli(
     createArgParser('help').parse(_cliArgs(check, settings[Layer.cli])),
   );
-  final Map<String, RuleConfigPatch> apiPatches = {
-    if (settings[Layer.api] case final Setting setting)
-      check.name: RuleConfigPatch(
-        severity: setting.severity,
-        parameters: setting.parameters.isEmpty ? null : CustomRuleParameters(setting.parameters),
-      ),
-  };
+  final Map<String, RuleConfigPatch> apiPatches = _patches(check, settings[Layer.api]);
   expect(
     cliPatches.isEmpty || apiPatches.isEmpty,
     isTrue,
@@ -204,47 +197,58 @@ RuleConfig _resolve(CheckType check, Map<Layer, Setting> settings) {
   return session.resolveRuleConfigsForPath(_skillPath)[check.name]!;
 }
 
-/// Parses a `skills_lint.yaml` that supplies the YAML layers of [settings].
-Configuration _parseYaml(CheckType check, Map<Layer, Setting> settings) {
-  Map<String, Object?> rules(Layer layer) => {
-    if (settings[layer] case final Setting setting)
-      check.name: {
-        if (setting.severity case final AnalysisSeverity severity) 'severity': severity.name,
-        ...setting.parameters,
-      },
-  };
+/// The patch that supplies [setting] for [check], if there is one.
+Map<String, RuleConfigPatch> _patches(CheckType check, Setting? setting) => {
+  if (setting != null)
+    check.name: RuleConfigPatch(
+      severity: setting.severity,
+      parameters: setting.parameters.isEmpty ? null : CustomRuleParameters(setting.parameters),
+    ),
+};
 
-  final Map<String, Object?> yaml = {
-    'skills_lint': {
-      'rules': rules(Layer.topLevel),
-      'directories': [
-        {'path': _directoryPath, 'rules': rules(Layer.directory)},
-      ],
-      'individual_skills': [
-        {'path': _skillPath, 'rules': rules(Layer.individualSkill)},
-      ],
-    },
-  };
-  // JSON is valid YAML.
-  return ConfigParser.parse(jsonEncode(yaml), configSource: ConfigSource.directory(_tempDir.path));
+/// Writes and parses a `skills_lint.yaml` that supplies the YAML layers of
+/// [settings].
+Configuration _parseYaml(CheckType check, Map<Layer, Setting> settings) {
+  final configuration = Configuration(
+    ruleConfigs: _patches(check, settings[Layer.topLevel]),
+    directoryConfigs: [
+      LintTargetConfig(
+        path: _directoryPath,
+        ruleConfigs: _patches(check, settings[Layer.directory]),
+      ),
+    ],
+    individualSkillConfigs: [
+      LintTargetConfig(
+        path: _skillPath,
+        ruleConfigs: _patches(check, settings[Layer.individualSkill]),
+      ),
+    ],
+  );
+  return ConfigParser.parse(
+    configuration.toYamlString(),
+    configSource: ConfigSource.directory(_tempDir.path),
+  );
 }
 
 /// The CLI arguments that supply [setting] for [check].
 List<String> _cliArgs(CheckType check, Setting? setting) {
-  if (setting == null) {
-    return const [];
+  final args = <String>[];
+  switch (setting?.severity) {
+    case null:
+      break;
+    case AnalysisSeverity.error:
+      args.add('--${check.name}');
+    case _:
+      args.add('--no-${check.name}');
   }
-  return [
-    if (setting.severity == AnalysisSeverity.error)
-      '--${check.name}'
-    else if (setting.severity != null)
-      '--no-${check.name}',
-    for (final MapEntry<String, Object?> entry in setting.parameters.entries)
-      for (final Object? value in [
-        if (entry.value case final List<Object?> list) ...list else entry.value,
-      ])
-        '--${check.parameterFlag(entry.key)}=$value',
-  ];
+  for (final MapEntry<String, Object?> parameter in setting?.parameters.entries ?? const []) {
+    final flag = '--${check.parameterFlag(parameter.key)}';
+    // A list parameter takes one flag per item.
+    final Object? value = parameter.value;
+    final List<Object?> items = value is List<Object?> ? value : [value];
+    args.addAll([for (final Object? item in items) '$flag=$item']);
+  }
+  return args;
 }
 
 void _defineValidateSkillsTests() {
