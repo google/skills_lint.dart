@@ -38,11 +38,13 @@ class SkillsIgnores {
       skills[newSkillName] = moved;
       return true;
     }
-    final seen = <String>{
-      for (final IgnoreEntry entry in existing) '${entry.ruleId}:${entry.fileName}',
+    // An entry with a different subject covers different findings, so it
+    // stays.
+    final seen = <(String, String, String?)>{
+      for (final IgnoreEntry entry in existing) (entry.ruleId, entry.fileName, entry.subject),
     };
     for (final IgnoreEntry entry in moved) {
-      if (seen.add('${entry.ruleId}:${entry.fileName}')) {
+      if (seen.add((entry.ruleId, entry.fileName, entry.subject))) {
         existing.add(entry);
       }
     }

@@ -135,4 +135,37 @@ void main() {
       );
     });
   });
+
+  group('SkillsIgnores.renameSkill', () {
+    test('keeps moved entries that differ from existing ones only by subject', () {
+      final ignores = SkillsIgnores(
+        skills: {
+          'old': [
+            IgnoreEntry(ruleId: 'check-relative-paths', fileName: 'SKILL.md', subject: 'b.md'),
+          ],
+          'new': [
+            IgnoreEntry(ruleId: 'check-relative-paths', fileName: 'SKILL.md', subject: 'a.md'),
+          ],
+        },
+      );
+
+      expect(ignores.renameSkill('old', 'new'), isTrue);
+
+      expect(ignores.skills.keys, ['new']);
+      expect(ignores.skills['new']!.map((e) => e.subject), unorderedEquals(['a.md', 'b.md']));
+    });
+
+    test('drops a moved entry that covers the same findings as an existing one', () {
+      final ignores = SkillsIgnores(
+        skills: {
+          'old': [IgnoreEntry(ruleId: 'r', fileName: 'SKILL.md', subject: 'a.md')],
+          'new': [IgnoreEntry(ruleId: 'r', fileName: 'SKILL.md', subject: 'a.md')],
+        },
+      );
+
+      ignores.renameSkill('old', 'new');
+
+      expect(ignores.skills['new'], hasLength(1));
+    });
+  });
 }
