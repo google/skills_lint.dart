@@ -4,7 +4,7 @@ This directory (`.agents/skills/`) contains skills and configurations for agents
 
 All skills in this directory are available immediately without running an installation or fetch step:
 * **Internal Skills:** Skills specific to `skills_lint` development are authored and tracked directly in this directory with `metadata: internal: true`.
-* **Third-Party Skills:** Common Dart and agent development practices are vendored under the repository root at `third_party/skill-repos/` and the ones that help with this repository are linked here via relative symlinks.
+* **Third-Party Skills:** Common Dart and agent development practices are vendored under the repository root at `third_party/skill-repos/` and linked here via relative symlinks.
 
 ## Managing External Skills
 

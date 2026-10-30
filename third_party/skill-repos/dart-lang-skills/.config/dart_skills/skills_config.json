@@ -43,7 +43,7 @@
           {
             "name": "dart-collect-coverage",
             "installedAt": "2026-09-28T20:15:45.352988Z",
-            "contentHash": "B9/qZ2V7FxeX+MIy1Pc2iA==",
+            "isInstalled": false,
             "path": "skills/dart-collect-coverage"
           },
           {
@@ -67,7 +67,7 @@
           {
             "name": "dart-migrate-to-checks-package",
             "installedAt": "2026-09-28T20:15:45.354406Z",
-            "contentHash": "qnEkEh/eW/JmKpsNQ80yRQ==",
+            "isInstalled": false,
             "path": "skills/dart-migrate-to-checks-package"
           },
           {
@@ -79,7 +79,7 @@
           {
             "name": "dart-add-unit-test",
             "installedAt": "2026-09-28T20:15:45.355577Z",
-            "contentHash": "BTBQcGE2w7XxaizcWbHAmQ==",
+            "isInstalled": false,
             "path": "skills/dart-add-unit-test"
           },
           {
