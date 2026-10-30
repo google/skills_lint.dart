@@ -944,6 +944,31 @@ class ValidationSession {
       return result;
     }
 
+    return _finishApply(
+      applied: applied,
+      skillDir: skillDir,
+      result: result,
+      appliedRuleNames: outcome.appliedRuleNames,
+      validator: validator,
+      ignores: ignores,
+      skillIgnores: skillIgnores,
+      ignorePathFor: ignorePathFor,
+    );
+  }
+
+  /// Updates the session after [SkillWriter.apply] returned [applied] for
+  /// [skillDir], and returns the result that counts for the skill.
+  Future<ValidationResult> _finishApply({
+    required ApplyResult applied,
+    required Directory skillDir,
+    required ValidationResult result,
+    required List<String> appliedRuleNames,
+    required Validator validator,
+    required SkillsIgnores ignores,
+    required List<IgnoreEntry> skillIgnores,
+    required IgnorePathFor ignorePathFor,
+  }) async {
+    final String currentDirectoryName = p.basename(skillDir.path);
     // A failed write leaves the skill renamed only if undoing the rename
     // failed too.
     final Directory dirAfter = switch (applied) {
@@ -958,18 +983,18 @@ class ValidationSession {
         ignorePath: ignorePathFor(dirAfter),
       );
     }
-    if (applied is! Applied) {
+    if (applied is Applied) {
+      _reporter.onFixesWritten(currentDirectoryName, ruleNames: appliedRuleNames);
+    } else {
       // SKILL.md wasn't written. SkillWriter reported why, and the run fails.
       _fixWriteFailed = true;
       if (dirAfter.path == skillDir.path) {
         return result;
       }
-      // The skill stayed renamed. Validate it where it is, so the caller
-      // saves its ignore file and the re-check finds it there.
-      return _revalidateFixed(validator, dirAfter, ignores, skillIgnores);
     }
-    _reporter.onFixesWritten(currentDirectoryName, ruleNames: outcome.appliedRuleNames);
-    return _revalidateFixed(validator, applied.dir, ignores, skillIgnores);
+    // A skill left renamed is validated where it is, so the caller saves its
+    // ignore file and the re-check finds it there.
+    return _revalidateFixed(validator, dirAfter, ignores, skillIgnores);
   }
 
   /// Validates the skill in [dir] after `--fix` touched it, with the ignore
