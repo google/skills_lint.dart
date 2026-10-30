@@ -681,24 +681,22 @@ class ValidationSession {
     return wholeFile;
   }
 
-  /// Returns the `file_name` to store in a baseline entry for an error that a
-  /// rule reported on [errorFile] while validating [skillDir].
+  /// The `file_name` a baseline entry stores for an error that a rule reported
+  /// on [errorFile] while validating [skillDir].
   ///
-  /// Both writing a baseline and matching against one call this, so that the
-  /// two agree on a single spelling.
+  /// For a path at or inside [skillDir], this is relative to it and uses `/`,
+  /// such as `SKILL.md`, `references/guide.md`, or `.` for the directory
+  /// itself. Any other path comes back normalized but otherwise unchanged.
   ///
-  /// The result is relative to [skillDir]: `SKILL.md` for an error on a file in
-  /// the skill, and `.` for an error on the skill directory itself, which is
-  /// what a rule such as `path-does-not-exist` reports. Keeping the name
-  /// relative lets a committed baseline match on any machine and from any
-  /// working directory. A path outside [skillDir] is returned as reported,
-  /// since no relative name would describe it.
-  ///
-  /// A relative name always uses `/` between segments, so a baseline written
-  /// on Windows matches on macOS and Linux. [pathContext] defaults to the host
-  /// context, and lets tests use another platform's paths.
+  /// [pathContext] defaults to the host's.
   @visibleForTesting
   static String baselineFileName(String errorFile, Directory skillDir, {p.Context? pathContext}) {
+    // Writing a baseline and matching against one both call this, so they
+    // always agree on one spelling. A relative name lets a committed baseline
+    // match on any machine and from any working directory, and `/` lets a
+    // baseline written on Windows match on macOS and Linux. No relative name
+    // describes a path outside the skill, so that one is kept as reported.
+    // `path-does-not-exist` reports on the skill directory itself, hence `.`.
     final p.Context context = pathContext ?? p.context;
     final String normalized = context.normalize(errorFile);
     final String skillPath = context.normalize(skillDir.path);
