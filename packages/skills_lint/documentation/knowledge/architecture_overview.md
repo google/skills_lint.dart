@@ -118,6 +118,12 @@ The codebase applies the [SOLID principles](https://en.wikipedia.org/wiki/SOLID)
 7. **Single-Anchor Path Canonicalization at the Boundary**  
    A relative path is resolved exactly once, at the point where it enters the tool, and the anchor is determined by how the path arrived rather than by who consumes it. Paths written inside a configuration file anchor to the directory holding that configuration file; paths supplied as CLI arguments or public API arguments anchor to the current working directory. A configuration file therefore means the same thing whether it was auto-discovered or named explicitly with `--config`, and reading the file is sufficient to know what it selects. Only three call sites may canonicalize — [`ConfigParser`](../../lib/src/config_parser.dart), `validateSkillsInternal` in [`entry_point.dart`](../../lib/src/entry_point.dart), and [`ValidationSession`](../../lib/src/validation_session.dart) — so every layer beneath them can assume it already holds an absolute path. [`test/path_boundary_test.dart`](../../test/path_boundary_test.dart) fails when a fourth call site appears. Because the resolved path of a configuration target appears nowhere in the file, diagnostics about a configuration target report the declared text, the declaring file and line, and the anchor directory alongside the resolved path.
 
+8. **Parse at the Boundary; Trust Typed Models Inside**  
+   The component where external input enters the tool owns parsing and validating it. It does this once and hands typed objects to the layers beneath it. Those layers accept the typed values and never re-parse or re-check them. When a parser library already produced a typed value, code trusts that type and does not parse its string form again. A check made in one place cannot drift between callers, and an internal API whose types admit only valid states needs no defensive code.
+
+9. **Single Source of Truth**  
+   Each decision has one owner. The component that owns a default value, schema key or set of allowed values defines it once, and every other component references that definition instead of repeating the literal. A value defined in two places drifts silently when only one of them changes.
+
 ---
 
 ## 🚫 Rejected Architectural Anti-Patterns
