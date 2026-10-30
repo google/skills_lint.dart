@@ -16,13 +16,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('resolveRuleConfigsFromCli - severity overrides', () {
-    ArgParser createParser() {
-      final parser = ArgParser();
-      for (final CheckType check in RuleRegistry.allChecks) {
-        parser.addFlag(check.name, defaultsTo: check.defaultSeverity != AnalysisSeverity.disabled);
-      }
-      return parser;
-    }
+    ArgParser createParser() => createArgParser('help');
 
     test('returns empty map when no CLI overrides are provided', () {
       final ArgResults results = createParser().parse([]);
