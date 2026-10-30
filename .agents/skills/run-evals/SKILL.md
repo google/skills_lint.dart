@@ -63,7 +63,7 @@ See [`evals/README.md`](../../../packages/skills_lint/evals/README.md#evaluation
 3. **Outcome Classification**:
    - **Positive Trigger**: PASS if only the target `SKILL.md` is loaded via the file-read tool (`read_file`; older builds call it `view_file`). PASS (Co-Trigger) if the target `SKILL.md` is loaded and every other loaded skill is listed in the entry's `permitted_co_triggers`. FAIL if another skill is loaded instead of the target (Collision), plain text/unrelated tool is emitted (Under-Trigger), or the target is loaded together with any skill not listed in `permitted_co_triggers` (Multi-Trigger). A plain string entry has no permitted co-triggers.
    - **Distractor**: PASS if target skill is not loaded (Rejected / Permitted Divergence). FAIL if target skill is loaded (Over-Trigger).
-4. **Report**: Output a summary table reporting pass rates, collisions, and description boundary remedies. Count PASS (Co-Trigger) results as passes and list the co-loaded skills.
+4. **Report**: Output a summary table reporting pass rates, collisions, and description boundary remedies. Count PASS (Co-Trigger) results as passes and list the co-loaded skills. When running as part of a multi-stage pipeline, record the routing outcome for each trigger and proceed to the next stage.
 
 ---
 
@@ -80,7 +80,7 @@ See [`evals/README.md`](../../../packages/skills_lint/evals/README.md#evaluation
      - **Only if the user explicitly requests a comparison or benchmark**, also spawn a **Baseline** subagent. See [resources/baseline_execution_prompt.md](resources/baseline_execution_prompt.md) for the template.
      - Instruct the subagent(s) to return their `git diff` and verification outputs (`dart pub get`, `dart format`, `dart analyze`, `dart test`) without committing. Ensure you instruct them to run these commands exclusively from within the `<target-package-root>` directory to avoid analyzing unrelated packages.
 3. **Grade**: Parse the combined rubric (resolving referenced `"type": "content"` rubrics from `repo_criteria` + `evals.json` expectations). Use the grading instructions in [resources/agent_judge_prompt.md](resources/agent_judge_prompt.md). When an expectation fails, you MUST explicitly list both the expectation and what was actually found that caused the failure.
-4. **Artifact & Teardown**: Grade the outputs and generate a Markdown artifact (e.g., `<skill>_eval_results.md`) containing the metadata, pass/fail rationale, and raw diffs/stdout.
+4. **Artifact & Teardown**: Grade the outputs and generate a Markdown artifact (e.g., `<skill>_eval_results.md`) containing the metadata, pass/fail rationale, and raw diffs/stdout. For `/run-evals all`, this artifact is the aggregate report (`all_eval_results.md` when no skill is given): it also includes the Audit and Triggers results recorded for each eval ID and trigger, with per-stage pass counts.
    - **Reporting Integrity & Execution Metadata**: When recording execution metadata in evaluation artifacts and pull request comments:
      - **Commit Hash**: Record the HEAD commit hash (`git rev-parse HEAD`) active at the time the evaluation was executed.
      - **Subagent Model Resolution**:
