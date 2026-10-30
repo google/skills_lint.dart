@@ -40,10 +40,9 @@ skills_lint:
         check-relative-paths:
           severity: error
           within-skill: true
-    - path: ".agents/skills"
 ```
 
-Leave out the `.agents/skills` entry if that directory doesn't exist. The
+Add a `.agents/skills` entry next to it only if that directory exists. The
 rules under `skills` are only for published skills:
 
 - `check-relative-paths` checks that every relative link resolves.

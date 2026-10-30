@@ -379,8 +379,8 @@ set up `skills_lint` for you with the
 [`skills-lint-validation`](https://github.com/google/skills_lint.dart/blob/main/packages/skills_lint/skills/skills-lint-validation/SKILL.md)
 skills.
 
-1. Install the skills into `.agents/skills/`. From the root of your Dart
-   package:
+1. Install the skills into `.agents/skills/`. This step needs a Dart
+   package. From its root:
 
    ```bash
    dart pub add dev:skills_lint
@@ -391,7 +391,7 @@ skills.
 
    > Set up skills_lint in this project. Use the skill at
    > `.agents/skills/skills-lint-setup/SKILL.md`
-   > to add it as a dev_dependency and create the configuration file. Then
+   > to create the configuration file and the test. Then
    > use the skill at `.agents/skills/skills-lint-validation/SKILL.md`
    > to run the linter and resolve any failures.
 
