@@ -128,6 +128,23 @@ abstract class Reporter {
   /// Called when a directory listing or structural failure occurs.
   void onDirectoryError(String directoryPath, String message) {}
 
+  /// Called for each part of an ignore file that could not be read, such as an
+  /// entry with no `file_name`. [problem] names the file and, when
+  /// there is one, the entry.
+  void onIgnoreFileError(String problem) {
+    err.writeln('Ignore file error: $problem');
+  }
+
+  /// Called instead of writing a baseline to [ignorePath], because the file
+  /// has entries that could not be read and writing would delete them.
+  void onBaselineRefused(String ignorePath) {
+    err.writeln(
+      'skills_lint did not write the baseline to $ignorePath, because writing it '
+      'would delete the entries listed above that it could not read. '
+      'Fix those entries, then run --generate-baseline again.',
+    );
+  }
+
   /// Called when saving a baseline ignore file fails.
   void onBaselineFailed(String ignorePath, Object error) {
     err.writeln(ToolErrorMessages.baselineFailedMessage(ignorePath: ignorePath, error: error));

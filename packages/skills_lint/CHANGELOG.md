@@ -36,6 +36,8 @@
 
 ### Bug fixes
 
+- Fixed one malformed entry in `skills_lint_ignore.json`, such as an entry with no `file_name`, making skills_lint ignore the whole file without saying so. skills_lint applies the other entries and prints an `Ignore file error:` line for each malformed entry, naming the file, the skill, and the problem. It also prints one for an ignore file that isn't valid JSON. These errors do not change the exit code. [#108](https://github.com/google/skills_lint.dart/issues/108)
+- Fixed `--generate-baseline` overwriting an ignore file that has malformed entries or isn't valid JSON, which deleted every entry in it. skills_lint leaves the file unchanged, says which entries to fix, and exits with status 1.
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
 - Fixed `invalid-skill-name` `--fix` writing a directory name that YAML misreads, and then renaming the directory to the misread name: `My Skill #1` became `My Skill`, and `0x1f` became `31`. A name such as `0x1f` is written in quotes.
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.

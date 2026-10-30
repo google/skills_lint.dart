@@ -414,7 +414,8 @@ Future<Configuration?> _loadConfig(
 ///
 /// Returns a [Future] that resolves to `true` if all skills validated successfully
 /// (or if [generateBaseline] is true), and `false` if any validation failures
-/// were encountered.
+/// were encountered. With [generateBaseline], returns `false` if an ignore
+/// file was left unwritten because it had entries that could not be read.
 Future<bool> validateSkills({
   List<String> skillDirPaths = const [],
   List<String> individualSkillPaths = const [],
@@ -563,7 +564,7 @@ Future<bool> validateSkillsInternal({
   }
 
   if (generateBaseline) {
-    return true;
+    return !session.anyBaselineRefused;
   }
   return !session.anyFailed;
 }

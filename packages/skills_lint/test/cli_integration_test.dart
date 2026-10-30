@@ -603,9 +603,11 @@ skills_lint:
         malformedFile.path,
       ]);
 
+      final String stderr = (await process.stderr.rest.toList()).join('\n');
+      final String stdout = (await process.stdout.rest.toList()).join('\n');
       await process.shouldExit(0); // Valid skill should still pass
-      final List<String> stdout = await process.stdout.rest.toList();
-      expect(stdout.join('\n'), contains('Evaluating directory:'));
+      expect(stdout, contains('Evaluating directory:'));
+      expect(stderr, contains('Ignore file error: ${malformedFile.path} is not valid JSON'));
     });
 
     test('CLI help displays all registered rules', () async {

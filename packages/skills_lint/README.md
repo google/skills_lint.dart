@@ -155,7 +155,7 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `-c`, `--config`: Path to a configuration file. Defaults to `skills_lint.yaml` in the current directory. Paths declared inside a configuration file resolve relative to that file's directory.
 - `--ignore-config`: Ignore the YAML configuration file entirely.
 - `--ignore-file`: Path to a JSON file listing lints to ignore for the run. Each entry names a `rule_id` and a `file_name`. An optional `subject` limits the entry to the findings about one thing in that file; [`RULES.md`](RULES.md) says which rules set one, and in what format.
-- `--generate-baseline`: Write every current error into `skills_lint_ignore.json` so existing violations are ignored on future runs.
+- `--generate-baseline`: Write every current error into `skills_lint_ignore.json` so existing violations are ignored on future runs. If the ignore file has an entry that skills_lint can't read, or isn't valid JSON, skills_lint leaves the file unchanged, lists the entries to fix, and exits with status 1.
 - `--[no-]check-trailing-whitespace`: Enable/disable checking for trailing whitespace. (Disabled by default).
 - `--[no-]pub-archive-includes-skill`: Check that `dart pub publish` includes each skill in `skills/` and the files it links to. (Disabled by default).
 - `--[no-]published-skill-name`: Enable/disable checking that published package skills follow the package naming convention. (Disabled by default).
