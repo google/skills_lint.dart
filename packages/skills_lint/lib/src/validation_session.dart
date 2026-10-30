@@ -356,6 +356,7 @@ class ValidationSession {
     // Keep a cache of loaded ignores to avoid loading/saving the same ignore file multiple times,
     // and to accumulate ignore usages correctly across all skills.
     final Map<String, SkillsIgnores> loadedIgnoresCache = {};
+    var stoppedEarly = false;
 
     for (final entity in entities) {
       if (entity is! Directory || p.basename(entity.path).startsWith('.')) {
@@ -368,11 +369,12 @@ class ValidationSession {
         loadedIgnoresCache,
       );
       if (!shouldContinue) {
+        stoppedEarly = true;
         break;
       }
     }
 
-    await _finalizeIgnoresForRoot(loadedIgnoresCache, rootDir);
+    await _finalizeIgnoresForRoot(loadedIgnoresCache, rootDir, stoppedEarly: stoppedEarly);
 
     return !(_anyFailed && fastFail);
   }
@@ -434,15 +436,18 @@ class ValidationSession {
 
   Future<void> _finalizeIgnoresForRoot(
     Map<String, SkillsIgnores> loadedIgnoresCache,
-    Directory rootDir,
-  ) async {
+    Directory rootDir, {
+    required bool stoppedEarly,
+  }) async {
     for (final MapEntry<String, SkillsIgnores> entry in loadedIgnoresCache.entries) {
       final String ignorePath = entry.key;
       final SkillsIgnores ignores = entry.value;
 
       if (generateBaseline) {
         await _saveBaseline(ignorePath, ignores);
-      } else {
+      } else if (!stoppedEarly) {
+        // After a fast-fail stop, unused entries may belong to skills this
+        // run did not validate, so they are not known to be stale.
         _reportStaleIgnores(ignores, rootDir);
       }
     }

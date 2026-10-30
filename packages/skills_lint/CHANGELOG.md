@@ -24,13 +24,14 @@
 
 ### New features
 
+- Prebuilt `skills_lint` executables for macOS 14 or later (arm64, x64) and Linux (x64, arm64) ship on GitHub Releases, with an `install.sh` script, a `SHA256SUMS` file and a Homebrew tap. They don't need the Dart SDK.
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
 - Added a `within-skill` parameter to `check-relative-paths` that reports relative links leaving the skill directory, which break when the skill is copied somewhere else on its own. Off by default. Enable it with `within-skill: true` or `--check-relative-paths-within-skill=true`.
 - Made `check-trailing-whitespace` about 20 times faster. Its diagnostics and `--fix` output are unchanged, except for the lone carriage return change under Behavior changes.
 - The `skills-lint-setup` skill picks a setup path: a `dart test` that calls `validateSkills` in a Dart package, or the installed `skills_lint` command otherwise. It no longer links to files outside its own directory.
 - Added a `--version` flag that prints the skills_lint version.
-- The published package includes its agent skills, so `dart run skills@ get` installs them.
+- The published package includes its agent skills, so `dart run skills@^1.0.0 get --agent generic --package skills_lint --all` installs them into `.agents/skills/`.
 - Ignore file entries take an optional `subject` that limits an entry to the findings about one thing in the file. `check-relative-paths` and `check-absolute-paths` set it to the link destination, and `--generate-baseline` records it.
 - Added `ValidationError.subject`, which a custom rule can set so that an ignore entry can name it. `--format=json` output includes it.
 
@@ -40,7 +41,9 @@
 - `--generate-baseline` says which malformed ignore entries it does not carry over.
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
 - Fixed `invalid-skill-name` `--fix` writing a directory name that YAML misreads, and then renaming the directory to the misread name: `My Skill #1` became `My Skill`, and `0x1f` became `31`. A name such as `0x1f` is written in quotes.
+- On Windows, `--format=sarif` no longer runs a `git.exe` from the current directory. It runs the first `git.exe` found in a `PATH` directory outside the current directory. [#97](https://github.com/google/skills_lint.dart/issues/97)
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
+- With `--fast-fail`, a run that stops early no longer reports unused ignore entries as stale, because they may belong to skills it did not validate. [#109](https://github.com/google/skills_lint.dart/issues/109)
 
 ## 0.5.2
 

@@ -6,7 +6,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Set up skills_lint in our Dart package for the skills in .agents/skills.",
+      "prompt": "Set up skills_lint in our Dart package for the skills in .agents/skills. The package has no skills/ directory and doesn't publish skills.",
       "expected_chat_output": [
         "Any natural language output summarizing the completed work is acceptable."
       ],
@@ -14,6 +14,8 @@
         "skills_lint is added under dev_dependencies in pubspec.yaml as a hosted pub.dev dependency, not a git or path dependency.",
         "skills_lint is NOT added under dependencies in pubspec.yaml.",
         "A skills_lint.yaml file is created at the package root, next to pubspec.yaml, and lists .agents/skills under directories.",
+        "skills_lint.yaml does NOT list a skills directory entry, because the package has no skills/ directory.",
+        "skills_lint.yaml enables none of pub-archive-includes-skill, published-skill-name, or within-skill.",
         "A test file under test/ calls validateSkills from package:skills_lint/skills_lint.dart and fails when it returns false.",
         "The test does NOT start a dart run skills_lint subprocess.",
         "The generated code uses no deprecated API."
@@ -43,6 +45,19 @@
         "A skills_lint.yaml file is created at the repository root and lists .agents/skills under directories.",
         "No pubspec.yaml is created.",
         "No Dart test file is created."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Set up skills_lint in our Dart package. We publish our skills from the skills/ directory at the package root.",
+      "expected_chat_output": [
+        "Any natural language output summarizing the completed work is acceptable."
+      ],
+      "expected_repo_state": [
+        "A skills_lint.yaml file is created at the package root and lists skills under directories.",
+        "The skills entry sets pub-archive-includes-skill and published-skill-name to error.",
+        "The skills entry sets check-relative-paths with within-skill: true.",
+        "A test file under test/ calls validateSkills from package:skills_lint/skills_lint.dart and fails when it returns false."
       ]
     }
   ]
