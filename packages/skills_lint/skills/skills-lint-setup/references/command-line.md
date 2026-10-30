@@ -51,7 +51,7 @@ Check the install with `skills_lint --version`.
 ## 2. Create skills_lint.yaml
 
 Create `skills_lint.yaml` at the repository root. List each directory that
-holds skills. For example:
+holds skills, and only directories that exist. For example:
 
 ```yaml
 skills_lint:
