@@ -11,11 +11,9 @@
 ### Behavior changes
 
 - `--fix` prints the diagnostics that remain after the fixes, instead of the ones from before, and the exit code reflects them.
-- `--fix` repeats fixes until none helps, keeps a fix only if it lowers the skill's errors (then warnings), and names each fix it skips. `--fix --dry-run` also prints the result the fixes would leave.
-- When a skill directory can't be renamed, `--fix` skips the fixes that need the rename and still writes the others.
-- When `--fix` can't write a skill's `SKILL.md`, it reports the error and the run fails.
-- When `--fix` renames a skill directory, it moves the skill's baseline ignore entries to the new name and re-checks all skills for links the rename broke.
-- `--fix` reports a skill directory it can't rename, or a `SKILL.md` it can't write, as an `Error:` that names the cause, not as a skills_lint internal error.
+- `--fix` fixes more in one run. It repeats fixes until none helps, drops any fix that doesn't reduce the skill's errors or warnings, and says which fixes it skipped and why. `--fix --dry-run` also shows the findings that would remain.
+- When `--fix` can't rename a skill directory, for example because the name is taken, it skips only the fixes that need the new name. When it can't write `SKILL.md`, it prints an `Error:` with the cause, and the run fails.
+- When `--fix` renames a skill directory, the skill's ignore entries follow it, and every skill is checked again to catch links the rename broke.
 - A rule name in the configuration that matches no built-in rule is a configuration error. The message suggests the closest rule names.
 - When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
 - In `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
@@ -30,7 +28,7 @@
 
 ### New features
 
-- Added `SkillContext.activeDirectoryName`, the directory name rules check a skill against, including a planned rename.
+- Custom rules can read `SkillContext.activeDirectoryName` to check a skill against the directory name it will have after `--fix` renames it.
 - Prebuilt `skills_lint` executables for macOS 14 or later (arm64, x64) and Linux (x64, arm64) ship on GitHub Releases, with an `install.sh` script, a `SHA256SUMS` file and a Homebrew tap. They don't need the Dart SDK.
 - Added `ConfigSource.file` and `ConfigSource.directory` for `ConfigParser.parse()` and `ConfigParser.fromYaml()`. The `sourcePath` and `baseDirectory` arguments remain available but are deprecated.
 - Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
