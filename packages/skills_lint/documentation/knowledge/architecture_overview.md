@@ -40,7 +40,7 @@ The persistent suppression mechanism enabling incremental adoption and baseline 
 
 ### 6. [Reporter Subsystem](../../lib/src/reporters/)
 The multi-format output streaming subsystem.
-- **Polymorphic Reporting:** Dispatches session lifecycle events (`onDirectoryEvaluating`, `onSkillEvaluating`, `onSkillValidationComplete`, `onFixesWritten`, `onFixedSkillValidationComplete`, `onSessionComplete`) across output formats (`TextReporter`, `JsonReporter`, `SarifReporter`). Before changing SARIF output, read the [SARIF Primer](sarif_primer.md).
+- **Polymorphic Reporting:** Dispatches session lifecycle events (for example `onDirectoryEvaluating`, `onSkillEvaluating`, `onSkillValidationComplete`, `onFixesWritten`, `onFixedSkillValidationComplete`, `onSessionComplete`; see [`Reporter`](../../lib/src/reporters/reporter.dart) for the full list) across output formats (`TextReporter`, `JsonReporter`, `SarifReporter`). Before changing SARIF output, read the [SARIF Primer](sarif_primer.md).
 - **Standardized Output Channels:** Ensures clean channel separation—structured documents (JSON, SARIF) stream to stdout while operational diagnostics and errors stream to stderr.
 
 ---
@@ -112,7 +112,7 @@ The codebase applies the [SOLID principles](https://en.wikipedia.org/wiki/SOLID)
    Configuration settings and rule parameters merge cleanly across scopes. Narrower scopes (e.g., target-specific settings or CLI flags) override broader defaults without unintentionally resetting unrelated sibling parameters.
 
 3. **Two-Phase Fix & Verification Lifecycle**  
-   Remediation is always split into two distinct phases: in-memory transformation and subsequent re-validation. Rules produce candidate fixes as data rather than performing disk writes. `SkillFixer` judges each fix as if a planned directory rename happens. If `SkillWriter` can't rename the directory, the session plans again with `canRename: false`, so fixes that need the rename are skipped and the others still land. When fixes are applied, the orchestrator immediately re-validates the target to ensure the fix resolved the error without introducing regressions. When a fix renames a skill directory, the session moves that skill's ignore entries to the new name and re-validates every skill once all skills are done.
+   Remediation is always split into two distinct phases: in-memory transformation and subsequent re-validation. Rules produce candidate fixes as data rather than performing disk writes. Fixes are planned against the directory name a skill will have after a rename. If the rename can't happen, only the fixes that don't need it are applied (see [`ValidationSession`](../../lib/src/validation_session.dart)). When fixes are applied, the orchestrator immediately re-validates the target to ensure the fix resolved the error without introducing regressions. When a fix renames a skill directory, the session moves that skill's ignore entries to the new name and re-validates every skill once all skills are done.
 
 4. **Structured Baseline Auditing**  
    Suppression baselines rely on stable rule identifiers and relative file paths rather than fragile log message matching. Baselines are actively audited during execution to identify stale suppressions when violations are fixed.

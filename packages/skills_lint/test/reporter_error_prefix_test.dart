@@ -46,7 +46,7 @@ void _testFormatErrors(OutputFormat format) {
 
     group("reports problems in the user's files without calling them a tool bug", () {
       void expectUserFacing(String errOutput) {
-        expect(errOutput, startsWith('Error: '));
+        expect(errOutput, startsWith('${Reporter.userErrorPrefix} '));
         expect(errOutput, isNot(contains(Reporter.toolErrorPrefix)));
         expect(errOutput, isNot(contains('bug in skills_lint')));
         if (format == OutputFormat.json || format == OutputFormat.sarif) {

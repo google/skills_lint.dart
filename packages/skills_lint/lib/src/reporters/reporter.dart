@@ -44,6 +44,11 @@ abstract class Reporter {
   /// Prefix used for internal tool failure messages routed to stderr.
   static const String toolErrorPrefix = 'skills_lint internal error:';
 
+  /// Prefix for user errors routed to stderr: failures that the user's files
+  /// or environment cause, such as a `--fix` rename onto an existing
+  /// directory.
+  static const String userErrorPrefix = 'Error:';
+
   /// Destination for normal report output.
   final StringSink out;
 
