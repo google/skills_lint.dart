@@ -43,17 +43,6 @@ class ConfigParser {
   static const String ignoreFileKey = 'ignore_file';
   static const String severityKey = 'severity';
 
-  /// The diagnostic label for rules under the top-level `rules` map.
-  static const String globalRulesLabel = 'Global rules';
-
-  /// The diagnostic label for rules under a `directories` entry at [path].
-  static String directoryRulesLabel(String path) => 'Directory entry rules for "$path"';
-
-  /// The diagnostic label for rules under an `individual_skills` entry at
-  /// [path].
-  static String individualSkillRulesLabel(String path) =>
-      'Individual skill entry rules for "$path"';
-
   static const Set<String> _allowedTopLevelKeys = {rulesKey, directoriesKey, individualSkillsKey};
   static const Set<String> _allowedDirectoryKeys = {pathKey, rulesKey, ignoreFileKey};
 
@@ -278,7 +267,7 @@ class ConfigParser {
     if (toolConfig.containsKey(rulesKey)) {
       final Object? rules = toolConfig[rulesKey];
       if (rules is YamlMap) {
-        return _parseRulesMap(rules, parsingErrors, globalRulesLabel);
+        return _parseRulesMap(rules, parsingErrors, 'Global rules');
       }
     }
     return const <String, RuleConfigPatch>{};
@@ -530,10 +519,7 @@ class ConfigParser {
     }
     final Object? localRules = dir[rulesKey];
     if (localRules is YamlMap) {
-      final String label = entryLabelCap == 'Directory entry'
-          ? directoryRulesLabel(path)
-          : individualSkillRulesLabel(path);
-      return _parseRulesMap(localRules, parsingErrors, label);
+      return _parseRulesMap(localRules, parsingErrors, '$entryLabelCap rules for "$path"');
     }
     parsingErrors.add(
       '$entryLabelCap "$rulesKey" for "$path" must be a map; '
@@ -586,7 +572,7 @@ class LintTargetConfig {
     required this.path,
     this.ruleConfigs = const <String, RuleConfigPatch>{},
     this.ignoreFile,
-  }) : authoredPath = null,
+  }) : _authoredPath = null,
        _authoredIgnoreFile = null,
        _declaration = null;
 
@@ -597,7 +583,7 @@ class LintTargetConfig {
     required this.path,
     required this.ruleConfigs,
     required this.ignoreFile,
-    required this.authoredPath,
+    required this._authoredPath,
     required this._authoredIgnoreFile,
     required TargetDeclaration this._declaration,
   });
@@ -625,7 +611,7 @@ class LintTargetConfig {
   /// and `pkg/skills` anchored to `/repo` both resolve to `/repo/pkg/skills`,
   /// so [toYaml] emits this text instead and rewriting a configuration file
   /// leaves its paths as the author typed them.
-  final String? authoredPath;
+  final String? _authoredPath;
 
   /// [ignoreFile] as spelled in the configuration file, or `null` for a target
   /// built by a caller rather than read from a file.
@@ -637,7 +623,7 @@ class LintTargetConfig {
 
   /// Converts this target configuration into its YAML representation.
   Map<String, Object?> toYaml() {
-    final map = <String, Object?>{ConfigParser.pathKey: authoredPath ?? path};
+    final map = <String, Object?>{ConfigParser.pathKey: _authoredPath ?? path};
     if (ruleConfigs.isNotEmpty) {
       map[ConfigParser.rulesKey] = <String, Object?>{
         for (final MapEntry<String, RuleConfigPatch> entry in ruleConfigs.entries)

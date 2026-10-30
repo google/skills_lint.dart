@@ -34,10 +34,10 @@ void main() {
     test('lists every equally close name', () {
       // Equally far from "check-absolute-paths" and "check-relative-paths".
       expect(
-        unknownRuleNameMessage('check-reloluxe-paths', context: ConfigParser.globalRulesLabel),
+        unknownRuleNameMessage('check-reloluxe-paths', context: 'Global rules'),
         reportsUnknownRule(
           'check-reloluxe-paths',
-          section: ConfigParser.globalRulesLabel,
+          section: 'Global rules',
           suggestions: ['check-absolute-paths', 'check-relative-paths'],
         ),
       );
@@ -45,8 +45,8 @@ void main() {
 
     test('notes a newer skills_lint when no configurable name is close', () {
       expect(
-        unknownRuleNameMessage('zzz', context: ConfigParser.globalRulesLabel),
-        reportsUnknownRule('zzz', section: ConfigParser.globalRulesLabel),
+        unknownRuleNameMessage('zzz', context: 'Global rules'),
+        reportsUnknownRule('zzz', section: 'Global rules'),
       );
     });
   });
@@ -54,11 +54,8 @@ void main() {
   group('mergeKeyMessage', () {
     test('explains that YAML merge keys are not supported', () {
       expect(
-        mergeKeyMessage(context: ConfigParser.globalRulesLabel),
-        allOf(
-          contains(ConfigParser.globalRulesLabel),
-          contains('YAML merge keys ("<<") are not supported'),
-        ),
+        mergeKeyMessage(context: 'Global rules'),
+        allOf(contains('Global rules'), contains('YAML merge keys ("<<") are not supported')),
       );
     });
   });
@@ -84,6 +81,18 @@ void main() {
           suggestions: ['check-relative-paths'],
         ),
       ]);
+    });
+
+    test('reports a custom rule named like a built-in rule as custom', () {
+      final customRule = QuietRule(name: 'check-relative-pathz');
+      final List<String> messages = unknownRuleMessages(
+        {customRule.name: const RuleConfigPatch()},
+        context: 'resolvedRuleConfigs',
+        customRules: [customRule],
+      );
+
+      expect(messages, [contains('"${customRule.name}" is a custom rule')]);
+      expect(messages.single, isNot(contains('check-relative-paths')));
     });
   });
 }

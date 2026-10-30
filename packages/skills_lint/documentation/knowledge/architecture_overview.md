@@ -19,7 +19,7 @@ Responsible for loading, validating, resolving, and serializing user settings ac
 - **Schema & Target Parsing:** Ingests repository configuration from disk or in-memory sources, parsing global rule definitions along with directory-level and skill-level overrides.
 - **Configuration Validation:** Reports invalid settings during configuration loading rather than as skill rule findings.
 - **Hierarchical Precedence:** Resolves effective rule sets and parameter values deterministically by layering scopes: CLI overrides take highest precedence, followed by path-specific target configurations, global repository configurations, and built-in defaults.
-- **Bidirectional Serialization:** Supports programmatic serialization and deserialization, enabling automated tooling, test harnesses, and migration workflows to generate and transform configuration definitions with lossless round-trip fidelity.
+- **Bidirectional Serialization:** Supports programmatic serialization and deserialization, enabling automated tooling, test harnesses, and migration workflows to generate and transform configuration definitions with round-trip fidelity for every setting the parser accepts. Settings it rejects, such as unknown or custom rule names, are reported as configuration errors and left out.
 
 ### 3. [Stateless Validation Engine](../../lib/src/validator.dart)
 The core analysis engine responsible for inspecting individual skills.

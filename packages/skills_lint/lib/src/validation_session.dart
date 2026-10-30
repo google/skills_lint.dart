@@ -459,21 +459,17 @@ class ValidationSession {
   /// [config] came from a [Configuration] built in code.
   void reportConfigurationWarnings() => [
     ...config.parsingErrors,
-    ...unknownRuleMessages(
-      config.ruleConfigs,
-      context: ConfigParser.globalRulesLabel,
-      customRules: customRules,
-    ),
+    ...unknownRuleMessages(config.ruleConfigs, context: 'Global rules', customRules: customRules),
     for (final LintTargetConfig target in config.directoryConfigs)
       ...unknownRuleMessages(
         target.ruleConfigs,
-        context: ConfigParser.directoryRulesLabel(target.authoredPath ?? target.path),
+        context: 'Directory entry rules for "${target.path}"',
         customRules: customRules,
       ),
     for (final LintTargetConfig target in config.individualSkillConfigs)
       ...unknownRuleMessages(
         target.ruleConfigs,
-        context: ConfigParser.individualSkillRulesLabel(target.authoredPath ?? target.path),
+        context: 'Individual skill entry rules for "${target.path}"',
         customRules: customRules,
       ),
     ...unknownRuleMessages(

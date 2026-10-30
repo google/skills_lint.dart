@@ -205,8 +205,10 @@ class FakePub {
 
 /// A custom rule that finds nothing, for checking how its name is handled.
 class QuietRule extends SkillRule {
+  QuietRule({this.name = 'my-custom-rule'});
+
   @override
-  String get name => 'my-custom-rule';
+  final String name;
 
   @override
   AnalysisSeverity get severity => AnalysisSeverity.disabled;

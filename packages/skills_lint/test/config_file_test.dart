@@ -1414,6 +1414,8 @@ skills_lint:
               'enabled': true,
               'tags': ['a', 'b', 'c'],
               'pattern': '.*-workspace',
+              'numbers': [1, 2, 3],
+              'nested': {'k1': 'v1', 'k2': 10},
             }),
           ),
         },
@@ -1422,7 +1424,12 @@ skills_lint:
       final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
 
-      expect(parsed.parsingErrors, isEmpty);
+      // No RuleParameterType describes an int list or a nested map, so the
+      // parser reports those two parameters but still keeps their values.
+      expect(parsed.parsingErrors, [
+        'Global rules: Unrecognized parameter "numbers" for rule "custom-rule".',
+        'Global rules: Unrecognized parameter "nested" for rule "custom-rule".',
+      ]);
       expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
   });
