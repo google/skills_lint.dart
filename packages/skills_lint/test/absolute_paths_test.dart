@@ -66,9 +66,8 @@ void main() {
 
     test('ignores valid relative paths resembling windows drives', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File(
-        '${skillDir.path}/SKILL.md',
-      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Relative link](C:relative.md)\n');
+      await File('${skillDir.path}/SKILL.md')
+          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Relative link](C:relative.md)\n');
 
       final validator = Validator(
         ruleConfigs: {
@@ -84,9 +83,8 @@ void main() {
 
     test('ignores ordinary file links', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File(
-        '${skillDir.path}/SKILL.md',
-      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Relative link](file.md)\n');
+      await File('${skillDir.path}/SKILL.md')
+          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Relative link](file.md)\n');
 
       final validator = Validator(
         ruleConfigs: {
@@ -145,9 +143,8 @@ void main() {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
       final File targetFile = await File('${tempDir.path}/target.md').create();
 
-      await File(
-        '${skillDir.path}/SKILL.md',
-      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](${targetFile.path})\n');
+      await File('${skillDir.path}/SKILL.md')
+          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](${targetFile.path})\n');
 
       final rule = AbsolutePathsRule();
       final file = File('${skillDir.path}/SKILL.md');
@@ -192,9 +189,8 @@ void main() {
     test('does not fix absolute path if file does not exist', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
 
-      await File(
-        '${skillDir.path}/SKILL.md',
-      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](/non/existent/file.md)\n');
+      await File('${skillDir.path}/SKILL.md')
+          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](/non/existent/file.md)\n');
 
       final rule = AbsolutePathsRule();
       final file = File('${skillDir.path}/SKILL.md');

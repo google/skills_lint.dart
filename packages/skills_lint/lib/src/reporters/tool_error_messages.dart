@@ -23,6 +23,12 @@ abstract final class ToolErrorMessages {
       '$_toolBugNotice\n'
       '  The fixes from the last pass were kept.';
 
+  /// Message for a fixed `SKILL.md` that could not be written.
+  static String writeFailedMessage({required String skillName, required Object error}) =>
+      "${Reporter.toolErrorPrefix} could not write the fixes for '$skillName'.\n"
+      '$_toolBugNotice\n'
+      '  Your skill was left unmodified. Cause: $error';
+
   /// Message for a skill directory rename that failed.
   static String renameFailedMessage({
     required String oldSkillName,

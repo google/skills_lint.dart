@@ -4,6 +4,7 @@
 
 import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
+
 import '../cutoff_excerpt.dart';
 import '../length_limit.dart';
 import '../models/analysis_severity.dart';

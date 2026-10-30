@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:skills_lint/skills_lint.dart';
 import 'package:test/test.dart';
+
 import 'test_utils.dart';
 
 void main() {
@@ -67,9 +68,8 @@ void main() {
       () async {
         await withTempDir((tempDir) async {
           final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-          await File(
-            '${skillDir.path}/SKILL.md',
-          ).writeAsString('${buildFrontmatter(name: 'test-skill')}Body content');
+          await File('${skillDir.path}/SKILL.md')
+              .writeAsString('${buildFrontmatter(name: 'test-skill')}Body content');
 
           expect(
             () => validateSkills(

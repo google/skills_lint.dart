@@ -44,9 +44,8 @@ Future<Directory> createSubpackage(
       LintTargetConfig(path: 'skills', ruleConfigs: targetRules),
     ],
   );
-  await File(
-    p.join(subpackage.path, 'skills_lint.yaml'),
-  ).writeAsString(configuration.toYamlString());
+  await File(p.join(subpackage.path, 'skills_lint.yaml'))
+      .writeAsString(configuration.toYamlString());
   return subpackage;
 }
 
@@ -558,35 +557,32 @@ skills_lint:
       await process.shouldExit(1);
     });
 
-    test(
-      'succeeds with warning on invalid key and prints deprecation when --allow-misconfigured-keys passed',
-      () async {
-        await Directory('${tempDir.path}/test-skill').create();
-        await File('${tempDir.path}/test-skill/SKILL.md').writeAsString('''
+    test('succeeds with warning on invalid key and prints deprecation when --allow-misconfigured-keys passed', () async {
+      await Directory('${tempDir.path}/test-skill').create();
+      await File('${tempDir.path}/test-skill/SKILL.md').writeAsString('''
 ---
 name: test-skill
 description: A test skill
 ---
 Body''');
 
-        await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
 skills_lint:
   invalid-key: value
 ''');
 
-        final TestProcess process = await startCli([
-          '-s',
-          'test-skill',
-          '--allow-misconfigured-keys',
-        ], workingDirectory: tempDir.path);
+      final TestProcess process = await startCli([
+        '-s',
+        'test-skill',
+        '--allow-misconfigured-keys',
+      ], workingDirectory: tempDir.path);
 
-        final List<String> stderr = await process.stderr.rest.toList();
-        final String output = stderr.join('\n');
-        expect(output, contains('Configuration warning: Unrecognized top-level key "invalid-key"'));
-        expect(output, contains('DEPRECATION WARNING: --allow-misconfigured-keys is deprecated'));
-        await process.shouldExit(0);
-      },
-    );
+      final List<String> stderr = await process.stderr.rest.toList();
+      final String output = stderr.join('\n');
+      expect(output, contains('Configuration warning: Unrecognized top-level key "invalid-key"'));
+      expect(output, contains('DEPRECATION WARNING: --allow-misconfigured-keys is deprecated'));
+      await process.shouldExit(0);
+    });
 
     test('obeys custom configuration file path via --config', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
@@ -758,9 +754,8 @@ description: A test skill in config
 Body''');
 
       await File('${tempDir.path}/skills_lint.yaml').writeAsString(
-        const Configuration(
-          individualSkillConfigs: [LintTargetConfig(path: 'config-skill')],
-        ).toYamlString(),
+        const Configuration(individualSkillConfigs: [LintTargetConfig(path: 'config-skill')])
+            .toYamlString(),
       );
 
       final TestProcess process = await startCli([
@@ -783,9 +778,8 @@ Body''');
       await Directory('${tempDir.path}/dir1').create();
       await Directory('${tempDir.path}/dir1/test-skill').create();
       // Add trailing whitespace to trigger a lint rule
-      await File(
-        '${tempDir.path}/dir1/test-skill/SKILL.md',
-      ).writeAsString('---\nname: test-skill\ndescription: A test skill\n---\nBody \n');
+      await File('${tempDir.path}/dir1/test-skill/SKILL.md')
+          .writeAsString('---\nname: test-skill\ndescription: A test skill\n---\nBody \n');
 
       await File('${tempDir.path}/skills_lint.yaml').writeAsString(
         const Configuration(
@@ -824,12 +818,10 @@ Body''');
     test('obeys map-based rule parameters configuration', () async {
       await Directory('${tempDir.path}/skills-root').create();
       await Directory('${tempDir.path}/skills-root/definition-of-done-workspace').create();
-      final Directory validSkill = await Directory(
-        '${tempDir.path}/skills-root/valid-skill',
-      ).create();
-      await File(
-        '${validSkill.path}/SKILL.md',
-      ).writeAsString('---\nname: valid-skill\ndescription: Valid\n---\nBody');
+      final Directory validSkill = await Directory('${tempDir.path}/skills-root/valid-skill')
+          .create();
+      await File('${validSkill.path}/SKILL.md')
+          .writeAsString('---\nname: valid-skill\ndescription: Valid\n---\nBody');
 
       await File('${tempDir.path}/skills_lint.yaml').writeAsString(
         Configuration(
@@ -858,12 +850,10 @@ Body''');
     test('preserves global rule parameters when target overrides only severity', () async {
       await Directory('${tempDir.path}/skills-root').create();
       await Directory('${tempDir.path}/skills-root/definition-of-done-workspace').create();
-      final Directory validSkill = await Directory(
-        '${tempDir.path}/skills-root/valid-skill',
-      ).create();
-      await File(
-        '${validSkill.path}/SKILL.md',
-      ).writeAsString('---\nname: valid-skill\ndescription: Valid\n---\nBody');
+      final Directory validSkill = await Directory('${tempDir.path}/skills-root/valid-skill')
+          .create();
+      await File('${validSkill.path}/SKILL.md')
+          .writeAsString('---\nname: valid-skill\ndescription: Valid\n---\nBody');
 
       await File('${tempDir.path}/skills_lint.yaml').writeAsString(
         Configuration(
@@ -898,12 +888,10 @@ Body''');
       () async {
         await Directory('${tempDir.path}/skills-root').create();
         await Directory('${tempDir.path}/skills-root/definition-of-done-workspace').create();
-        final Directory validSkill = await Directory(
-          '${tempDir.path}/skills-root/valid-skill',
-        ).create();
-        await File(
-          '${validSkill.path}/SKILL.md',
-        ).writeAsString('---\nname: valid-skill\ndescription: Valid\n---\nBody');
+        final Directory validSkill = await Directory('${tempDir.path}/skills-root/valid-skill')
+            .create();
+        await File('${validSkill.path}/SKILL.md')
+            .writeAsString('---\nname: valid-skill\ndescription: Valid\n---\nBody');
 
         await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
 skills_lint:
@@ -1248,9 +1236,8 @@ skills_lint:
 
     test('rewriting a loaded configuration preserves the authored paths', () async {
       await withTempDir((Directory tempDir) async {
-        final Directory packageDir = await Directory(
-          p.join(tempDir.path, 'packages', 'thing'),
-        ).create(recursive: true);
+        final Directory packageDir = await Directory(p.join(tempDir.path, 'packages', 'thing'))
+            .create(recursive: true);
         const authored = Configuration(
           directoryConfigs: [
             LintTargetConfig(
@@ -1290,9 +1277,8 @@ skills_lint:
 
     test('a target serialized on its own emits the text it was declared with', () {
       final Configuration parsed = ConfigParser.parse(
-        const Configuration(
-          directoryConfigs: [LintTargetConfig(path: '../sibling/skills')],
-        ).toYamlString(),
+        const Configuration(directoryConfigs: [LintTargetConfig(path: '../sibling/skills')])
+            .toYamlString(),
         baseDirectory: p.normalize(p.absolute('project')),
       );
 

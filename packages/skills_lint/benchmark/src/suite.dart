@@ -191,9 +191,8 @@ final class RssProbe {
 /// Returns the peak resident set size in bytes from the output of GNU
 /// `time -v`, or `null` if [report] does not contain it.
 int? parseGnuTime(String report) {
-  final RegExpMatch? match = RegExp(
-    r'Maximum resident set size \(kbytes\): (\d+)',
-  ).firstMatch(report);
+  final RegExpMatch? match = RegExp(r'Maximum resident set size \(kbytes\): (\d+)')
+      .firstMatch(report);
   return match == null ? null : int.parse(match.group(1)!) * 1024;
 }
 

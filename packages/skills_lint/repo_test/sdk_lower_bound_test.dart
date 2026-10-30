@@ -61,13 +61,9 @@ Pubspec _pubspec(String relativePath) =>
 /// Returns the `sdk` of the `lower_bound: true` entry in the analyze_and_test
 /// matrix.
 String _testedSdk() {
-  final workflow =
-      loadYaml(
-            File(
-              p.join(repoRoot, '.github', 'workflows', 'skills_lint_workflow.yaml'),
-            ).readAsStringSync(),
-          )
-          as YamlMap;
+  final workflow = loadYaml(
+    File(p.join(repoRoot, '.github', 'workflows', 'skills_lint_workflow.yaml')).readAsStringSync(),
+  ) as YamlMap;
   final job = (workflow['jobs'] as YamlMap)['analyze_and_test'] as YamlMap;
   final matrix = (job['strategy'] as YamlMap)['matrix'] as YamlMap;
   final List<String> sdks = [

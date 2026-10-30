@@ -5,7 +5,7 @@
 /// A fix that the fixer tried and dropped because it would not make the
 /// skill better.
 class SkippedFix {
-  SkippedFix({required this.ruleName, required this.grownRuleNames, this.blockedDirectoryName});
+  SkippedFix({required this.ruleName, required this.grownRuleNames, this.reason});
 
   /// The rule whose fix was dropped.
   final String ruleName;
@@ -15,7 +15,11 @@ class SkippedFix {
   /// Empty when the fix only failed to lower the count.
   final List<String> grownRuleNames;
 
-  /// The directory name the fix would rename the skill to, when a directory
-  /// with that name already exists.
-  final String? blockedDirectoryName;
+  /// Why the fix was dropped, when the fixer's counts don't say it, such as
+  /// a directory rename that can't happen.
+  final String? reason;
+
+  /// A copy of this skipped fix with [reason].
+  SkippedFix withReason(String reason) =>
+      SkippedFix(ruleName: ruleName, grownRuleNames: grownRuleNames, reason: reason);
 }

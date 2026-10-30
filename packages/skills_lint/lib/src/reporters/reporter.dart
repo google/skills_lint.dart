@@ -129,6 +129,12 @@ abstract class Reporter {
     );
   }
 
+  /// Called when writing the fixed `SKILL.md` of [skillName] fails, which
+  /// leaves the skill as it was.
+  void onWriteFailed({required String skillName, required Object error}) {
+    err.writeln(ToolErrorMessages.writeFailedMessage(skillName: skillName, error: error));
+  }
+
   /// Called when an ignore entry was not matched by any finding.
   void onStaleIgnoreFound({
     required String ruleId,

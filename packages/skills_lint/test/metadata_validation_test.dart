@@ -135,9 +135,8 @@ Body''');
       // We need to make sure directory name matches name in metadata
       final skillDir = Directory('${tempDir.path}/metadata-test');
       await skillDir.create();
-      await File(
-        '${skillDir.path}/SKILL.md',
-      ).writeAsString('${buildFrontmatter(name: 'metadata-test')}Body');
+      await File('${skillDir.path}/SKILL.md')
+          .writeAsString('${buildFrontmatter(name: 'metadata-test')}Body');
 
       final ValidationResult result = await validator.validate(skillDir);
 
