@@ -133,7 +133,7 @@ void main() {
       expect(listing(), ['foo']);
       expect(skillMd('foo'), 'before\n');
       expect(err.toString(), contains('bar-foo'));
-    }, skip: Platform.isWindows ? 'chmod does not exist on Windows' : false);
+    }, skip: Platform.isWindows ? 'uses the POSIX chmod command' : null);
   });
 
   test('reports a write error and leaves the skill unchanged', () async {
@@ -147,5 +147,5 @@ void main() {
     expect(result, isA<WriteFailed>().having((r) => r.error, 'error', isA<FileSystemException>()));
     expect(skillMd('foo'), 'before\n');
     expect(err.toString(), contains('foo'));
-  }, skip: Platform.isWindows ? 'chmod does not exist on Windows' : false);
+  }, skip: Platform.isWindows ? 'uses the POSIX chmod command' : null);
 }
