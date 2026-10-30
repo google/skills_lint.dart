@@ -6,7 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-/// Returns the executable to start for `git`, or `null` if there is none.
+/// The executable to start for `git`, or `null` if there is none.
 ///
 /// On macOS and Linux this is the bare name `git`, which the system looks up
 /// on `PATH`.
