@@ -841,19 +841,7 @@ class ValidationSession {
       return result;
     }
 
-    final failedRuleNames = <String>{};
-    final fixer = SkillFixer(
-      validator: validator,
-      applyIgnores: (ValidationResult candidate) =>
-          _applyIgnores(candidate, skillIgnores, skillDir),
-      // A broken fixer throws on every pass and in every plan. Report it
-      // once per skill.
-      onFixFailed: (String ruleName, Object error) {
-        if (failedRuleNames.add(ruleName)) {
-          _reporter.onFixFailed(ruleName: ruleName, error: error);
-        }
-      },
-    );
+    final SkillFixer fixer = _fixerFor(validator, skillIgnores, skillDir);
     final writer = SkillWriter(_reporter);
     final String currentDirectoryName = p.basename(skillDir.path);
 
@@ -915,6 +903,24 @@ class ValidationSession {
     _applyIgnores(newResult, skillIgnores, applied.dir);
     _reporter.onFixedSkillValidationComplete(newResult);
     return newResult;
+  }
+
+  /// The fixer for the skill in [skillDir], which counts only diagnostics
+  /// that [skillIgnores] don't cover.
+  SkillFixer _fixerFor(Validator validator, List<IgnoreEntry> skillIgnores, Directory skillDir) {
+    final failedRuleNames = <String>{};
+    return SkillFixer(
+      validator: validator,
+      applyIgnores: (ValidationResult candidate) =>
+          _applyIgnores(candidate, skillIgnores, skillDir),
+      // A broken fixer throws on every pass and in every plan. Report it
+      // once per skill.
+      onFixFailed: (String ruleName, Object error) {
+        if (failedRuleNames.add(ruleName)) {
+          _reporter.onFixFailed(ruleName: ruleName, error: error);
+        }
+      },
+    );
   }
 
   /// Plans the fixes for [result] again under the current directory name,
