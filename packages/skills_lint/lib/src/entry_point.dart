@@ -127,7 +127,7 @@ Future<void> runApp(List<String> args) async {
   _setupLogger();
 
   const helpFlag = 'help';
-  final ArgParser parser = _createArgParser(helpFlag);
+  final ArgParser parser = createArgParser(helpFlag);
 
   final ArgResults results;
   final Map<String, RuleConfigPatch> resolvedRuleConfigs;
@@ -230,7 +230,8 @@ Future<void> runApp(List<String> args) async {
 /// Creates the [ArgParser] for the CLI, adding all supported flags and options.
 ///
 /// Dynamically adds flags for all registered rules in [RuleRegistry].
-ArgParser _createArgParser(String helpFlag) {
+@visibleForTesting
+ArgParser createArgParser(String helpFlag) {
   final parser = ArgParser()
     ..addFlag(helpFlag, abbr: 'h', negatable: false, help: 'Show usage information.')
     ..addFlag(
