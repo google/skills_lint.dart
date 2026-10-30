@@ -79,6 +79,8 @@ class ValidationSession {
   /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
   /// * [pubArchiveLoader] lists the files pub publishes. Tests pass one with a
   ///   fake process runner.
+  /// * [skillWriter] builds the [SkillWriter] that does the `--fix` file I/O.
+  ///   Tests pass one that fails in ways the file system can't easily cause.
   ValidationSession({
     required this.config,
     // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
@@ -96,7 +98,9 @@ class ValidationSession {
     required this.fixApply,
     this.format = OutputFormat.text,
     @visibleForTesting PubArchiveLoader? pubArchiveLoader,
+    @visibleForTesting SkillWriter Function(Reporter reporter) skillWriter = SkillWriter.new,
   }) : _pubArchiveLoader = pubArchiveLoader ?? PubArchiveLoader(),
+       _skillWriterFor = skillWriter,
        _reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
        resolvedRuleConfigs = mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
        ignoreFileOverride = _ingestOptionalPath(ignoreFileOverride),
@@ -161,6 +165,8 @@ class ValidationSession {
   final OutputFormat format;
   final Reporter _reporter;
   final PubArchiveLoader _pubArchiveLoader;
+
+  final SkillWriter Function(Reporter reporter) _skillWriterFor;
 
   final List<ValidationResult> _results = [];
   final List<_ValidatedSkill> _validatedSkills = [];
@@ -894,7 +900,7 @@ class ValidationSession {
     }
 
     final SkillFixer fixer = _fixerFor(validator, skillIgnores, skillDir);
-    final writer = SkillWriter(_reporter);
+    final SkillWriter writer = _skillWriterFor(_reporter);
     final String currentDirectoryName = p.basename(skillDir.path);
 
     // Plan as if the directory can follow a changed `name`. If it can't, plan
@@ -955,16 +961,31 @@ class ValidationSession {
     if (applied is! Applied) {
       // SKILL.md wasn't written. SkillWriter reported why, and the run fails.
       _fixWriteFailed = true;
-      return result;
+      if (dirAfter.path == skillDir.path) {
+        return result;
+      }
+      // The skill stayed renamed. Validate it where it is, so the caller
+      // saves its ignore file and the re-check finds it there.
+      return _revalidateFixed(validator, dirAfter, ignores, skillIgnores);
     }
     _reporter.onFixesWritten(currentDirectoryName, ruleNames: outcome.appliedRuleNames);
-    final List<IgnoreEntry> fixedIgnores =
-        ignores.skills[p.basename(applied.dir.path)] ?? skillIgnores;
+    return _revalidateFixed(validator, applied.dir, ignores, skillIgnores);
+  }
+
+  /// Validates the skill in [dir] after `--fix` touched it, with the ignore
+  /// entries stored under its current name, and reports the result.
+  Future<ValidationResult> _revalidateFixed(
+    Validator validator,
+    Directory dir,
+    SkillsIgnores ignores,
+    List<IgnoreEntry> skillIgnores,
+  ) async {
+    final List<IgnoreEntry> fixedIgnores = ignores.skills[p.basename(dir.path)] ?? skillIgnores;
     final ValidationResult newResult = await validator.validate(
-      applied.dir,
-      pubArchive: await _pubArchiveFor(applied.dir, validator),
+      dir,
+      pubArchive: await _pubArchiveFor(dir, validator),
     );
-    _applyIgnores(newResult, fixedIgnores, applied.dir);
+    _applyIgnores(newResult, fixedIgnores, dir);
     _reporter.onFixedSkillValidationComplete(newResult);
     return newResult;
   }

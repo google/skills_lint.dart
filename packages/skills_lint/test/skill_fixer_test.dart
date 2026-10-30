@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/entry_point.dart';
 import 'package:skills_lint/src/fixable_rule.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
@@ -30,6 +31,7 @@ import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
 import 'package:skills_lint/src/skill_fixer.dart';
+import 'package:skills_lint/src/skill_writer.dart';
 import 'package:skills_lint/src/validator.dart';
 import 'package:test/test.dart';
 
@@ -78,6 +80,18 @@ class _ThrowingFixRule extends SkillRule implements FixableRule {
 
   @override
   Future<String> fix(SkillContext context) => throw StateError('broken fixer');
+}
+
+/// A writer that renames the skill, then fails as if both the write and
+/// undoing the rename failed.
+class _RenamesThenFailsWriter extends SkillWriter {
+  _RenamesThenFailsWriter(super.reporter);
+
+  @override
+  Future<ApplyResult> apply(Directory skill, String content, String wantedName) async {
+    final Directory renamed = await skill.rename(p.join(skill.parent.path, wantedName));
+    return WriteFailed(const FileSystemException('Cannot open file'), dir: renamed);
+  }
 }
 
 void main() {
@@ -301,6 +315,49 @@ void main() {
     );
 
     expect("'${_ThrowingFixRule.ruleName}' fix".allMatches(run.err), hasLength(1), reason: run.err);
+  });
+
+  test('records where a skill ends up when the write and the undo both fail', () async {
+    final Directory skillDir = await createPackageSkill('foo');
+    final ignoreFile = File(p.join(skillDir.path, defaultIgnoreFileName));
+    await ignoreFile.writeAsString(
+      jsonEncode(
+        SkillsIgnores(
+          skills: {
+            'foo': [IgnoreEntry(ruleId: RelativePathsRule.ruleName, fileName: 'SKILL.md')],
+          },
+        ).toJson(),
+      ),
+    );
+    final session = ValidationSession(
+      config: const Configuration(),
+      resolvedRuleConfigs: {
+        PublishedSkillNameRule.ruleName: const RuleConfigPatch(severity: AnalysisSeverity.error),
+      },
+      ignoreFileOverride: null,
+      customRules: const [],
+      printWarnings: true,
+      fastFail: false,
+      quiet: true,
+      generateBaseline: false,
+      fix: true,
+      fixApply: true,
+      skillWriter: _RenamesThenFailsWriter.new,
+    );
+
+    await IOOverrides.runZoned(
+      () => session.processIndividualSkill(skillDir.path),
+      stderr: CapturedOutput.new,
+    );
+
+    final renamedDir = Directory(p.join(skillDir.parent.path, 'bar-foo'));
+    expect(renamedDir.existsSync(), isTrue);
+    expect(session.anyFailed, isTrue);
+    expect(session.results.single.context?.directory.path, renamedDir.path);
+    final Object? saved = jsonDecode(
+      File(p.join(renamedDir.path, defaultIgnoreFileName)).readAsStringSync(),
+    );
+    expect((saved! as Map)[SkillsIgnores.skillsKey], contains('bar-foo'));
   });
 
   test('stops after maxPasses and says the fixes did not settle', () async {
