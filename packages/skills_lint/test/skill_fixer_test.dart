@@ -360,6 +360,23 @@ void main() {
     expect((saved! as Map)[SkillsIgnores.skillsKey], contains('bar-foo'));
   });
 
+  test('says it drops malformed ignore entries when a rename moves the ignore file', () async {
+    final Directory skillDir = await createPackageSkill('foo');
+    // One valid entry, which moves to the new name, and one malformed entry,
+    // which the saved file can't carry over.
+    await File(p.join(skillDir.path, defaultIgnoreFileName)).writeAsString(
+      '{"skills": {"foo": [{"rule_id": "${RelativePathsRule.ruleName}", "file_name": "SKILL.md"},'
+      ' {"rule_id": "x"}]}}',
+    );
+
+    final String err = await applyFix(skillDir, publishedName);
+
+    final String movedIgnorePath = p.join(skillDir.parent.path, 'bar-foo', defaultIgnoreFileName);
+    expect(err, contains('Replacing $movedIgnorePath without carrying over'));
+    final Object? saved = jsonDecode(File(movedIgnorePath).readAsStringSync());
+    expect((saved! as Map)[SkillsIgnores.skillsKey], contains('bar-foo'));
+  });
+
   test('stops after maxPasses and says the fixes did not settle', () async {
     final Directory skillDir = await createPackageSkill('bar-foo');
     final FixOutcome outcome = await predict(

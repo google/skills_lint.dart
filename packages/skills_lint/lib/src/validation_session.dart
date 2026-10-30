@@ -1016,6 +1016,7 @@ class ValidationSession {
         oldName: currentDirectoryName,
         renamedDir: dirAfter,
         ignores: ignores,
+        oldIgnorePath: ignorePathFor(skillDir),
         ignorePath: ignorePathFor(dirAfter),
       );
     }
@@ -1057,14 +1058,23 @@ class ValidationSession {
   /// Moves the skill's ignore entries in [ignores] to the new name, marks the
   /// ignore file at [ignorePath] to be saved, drops the cached archive, which
   /// lists files by path, and asks for every skill to be checked again.
+  ///
+  /// The ignore file was at [oldIgnorePath] before the rename. When it moved
+  /// with the skill, its load problems move to [ignorePath], so that
+  /// [_saveBaseline] still says which entries it can't carry over.
   void _onSkillRenamed({
     required String oldName,
     required Directory renamedDir,
     required SkillsIgnores ignores,
+    required String oldIgnorePath,
     required String ignorePath,
   }) {
     _anySkillRenamed = true;
     _pubArchiveLoader.clear();
+    final List<IgnoreProblem>? problems = _ignoreFilesWithErrors.remove(oldIgnorePath);
+    if (problems != null) {
+      _ignoreFilesWithErrors[ignorePath] = problems;
+    }
     if (ignores.renameSkill(oldName, p.basename(renamedDir.path)) &&
         File(ignorePath).existsSync()) {
       _renamedIgnorePaths.add(ignorePath);
