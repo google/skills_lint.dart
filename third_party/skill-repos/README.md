@@ -21,9 +21,9 @@ Skills vendored here that help with this repository are symlinked into `.agents/
 These vendored skills are deliberately not linked. Don't re-link them without a new reason:
 
 - `dart-lang-skills/dart-migrate-to-checks-package`: `package:checks` is experimental, and this repo uses `package:matcher`.
-- `dart-lang-skills/dart-collect-coverage`: its coverage command differs from the one in [CONTRIBUTING.md](../../CONTRIBUTING.md).
+- `dart-lang-skills/dart-collect-coverage`: tells agents to add a `coverage` dependency and run `test_with_coverage`. CI uses `dart test --coverage`, as shown in [CONTRIBUTING.md](../../CONTRIBUTING.md). The linked `dart-test-coverage` skill uses `dart test --coverage`.
 - `dart-lang-skills/dart-add-unit-test`: agents load `dart-test-fundamentals` for the same tasks.
-- `obra-superpowers/test-driven-development`: duplicates the same-named global skill.
+- `obra-superpowers/test-driven-development`: duplicates the `test-driven-development` skill that contributors get from a user-level [obra/superpowers](https://github.com/obra/superpowers) install.
 
 ## Managing Vendored Skills
 
