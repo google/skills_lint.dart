@@ -9,7 +9,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import 'levenshtein.dart';
+import 'closest_name.dart';
 
 /// The kind of file system entry [closestSiblingName] may suggest.
 enum SiblingKind {
@@ -24,48 +24,33 @@ enum SiblingKind {
 /// `null` when nothing is close enough.
 ///
 /// Only entries of [kind] are candidates. Names are compared without regard
-/// to case, and a candidate qualifies when its edit distance is at most a
-/// third of the length of [missingName] (and at least 1).
+/// to case, and a candidate qualifies when its edit distance is at most
+/// [maxDistance].
 ///
 /// Returns `null` when [parent] does not exist or cannot be listed, when no
 /// candidate qualifies, or when two candidates are equally close. Listing
 /// order depends on the file system, so picking either one of a tie would
 /// make the suggestion differ between platforms.
-String? closestSiblingName(Directory parent, String missingName, {required SiblingKind kind}) {
-  final String missing = missingName.toLowerCase();
-  if (missing.isEmpty) {
+String? closestSiblingName(
+  Directory parent,
+  String missingName, {
+  required SiblingKind kind,
+  required int maxDistance,
+}) {
+  if (missingName.isEmpty) {
     return null;
   }
-
-  final int threshold = (missing.length ~/ 3).clamp(1, missing.length);
-
   final List<FileSystemEntity> entries;
   try {
     entries = parent.listSync();
   } on FileSystemException {
     return null;
   }
-
-  String? best;
-  int bestDistance = threshold + 1;
-  var tied = false;
-  for (final entity in entries) {
-    if ((entity is Directory) != (kind == SiblingKind.directory)) {
-      continue;
-    }
-    final String candidate = p.basename(entity.path);
-    if (candidate == missingName) {
-      continue;
-    }
-    final int distance = levenshtein(missing, candidate.toLowerCase());
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = candidate;
-      tied = false;
-    } else if (distance == bestDistance && best != null) {
-      tied = true;
-    }
-  }
-
-  return tied ? null : best;
+  final List<String> closest = closestNames(missingName, [
+    for (final entity in entries)
+      if ((entity is Directory) == (kind == SiblingKind.directory) &&
+          p.basename(entity.path) != missingName)
+        p.basename(entity.path),
+  ], maxDistance: maxDistance);
+  return closest.singleOrNull;
 }

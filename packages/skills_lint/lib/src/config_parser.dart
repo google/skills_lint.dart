@@ -18,6 +18,7 @@ import 'models/rule_config.dart';
 import 'models/target_declaration.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
+import 'unknown_rule_names.dart';
 
 final Logger _log = Logger('skills_lint');
 
@@ -276,6 +277,8 @@ class ConfigParser {
   ///
   /// Validates that parameter keys and value types match their definitions in the registry,
   /// appending any validation errors to [parsingErrors] labeled by [contextLabel].
+  /// A rule name that is not in [configurableRuleNames] is an error, and its
+  /// entry is left out.
   static Map<String, RuleConfigPatch> _parseRulesMap(
     YamlMap rulesMap,
     List<String> parsingErrors,
@@ -283,9 +286,15 @@ class ConfigParser {
   ) {
     final ruleConfigs = <String, RuleConfigPatch>{};
 
-    for (final Object? key in rulesMap.keys) {
+    for (final MapEntry<Object?, YamlNode> entry in rulesMap.nodes.entries) {
+      final Object? key = entry.key;
       final ruleName = key.toString();
-      final Object? value = rulesMap[key];
+      final Object? value = entry.value.value;
+
+      if (!configurableRuleNames.contains(ruleName)) {
+        parsingErrors.add(_unknownRuleError(key, ruleName, contextLabel));
+        continue;
+      }
 
       // Rules must have a unique name so we can assume one match.
       final Iterable<CheckType> checkMatches = RuleRegistry.allChecks.where(
@@ -303,6 +312,18 @@ class ConfigParser {
     }
 
     return ruleConfigs;
+  }
+
+  /// Describes [ruleName], the rule name in [key] that is not in
+  /// [configurableRuleNames], for a parsing error.
+  static String _unknownRuleError(Object? key, String ruleName, String contextLabel) {
+    // package:yaml does not support merge keys, so `<<: *anchor` arrives as
+    // a rule named "<<". A quoted "<<" is an ordinary name.
+    final bool isMergeKey = key is YamlScalar && key.style == ScalarStyle.PLAIN && ruleName == '<<';
+    if (isMergeKey) {
+      return mergeKeyMessage(context: contextLabel);
+    }
+    return unknownRuleNameMessage(ruleName, context: contextLabel);
   }
 
   /// Parses a single rule's configuration value into a [RuleConfigPatch].
@@ -345,8 +366,13 @@ class ConfigParser {
         ? CustomRuleParameters(parameters)
         : null;
 
-    if (customParams != null && check != null) {
-      final List<String> errors = check.validateParameters(customParams);
+    if (customParams != null) {
+      final List<String> errors =
+          check?.validateParameters(customParams) ??
+          [
+            for (final String key in customParams.params.keys)
+              'Unrecognized parameter "$key" for rule "$ruleName".',
+          ];
       for (final error in errors) {
         parsingErrors.add('$contextLabel: $error');
       }
@@ -648,8 +674,9 @@ class Configuration {
   final List<LintTargetConfig> individualSkillConfigs;
   final Map<String, RuleConfigPatch> ruleConfigs;
 
-  /// Problems in the configuration file, such as invalid YAML or an unknown
-  /// key. The settings with problems are left out.
+  /// Problems in the configuration file, such as invalid YAML, an unknown
+  /// key, or a rule name that matches no built-in rule. Entries under an
+  /// unknown key or rule name are left out of the configuration.
   ///
   /// The `skills_lint` command fails on these; `validateSkills` only warns
   /// ([#152](https://github.com/google/skills_lint.dart/issues/152) makes it

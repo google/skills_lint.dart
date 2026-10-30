@@ -373,7 +373,7 @@ Future<Configuration?> _loadConfig(
       for (final String error in config.parsingErrors) {
         _log.severe('Configuration error: $error');
       }
-      _log.severe('Use --$_allowMisconfiguredKeysFlag to ignore these errors.');
+      _log.severe('Fix or remove these entries in the configuration file.');
       return null;
     }
   }
@@ -394,17 +394,21 @@ Future<Configuration?> _loadConfig(
 /// [skillDirPaths] is a list of directories containing multiple skills.
 /// [individualSkillPaths] is a list of paths to individual skill directories.
 /// [resolvedRules] is a map of rule names to their severity overrides.
+/// [resolvedRuleConfigs] maps rule names to severity and parameter overrides.
+/// Each key that names no built-in rule is printed to standard error as a
+/// `Configuration warning:` line.
 /// [printWarnings] controls whether to print validation warnings.
 /// [fastFail] causes validation to stop on the first error.
 /// [quiet] suppresses non-error/warning output.
 /// [generateBaseline] writes current errors to a baseline file instead of reporting them.
 /// [ignoreFileOverride] is an optional path to a baseline file to use.
 /// [config] is the loaded configuration. Each entry in its
-/// [Configuration.parsingErrors] is printed to standard error as a
-/// `Configuration warning:` line, and does not make validation fail. The
-/// `skills_lint` command fails on these errors, so a caller that must fail
-/// on a broken configuration checks that [Configuration.parsingErrors] is
-/// empty.
+/// [Configuration.parsingErrors], and each rule name in a [Configuration]
+/// built in code that names no built-in rule, is printed to standard error as
+/// a `Configuration warning:` line and does not make validation fail. The
+/// `skills_lint` command fails on [Configuration.parsingErrors], so a caller
+/// that must fail on a broken configuration checks that
+/// [Configuration.parsingErrors] is empty.
 /// [customRules] contains programmatically injected custom skill rule checks.
 /// [format] specifies the output format for diagnostics (`text`, `json`, `sarif`).
 ///
@@ -446,8 +450,9 @@ Future<bool> validateSkills({
 ///
 /// Kept internal to avoid exposing experimental fix parameters in the public API.
 ///
-/// When [warnOnParsingErrors] is true, each entry in
-/// [Configuration.parsingErrors] of [config] is reported as a warning.
+/// When [warnOnParsingErrors] is true,
+/// [ValidationSession.reportConfigurationWarnings] reports configuration and
+/// unknown-rule warnings.
 ///
 /// Returns `true` if all validations passed (or if generating a baseline), `false` otherwise.
 @visibleForTesting

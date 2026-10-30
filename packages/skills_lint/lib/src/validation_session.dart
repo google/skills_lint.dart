@@ -31,6 +31,7 @@ import 'rule_registry.dart';
 import 'rules/name_format_rule.dart';
 import 'rules/pub_archive_includes_skill_rule.dart';
 import 'skills_ignores_storage.dart';
+import 'unknown_rule_names.dart';
 import 'validator.dart';
 
 final _log = Logger('skills_lint');
@@ -450,10 +451,33 @@ class ValidationSession {
     }
   }
 
-  /// Reports each entry in [Configuration.parsingErrors] of [config] as a
+  /// Reports each entry in [Configuration.parsingErrors] of [config], and
+  /// each rule name supplied in code that names no configurable rule, as a
   /// warning. Does not mark the session as failed.
-  void reportConfigurationWarnings() =>
-      config.parsingErrors.forEach(_reporter.onConfigurationWarning);
+  ///
+  /// [ConfigParser] leaves unknown names out of what it parses, so any left in
+  /// [config] came from a [Configuration] built in code.
+  void reportConfigurationWarnings() => [
+    ...config.parsingErrors,
+    ...unknownRuleMessages(config.ruleConfigs, context: 'Global rules', customRules: customRules),
+    for (final LintTargetConfig target in config.directoryConfigs)
+      ...unknownRuleMessages(
+        target.ruleConfigs,
+        context: 'Directory entry rules for "${target.path}"',
+        customRules: customRules,
+      ),
+    for (final LintTargetConfig target in config.individualSkillConfigs)
+      ...unknownRuleMessages(
+        target.ruleConfigs,
+        context: 'Individual skill entry rules for "${target.path}"',
+        customRules: customRules,
+      ),
+    ...unknownRuleMessages(
+      resolvedRuleConfigs,
+      context: 'resolvedRuleConfigs',
+      customRules: customRules,
+    ),
+  ].forEach(_reporter.onConfigurationWarning);
 
   /// If no skills were validated across the whole run, emit appropriate
   /// diagnostics and mark the session as failed.

@@ -2,15 +2,16 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// @docImport 'package:skills_lint/src/models/skill_rule.dart';
-library;
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
+import 'package:skills_lint/src/models/skill_rule.dart';
+import 'package:skills_lint/src/models/validation_error.dart';
+import 'package:skills_lint/src/suggestions/did_you_mean.dart';
 import 'package:tar/tar.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
@@ -201,3 +202,30 @@ class FakePub {
     return ProcessResult(0, exitCode, '', stderr);
   }
 }
+
+/// A custom rule that finds nothing, for checking how its name is handled.
+class QuietRule extends SkillRule {
+  QuietRule({this.name = 'my-custom-rule'});
+
+  @override
+  final String name;
+
+  @override
+  AnalysisSeverity get severity => AnalysisSeverity.disabled;
+
+  @override
+  Future<List<ValidationError>> validate(SkillContext context) async => const [];
+}
+
+/// Matches a message that reports [name] as unknown, in the section labeled
+/// [section], and suggesting [suggestions].
+///
+/// Checks the parts that matter rather than the exact wording, so a change in
+/// punctuation does not break it.
+Matcher reportsUnknownRule(String name, {String? section, List<String> suggestions = const []}) =>
+    allOf([
+      contains('Unknown rule "$name"'),
+      if (section != null) contains(section),
+      if (suggestions.isNotEmpty) contains(didYouMean(suggestions)),
+      if (suggestions.isEmpty) contains('newer skills_lint'),
+    ]);

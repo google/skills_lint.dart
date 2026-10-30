@@ -143,21 +143,43 @@ skills_lint:
   });
 
   group('validateSkills with configuration errors', () {
+    Future<(bool, String)> run({
+      Configuration? config,
+      Map<String, RuleConfigPatch> resolvedRuleConfigs = const {},
+      List<SkillRule> customRules = const [],
+      Future<bool> Function({
+            Configuration? config,
+            Map<String, RuleConfigPatch> resolvedRuleConfigs,
+            List<SkillRule> customRules,
+          })
+          validate =
+          _validateSkills,
+    }) async {
+      final err = CapturedOutput();
+      final bool passed = await IOOverrides.runZoned(
+        () => validate(
+          config: config,
+          resolvedRuleConfigs: resolvedRuleConfigs,
+          customRules: customRules,
+        ),
+        stderr: () => err,
+      );
+      return (passed, err.buffer.toString());
+    }
+
     /// Runs [validate] on the valid example skill with the configuration
     /// parsed from [yaml], and returns its result and what it wrote to
     /// standard error.
     Future<(bool, String)> runWithConfig(
       String yaml, {
-      Future<bool> Function({Configuration? config}) validate = _validateSkills,
-    }) async {
-      final Configuration config = ConfigParser.parse(yaml);
-      final err = CapturedOutput();
-      final bool passed = await IOOverrides.runZoned(
-        () => validate(config: config),
-        stderr: () => err,
-      );
-      return (passed, err.buffer.toString());
-    }
+      Future<bool> Function({
+            Configuration? config,
+            Map<String, RuleConfigPatch> resolvedRuleConfigs,
+            List<SkillRule> customRules,
+          })
+          validate =
+          _validateSkills,
+    }) => run(config: ConfigParser.parse(yaml), validate: validate);
 
     test('prints an unknown rule parameter as a warning and passes', () async {
       final (bool passed, String err) = await runWithConfig(_typoConfig);
@@ -208,11 +230,104 @@ skills_lint:
       // validateSkillsInternal, so they must not print twice.
       final (_, String err) = await runWithConfig(
         _typoConfig,
-        validate: ({Configuration? config}) => validateSkillsInternal(
-          individualSkillPaths: [_validSkillPath],
-          config: config,
-          quiet: true,
+        validate:
+            ({
+              Configuration? config,
+              Map<String, RuleConfigPatch> resolvedRuleConfigs = const {},
+              List<SkillRule> customRules = const [],
+            }) => validateSkillsInternal(
+              individualSkillPaths: [_validSkillPath],
+              config: config,
+              resolvedRuleConfigs: resolvedRuleConfigs,
+              customRules: customRules,
+              quiet: true,
+            ),
+      );
+
+      expect(err, isNot(contains('Configuration warning')));
+    });
+
+    test('warns about a typo in a parsed configuration, once, and passes', () async {
+      final (bool passed, String err) = await runWithConfig('''
+skills_lint:
+  rules:
+    check-relative-path: error
+''');
+
+      expect(err, contains('Configuration warning:'));
+      expect(err, reportsUnknownRule('check-relative-path', suggestions: ['check-relative-paths']));
+      expect('Unknown rule'.allMatches(err), hasLength(1));
+      expect(passed, isTrue);
+    });
+
+    test('warns about typos in a configuration built in code', () async {
+      final (_, String err) = await run(
+        config: const Configuration(
+          ruleConfigs: {'check-absolute-path': RuleConfigPatch(severity: AnalysisSeverity.error)},
+          directoryConfigs: [
+            LintTargetConfig(
+              path: 'skills',
+              ruleConfigs: {'description-to-long': RuleConfigPatch()},
+            ),
+          ],
+          individualSkillConfigs: [
+            LintTargetConfig(
+              path: 'my-skill',
+              ruleConfigs: {'valid_yaml_metadata': RuleConfigPatch()},
+            ),
+          ],
         ),
+      );
+
+      expect(err, reportsUnknownRule('check-absolute-path', suggestions: ['check-absolute-paths']));
+      expect(
+        err,
+        reportsUnknownRule(
+          'description-to-long',
+          section: 'Directory entry rules for "skills"',
+          suggestions: ['description-too-long'],
+        ),
+      );
+      expect(
+        err,
+        reportsUnknownRule(
+          'valid_yaml_metadata',
+          section: 'Individual skill entry rules for "my-skill"',
+          suggestions: ['valid-yaml-metadata'],
+        ),
+      );
+    });
+
+    test('warns about a typo in resolvedRuleConfigs', () async {
+      final (_, String err) = await run(
+        resolvedRuleConfigs: {'pub-archive-include-skill': const RuleConfigPatch()},
+      );
+
+      expect(
+        err,
+        reportsUnknownRule(
+          'pub-archive-include-skill',
+          section: 'resolvedRuleConfigs',
+          suggestions: ['pub-archive-includes-skill'],
+        ),
+      );
+    });
+
+    test('explains that configuration cannot set a custom rule', () async {
+      final rule = QuietRule();
+
+      final (_, String err) = await run(
+        resolvedRuleConfigs: {rule.name: const RuleConfigPatch()},
+        customRules: [rule],
+      );
+
+      expect(err, contains('"${rule.name}" is a custom rule'));
+      expect(err, isNot(contains('Unknown rule')));
+    });
+
+    test('accepts built-in names in resolvedRuleConfigs', () async {
+      final (_, String err) = await run(
+        resolvedRuleConfigs: {'valid-yaml-metadata': const RuleConfigPatch()},
       );
 
       expect(err, isNot(contains('Configuration warning')));
@@ -378,5 +493,14 @@ skills_lint:
 final String _validSkillPath = p.normalize(p.absolute(p.join('example', 'skills', 'valid')));
 
 /// Calls [validateSkills] on the valid example skill.
-Future<bool> _validateSkills({Configuration? config}) =>
-    validateSkills(individualSkillPaths: [_validSkillPath], config: config, quiet: true);
+Future<bool> _validateSkills({
+  Configuration? config,
+  Map<String, RuleConfigPatch> resolvedRuleConfigs = const {},
+  List<SkillRule> customRules = const [],
+}) => validateSkills(
+  individualSkillPaths: [_validSkillPath],
+  config: config,
+  resolvedRuleConfigs: resolvedRuleConfigs,
+  customRules: customRules,
+  quiet: true,
+);

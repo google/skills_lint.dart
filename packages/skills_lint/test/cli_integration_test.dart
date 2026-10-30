@@ -1279,7 +1279,115 @@ skills_lint:
     unknown-rule: error
 ''');
 
-      await runAndAssertValidJson(['--format=sarif', '-d', tempDir.path], 0);
+      await runAndAssertValidJson([
+        '--format=sarif',
+        '--allow-misconfigured-keys',
+        '-d',
+        tempDir.path,
+      ], 0);
+    });
+
+    group('unknown rule name', () {
+      late String configPath;
+
+      setUp(() {
+        configPath = p.join(tempDir.path, 'skills_lint.yaml');
+        File(configPath).writeAsStringSync('''
+skills_lint:
+  rules:
+    check-relative-path: error
+''');
+      });
+
+      Future<({String stdout, String stderr})> run(List<String> args, int exitCode) async {
+        final TestProcess process = await startCli(args, workingDirectory: tempDir.path);
+        final String out = await process.stdoutStream().join('\n');
+        final String err = await process.stderrStream().join('\n');
+        await process.shouldExit(exitCode);
+        return (stdout: out, stderr: err);
+      }
+
+      void failsWithFormat(String format) {
+        test('fails as a configuration error with --format=$format', () async {
+          final ({String stdout, String stderr}) result = await run([
+            '--format=$format',
+            '-d',
+            tempDir.path,
+          ], 1);
+
+          expect(
+            result.stderr,
+            contains('Configuration error: Global rules: Unknown rule "check-relative-path".'),
+          );
+          expect(result.stderr, contains('"check-relative-paths"'));
+          expect(result.stderr, contains('Fix or remove'));
+          expect(result.stdout, isNot(contains('"ruleId"')));
+        });
+      }
+
+      failsWithFormat('text');
+      failsWithFormat('json');
+      failsWithFormat('sarif');
+
+      test('is a warning with --allow-misconfigured-keys', () async {
+        final ({String stdout, String stderr}) result = await run([
+          '--allow-misconfigured-keys',
+          '-d',
+          tempDir.path,
+        ], 0);
+
+        expect(
+          result.stderr,
+          contains('Configuration warning: Global rules: Unknown rule "check-relative-path"'),
+        );
+        expect('Unknown rule'.allMatches(result.stderr), hasLength(1));
+      });
+
+      test('fails on an unknown rule in the file given to --config', () async {
+        final String custom = p.join(tempDir.path, 'lint.yaml');
+        File(configPath).renameSync(custom);
+
+        final ({String stdout, String stderr}) result = await run([
+          '--config',
+          'lint.yaml',
+          '-d',
+          tempDir.path,
+        ], 1);
+
+        expect(
+          result.stderr,
+          contains('Configuration error: Global rules: Unknown rule "check-relative-path".'),
+        );
+      });
+
+      test('names the target entry a typo is in', () async {
+        File(configPath).writeAsStringSync('''
+skills_lint:
+  directories:
+    - path: .
+      rules:
+        valid-yaml-metadat: error
+''');
+
+        final ({String stdout, String stderr}) result = await run([], 1);
+
+        expect(
+          result.stderr,
+          contains(
+            'Configuration error: Directory entry rules for ".": Unknown rule "valid-yaml-metadat"',
+          ),
+        );
+      });
+
+      test('is not suppressed by a baseline or an ignore file', () async {
+        final String ignorePath = p.join(tempDir.path, 'ignore.json');
+
+        await run(['--generate-baseline', '--ignore-file', ignorePath, '-d', tempDir.path], 1);
+        expect(File(ignorePath).existsSync(), isFalse);
+
+        File(ignorePath).writeAsStringSync('{"skills": {}}');
+        await run(['--ignore-file', ignorePath, '-d', tempDir.path], 1);
+      });
     });
 
     test(

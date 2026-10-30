@@ -195,7 +195,7 @@ skills_lint:
   individual_skills:
     - path: "my_custom_standalone_skill"
       rules:
-        missing_install_script: warning
+        check-trailing-whitespace: warning
       ignore_file: "my_ignores.json"
 ```
 
@@ -203,6 +203,9 @@ Then you can simply run:
 ```bash
 dart run skills_lint
 ```
+
+A rule name that matches no built-in rule is a configuration error. Custom
+rules can't be configured in `skills_lint.yaml`.
 
 ### Rule Precedence
 
