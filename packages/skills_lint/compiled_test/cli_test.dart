@@ -17,6 +17,7 @@ import '../test/cli_integration_test.dart' as cli_integration;
 import '../test/config_file_test.dart' as config_file;
 import '../test/description_length_limit_test.dart' as description_length_limit;
 import '../test/example_fixtures_test.dart' as example_fixtures;
+import '../test/ignore_file_errors_test.dart' as ignore_file_errors;
 import '../test/name_format_fix_test.dart' as name_format_fix;
 import '../test/pub_archive_includes_skill_cli_test.dart' as pub_archive_includes_skill_cli;
 import '../test/relative_paths_test.dart' as relative_paths;
@@ -59,6 +60,7 @@ void main() {
     example_fixtures.main();
     config_file.defineCliTests();
     description_length_limit.defineCliTests();
+    ignore_file_errors.defineCliTests();
     benchmark_fixture.defineCliTests();
     name_format_fix.defineCliTests();
     pub_archive_includes_skill_cli.defineCliTests();

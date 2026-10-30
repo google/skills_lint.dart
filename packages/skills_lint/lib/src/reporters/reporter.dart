@@ -161,6 +161,36 @@ abstract class Reporter {
   /// Called when a directory listing or structural failure occurs.
   void onDirectoryError(String directoryPath, String message) {}
 
+  /// Called for each part of an ignore file that could not be read, such as an
+  /// entry with no `file_name`. [problem] names the file and, when
+  /// there is one, the entry.
+  void onIgnoreFileError(String problem) {
+    err.writeln('Ignore file error: $problem');
+  }
+
+  /// Called before a baseline replaces [ignorePath], which had parts that
+  /// could not be read and are not carried over.
+  ///
+  /// [entryCount] is the number of malformed entries, and [skills] names the
+  /// skills they belong to. When [skills] is empty, the whole file could not
+  /// be read.
+  void onIgnoreEntriesDropped(
+    String ignorePath, {
+    required int entryCount,
+    required List<String> skills,
+  }) {
+    if (skills.isEmpty) {
+      err.writeln('Replacing $ignorePath without carrying over its unreadable contents.');
+      return;
+    }
+    final entries = entryCount == 1 ? '1 malformed entry' : '$entryCount malformed entries';
+    final String names = skills.map((skill) => '"$skill"').join(', ');
+    err.writeln(
+      'Replacing $ignorePath without carrying over $entries '
+      '(${skills.length == 1 ? 'skill' : 'skills'} $names).',
+    );
+  }
+
   /// Called when saving a baseline ignore file fails.
   void onBaselineFailed(String ignorePath, Object error) {
     err.writeln(ToolErrorMessages.baselineFailedMessage(ignorePath: ignorePath, error: error));

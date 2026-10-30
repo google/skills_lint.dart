@@ -618,12 +618,12 @@ skills_lint:
     });
 
     test('handles malformed JSON ignore-file gracefully by falling back', () async {
-      final malformedFile = File('${tempDir.path}/malformed.json');
+      final malformedFile = File(p.join(tempDir.path, 'malformed.json'));
       await malformedFile.writeAsString('{ malformed json }');
 
-      final Directory skillFolder = await Directory('${tempDir.path}/skill-x').create();
+      final Directory skillFolder = await Directory(p.join(tempDir.path, 'skill-x')).create();
       await File(
-        '${skillFolder.path}/SKILL.md',
+        p.join(skillFolder.path, 'SKILL.md'),
       ).writeAsString('${buildFrontmatter(name: 'skill-x', description: 'Valid skill')}Body');
 
       final TestProcess process = await startCli([
@@ -633,9 +633,11 @@ skills_lint:
         malformedFile.path,
       ]);
 
+      final String stderr = (await process.stderr.rest.toList()).join('\n');
+      final String stdout = (await process.stdout.rest.toList()).join('\n');
       await process.shouldExit(0); // Valid skill should still pass
-      final List<String> stdout = await process.stdout.rest.toList();
-      expect(stdout.join('\n'), contains('Evaluating directory:'));
+      expect(stdout, contains('Evaluating directory:'));
+      expect(stderr, contains('Ignore file error: ${malformedFile.path} is not valid JSON'));
     });
 
     test('CLI help displays all registered rules', () async {
