@@ -529,8 +529,9 @@ class ValidationSession {
   // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
   @Deprecated('Use resolveRuleConfigsForPath instead')
   Map<String, AnalysisSeverity> resolveRulesForPath(String path) {
-    return resolveRuleConfigsForPath(path)
-        .map((String key, RuleConfig value) => MapEntry(key, value.severity));
+    return resolveRuleConfigsForPath(
+      path,
+    ).map((String key, RuleConfig value) => MapEntry(key, value.severity));
   }
 
   @visibleForTesting

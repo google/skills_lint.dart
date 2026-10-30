@@ -40,8 +40,9 @@ void main() {
     final Directory root = await createPackage('my_pkg');
     final pub = FakePub(archiveFiles: ['pubspec.yaml', 'skills/my-pkg-a/SKILL.md']);
 
-    final PubArchive archive = await PubArchiveLoader(runProcess: pub.run)
-        .archiveFor(skillIn(root, 'my-pkg-a'));
+    final PubArchive archive = await PubArchiveLoader(
+      runProcess: pub.run,
+    ).archiveFor(skillIn(root, 'my-pkg-a'));
 
     expect(archive, isA<PubArchiveFiles>());
     final files = archive as PubArchiveFiles;
@@ -93,8 +94,9 @@ void main() {
       final Directory root = await createPackage('my_pkg');
       final pub = FakePub();
 
-      final PubArchive archive = await PubArchiveLoader(runProcess: pub.run)
-          .archiveFor(Directory(p.join(root.path, '.agents', 'skills', 'a')));
+      final PubArchive archive = await PubArchiveLoader(
+        runProcess: pub.run,
+      ).archiveFor(Directory(p.join(root.path, '.agents', 'skills', 'a')));
 
       expect(archive, isA<PubArchiveNotApplicable>());
       expect((archive as PubArchiveNotApplicable).packageRoot, p.normalize(root.absolute.path));
@@ -104,8 +106,9 @@ void main() {
     test('a skill with no pubspec.yaml above it', () async {
       final pub = FakePub();
 
-      final PubArchive archive = await PubArchiveLoader(runProcess: pub.run)
-          .archiveFor(Directory(p.join(tempDir.path, 'skills', 'a')));
+      final PubArchive archive = await PubArchiveLoader(
+        runProcess: pub.run,
+      ).archiveFor(Directory(p.join(tempDir.path, 'skills', 'a')));
 
       expect((archive as PubArchiveUnavailable).reason, contains('No pubspec.yaml found'));
       expect(pub.workingDirectories, isEmpty);
@@ -115,8 +118,9 @@ void main() {
       final Directory root = await createPackage('my_pkg', pubspecExtra: 'publish_to: none\n');
       final pub = FakePub();
 
-      final PubArchive archive = await PubArchiveLoader(runProcess: pub.run)
-          .archiveFor(skillIn(root, 'my-pkg-a'));
+      final PubArchive archive = await PubArchiveLoader(
+        runProcess: pub.run,
+      ).archiveFor(skillIn(root, 'my-pkg-a'));
 
       expect((archive as PubArchiveUnavailable).reason, contains('sets publish_to: none'));
       expect(pub.workingDirectories, isEmpty);
@@ -132,8 +136,9 @@ void main() {
         String? workingDirectory,
       }) => throw ProcessException(executable, arguments, 'No such file or directory', 2);
 
-      final PubArchive archive = await PubArchiveLoader(runProcess: missingDart)
-          .archiveFor(skillIn(root, 'my-pkg-a'));
+      final PubArchive archive = await PubArchiveLoader(
+        runProcess: missingDart,
+      ).archiveFor(skillIn(root, 'my-pkg-a'));
 
       expect(
         (archive as PubArchiveUnavailable).reason,
@@ -146,8 +151,9 @@ void main() {
       final Directory root = await createPackage('my_pkg');
       final pub = FakePub(exitCode: 64, stderr: 'Could not find an option named "--to-archive".');
 
-      final PubArchive archive = await PubArchiveLoader(runProcess: pub.run)
-          .archiveFor(skillIn(root, 'my-pkg-a'));
+      final PubArchive archive = await PubArchiveLoader(
+        runProcess: pub.run,
+      ).archiveFor(skillIn(root, 'my-pkg-a'));
 
       expect(
         (archive as PubArchiveUnavailable).reason,
@@ -166,8 +172,9 @@ void main() {
         String? workingDirectory,
       }) async => ProcessResult(0, 0, '', '');
 
-      final PubArchive archive = await PubArchiveLoader(runProcess: silentPub)
-          .archiveFor(skillIn(root, 'my-pkg-a'));
+      final PubArchive archive = await PubArchiveLoader(
+        runProcess: silentPub,
+      ).archiveFor(skillIn(root, 'my-pkg-a'));
 
       expect((archive as PubArchiveUnavailable).reason, contains('Could not read the archive'));
     });

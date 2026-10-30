@@ -286,8 +286,9 @@ void main() {
 
         test('fails if required tool $missingTool is missing', () async {
           // Create a directory containing mock uname and all required tools before this one
-          final Directory testBinDir = await Directory(p.join(tempDir.path, 'bin_$missingTool'))
-              .create();
+          final Directory testBinDir = await Directory(
+            p.join(tempDir.path, 'bin_$missingTool'),
+          ).create();
 
           // Always copy mock uname
           final mockUnameFile = File(p.join(mockBinDir.path, 'uname'));

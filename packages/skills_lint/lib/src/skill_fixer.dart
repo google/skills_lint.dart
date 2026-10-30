@@ -7,7 +7,6 @@ import 'package:yaml/yaml.dart';
 import 'fixable_rule.dart';
 import 'models/fix_outcome.dart';
 import 'models/skill_context.dart';
-import 'models/skill_rule.dart';
 import 'models/skipped_fix.dart';
 import 'models/validation_error.dart';
 import 'rules/name_format_rule.dart';
@@ -51,10 +50,14 @@ class SkillFixer {
     final appliedRuleNames = <String>[];
     final skippedFixes = <String, SkippedFix>{};
 
-    for (var pass = 1; pass <= maxPasses; pass++) {
-      var keptAFix = false;
-      for (final SkillRule rule in validator.rules) {
-        if (rule is! FixableRule || !_reports(current, rule.name)) {
+    // Settled means a whole pass over the rules kept no fix.
+    var settled = false;
+    var passes = 0;
+    // Each pass either keeps a fix and counts, or settles and ends the loop.
+    while (!settled && passes < maxPasses) {
+      settled = true;
+      for (final FixableRule rule in validator.rules.whereType<FixableRule>()) {
+        if (!_reports(current, rule.name)) {
           continue;
         }
         final ValidationResult? candidate = await _tryFix(rule, current, canRename: canRename);
@@ -63,7 +66,7 @@ class SkillFixer {
         }
         if (_DiagnosticCount.of(candidate).isLowerThan(_DiagnosticCount.of(current))) {
           current = candidate;
-          keptAFix = true;
+          settled = false;
           skippedFixes.remove(rule.name);
           if (!appliedRuleNames.contains(rule.name)) {
             appliedRuleNames.add(rule.name);
@@ -75,11 +78,11 @@ class SkillFixer {
           );
         }
       }
-      if (!keptAFix) {
-        return _outcome(current, appliedRuleNames, skippedFixes, settled: true, passes: pass - 1);
+      if (!settled) {
+        passes++;
       }
     }
-    return _outcome(current, appliedRuleNames, skippedFixes, settled: false, passes: maxPasses);
+    return _outcome(current, appliedRuleNames, skippedFixes, settled: settled, passes: passes);
   }
 
   /// Runs [rule]'s fix on the content of [current] and validates the result,
@@ -179,8 +182,9 @@ class SkillFixer {
   }) => FixOutcome(
     result: result,
     appliedRuleNames: appliedRuleNames,
-    // A fix dropped in an early pass may no longer matter: a later fix can
-    // clear that rule's diagnostics.
+    // Report a dropped fix only if its rule still has diagnostics at the end.
+    // A fix dropped in an early pass may stop mattering when a later fix
+    // clears that rule's diagnostics.
     skippedFixes: [
       for (final SkippedFix skipped in skippedFixes.values)
         if (_reports(result, skipped.ruleName)) skipped,
@@ -190,6 +194,7 @@ class SkillFixer {
   );
 }
 
+// TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/140
 /// The un-ignored errors and warnings of a result, compared errors first.
 class _DiagnosticCount {
   _DiagnosticCount.of(ValidationResult result)

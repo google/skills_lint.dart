@@ -14,11 +14,12 @@ import 'rules/pub_archive_includes_skill_rule.dart';
 /// Runs [executable] with [arguments] in [workingDirectory].
 ///
 /// [Process.run] fits this type. Tests pass a fake.
-typedef ProcessRunner = Future<ProcessResult> Function(
-  String executable,
-  List<String> arguments, {
-  String? workingDirectory,
-});
+typedef ProcessRunner =
+    Future<ProcessResult> Function(
+      String executable,
+      List<String> arguments, {
+      String? workingDirectory,
+    });
 
 /// Lists the files `dart pub publish` would upload for the package that holds
 /// a skill.

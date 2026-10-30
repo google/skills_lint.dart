@@ -32,7 +32,8 @@ void main() {
       expect(
         resolved,
         isEmpty,
-        reason: 'resolveRuleConfigsFromCli should return an empty map when no CLI override flags are provided.',
+        reason:
+            'resolveRuleConfigsFromCli should return an empty map when no CLI override flags are provided.',
       );
     });
 

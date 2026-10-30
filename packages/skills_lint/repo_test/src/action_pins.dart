@@ -161,8 +161,9 @@ Iterable<YamlScalar> _usesNodes(YamlNode root) sync* {
   }
   // Each `yield*` costs more than a plain loop, so skip it when there are no
   // steps to visit.
-  if (root.nodes['runs'] case YamlMap(nodes: {'steps': final YamlList steps})
-      when steps.isNotEmpty) {
+  if (root.nodes['runs'] case YamlMap(
+    nodes: {'steps': final YamlList steps},
+  ) when steps.isNotEmpty) {
     yield* _stepUses(steps);
   }
   if (root.nodes['jobs'] case YamlMap(nodes: final jobs)) {

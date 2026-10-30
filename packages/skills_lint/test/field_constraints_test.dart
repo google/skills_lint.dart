@@ -46,8 +46,9 @@ void main() {
       test('fails if too long, error reports both lengths and names the field', () async {
         final String longName = 'a' * (NameFormatRule.maxNameLength + 1);
         final Directory skillDir = await Directory('${tempDir.path}/$longName').create();
-        await File('${skillDir.path}/SKILL.md')
-            .writeAsString('${buildFrontmatter(name: longName)}Body');
+        await File(
+          '${skillDir.path}/SKILL.md',
+        ).writeAsString('${buildFrontmatter(name: longName)}Body');
         final validator = Validator();
         final ValidationResult result = await validator.validate(skillDir);
         expect(result.isValid, isFalse);
@@ -60,8 +61,9 @@ void main() {
 
       test('fails if contains invalid characters; suggests hyphen-normalized form', () async {
         final Directory skillDir = await Directory('${tempDir.path}/skill_name').create();
-        await File('${skillDir.path}/SKILL.md')
-            .writeAsString('${buildFrontmatter(name: 'skill_name')}Body');
+        await File(
+          '${skillDir.path}/SKILL.md',
+        ).writeAsString('${buildFrontmatter(name: 'skill_name')}Body');
         final validator = Validator();
         final ValidationResult result = await validator.validate(skillDir);
         expect(result.isValid, isFalse);
@@ -74,8 +76,9 @@ void main() {
 
       test('fails if has leading hyphen; suggests stripped form', () async {
         final Directory skillDir = await Directory('${tempDir.path}/-skill-name').create();
-        await File('${skillDir.path}/SKILL.md')
-            .writeAsString('${buildFrontmatter(name: '-skill-name')}Body');
+        await File(
+          '${skillDir.path}/SKILL.md',
+        ).writeAsString('${buildFrontmatter(name: '-skill-name')}Body');
         final validator = Validator();
         final ValidationResult result = await validator.validate(skillDir);
         expect(result.isValid, isFalse);
@@ -85,8 +88,9 @@ void main() {
 
       test('fails if has trailing hyphen; suggests stripped form', () async {
         final Directory skillDir = await Directory('${tempDir.path}/skill-name-').create();
-        await File('${skillDir.path}/SKILL.md')
-            .writeAsString('${buildFrontmatter(name: 'skill-name-')}Body');
+        await File(
+          '${skillDir.path}/SKILL.md',
+        ).writeAsString('${buildFrontmatter(name: 'skill-name-')}Body');
         final validator = Validator();
         final ValidationResult result = await validator.validate(skillDir);
         expect(result.isValid, isFalse);
@@ -96,8 +100,9 @@ void main() {
 
       test('fails if has consecutive hyphens; suggests collapsed form', () async {
         final Directory skillDir = await Directory('${tempDir.path}/skill--name').create();
-        await File('${skillDir.path}/SKILL.md')
-            .writeAsString('${buildFrontmatter(name: 'skill--name')}Body');
+        await File(
+          '${skillDir.path}/SKILL.md',
+        ).writeAsString('${buildFrontmatter(name: 'skill--name')}Body');
         final validator = Validator();
         final ValidationResult result = await validator.validate(skillDir);
         expect(result.isValid, isFalse);
@@ -107,8 +112,9 @@ void main() {
 
       test('mismatched name vs dir: error offers both directions to fix', () async {
         final Directory skillDir = await Directory('${tempDir.path}/wrong-name').create();
-        await File('${skillDir.path}/SKILL.md')
-            .writeAsString('${buildFrontmatter(name: 'right-name')}Body');
+        await File(
+          '${skillDir.path}/SKILL.md',
+        ).writeAsString('${buildFrontmatter(name: 'right-name')}Body');
         final validator = Validator();
         final ValidationResult result = await validator.validate(skillDir);
         expect(result.isValid, isFalse);
@@ -243,8 +249,9 @@ void main() {
       test('fails if too long (> ${DescriptionLengthRule.maxDescriptionLength} chars)', () async {
         final String longDesc = 'a' * (DescriptionLengthRule.maxDescriptionLength + 1);
         final Directory skillDir = await Directory('${tempDir.path}/skill-name').create();
-        await File('${skillDir.path}/SKILL.md')
-            .writeAsString('${buildFrontmatter(name: 'skill-name', description: longDesc)}Body');
+        await File(
+          '${skillDir.path}/SKILL.md',
+        ).writeAsString('${buildFrontmatter(name: 'skill-name', description: longDesc)}Body');
         final validator = Validator();
         final ValidationResult result = await validator.validate(skillDir);
         expect(result.isValid, isFalse);
@@ -263,8 +270,9 @@ void main() {
         expect(longDesc.length, DescriptionLengthRule.maxDescriptionLength + 50);
 
         final Directory skillDir = await Directory('${tempDir.path}/skill-name').create();
-        await File('${skillDir.path}/SKILL.md')
-            .writeAsString('${buildFrontmatter(name: 'skill-name', description: longDesc)}Body');
+        await File(
+          '${skillDir.path}/SKILL.md',
+        ).writeAsString('${buildFrontmatter(name: 'skill-name', description: longDesc)}Body');
         final validator = Validator();
         final ValidationResult result = await validator.validate(skillDir);
         expect(result.isValid, isFalse);

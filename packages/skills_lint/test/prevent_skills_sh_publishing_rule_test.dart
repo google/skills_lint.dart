@@ -106,9 +106,9 @@ void main() {
 
     test('flags when metadata internal is a string with whitespace', () async {
       final rule = PreventSkillsShPublishingRule(severity: AnalysisSeverity.warning);
-      final parsed = loadYaml(
-        'name: my-skill\ndescription: Test\nmetadata:\n  internal: "  True  "\n',
-      ) as YamlMap;
+      final parsed =
+          loadYaml('name: my-skill\ndescription: Test\nmetadata:\n  internal: "  True  "\n')
+              as YamlMap;
       final context = SkillContext(
         directory: Directory('dummy'),
         rawContent:

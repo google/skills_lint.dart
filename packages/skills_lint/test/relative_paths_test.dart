@@ -127,8 +127,9 @@ void main() {
     test('checks a link that is not a valid URI as a file path', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
       // Uri.parse rejects "1a:b.md" (a scheme must start with a letter).
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Odd link](1a:b.md)\n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Odd link](1a:b.md)\n');
 
       final validator = Validator(
         ruleConfigs: {
@@ -143,8 +144,9 @@ void main() {
 
     test('did-you-mean: suggests near-miss sibling file when one exists', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](references/DEATILS.md)\n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](references/DEATILS.md)\n');
       final Directory refs = await Directory('${skillDir.path}/references').create();
       await File('${refs.path}/DETAILS.md').writeAsString('Details');
 
@@ -162,8 +164,9 @@ void main() {
 
     test('did-you-mean: stays silent when nothing in the sibling dir is close', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](references/MISSING.md)\n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](references/MISSING.md)\n');
       final Directory refs = await Directory('${skillDir.path}/references').create();
       await File('${refs.path}/UNRELATED.txt').writeAsString('Nope');
 
@@ -245,8 +248,9 @@ void main() {
     });
 
     test('passes with relative path containing line fragments', () async {
-      final Directory skillDir = await Directory('${tempDir.path}/a/b/c/test-skill')
-          .create(recursive: true);
+      final Directory skillDir = await Directory(
+        '${tempDir.path}/a/b/c/test-skill',
+      ).create(recursive: true);
       await File('${skillDir.path}/SKILL.md').writeAsString(
         '${buildFrontmatter(name: 'test-skill')}[Link to lines](../../../CONTRIBUTING.md#L64-L80)\n',
       );

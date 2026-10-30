@@ -68,8 +68,9 @@ void main() {
       () async {
         await withTempDir((tempDir) async {
           final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-          await File('${skillDir.path}/SKILL.md')
-              .writeAsString('${buildFrontmatter(name: 'test-skill')}Body content');
+          await File(
+            '${skillDir.path}/SKILL.md',
+          ).writeAsString('${buildFrontmatter(name: 'test-skill')}Body content');
 
           expect(
             () => validateSkills(

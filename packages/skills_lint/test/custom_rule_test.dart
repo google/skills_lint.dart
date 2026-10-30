@@ -110,10 +110,11 @@ Body''');
       final validator = Validator(customRules: [MismatchRule()]);
 
       final logs = <String>[];
-      final StreamSubscription<LogRecord> subscription = Logger('skills_lint').onRecord
-          .listen((record) {
-            logs.add(record.message);
-          });
+      final StreamSubscription<LogRecord> subscription = Logger('skills_lint').onRecord.listen((
+        record,
+      ) {
+        logs.add(record.message);
+      });
 
       try {
         await validator.validate(skillDir);

@@ -183,74 +183,77 @@ void main() {
       expect(sarif.runs.first.results.first.ruleId, equals('invalid-skill-name'));
     });
 
-    test('SarifSerializer resolves URIs relative to rootDirectory with %SRCROOT% and handles external paths without uriBaseId', () {
-      final String rootDir = p.normalize(p.absolute('/workspace/project'));
-      final insideContext = SkillContext(
-        directory: Directory(p.join(rootDir, 'skills', 'test-skill')),
-        rawContent: 'test',
-      );
+    test(
+      'SarifSerializer resolves URIs relative to rootDirectory with %SRCROOT% and handles external paths without uriBaseId',
+      () {
+        final String rootDir = p.normalize(p.absolute('/workspace/project'));
+        final insideContext = SkillContext(
+          directory: Directory(p.join(rootDir, 'skills', 'test-skill')),
+          rawContent: 'test',
+        );
 
-      final insideResult = ValidationResult(
-        context: insideContext,
-        validationErrors: [
-          ValidationError(
-            ruleId: 'valid-yaml-metadata',
-            file: 'SKILL.md',
-            message: 'Error in skill',
-            severity: AnalysisSeverity.error,
-          ),
-        ],
-      );
+        final insideResult = ValidationResult(
+          context: insideContext,
+          validationErrors: [
+            ValidationError(
+              ruleId: 'valid-yaml-metadata',
+              file: 'SKILL.md',
+              message: 'Error in skill',
+              severity: AnalysisSeverity.error,
+            ),
+          ],
+        );
 
-      final externalResult = ValidationResult(
-        validationErrors: [
-          ValidationError(
-            ruleId: 'path-does-not-exist',
-            file: p.normalize(p.absolute('/tmp/external-location/SKILL.md')),
-            message: 'External file error',
-            severity: AnalysisSeverity.error,
-          ),
-        ],
-      );
+        final externalResult = ValidationResult(
+          validationErrors: [
+            ValidationError(
+              ruleId: 'path-does-not-exist',
+              file: p.normalize(p.absolute('/tmp/external-location/SKILL.md')),
+              message: 'External file error',
+              severity: AnalysisSeverity.error,
+            ),
+          ],
+        );
 
-      final rootDirResult = ValidationResult(
-        validationErrors: [
-          ValidationError(
-            ruleId: 'path-does-not-exist',
-            file: rootDir,
-            message: 'Root directory error',
-            severity: AnalysisSeverity.error,
-          ),
-        ],
-      );
+        final rootDirResult = ValidationResult(
+          validationErrors: [
+            ValidationError(
+              ruleId: 'path-does-not-exist',
+              file: rootDir,
+              message: 'Root directory error',
+              severity: AnalysisSeverity.error,
+            ),
+          ],
+        );
 
-      final SarifLog sarif = SarifSerializer.toSarifLog([
-        insideResult,
-        externalResult,
-        rootDirResult,
-      ], rootDirectory: rootDir);
+        final SarifLog sarif = SarifSerializer.toSarifLog([
+          insideResult,
+          externalResult,
+          rootDirResult,
+        ], rootDirectory: rootDir);
 
-      expect(sarif.runs.first.results.length, equals(3));
+        expect(sarif.runs.first.results.length, equals(3));
 
-      // 1. Inside file -> relative URI + %SRCROOT% uriBaseId
-      final SarifResult res1 = sarif.runs.first.results[0];
-      final SarifArtifactLocation loc1 = res1.locations.first.physicalLocation.artifactLocation;
-      expect(loc1.uri, equals('skills/test-skill/SKILL.md'));
-      expect(loc1.uriBaseId, equals('%SRCROOT%'));
+        // 1. Inside file -> relative URI + %SRCROOT% uriBaseId
+        final SarifResult res1 = sarif.runs.first.results[0];
+        final SarifArtifactLocation loc1 = res1.locations.first.physicalLocation.artifactLocation;
+        expect(loc1.uri, equals('skills/test-skill/SKILL.md'));
+        expect(loc1.uriBaseId, equals('%SRCROOT%'));
 
-      // 2. External file -> absolute URI + null uriBaseId (OASIS SARIF §3.4.4)
-      final SarifResult res2 = sarif.runs.first.results[1];
-      final SarifArtifactLocation loc2 = res2.locations.first.physicalLocation.artifactLocation;
-      expect(loc2.uri, startsWith('file://'));
-      expect(loc2.uri, contains('external-location/SKILL.md'));
-      expect(loc2.uriBaseId, isNull);
+        // 2. External file -> absolute URI + null uriBaseId (OASIS SARIF §3.4.4)
+        final SarifResult res2 = sarif.runs.first.results[1];
+        final SarifArtifactLocation loc2 = res2.locations.first.physicalLocation.artifactLocation;
+        expect(loc2.uri, startsWith('file://'));
+        expect(loc2.uri, contains('external-location/SKILL.md'));
+        expect(loc2.uriBaseId, isNull);
 
-      // 3. Root directory itself -> relative URI + %SRCROOT% uriBaseId
-      final SarifResult res3 = sarif.runs.first.results[2];
-      final SarifArtifactLocation loc3 = res3.locations.first.physicalLocation.artifactLocation;
-      expect(loc3.uri, anyOf('.', './'));
-      expect(loc3.uriBaseId, equals('%SRCROOT%'));
-    });
+        // 3. Root directory itself -> relative URI + %SRCROOT% uriBaseId
+        final SarifResult res3 = sarif.runs.first.results[2];
+        final SarifArtifactLocation loc3 = res3.locations.first.physicalLocation.artifactLocation;
+        expect(loc3.uri, anyOf('.', './'));
+        expect(loc3.uriBaseId, equals('%SRCROOT%'));
+      },
+    );
 
     test('SarifSerializer includes custom rules in driver rules list with tags', () {
       final customRule = _MockCustomRule();
@@ -376,10 +379,12 @@ Body content
     test(
       'ValidationSession emits SARIF URIs relative to execution root without ../ prefix',
       () async {
-        final Directory skillDir = await Directory('${tempDir.path}/skills/invalid-skill')
-            .create(recursive: true);
-        await File('${skillDir.path}/SKILL.md')
-            .writeAsString('Invalid YAML content without frontmatter');
+        final Directory skillDir = await Directory(
+          '${tempDir.path}/skills/invalid-skill',
+        ).create(recursive: true);
+        await File(
+          '${skillDir.path}/SKILL.md',
+        ).writeAsString('Invalid YAML content without frontmatter');
 
         final session = ValidationSession(
           config: const Configuration(),

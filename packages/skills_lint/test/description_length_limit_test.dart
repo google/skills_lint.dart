@@ -324,8 +324,9 @@ void defineCliTests() {
       tempDir = await Directory.systemTemp.createTemp('description_limit_test.');
       final Directory skillDir = await Directory(p.join(tempDir.path, 'skill-name')).create();
       skillPath = skillDir.path;
-      await File(p.join(skillPath, 'SKILL.md'))
-          .writeAsString('${buildFrontmatter(name: 'skill-name', description: 'a' * 600)}Body\n');
+      await File(
+        p.join(skillPath, 'SKILL.md'),
+      ).writeAsString('${buildFrontmatter(name: 'skill-name', description: 'a' * 600)}Body\n');
     });
 
     tearDown(() async {

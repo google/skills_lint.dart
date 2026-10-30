@@ -70,8 +70,9 @@ skills_lint:
 
     test('individual skill baseline is loaded on subsequent runs', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
       // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/18
       final configFile = File('${tempDir.path}/skills_lint.yaml');
       await configFile.writeAsString('''
@@ -99,8 +100,9 @@ skills_lint:
 
     test('baseline entries name files relative to the skill directory', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
 
       final TestProcess process = await startCli([
         '-s',
@@ -110,9 +112,9 @@ skills_lint:
       ], workingDirectory: tempDir.path);
       await process.shouldExit(0);
 
-      final json = jsonDecode(
-        await File('${skillDir.path}/$defaultIgnoreFileName').readAsString(),
-      ) as Map<String, dynamic>;
+      final json =
+          jsonDecode(await File('${skillDir.path}/$defaultIgnoreFileName').readAsString())
+              as Map<String, dynamic>;
       final skills = json[SkillsIgnores.skillsKey] as Map<String, dynamic>;
       final List<Map<String, dynamic>> entries = (skills['test-skill'] as List)
           .cast<Map<String, dynamic>>();
@@ -133,9 +135,9 @@ skills_lint:
       ], workingDirectory: tempDir.path);
       await generate.shouldExit(0);
 
-      final json = jsonDecode(
-        await File('${skillDir.path}/$defaultIgnoreFileName').readAsString(),
-      ) as Map<String, dynamic>;
+      final json =
+          jsonDecode(await File('${skillDir.path}/$defaultIgnoreFileName').readAsString())
+              as Map<String, dynamic>;
       final skills = json[SkillsIgnores.skillsKey] as Map<String, dynamic>;
       final List<Map<String, dynamic>> entries = (skills['test-skill'] as List)
           .cast<Map<String, dynamic>>();
@@ -156,8 +158,9 @@ skills_lint:
 
     test('a baseline suppresses errors when validated from another directory', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
 
       final TestProcess generate = await startCli([
         '-s',
@@ -177,8 +180,9 @@ skills_lint:
 
     test('a baseline written by an earlier version keeps suppressing errors', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
       // Names as spelled on the command line, the form written before baselines
       // stored names relative to the skill directory.
       await File('${skillDir.path}/$defaultIgnoreFileName').writeAsString(
@@ -202,23 +206,25 @@ skills_lint:
       await process.shouldExit(0);
     });
 
-    test('cross-skill baseline de-duplicates and suppresses all errors across different skills', () async {
-      final Directory skillsDir = await Directory('${tempDir.path}/skills').create();
+    test(
+      'cross-skill baseline de-duplicates and suppresses all errors across different skills',
+      () async {
+        final Directory skillsDir = await Directory('${tempDir.path}/skills').create();
 
-      // Create skill-one with a broken link
-      final Directory skill1Dir = await Directory('${skillsDir.path}/skill-one').create();
-      await File('${skill1Dir.path}/SKILL.md').writeAsString(
-        '${buildFrontmatter(name: 'skill-one', description: 'Skill one with a broken link')}[Link to nowhere](../nowhere/SKILL.md)\n',
-      );
+        // Create skill-one with a broken link
+        final Directory skill1Dir = await Directory('${skillsDir.path}/skill-one').create();
+        await File('${skill1Dir.path}/SKILL.md').writeAsString(
+          '${buildFrontmatter(name: 'skill-one', description: 'Skill one with a broken link')}[Link to nowhere](../nowhere/SKILL.md)\n',
+        );
 
-      // Create skill-two with a broken link
-      final Directory skill2Dir = await Directory('${skillsDir.path}/skill-two').create();
-      await File('${skill2Dir.path}/SKILL.md').writeAsString(
-        '${buildFrontmatter(name: 'skill-two', description: 'Skill two with a broken link')}[Link to nowhere](../nowhere/SKILL.md)\n',
-      );
+        // Create skill-two with a broken link
+        final Directory skill2Dir = await Directory('${skillsDir.path}/skill-two').create();
+        await File('${skill2Dir.path}/SKILL.md').writeAsString(
+          '${buildFrontmatter(name: 'skill-two', description: 'Skill two with a broken link')}[Link to nowhere](../nowhere/SKILL.md)\n',
+        );
 
-      final configFile = File('${tempDir.path}/skills_lint.yaml');
-      await configFile.writeAsString('''
+        final configFile = File('${tempDir.path}/skills_lint.yaml');
+        await configFile.writeAsString('''
 skills_lint:
   directories:
     - path: "skills"
@@ -227,32 +233,33 @@ skills_lint:
       ignore_file: "$defaultIgnoreFileName"
 ''');
 
-      // 1. Run with --generate-baseline. It should evaluate all skills and write both to the baseline!
-      final TestProcess genProcess = await startCli([
-        '-d',
-        'skills',
-        '--generate-baseline',
-      ], workingDirectory: tempDir.path);
-      await genProcess.shouldExit(0); // Exits 0 if --generate-baseline is passed
+        // 1. Run with --generate-baseline. It should evaluate all skills and write both to the baseline!
+        final TestProcess genProcess = await startCli([
+          '-d',
+          'skills',
+          '--generate-baseline',
+        ], workingDirectory: tempDir.path);
+        await genProcess.shouldExit(0); // Exits 0 if --generate-baseline is passed
 
-      final ignoreFile = File('${tempDir.path}/$defaultIgnoreFileName');
-      expect(ignoreFile.existsSync(), isTrue);
+        final ignoreFile = File('${tempDir.path}/$defaultIgnoreFileName');
+        expect(ignoreFile.existsSync(), isTrue);
 
-      final String content = await ignoreFile.readAsString();
-      final json = jsonDecode(content) as Map<String, dynamic>;
-      final skills = json[SkillsIgnores.skillsKey] as Map<String, dynamic>;
+        final String content = await ignoreFile.readAsString();
+        final json = jsonDecode(content) as Map<String, dynamic>;
+        final skills = json[SkillsIgnores.skillsKey] as Map<String, dynamic>;
 
-      expect(skills.containsKey('skill-one'), isTrue);
-      expect(skills.containsKey('skill-two'), isTrue);
+        expect(skills.containsKey('skill-one'), isTrue);
+        expect(skills.containsKey('skill-two'), isTrue);
 
-      // 2. Run again silently. It should succeed with exit 0 because all errors are ignored!
-      final TestProcess runProcess = await startCli([
-        '-d',
-        'skills',
-        '-q',
-      ], workingDirectory: tempDir.path);
-      await runProcess.shouldExit(0);
-    });
+        // 2. Run again silently. It should succeed with exit 0 because all errors are ignored!
+        final TestProcess runProcess = await startCli([
+          '-d',
+          'skills',
+          '-q',
+        ], workingDirectory: tempDir.path);
+        await runProcess.shouldExit(0);
+      },
+    );
 
     test('exits with 0 and success message for valid skill', () async {
       final Directory skillDir = await Directory('${tempDir.path}/valid-skill').create();
@@ -283,12 +290,14 @@ skills_lint:
     test('exits with 0 and validates subdirectories if named "skills"', () async {
       final Directory skillsDir = await Directory('${tempDir.path}/skills').create();
       final Directory skill1 = await Directory('${skillsDir.path}/skill-a').create();
-      await File('${skill1.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'skill-a', description: 'Skill A')}Body');
+      await File(
+        '${skill1.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'skill-a', description: 'Skill A')}Body');
 
       final Directory skill2 = await Directory('${skillsDir.path}/skill-b').create();
-      await File('${skill2.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'skill-b', description: 'Skill B')}Body');
+      await File(
+        '${skill2.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'skill-b', description: 'Skill B')}Body');
 
       final TestProcess process = await startCli(['-d', skillsDir.path]);
 
@@ -308,8 +317,9 @@ skills_lint:
     test('ignores subdirectories starting with a dot "." in "skills" folder', () async {
       final Directory skillsDir = await Directory('${tempDir.path}/skills').create();
       final Directory skill1 = await Directory('${skillsDir.path}/skill-a').create();
-      await File('${skill1.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'skill-a', description: 'Skill A')}Body');
+      await File(
+        '${skill1.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'skill-a', description: 'Skill A')}Body');
 
       await Directory('${skillsDir.path}/.dart_tool').create();
 
@@ -327,8 +337,9 @@ skills_lint:
     test('exits with 1 if any subdirectory skill fails in "skills" folder', () async {
       final Directory skillsDir = await Directory('${tempDir.path}/skills').create();
       final Directory skill1 = await Directory('${skillsDir.path}/skill-a').create();
-      await File('${skill1.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'skill-a', description: 'Skill A')}Body');
+      await File(
+        '${skill1.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'skill-a', description: 'Skill A')}Body');
 
       await Directory('${skillsDir.path}/skill-b').create(); // No SKILL.md
 
@@ -354,8 +365,9 @@ skills_lint:
         // skill-a does not create SKILL.md, so it is invalid and will fail first (sorted order)
 
         await Directory('${skillsDir.path}/skill-b').create();
-        await File('${p.join(tempDir.path, 'skills', 'skill-b')}/SKILL.md')
-            .writeAsString('${buildFrontmatter(name: 'skill-b', description: 'Skill B')}Body');
+        await File(
+          '${p.join(tempDir.path, 'skills', 'skill-b')}/SKILL.md',
+        ).writeAsString('${buildFrontmatter(name: 'skill-b', description: 'Skill B')}Body');
 
         final TestProcess process = await startCli(['-d', skillsDir.path, '--fast-fail']);
 
@@ -403,8 +415,9 @@ skills_lint:
     });
 
     test('picks up .claude/skills when no flags passed and it exists', () async {
-      final Directory claudeDir = await Directory('${tempDir.path}/.claude/skills')
-          .create(recursive: true);
+      final Directory claudeDir = await Directory(
+        '${tempDir.path}/.claude/skills',
+      ).create(recursive: true);
       final Directory skillDir = await Directory('${claudeDir.path}/valid-skill').create();
       await File(
         '${skillDir.path}/SKILL.md',
@@ -418,8 +431,9 @@ skills_lint:
     });
     test('expands ~/ to HOME environment variable', () async {
       final Directory skillDir = await Directory('${tempDir.path}/some-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'some-skill')}Body');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'some-skill')}Body');
 
       final TestProcess process = await startCli(
         ['-s', '~/some-skill'],
@@ -481,12 +495,14 @@ skills_lint:
 
     test('validates multiple skills with multiple -s flags', () async {
       final Directory skill1 = await Directory('${tempDir.path}/skill-1').create();
-      await File('${skill1.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'skill-1', description: 'Skill 1')}Body');
+      await File(
+        '${skill1.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'skill-1', description: 'Skill 1')}Body');
 
       final Directory skill2 = await Directory('${tempDir.path}/skill-2').create();
-      await File('${skill2.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'skill-2', description: 'Skill 2')}Body');
+      await File(
+        '${skill2.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'skill-2', description: 'Skill 2')}Body');
 
       final TestProcess process = await startCli(['-s', skill1.path, '-s', skill2.path]);
 
@@ -502,8 +518,9 @@ skills_lint:
       await malformedFile.writeAsString('{ malformed json }');
 
       final Directory skillFolder = await Directory('${tempDir.path}/skill-x').create();
-      await File('${skillFolder.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'skill-x', description: 'Valid skill')}Body');
+      await File(
+        '${skillFolder.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'skill-x', description: 'Valid skill')}Body');
 
       final TestProcess process = await startCli([
         '-s',
@@ -542,8 +559,9 @@ skills_lint:
 
       // Create a valid skill
       final Directory skillDir = await Directory('${skillsDir.path}/valid-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('---\nname: valid-skill\ndescription: A valid skill\n---\nBody');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('---\nname: valid-skill\ndescription: A valid skill\n---\nBody');
 
       // Create a non-skill directory
       await Directory('${skillsDir.path}/contributing').create();
@@ -583,8 +601,9 @@ skills_lint:
 
     test('CLI reports trailing whitespace as error when enabled via config', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}Line with 1 space \n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}Line with 1 space \n');
 
       final configFile = File('${tempDir.path}/skills_lint.yaml');
       await configFile.writeAsString('''
@@ -608,8 +627,9 @@ skills_lint:
 
     test('--fix --dry-run shows diff but does not modify file', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}Line with 1 space \n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}Line with 1 space \n');
 
       final TestProcess process = await startCli([
         '-s',
@@ -632,8 +652,9 @@ skills_lint:
 
     test('--fix without --dry-run writes fixes to disk', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}Line with 1 space \n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}Line with 1 space \n');
 
       final TestProcess process = await startCli([
         '-s',
@@ -714,8 +735,9 @@ skills_lint:
 
     test('--fix-apply alias still works but prints a deprecation notice', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}Line with 1 space \n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}Line with 1 space \n');
 
       final TestProcess process = await startCli([
         '-s',
@@ -738,8 +760,9 @@ skills_lint:
 
     test('--fix does not modify file if lint is ignored', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}Line with 1 space \n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}Line with 1 space \n');
 
       final ignoreFile = File('${skillDir.path}/$defaultIgnoreFileName');
       await ignoreFile.writeAsString(
@@ -895,44 +918,47 @@ Body''');
       },
     );
 
-    test('--fix with trailing whitespace fix does not rename directory when invalid-skill-name is ignored', () async {
-      final skillDir = Directory('${tempDir.path}/skill-dir-name');
-      await skillDir.create(recursive: true);
-      await File('${skillDir.path}/SKILL.md').writeAsString('''
+    test(
+      '--fix with trailing whitespace fix does not rename directory when invalid-skill-name is ignored',
+      () async {
+        final skillDir = Directory('${tempDir.path}/skill-dir-name');
+        await skillDir.create(recursive: true);
+        await File('${skillDir.path}/SKILL.md').writeAsString('''
 ---
 name: ignored-frontmatter-name
 description: A description
 ---
 Body with trailing space   
 ''');
-      final ignoreFile = File('${tempDir.path}/$defaultIgnoreFileName');
-      await ignoreFile.writeAsString(
-        jsonEncode({
-          SkillsIgnores.skillsKey: {
-            'skill-dir-name': [
-              {IgnoreEntry.ruleIdKey: 'invalid-skill-name', IgnoreEntry.fileNameKey: 'SKILL.md'},
-            ],
-          },
-        }),
-      );
+        final ignoreFile = File('${tempDir.path}/$defaultIgnoreFileName');
+        await ignoreFile.writeAsString(
+          jsonEncode({
+            SkillsIgnores.skillsKey: {
+              'skill-dir-name': [
+                {IgnoreEntry.ruleIdKey: 'invalid-skill-name', IgnoreEntry.fileNameKey: 'SKILL.md'},
+              ],
+            },
+          }),
+        );
 
-      final TestProcess process = await startCli([
-        '-s',
-        skillDir.path,
-        '--check-trailing-whitespace',
-        '--ignore-file',
-        ignoreFile.path,
-        '--fix',
-      ]);
+        final TestProcess process = await startCli([
+          '-s',
+          skillDir.path,
+          '--check-trailing-whitespace',
+          '--ignore-file',
+          ignoreFile.path,
+          '--fix',
+        ]);
 
-      await process.shouldExit(0);
+        await process.shouldExit(0);
 
-      // Directory name must remain unchanged on disk
-      expect(skillDir.existsSync(), isTrue);
-      final String content = await File('${skillDir.path}/SKILL.md').readAsString();
-      expect(content, contains('name: ignored-frontmatter-name'));
-      expect(content, contains('Body with trailing space\n'));
-    });
+        // Directory name must remain unchanged on disk
+        expect(skillDir.existsSync(), isTrue);
+        final String content = await File('${skillDir.path}/SKILL.md').readAsString();
+        expect(content, contains('name: ignored-frontmatter-name'));
+        expect(content, contains('Body with trailing space\n'));
+      },
+    );
 
     test('--format=sarif exits 0 and emits valid SARIF JSON for valid skill', () async {
       final Directory skillDir = await Directory('${tempDir.path}/valid-skill').create();
@@ -1086,8 +1112,9 @@ Body with trailing space
     /// Writes `tool/skills_lint.yaml` declaring `.agents/skills` under [key] on
     /// line 3, as in issue #38.
     void writeToolConfig(String key) {
-      File(p.join(repo.path, 'tool', 'skills_lint.yaml'))
-          .writeAsStringSync('skills_lint:\n  $key:\n    - path: ".agents/skills"\n');
+      File(
+        p.join(repo.path, 'tool', 'skills_lint.yaml'),
+      ).writeAsStringSync('skills_lint:\n  $key:\n    - path: ".agents/skills"\n');
     }
 
     /// Runs the CLI from the repository root with [args].
@@ -1163,8 +1190,9 @@ Body with trailing space
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('cli_format_test.');
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md')
-          .writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[Link](missing.md)\n');
     });
 
     tearDown(() async {
@@ -1219,63 +1247,69 @@ skills_lint:
       await runAndAssertValidJson(['--format=sarif', '-d', tempDir.path], 0);
     });
 
-    test('--format=sarif with --allow-misconfigured-keys routes warnings to stderr and emits valid JSON to stdout', () async {
-      final configFile = File('${tempDir.path}/skills_lint.yaml');
-      await configFile.writeAsString('''
+    test(
+      '--format=sarif with --allow-misconfigured-keys routes warnings to stderr and emits valid JSON to stdout',
+      () async {
+        final configFile = File('${tempDir.path}/skills_lint.yaml');
+        await configFile.writeAsString('''
 skills_lint:
   unrecognized_key: true
 ''');
 
-      final TestProcess process = await startCli([
-        '--format=sarif',
-        '--allow-misconfigured-keys',
-        '-d',
-        tempDir.path,
-      ], workingDirectory: tempDir.path);
+        final TestProcess process = await startCli([
+          '--format=sarif',
+          '--allow-misconfigured-keys',
+          '-d',
+          tempDir.path,
+        ], workingDirectory: tempDir.path);
 
-      final String stdoutString = await process.stdoutStream().join('\n');
-      final String stderrString = await process.stderrStream().join('\n');
-      await process.shouldExit(0);
+        final String stdoutString = await process.stdoutStream().join('\n');
+        final String stderrString = await process.stderrStream().join('\n');
+        await process.shouldExit(0);
 
-      expect(
-        stderrString,
-        contains('DEPRECATION WARNING: --allow-misconfigured-keys is deprecated'),
-      );
-      expect(
-        stderrString,
-        contains('Configuration warning: Unrecognized top-level key "unrecognized_key"'),
-      );
-      expect(() => jsonDecode(stdoutString), returnsNormally);
-      final jsonMap = jsonDecode(stdoutString) as Map<String, dynamic>;
-      expect(jsonMap['version'], equals('2.1.0'));
-    });
+        expect(
+          stderrString,
+          contains('DEPRECATION WARNING: --allow-misconfigured-keys is deprecated'),
+        );
+        expect(
+          stderrString,
+          contains('Configuration warning: Unrecognized top-level key "unrecognized_key"'),
+        );
+        expect(() => jsonDecode(stdoutString), returnsNormally);
+        final jsonMap = jsonDecode(stdoutString) as Map<String, dynamic>;
+        expect(jsonMap['version'], equals('2.1.0'));
+      },
+    );
 
-    test('--format=json with --allow-misconfigured-keys routes warnings to stderr and emits valid JSON to stdout', () async {
-      final configFile = File('${tempDir.path}/skills_lint.yaml');
-      await configFile.writeAsString('''
+    test(
+      '--format=json with --allow-misconfigured-keys routes warnings to stderr and emits valid JSON to stdout',
+      () async {
+        final configFile = File('${tempDir.path}/skills_lint.yaml');
+        await configFile.writeAsString('''
 skills_lint:
   unrecognized_key: true
 ''');
 
-      final TestProcess process = await startCli([
-        '--format=json',
-        '--allow-misconfigured-keys',
-        '-d',
-        tempDir.path,
-      ], workingDirectory: tempDir.path);
+        final TestProcess process = await startCli([
+          '--format=json',
+          '--allow-misconfigured-keys',
+          '-d',
+          tempDir.path,
+        ], workingDirectory: tempDir.path);
 
-      final String stdoutString = await process.stdoutStream().join('\n');
-      final String stderrString = await process.stderrStream().join('\n');
-      await process.shouldExit(0);
+        final String stdoutString = await process.stdoutStream().join('\n');
+        final String stderrString = await process.stderrStream().join('\n');
+        await process.shouldExit(0);
 
-      expect(
-        stderrString,
-        contains('DEPRECATION WARNING: --allow-misconfigured-keys is deprecated'),
-      );
-      expect(() => jsonDecode(stdoutString), returnsNormally);
-      final jsonList = jsonDecode(stdoutString) as List<dynamic>;
-      expect(jsonList, isA<List<dynamic>>());
-    });
+        expect(
+          stderrString,
+          contains('DEPRECATION WARNING: --allow-misconfigured-keys is deprecated'),
+        );
+        expect(() => jsonDecode(stdoutString), returnsNormally);
+        final jsonList = jsonDecode(stdoutString) as List<dynamic>;
+        expect(jsonList, isA<List<dynamic>>());
+      },
+    );
 
     test('--format=text still produces the expected human output and is NOT JSON', () async {
       final TestProcess process = await startCli([

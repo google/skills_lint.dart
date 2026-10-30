@@ -239,10 +239,9 @@ Future<void> _testRootTestDataIsBoolean() async {
 Future<void> _testTypeKeyValidValues() async {
   final List<File> allFiles = [
     ...await _getAllEvalsFiles(),
-    ...Directory(p.join(await _resolvePackageRoot(), 'evals'))
-        .listSync()
-        .whereType<File>()
-        .where((File f) => f.path.endsWith('.json')),
+    ...Directory(
+      p.join(await _resolvePackageRoot(), 'evals'),
+    ).listSync().whereType<File>().where((File f) => f.path.endsWith('.json')),
   ];
   for (final file in allFiles) {
     final decoded = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
