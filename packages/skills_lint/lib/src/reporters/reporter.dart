@@ -87,6 +87,11 @@ abstract class Reporter {
   /// [passes] passes.
   void onFixesDidNotSettle({required String skillName, required int passes}) {}
 
+  /// Called for each problem found in the configuration file.
+  void onConfigurationWarning(String error) {
+    err.writeln('Configuration warning: $error');
+  }
+
   /// Called when a rule fix fails due to an internal exception.
   void onFixFailed({required String ruleName, required Object error}) {
     err.writeln(ToolErrorMessages.fixFailedMessage(ruleName: ruleName, error: error));
@@ -136,6 +141,7 @@ abstract class Reporter {
     required String ruleId,
     required String skillName,
     required String fullPath,
+    String? subject,
   }) {}
 
   /// Called when no skills were found across specified directories.

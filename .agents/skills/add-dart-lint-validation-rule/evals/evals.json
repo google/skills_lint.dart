@@ -14,22 +14,21 @@
         "The agent successfully authored `RequireSpecificMetadataRule` extending `SkillRule` in `lib/src/rules/require_specific_metadata_rule.dart`.",
         "The rule was properly added to `RuleRegistry.allChecks` and the `createRule` switch statement in `lib/src/rule_registry.dart`.",
         "The `validate` method correctly parses `context.parsedYaml` to check for `required_version` in the metadata.",
-        "The agent authored unit tests utilizing an in-memory raw string, `loadYaml`, and a mock `SkillContext` in `test/require_specific_metadata_rule_test.dart`.",
+        "The agent authored unit tests using an in-memory `SkillContext` (with `parsedYaml` populated via `loadYaml` or `createTestSkillContext`) in `test/require_specific_metadata_rule_test.dart`.",
         "The toggleable flag `--[no-]require-specific-metadata` was correctly documented in `README.md`.",
-        "A proper rule documentation entry was added in `RULES.md`, including severity, fixability, and diagnostic shape.",
-        "The agent proactively documented the rule constraints in `SPECIFICATION.md`."
+        "A proper rule documentation entry was added in `RULES.md`, including severity, fixability, and diagnostic shape."
       ]
     },
     {
       "id": 2,
-      "prompt": "Create a new rule `SectionCountRule` (rule name `section-count`) that limits the number of `##` sections in SKILL.md, with a configurable parameter whose config key is `max_section-count`. Make sure this rule is disabled by default. Write tests using the temporary directory approach.",
+      "prompt": "Create a new rule `SectionCountRule` (rule name `section-count`) that limits the number of `##` sections in SKILL.md, with a configurable parameter for the maximum section count. Make sure this rule is disabled by default. Write tests using the temporary directory approach.",
       "expected_chat_output": [
         "Any output is fine."
       ],
       "expected_repo_state": [
         "The `SectionCountRule` class extends `SkillRule` in `lib/src/rules/section_count_rule.dart`.",
         "The rule is included in `RuleRegistry.allChecks` as `disabled` in `lib/src/rule_registry.dart`.",
-        "The config key for the parameter is kebab-case and contains no `_`.",
+        "The parameter name in RuleRegistry.allChecks is kebab-case, contains no '_', and does not start with 'section' or 'count' (per rule_parameter_naming_test.dart).",
         "The tests use `Directory.systemTemp.createTemp` and `File.writeAsString` in `test/rules/section_count_rule_test.dart`.",
         "Temporary files are cleaned up via `tempDir.delete(recursive: true)` in `tearDown`.",
         "The rule flag `--[no-]section-count` is documented in `README.md`.",

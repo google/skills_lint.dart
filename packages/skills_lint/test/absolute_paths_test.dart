@@ -64,6 +64,17 @@ void main() {
       );
     });
 
+    test('names the link destination, without its title, as the subject', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      await File('${skillDir.path}/SKILL.md').writeAsString(
+        '${buildFrontmatter(name: 'test-skill')}[Absolute link](/absolute/path.md "Title")\n',
+      );
+
+      final ValidationResult result = await Validator().validate(skillDir);
+
+      expect(result.validationErrors.map((e) => e.subject), ['/absolute/path.md']);
+    });
+
     test('ignores valid relative paths resembling windows drives', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
       await File(

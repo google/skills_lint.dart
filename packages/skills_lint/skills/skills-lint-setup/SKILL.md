@@ -1,80 +1,36 @@
 ---
 name: skills-lint-setup
 description: |-
-  Use this skill to initialize and configure skills_lint in a Dart project.
-  Covers adding skills_lint to pubspec.yaml dev_dependencies, creating root skills_lint.yaml, generating baseline ignore files for legacy skills, and configuring CI workflows or pre-commit hooks.
+  Use this skill to set up skills_lint for the first time, either in a Dart package or as an installed command-line tool in any repository.
+  Covers adding skills_lint as a dev dependency with a dart test that validates skills, installing the skills_lint command, and creating skills_lint.yaml.
+  Don't use it to run the linter or fix its findings (use skills-lint-validation), or to set up CI such as GitHub Actions or SARIF code scanning.
 ---
 
-# Setting up Skill Validation with skills_lint
+# Setting up skills_lint
 
-This skill covers **first-time wiring** of `skills_lint` into a
-repository. For ongoing use — running the linter, interpreting
-output, and writing custom rules — see the
-[`skills-lint-validation`](../skills-lint-validation/SKILL.md)
-skill. For copy-pasteable CI workflow and pre-commit hook recipes,
-see the [`Recipes` section of the README](../../README.md#recipes).
+`skills_lint` is a linter for Agent Skills (`SKILL.md` files).
 
-## Steps
+## Pick a setup path
 
-1. **Add `skills_lint` as a `dev_dependency`.**
+If the user names a path, follow that one. Otherwise, inspect the project:
 
-   ```yaml
-   dev_dependencies:
-     skills_lint: ^0.5.0
-   ```
+- If the project has a `pubspec.yaml`, follow
+  [the dart test path](references/dart-test.md).
+- Otherwise, follow [the command-line path](references/command-line.md).
 
-   **Isolate the dependency** in a `tool/` package when you can,
-   instead of putting it on the root `pubspec.yaml` — keeps the
-   linter's deps out of your runtime closure. If you must add it
-   to multiple `pubspec.yaml` files, ensure the `ref:` (commit
-   hash) is identical across all of them so resolution doesn't
-   diverge.
+## Create skills_lint.yaml
 
-2. **Create `skills_lint.yaml`** at the repository root so both
-   the CLI and any embedded test invocation share the same config:
+Both paths use a `skills_lint.yaml` file at the project root. The command
+reads it from the current directory by default. Keep it short: list the skill
+directories and only the rules whose severity you want to change. Each path's
+reference file shows the configuration to use.
 
-   ```yaml
-   skills_lint:
-     rules:
-       check-relative-paths: error
-       check-trailing-whitespace: error
-     directories:
-       - path: ".agents/skills"
-       # A package publishes its skills from skills/.
-       - path: "skills"
-         rules:
-           published-skill-name: error
-           check-relative-paths:
-             severity: error
-             within-skill: true
-   ```
+## Find the rules
 
-   Rules enabled by default — `check-absolute-paths`,
-   `valid-yaml-metadata`, `invalid-skill-name`,
-   `description-too-long` — only need to be listed if you want to
-   change their severity or parameters (for example,
-   `description-too-long: { severity: error, max-length: 500 }`
-   lowers the description limit from the default 1024 characters). See
-   [`RULES.md`](../../RULES.md) for the full list.
+Run `skills_lint --help`, or `dart run skills_lint --help` in a Dart package.
+It lists every rule and option of the installed version, and which rules are
+on by default.
 
-3. **Generate a baseline** if you're integrating into a repository
-   with pre-existing skills that have legacy violations you don't
-   want to fix immediately:
+## After setup
 
-   ```bash
-   dart run skills_lint --skills-directory=.agents/skills --generate-baseline
-   ```
-
-   This writes the current set of failures into an ignore file so
-   the next run exits clean. New violations introduced after the
-   baseline still surface as errors.
-
-4. **Wire it into CI.** Use the
-   [GitHub Actions recipe](../../README.md#recipes) from the README
-   verbatim, or follow the
-   [pre-commit hook recipe](../../README.md#recipes) below it.
-
-## When you're done
-
-The skills-lint-validation skill takes over from here for
-day-to-day use.
+Use the skills-lint-validation skill to run the linter and fix failures.

@@ -128,7 +128,7 @@ void expectNoViolations(Iterable<ConventionViolation> violations, {required Stri
   fail('${violations.length} violation(s):\n$report\n\nFix: $fix');
 }
 
-/// Returns a [Source] for every Dart file under [directories], sorted by
+/// Parses every Dart file under [directories] into a [Source], sorted by
 /// path, skipping generated `*.g.dart` files.
 List<Source> parseDirectories(List<String> directories) {
   final skippedSourceFile = RegExp(r'\.g\.dart$');

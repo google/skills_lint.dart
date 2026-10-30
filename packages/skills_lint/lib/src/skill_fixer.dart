@@ -56,7 +56,7 @@ class SkillFixer {
     for (var pass = 0; pass < maxPasses && !settled; pass++) {
       settled = true;
       for (final FixableRule rule in validator.rules.whereType<FixableRule>()) {
-        if (!_reports(current, rule.name)) {
+        if (!_canFix(current, rule.name)) {
           continue;
         }
         switch (await _tryFix(rule, current, canRename: canRename)) {
@@ -154,6 +154,18 @@ class SkillFixer {
       return null;
     }
     return nameAfter;
+  }
+
+  /// Whether the fix of the rule named [ruleName] may run on [result]: the
+  /// rule reports a diagnostic, and an ignore entry covers none of them.
+  ///
+  /// A fixer rewrites every finding of its rule, so it must not run when an
+  /// ignore entry covers some of them.
+  static bool _canFix(ValidationResult result, String ruleName) {
+    final Iterable<ValidationError> findings = result.validationErrors.where(
+      (e) => e.ruleId == ruleName,
+    );
+    return findings.isNotEmpty && findings.every((e) => !e.isIgnored);
   }
 
   /// Whether [result] has an un-ignored diagnostic from the rule named

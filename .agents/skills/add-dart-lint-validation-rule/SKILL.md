@@ -1,210 +1,44 @@
 ---
 name: add-dart-lint-validation-rule
 description: >
-  Instructions for adding a new validation rule and CLI flag to skills_lint.
-  Use this skill when asked to create a new rule that validates aspects of skills
+  Instructions for adding a validation rule and CLI flag to skills_lint.
+  Use when asked to create a rule that validates aspects of skills
   (like frontmatter metadata).
 metadata:
   internal: true
 ---
 
-# Add a New Validation Rule and Flag
+# Add a Validation Rule and Flag
 
-Use this skill when you need to add a new validation rule to the `skills_lint` package, expose it as a toggleable CLI flag, and verify its behavior.
+Add a built-in validation rule to `skills_lint`, expose the rule as a CLI flag, and verify the rule's behavior.
 
----
+## 1. Rule Class in `lib/src/rules/`
 
-## 🛠️ Step-by-Step Implementation
+- Declare one public [`SkillRule`](../../../packages/skills_lint/lib/src/models/skill_rule.dart) subclass per file in `lib/src/rules/` ([`rule_file_convention_test.dart`](../../../packages/skills_lint/repo_test/rule_file_convention_test.dart)).
+- Follow [`disallowed_field_rule.dart`](../../../packages/skills_lint/lib/src/rules/disallowed_field_rule.dart) (or [`description_length_rule.dart`](../../../packages/skills_lint/lib/src/rules/description_length_rule.dart) for parameterized rules): define `static const String ruleName`, `static const AnalysisSeverity defaultSeverity = AnalysisSeverity.disabled` (per the [Rule-stability policy](../../../CONTRIBUTING.md#rule-stability-policy-semver)), and any parameter names, default values, and `ParameterConstraint` definitions as `static const` fields on the rule class.
+- Name rule parameters in kebab-case without starting with a word from `ruleName`, because the CLI flag is `--<rule>-<param>` ([`rule_parameter_naming_test.dart`](../../../packages/skills_lint/repo_test/rule_parameter_naming_test.dart)).
+- Document any frontmatter structure the rule expects (for example, keys under `metadata`) in the rule class dartdoc.
+- Read YAML frontmatter from `context.parsedYaml` and map nodes to source spans with `context.yamlNodeToRegion`.
+- Cite [`SpecificationUrls`](../../../packages/skills_lint/lib/src/specification_urls.dart) only when the rule enforces the official Agent Skills specification.
+- Implement [`FixableRule`](../../../packages/skills_lint/lib/src/fixable_rule.dart) when the rule supports `--fix`.
 
-### 1. Create the Rule Class
-Create a new file in `lib/src/rules/` extending `SkillRule`.
+## 2. Registration in [`lib/src/rule_registry.dart`](../../../packages/skills_lint/lib/src/rule_registry.dart)
 
-> [!TIP]
-> If your rule expects a specific structure in the skill's YAML frontmatter (e.g., inside `metadata`), document this structure clearly in the class Dart docstring.
+- Add a `CheckType` to `RuleRegistry.allChecks` (with `parameterSchema` and `parameterConstraints` when parameterized; add a rejected test value in [`test/parameter_constraint_test.dart`](../../../packages/skills_lint/test/parameter_constraint_test.dart)).
+- Add a case in `RuleRegistry.createRule` that passes `severity` and any parsed `parameters` (falling back to the rule's default constants) to the rule constructor.
+- Enable the rule in `fixtureConfig` and add a planted violation to `violations` and `plantedViolations` in [`benchmark/src/fixture.dart`](../../../packages/skills_lint/benchmark/src/fixture.dart) ([`test/benchmark/fixture_test.dart`](../../../packages/skills_lint/test/benchmark/fixture_test.dart)).
 
-```dart
-// lib/src/rules/my_new_rule.dart
+## 3. Tests in `packages/skills_lint/test/`
 
-import '../models/analysis_severity.dart';
-import '../models/skill_context.dart';
-import '../models/skill_rule.dart';
-import '../models/validation_error.dart';
+- Add unit tests in `packages/skills_lint/test/<rule_name>_test.dart` (or `test/rules/<rule_name>_test.dart`; [`test_coverage_convention_test.dart`](../../../packages/skills_lint/repo_test/test_coverage_convention_test.dart) scans `packages/skills_lint/test/` recursively for a test importing the rule).
+- Give minimal `SKILL.md` test fixtures valid required frontmatter (`name` and `description`) unless testing missing frontmatter.
+- Use `Directory.systemTemp.createTemp` (cleaned up in `tearDown`) when testing filesystem rules (see [`path_does_not_exist_rule_test.dart`](../../../packages/skills_lint/test/rules/path_does_not_exist_rule_test.dart)), or [`createTestSkillContext`](../../../packages/skills_lint/test/test_utils.dart) when testing frontmatter or content rules with an in-memory `SkillContext` so `parsedYaml` is populated.
+- Test that each rule parameter changes what the rule reports. [`rule_settings_supply_test.dart`](../../../packages/skills_lint/test/rule_settings_supply_test.dart) automatically tests config-file, CLI, and Dart API supply and precedence for every registered rule and parameter in `RuleConfig`; if a rule reads a setting from anywhere other than its `RuleConfig`, test each way that setting can be supplied.
+- For CLI tests, use `startCli` from [`test/test_utils.dart`](../../../packages/skills_lint/test/test_utils.dart) and wire `defineCliTests()` into [`compiled_test/cli_test.dart`](../../../packages/skills_lint/compiled_test/cli_test.dart) ([`cli_test_wiring_convention_test.dart`](../../../packages/skills_lint/repo_test/cli_test_wiring_convention_test.dart)).
 
-class MyNewRule extends SkillRule {
-  MyNewRule({super.severity});
+## 4. Documentation and Verification
 
-  @override
-  Future<List<ValidationError>> validate(SkillContext context) async {
-    final errors = <ValidationError>[];
-    // Add validation logic here using context.rawContent or context.directory
-    return errors;
-  }
-}
-```
-
-#### Accessing YAML Frontmatter
-If your rule needs configuration from the skill's YAML frontmatter, you can access it via `context.parsedYaml`.
-
-```dart
-  @override
-  Future<List<ValidationError>> validate(SkillContext context) async {
-    final errors = <ValidationError>[];
-    final yaml = context.parsedYaml;
-    if (yaml != null) {
-      final metadata = yaml['metadata'];
-      if (metadata is Map) {
-        // Read your custom config here
-      }
-    }
-    return errors;
-  }
-```
-
-### 2. Register the Rule in `lib/src/rule_registry.dart`
-
-Add a new `CheckType` instance to `RuleRegistry.allChecks` list. This automatically exposes it as a CLI flag.
-
-```dart
-// lib/src/rule_registry.dart in allChecks list
-
-  const CheckType(
-    name: MyNewRule.ruleName,
-    defaultSeverity: MyNewRule.defaultSeverity,
-    help: 'Description of what the rule does for CLI help.',
-  ),
-```
-
-Then, add a case to `RuleRegistry.createRule` to instantiate your rule:
-
-```dart
-// lib/src/rule_registry.dart in createRule method
-
-  static SkillRule? createRule(String name, AnalysisSeverity severity) {
-    switch (name) {
-      // ... other rules
-      case MyNewRule.ruleName:
-        return MyNewRule(severity: severity);
-      default:
-        return null;
-    }
-  }
-```
-
-### Naming parameters
-
-A parameter's CLI flag is `--<rule>-<param>`, so the parameter name doesn't need to repeat the rule's subject. [rule_parameter_naming_test.dart](../../../packages/skills_lint/repo_test/rule_parameter_naming_test.dart) defines the naming convention and fails on a name that breaks it.
-
-### 3. Handle Disabled by Default Rules (If applicable)
-If the rule is disabled by default (`defaultSeverity: AnalysisSeverity.disabled`), passing the flag `--check-my-new-rule` will automatically enable it with `AnalysisSeverity.error` severity (handled in `entry_point.dart`).
-
----
-
-## 🧪 Testing the New Rule
-
-You must write automated tests verifying your rule triggers when it should and skips when it shouldn't.
-
-### Preferred Approach: In-Memory Unit Tests
-Instead of writing files to disk, test the rule directly using a mock `SkillContext`. This is faster and avoids I/O dependencies.
-
-```dart
-// test/my_new_rule_test.dart
-
-import 'dart:io';
-import 'package:skills_lint/src/models/analysis_severity.dart';
-import 'package:skills_lint/src/models/skill_context.dart';
-import 'package:skills_lint/src/models/validation_error.dart';
-import 'package:skills_lint/src/rules/my_new_rule.dart';
-import 'package:test/test.dart';
-
-void main() {
-  group('MyNewRule', () {
-    test('flags invalid content', () async {
-      final rule = MyNewRule(severity: AnalysisSeverity.warning);
-      final context = SkillContext(
-        directory: Directory('dummy'),
-        rawContent: 'Invalid content',
-      );
-
-      final List<ValidationError> errors = await rule.validate(context);
-
-      expect(errors, isNotEmpty);
-      expect(errors.first.message, contains('Expected error message'));
-    });
-
-    test('passes valid content', () async {
-      final rule = MyNewRule(severity: AnalysisSeverity.warning);
-      final context = SkillContext(
-        directory: Directory('dummy'),
-        rawContent: 'Valid content',
-      );
-
-      final List<ValidationError> errors = await rule.validate(context);
-
-      expect(errors, isEmpty);
-    });
-  });
-}
-```
-
-### Alternative Approach: File System Interaction
-If the rule interacts with the file system or wraps an external CLI tool (like `popmark`), you should use a temporary directory for testing instead of in-memory mocks.
-
-```dart
-    late Directory tempDir;
-
-    setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp('my_rule_test.');
-    });
-
-    tearDown(() async {
-      if (tempDir.existsSync()) {
-        await tempDir.delete(recursive: true);
-      }
-    });
-
-    test('flags invalid file content', () async {
-      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      await File('${skillDir.path}/SKILL.md').writeAsString('Invalid content');
-
-      final rule = MyNewRule(severity: AnalysisSeverity.warning);
-      final context = SkillContext(directory: skillDir, rawContent: 'Invalid content');
-
-      final List<ValidationError> errors = await rule.validate(context);
-
-      expect(errors, isNotEmpty);
-    });
-```
-
-### Integration Tests
-If the rule interacts with CLI flags or configuration files, add a test in `test/cli_integration_test.dart` using `TestProcess`.
-> [!IMPORTANT]
-> When writing integration tests that use config files and `TestProcess`, ensure that paths in the config file and paths passed to the CLI match in style (both relative or both absolute) to avoid issues with path matching in `entry_point.dart`.
-
----
-
-## 📚 Documentation Updates
-
-When a new rule is introduced, verify that you synchronize sibling markdown files!
-
-1.  **`README.md`:**
-    *   Add your flag under the **Flags** section (under **Usage**) so users know it exists.
-    *   **CRITICAL FORMATTING:** You MUST use the exact format `- \`--[no-]<rule-name>\`: <brief description>. (Disabled by default if applicable)`.
-    *   **CRITICAL NAMING:** Ensure the flag string matches the `ruleName` EXACTLY. For example, if the `ruleName` is `file-existence`, the flag MUST be documented as `--[no-]file-existence` (do NOT hallucinate a `check-` prefix like `--[no-]check-file-existence`). Do NOT add empty bullet points.
-2.  **`RULES.md`:**
-    *   Add a new entry for your rule documenting its default severity, fixability, what it checks, diagnostic shape, auto-fix behavior, and how to disable it. This is strictly required by the `rules_md_consistency_test.dart` test.
-3.  **`documentation/knowledge/SPECIFICATION.md`:**
-    *   Document the formal constraint in the specification if it defines a standard for skill files.
-
----
-
-## 🚦 Checklist Before Submitting PR
-
-- [ ] Rule class created in `lib/src/rules/`.
-- [ ] Rule registered in `lib/src/rule_registry.dart`.
-- [ ] Unit tests added in `test/` using in-memory `SkillContext`.
-- [ ] **CRITICAL**: Usage flag correctly documented in `README.md` under Flags (ensure flag string matches `ruleName` EXACTLY and format is correct).
-- [ ] Rule documented in `RULES.md`.
-- [ ] Schema documented in `documentation/knowledge/SPECIFICATION.md` (if applicable).
-- [ ] Run `dart format .` to format code.
-- [ ] Run `dart analyze --fatal-infos` to ensure no issues.
-- [ ] Run `dart test` to ensure tests passing.
+- Add a `## <rule-name>` entry in [`RULES.md`](../../../packages/skills_lint/RULES.md) ([`rules_md_consistency_test.dart`](../../../packages/skills_lint/repo_test/rules_md_consistency_test.dart)).
+- Add `- \`--[no-]<rule-name>\`: <description>. (Disabled by default).` (omitting `(Disabled by default).` only when enabled by default) under Flags in [`README.md`](../../../packages/skills_lint/README.md); match `ruleName` exactly and don't add a `check-` prefix.
+- Add an entry under `### New rules` in [`CHANGELOG.md`](../../../packages/skills_lint/CHANGELOG.md).
+- Run [`definition-of-done`](../definition-of-done/SKILL.md).

@@ -30,7 +30,7 @@ void main() {
   });
 }
 
-/// Returns every `*_test.dart` file in this package and in
+/// Lists every `*_test.dart` file in this package and in
 /// [otherPackageDirectories], relative to the package root with `/` separators.
 ///
 /// Skips hidden directories such as `.dart_tool/`, and `evals/test_data/`,
