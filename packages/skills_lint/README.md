@@ -156,8 +156,8 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `--[no-]check-trailing-whitespace`: Enable/disable checking for trailing whitespace. (Disabled by default).
 - `--[no-]pub-archive-includes-skill`: Check that `dart pub publish` includes each skill in `skills/` and the files it links to. (Disabled by default).
 - `--[no-]published-skill-name`: Enable/disable checking that published package skills follow the package naming convention. (Disabled by default).
-- `--fix`: Write fixes for failing lints to disk.
-- `--dry-run`: When combined with `--fix`, prints the proposed diff without writing.
+- `--fix`: Write fixes for failing lints to disk, then print the diagnostics that remain. The exit code reflects the diagnostics left after fixing. A fix is kept only if it lowers the skill's errors, then warnings. Fixes repeat until they stop helping, up to 10 passes, so one run is usually enough. When a fix renames a skill directory and the rename can't happen, for example because the target exists, the fixes that need the rename are skipped with the reason, and the other fixes still land.
+- `--dry-run`: When combined with `--fix`, prints the proposed diff and the resulting diagnostics without writing. It checks each skill on its own, so it doesn't show links in other skills that a rename would break. `--fix` checks every skill again after a rename and reports them. A failure that only writing reveals, such as a missing permission, can make `--fix` skip a fix that `--dry-run` showed, or leave the skill unfixed: when `SKILL.md` can't be written, `--fix` writes none of that skill's fixes, reports the error, and fails the run.
 - `--fix-apply`: *Deprecated* alias for `--fix`. Prints a deprecation notice on use.
 - `--format`: Output format for validation diagnostics. One of:
   - `text` (default): human-readable terminal output.
@@ -167,8 +167,9 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 
   Diagnostics go to standard output in every format, so redirect them to a
   file to capture a report: `skills_lint --format=sarif > skills-lint.sarif`.
-  Operational failures stay on standard error, prefixed with
-  `skills_lint internal error:`, and never corrupt the report.
+  Operational failures stay on standard error and never corrupt the report.
+  Bugs in skills_lint start with `skills_lint internal error:`. Problems in
+  your files, such as a `--fix` rename that can't happen, start with `Error:`.
 
 ### 2. As a Command Line Tool with a YAML Configuration File
 You can configure the linter using a configuration file (defaulting to `skills_lint.yaml` in the current directory).
@@ -329,8 +330,9 @@ jobs:
 Notes:
 
 - The report goes to standard output, so redirect it to a file.
-  Operational failures go to standard error with a
-  `skills_lint internal error:` prefix and never mix into the report.
+  Operational failures go to standard error and never mix into the report.
+  Bugs in skills_lint start with `skills_lint internal error:`, and
+  problems in your files start with `Error:`.
 - Result paths are recorded relative to the repository root using the
   SARIF `%SRCROOT%` base, so annotations land on the right lines even
   when the linter runs from a subdirectory.

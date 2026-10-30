@@ -5,6 +5,7 @@
 import 'dart:io';
 
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -104,16 +105,41 @@ class Validator {
     if (context == null) {
       return ValidationResult(validationErrors: fatalErrors);
     }
+    // If SKILL.md or the directory does not exist or is inaccessible, running content validation rules
+    // against empty or non-existent content produces redundant cascading errors. We run solely PathDoesNotExistRule
+    // to report the missing structure cleanly, skipping subsequent rules.
+    return _runRules(
+      context,
+      skillMdExists ? _rules : _rules.where((rule) => rule.name == PathDoesNotExistRule.ruleName),
+    );
+  }
 
+  /// Validates [content] as a proposed `SKILL.md` for the skill that [current]
+  /// describes, without reading or writing any file.
+  ///
+  /// The result's context keeps the directory and pub archive of [current].
+  /// Pass [activeDirectoryName] to validate as if the skill directory had
+  /// that name. It defaults to the [SkillContext.activeDirectoryName] of
+  /// [current], so a planned rename carries over.
+  @internal
+  Future<ValidationResult> validateProposedContent(
+    SkillContext current,
+    String content, {
+    String? activeDirectoryName,
+  }) {
+    final SkillContext context = _parseContext(
+      current.directory,
+      content,
+      activeDirectoryName: activeDirectoryName ?? current.activeDirectoryName,
+      pubArchive: current.pubArchive,
+    );
+    return _runRules(context, _rules);
+  }
+
+  Future<ValidationResult> _runRules(SkillContext context, Iterable<SkillRule> rules) async {
     final validationErrors = <ValidationError>[];
 
-    for (final SkillRule rule in _rules) {
-      // If SKILL.md or the directory does not exist or is inaccessible, running content validation rules
-      // against empty or non-existent content produces redundant cascading errors. We run solely PathDoesNotExistRule
-      // to report the missing structure cleanly, skipping subsequent rules.
-      if (!skillMdExists && rule.name != PathDoesNotExistRule.ruleName) {
-        continue;
-      }
+    for (final rule in rules) {
       final List<ValidationError> errors = await rule.validate(context);
       _checkSeverityWarnings(rule, errors);
       validationErrors.addAll(errors);
@@ -152,6 +178,16 @@ class Validator {
       return null;
     }
 
+    return _parseContext(dir, content, pubArchive: pubArchive);
+  }
+
+  /// Parses the YAML frontmatter of [content] into a [SkillContext] for [dir].
+  SkillContext _parseContext(
+    Directory dir,
+    String content, {
+    String? activeDirectoryName,
+    PubArchive? pubArchive,
+  }) {
     YamlMap? parsedYaml;
     String? yamlParsingError;
     try {
@@ -176,6 +212,7 @@ class Validator {
       rawContent: content,
       parsedYaml: parsedYaml,
       yamlParsingError: yamlParsingError,
+      activeDirectoryName: activeDirectoryName,
       pubArchive: pubArchive,
     );
   }

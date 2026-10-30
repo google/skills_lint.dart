@@ -176,9 +176,10 @@ void main() {
 
         expect(
           await rule.fix(
-            'SKILL.md',
-            'Line with 1 space \r\nLine with 3 spaces   \r\n',
-            Directory('dummy'),
+            SkillContext(
+              directory: Directory('dummy'),
+              rawContent: 'Line with 1 space \r\nLine with 3 spaces   \r\n',
+            ),
           ),
           'Line with 1 space\r\nLine with 3 spaces\r\n',
         );
@@ -195,7 +196,8 @@ void main() {
         return errors.map(_describe).toList();
       }
 
-      Future<String> fix(String content) => rule.fix('SKILL.md', content, Directory('dummy'));
+      Future<String> fix(String content) =>
+          rule.fix(SkillContext(directory: Directory('dummy'), rawContent: content));
 
       final cases = <({String name, String content, List<String> errors, String fixed})>[
         (name: 'empty file', content: '', errors: [], fixed: ''),

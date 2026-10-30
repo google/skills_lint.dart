@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:json_annotation/json_annotation.dart';
+
 import 'ignore_entry.dart';
 
 part 'skills_ignores.g.dart';
@@ -20,6 +21,35 @@ class SkillsIgnores {
   /// Map of skill names to their list of ignore entries.
   @JsonKey(name: skillsKey)
   final Map<String, List<IgnoreEntry>> skills;
+
+  /// Moves any ignore entries stored under [oldSkillName] to [newSkillName].
+  ///
+  /// Returns `true` if [oldSkillName] had entries and was moved.
+  bool renameSkill(String oldSkillName, String newSkillName) {
+    if (oldSkillName == newSkillName) {
+      return false;
+    }
+    final List<IgnoreEntry>? moved = skills.remove(oldSkillName);
+    if (moved == null) {
+      return false;
+    }
+    final List<IgnoreEntry>? existing = skills[newSkillName];
+    if (existing == null) {
+      skills[newSkillName] = moved;
+      return true;
+    }
+    // An entry with a different subject covers different findings, so it
+    // stays.
+    final seen = <(String, String, String?)>{
+      for (final IgnoreEntry entry in existing) (entry.ruleId, entry.fileName, entry.subject),
+    };
+    for (final IgnoreEntry entry in moved) {
+      if (seen.add((entry.ruleId, entry.fileName, entry.subject))) {
+        existing.add(entry);
+      }
+    }
+    return true;
+  }
 
   /// Converts a SkillsIgnores to a JSON map.
   Map<String, dynamic> toJson() => _$SkillsIgnoresToJson(this);

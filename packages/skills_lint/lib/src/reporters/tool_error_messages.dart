@@ -17,25 +17,11 @@ abstract final class ToolErrorMessages {
       '$_toolBugNotice\n'
       '  Your skill was left unmodified. Cause: $error';
 
-  /// Message for a skill directory rename that failed.
-  static String renameFailedMessage({
-    required String oldSkillName,
-    required String targetSkillName,
-    required Object error,
-  }) =>
-      "${Reporter.toolErrorPrefix} could not rename skill directory from '$oldSkillName' to '$targetSkillName'.\n"
+  /// Message for fixes that kept changing a skill until the pass limit.
+  static String fixesDidNotSettleMessage({required String skillName, required int passes}) =>
+      "${Reporter.toolErrorPrefix} the fixes for '$skillName' did not settle after $passes passes.\n"
       '$_toolBugNotice\n'
-      "  Your skill directory was left at '$oldSkillName'. Cause: $error";
-
-  /// Message for a skill directory rename blocked by an existing destination.
-  static String renameTargetExistsMessage({
-    required String oldSkillName,
-    required String targetSkillName,
-    required String destinationPath,
-  }) =>
-      "${Reporter.toolErrorPrefix} cannot rename skill directory from '$oldSkillName' to '$targetSkillName': destination directory '$destinationPath' already exists.\n"
-      '$_toolBugNotice\n'
-      "  Your skill directory was left at '$oldSkillName'.";
+      '  The fixes from the last pass were kept.';
 
   /// Message for a baseline file that could not be written.
   static String baselineFailedMessage({required String ignorePath, required Object error}) =>
