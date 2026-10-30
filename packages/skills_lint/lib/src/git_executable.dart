@@ -14,8 +14,8 @@ import 'package:path/path.dart' as p;
 /// On Windows, `dart:io` hands a bare name to `CreateProcessW`, which looks in
 /// the current directory before `PATH`. A `git.exe` committed at the root of a
 /// scanned repository would then run. So on Windows this returns the absolute
-/// path of the first `git.exe` in an absolute `PATH` directory other than
-/// [currentDirectory], or `null` if no such file exists.
+/// path of the first `git.exe` in an absolute `PATH` directory that is
+/// neither [currentDirectory] nor inside it, or `null` if there is none.
 ///
 /// The parameters default to the host's values, and let tests describe
 /// another platform.
@@ -36,7 +36,10 @@ String? resolveGitExecutable({
   final bool Function(String) exists = fileExists ?? (path) => File(path).existsSync();
   for (final String rawEntry in pathVariable.split(';')) {
     final String entry = rawEntry.trim().replaceAll('"', '');
-    if (entry.isEmpty || !p.windows.isAbsolute(entry) || p.windows.equals(entry, cwd)) {
+    if (entry.isEmpty ||
+        !p.windows.isAbsolute(entry) ||
+        p.windows.equals(entry, cwd) ||
+        p.windows.isWithin(cwd, entry)) {
       continue;
     }
     final String candidate = p.windows.join(entry, 'git.exe');

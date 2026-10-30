@@ -53,6 +53,10 @@ void main() {
         );
       });
 
+      test('skips PATH entries inside the current directory', () {
+        expect(resolve(r'C:\repo\.venv\Scripts', {r'C:\repo\.venv\Scripts\git.exe'}), isNull);
+      });
+
       test('skips relative PATH entries', () {
         expect(resolve(r'bin;C:\Git\cmd', {r'C:\repo\bin\git.exe', r'bin\git.exe'}), isNull);
       });
