@@ -74,6 +74,15 @@ jobs:
         run: dart run cognitive_complexity --fail-threshold 20 --exclude 'third_party/**' --exclude 'packages/skills_lint/evals/test_data/**' --exclude '.worktrees/**' --exclude '.claude/**' .
         working-directory: .
 
+      # undead fails on declarations that only tests use, and on unexported
+      # declarations that nothing uses. It treats exported API as used and
+      # skips @visibleForTesting declarations. It checks the Dart source, not
+      # how the code behaves on each OS, so one leg runs it.
+      - name: Run undead declaration check
+        if: matrix.os == 'ubuntu-latest' && !matrix.lower_bound
+        run: dart run undead --fail-on-undead .
+        working-directory: packages/skills_lint
+
       # One step per test directory, so a failure names its kind. See "Where
       # tests go" in CONTRIBUTING.md. Plain `dart test` runs test/ only. Each
       # later test step also runs when an earlier test step fails, so one run
@@ -111,6 +120,27 @@ jobs:
         if: matrix.lower_bound
         run: dart analyze --fatal-infos
 
+  # Released CHANGELOG sections stay as published. With CHANGELOG_BASE_REF
+  # set, repo_test/changelog_convention_test.dart compares them with the
+  # pull request's base.
+  released_changelog:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - name: Check that released CHANGELOG sections are unchanged
+        env:
+          CHANGELOG_BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --depth=1 origin "$CHANGELOG_BASE_REF"
+          dart test repo_test/changelog_convention_test.dart
+
   # The release scripts in release/, on the SDK and OSes that
   # release_build_and_tag.yaml builds with. They only need to work there, so
   # they have no lower-bound entry; see repo_test/sdk_lower_bound_test.dart.
@@ -142,6 +172,10 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed ../../release
       - run: dart analyze --fatal-infos ../../release
       - run: dart test ../../release/test
+      # One OS is enough; see the undead step in analyze_and_test.
+      - name: Run undead declaration check on release
+        if: matrix.os == 'ubuntu-latest'
+        run: dart run undead --fail-on-undead ../../release
 
   coverage:
     runs-on: ubuntu-latest

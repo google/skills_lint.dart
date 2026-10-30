@@ -4,6 +4,7 @@
 
 import 'models/source_region.dart';
 import 'models/target_declaration.dart';
+import 'suggestions/did_you_mean.dart';
 import 'suggestions/missing_directory_suggestion.dart';
 
 /// The kind of target a missing-target diagnostic describes.
@@ -107,7 +108,7 @@ MissingTargetDiagnostic _configurationDiagnostic({
   final where = source == null ? 'configuration' : '${source.file}:${source.line}';
   final details = StringBuffer('  Declared as "$declared" in $where, relative to $anchor.');
   if (suggestion != null) {
-    details.write(' Did you mean "$suggestion"?');
+    details.write(' ${didYouMean([suggestion])}');
   }
 
   return (
@@ -133,7 +134,7 @@ MissingTargetDiagnostic _commandLineDiagnostic({
     baseDirectory: workingDirectory,
   );
   return (
-    text: suggestion == null ? headline : '$headline\n  Did you mean "$suggestion"?',
+    text: suggestion == null ? headline : '$headline\n  ${didYouMean([suggestion])}',
     markdown: _markdown(kind, cliText, suggestion),
     file: resolvedPath,
     region: null,
@@ -150,6 +151,9 @@ String _markdown(MissingTargetKind kind, String declared, String? suggestion, {S
     '- Check for typos in `$declared`.',
     if (anchor != null)
       '- Paths in this configuration are relative to `$anchor`, not to the working directory.',
-    if (suggestion != null) ...<String>['', '*Did you mean `$suggestion`?*'],
+    if (suggestion != null) ...<String>[
+      '',
+      '*${didYouMean([suggestion], quote: '`')}*',
+    ],
   ].join('\n');
 }

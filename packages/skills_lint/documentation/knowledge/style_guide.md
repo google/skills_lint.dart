@@ -23,7 +23,7 @@ All Dart code across this repository must adhere strictly to the official [Effec
    - **Use Semantic Dartdoc Links:** Use square-bracketed symbol links (e.g. `[OutputFormat.text]`) rather than plain backticked strings (`\`text\``) for code entities.
    - **Summary sentence:** Follow Effective Dart on [noun-phrase docs](https://dart.dev/effective-dart/documentation#prefer-starting-a-non-boolean-variable-or-property-comment-with-a-noun-phrase) and the [single-sentence summary](https://dart.dev/effective-dart/documentation#do-start-doc-comments-with-a-single-sentence-summary). Put conditions and `null` cases in later paragraphs.
    - **Short summary (repo rule):** Keep the first sentence short enough that it rarely needs to wrap. The vendored [`dart-long-lines`](../../../../.agents/skills/dart-long-lines/SKILL.md) skill allows wrapping it, and that is fine when a shorter sentence would lose meaning.
-   - **No leading "Returns" (repo rule):** Don't start the first sentence with "Returns". Effective Dart allows it; this repo doesn't. If the result matters most, give the function a noun name and describe the result with a noun phrase. If the operation matters most, start with a third-person verb ("Parses", "Writes"). A later paragraph may start with "Returns".
+   - **No leading "Returns" (repo rule):** Don't start the first sentence with "Returns". Effective Dart allows it; this repo doesn't. If the result matters most, give the function a noun name and describe the result with a noun phrase. If the operation matters most, start with a third-person verb ("Parses", "Writes"). A later paragraph may start with "Returns". [doc_comment_convention_test.dart](../../repo_test/doc_comment_convention_test.dart) enforces this.
 
      ```dart
      // Bad
@@ -148,6 +148,37 @@ Group constants by concept (for example CLI flags, then messages). Separate each
 
 ---
 
+## 🧩 Function Signatures
+
+These rules apply [Parse at the Boundary and Single Source of Truth](architecture_overview.md#-durable-design-patterns) to a single function.
+
+- Take typed values such as classes, records or enums. Don't take a `Map<String, dynamic>` of options.
+- Don't parse again a value that is already typed. A `bool` from YAML is a `bool`; don't also compare it to `'true'`.
+- Use named parameters when a function takes three or more parameters of the same type.
+- Reference a default or constant from the class that owns it. Don't repeat the literal.
+
+```dart
+// BAD: Untyped options, a re-parsed boolean and positional strings of the same type.
+Report check(Directory root, Map<String, dynamic> options) {
+  final strict = options['strict'] == true || options['strict'] == 'true';
+  // ...
+}
+Edit addSuppression(String content, String key, String ruleId, String severity);
+
+// GOOD: Typed parameters, the owner's default, and named parameters.
+Report check(Directory root, {bool strict = Checker.defaultStrict}) {
+  // ...
+}
+Edit addSuppression(
+  String content, {
+  required String key,
+  required String ruleId,
+  required String severity,
+});
+```
+
+---
+
 ## 📦 Value Objects and Immutability
 
 1. Annotate value model classes with `@immutable` (from `package:meta`).
@@ -161,6 +192,20 @@ Extract multi-line strings, diagnostics, and formatted markdown message construc
 
 ---
 
+## 🔄 Mode Flags
+
+When a function needs to do two different jobs, split it. Don't add a boolean parameter that picks the job. Do the same when a requirement or a review comment shows that a function already mixes two jobs.
+
+```dart
+// BAD: A flag picks how the function finds files.
+Future<List<File>> findMissingHeaders(Directory root, {bool useGit = true});
+
+// GOOD: The caller finds the files; the function checks only the files it gets.
+Future<List<File>> findMissingHeaders(Iterable<File> files);
+```
+
+---
+
 ## Tests
 
 Tests give confidence that the code keeps working through refactors and added features, and that customers don't break. A failing test is often read only in CI logs, from an OS the author didn't run.
@@ -169,6 +214,9 @@ Tests give confidence that the code keeps working through refactors and added fe
 - A failing test's output must be enough to debug from CI logs alone. Name the input, the expected value and the actual value.
 - Every `skip:` or `testOn:` gives the reason at that spot.
 - "Hard to test" is not a reason to skip unit tests for pure logic. Pure logic is the cheapest code to test.
+- Confirm that each test for a bug fix or a rule fails without the change, and fails for the expected reason.
+- A test of an auto-fix, a YAML editor, or a baseline or config generator feeds the output back through the parser or the validator. It asserts that the target violation is gone and that no other diagnostic appears.
+- A minimal `SKILL.md` fixture has the required frontmatter fields, unless the test is about missing frontmatter. That way, another rule's failure can't hide or mimic the diagnostic under test.
 - Tests of the shipped skills_lint package go in `test/`. Scans that fail when the repo drifts go in `repo_test/`, and unit tests of their checker code go in `repo_test/checkers/`. See [Where tests go](../../../../CONTRIBUTING.md#where-tests-go).
 
 ---

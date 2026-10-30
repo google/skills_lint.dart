@@ -6,6 +6,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
+import 'package:skills_lint/src/models/check_type.dart';
+import 'package:skills_lint/src/models/rule_parameter_type.dart';
+import 'package:skills_lint/src/rule_registry.dart';
 import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
 import 'package:skills_lint/src/rules/name_format_rule.dart';
 import 'package:skills_lint/src/rules/path_does_not_exist_rule.dart';
@@ -1388,6 +1391,20 @@ skills_lint:
     });
 
     test('round-trips rule configurations with rich parameter types', () {
+      const check = CheckType(
+        name: 'custom-rule',
+        defaultSeverity: AnalysisSeverity.disabled,
+        help: 'Mock rule for testing.',
+        parameterSchema: {
+          'count': RuleParameterType.integer,
+          'enabled': RuleParameterType.boolean,
+          'tags': RuleParameterType.stringList,
+          'pattern': RuleParameterType.regExp,
+        },
+      );
+      RuleRegistry.allChecks.add(check);
+      addTearDown(() => RuleRegistry.allChecks.remove(check));
+
       final config = Configuration(
         ruleConfigs: {
           'custom-rule': RuleConfigPatch(
@@ -1396,6 +1413,7 @@ skills_lint:
               'count': 42,
               'enabled': true,
               'tags': ['a', 'b', 'c'],
+              'pattern': '.*-workspace',
               'numbers': [1, 2, 3],
               'nested': {'k1': 'v1', 'k2': 10},
             }),
@@ -1406,6 +1424,12 @@ skills_lint:
       final String yamlString = config.toYamlString();
       final Configuration parsed = ConfigParser.parse(yamlString);
 
+      // No RuleParameterType describes an int list or a nested map, so the
+      // parser reports those two parameters but still keeps their values.
+      expect(parsed.parsingErrors, [
+        'Global rules: Unrecognized parameter "numbers" for rule "custom-rule".',
+        'Global rules: Unrecognized parameter "nested" for rule "custom-rule".',
+      ]);
       expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
   });
@@ -1437,6 +1461,117 @@ skills_lint:
         config.parsingErrors.first,
         contains('Invalid severity "eror" for rule "check-relative-paths"'),
       );
+    });
+
+    test('reports each kind of typo in the top-level rules and leaves it out', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint:
+  rules:
+    check-relative-path: error
+    check_absolute_paths: error
+    valid-ymal-metadata: error
+    invalid-skil-name: error
+    zzz: error
+    description-too-long: warning
+''');
+
+      expect(config.parsingErrors, [
+        // A dropped character.
+        reportsUnknownRule('check-relative-path', suggestions: ['check-relative-paths']),
+        // Underscores instead of hyphens.
+        reportsUnknownRule('check_absolute_paths', suggestions: ['check-absolute-paths']),
+        // Two letters swapped.
+        reportsUnknownRule('valid-ymal-metadata', suggestions: ['valid-yaml-metadata']),
+        // A dropped letter in the middle.
+        reportsUnknownRule('invalid-skil-name', suggestions: ['invalid-skill-name']),
+        // Nothing close: may be a rule from a newer skills_lint.
+        reportsUnknownRule('zzz'),
+      ]);
+      expect(config.ruleConfigs.keys, ['description-too-long']);
+    });
+
+    test('reports typos in target entries', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint:
+  directories:
+    - path: .agents/skills
+      rules:
+        valid-yaml-metadat: error
+    - {path: a, rules: {nope-rule: error}}
+  individual_skills:
+    - path: one/skill
+      rules:
+        check-trailing-whitespace-: error
+''');
+
+      expect(config.parsingErrors, [
+        reportsUnknownRule(
+          'valid-yaml-metadat',
+          section: '".agents/skills"',
+          suggestions: ['valid-yaml-metadata'],
+        ),
+        reportsUnknownRule('nope-rule', section: '"a"'),
+        reportsUnknownRule(
+          'check-trailing-whitespace-',
+          section: '"one/skill"',
+          suggestions: ['check-trailing-whitespace'],
+        ),
+      ]);
+    });
+
+    test('accepts skill-file-inaccessible and rejects unrecognized parameters on it', () {
+      final Configuration valid = ConfigParser.parse('''
+skills_lint:
+  rules:
+    skill-file-inaccessible: warning
+''');
+      expect(valid.parsingErrors, isEmpty);
+      expect(valid.ruleConfigs.keys, ['skill-file-inaccessible']);
+
+      final Configuration withParam = ConfigParser.parse('''
+skills_lint:
+  rules:
+    skill-file-inaccessible:
+      severity: warning
+      bogus-param: 123
+''');
+      expect(withParam.parsingErrors, [
+        'Global rules: Unrecognized parameter "bogus-param" for rule "skill-file-inaccessible".',
+      ]);
+    });
+
+    test('reports a custom rule name, because configuration does not affect custom rules', () {
+      final rule = QuietRule();
+      final Configuration config = ConfigParser.parse(
+        Configuration(
+          ruleConfigs: {rule.name: const RuleConfigPatch(severity: AnalysisSeverity.error)},
+        ).toYamlString(),
+      );
+
+      expect(config.parsingErrors.single, contains('Unknown rule "${rule.name}"'));
+    });
+
+    test('explains a plain YAML merge key, and treats a quoted one as a name', () {
+      final Configuration config = ConfigParser.parse('''
+skills_lint:
+  rules:
+    base: &base
+      severity: error
+    <<: *base
+  directories:
+    - path: a
+      rules:
+        "<<": error
+''');
+
+      expect(config.parsingErrors, [
+        reportsUnknownRule('base'),
+        allOf(
+          contains('YAML merge keys ("<<") are not supported'),
+          isNot(contains('Did you mean')),
+        ),
+        reportsUnknownRule('<<', section: '"a"'),
+      ]);
     });
 
     test('records parsing error on non-map top-level YAML', () {

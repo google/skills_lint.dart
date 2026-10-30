@@ -2,14 +2,19 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
+import 'package:skills_lint/src/models/ignore_entry.dart';
 import 'package:skills_lint/src/models/output_format.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
+import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
+import 'package:skills_lint/src/models/skills_ignores.dart';
+import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/pub_archive_loader.dart';
 import 'package:skills_lint/src/rules/pub_archive_includes_skill_rule.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
@@ -257,6 +262,69 @@ void main() {
       // command (see `_chmod`), which Windows does not provide, and NTFS access
       // is controlled by ACLs rather than mode bits.
     }, testOn: '!windows');
+
+    group('ignore entries for a custom rule', () {
+      late Directory skillDir;
+
+      setUp(() async {
+        skillDir = await createDummySkill(
+          tempDir,
+          name: 'my-skill',
+          skillContent: buildFrontmatter(name: 'my-skill'),
+        );
+      });
+
+      /// Validates the skill with [_TwoSubjectsRule] and returns the subjects
+      /// of its errors that no entry in [ignoring] suppresses.
+      Future<List<String?>> unsuppressedSubjects({
+        List<Map<String, String>> ignoring = const [],
+        bool generateBaseline = false,
+      }) async {
+        File(p.join(skillDir.path, defaultIgnoreFileName)).writeAsStringSync(
+          jsonEncode({
+            SkillsIgnores.skillsKey: {'my-skill': ignoring},
+          }),
+        );
+        final ValidationSession session = createTestSession(
+          customRules: [_TwoSubjectsRule()],
+          generateBaseline: generateBaseline,
+        );
+        await session.processIndividualSkill(skillDir.path);
+        return [
+          for (final ValidationError error in session.results.single.validationErrors)
+            if (error.ruleId == _TwoSubjectsRule.ruleName && !error.isIgnored) error.subject,
+        ];
+      }
+
+      const Map<String, String> wholeFile = {
+        IgnoreEntry.ruleIdKey: _TwoSubjectsRule.ruleName,
+        IgnoreEntry.fileNameKey: 'SKILL.md',
+      };
+
+      test('are written to a baseline with each subject', () async {
+        await unsuppressedSubjects(generateBaseline: true);
+
+        final ignores = SkillsIgnores.fromJson(
+          jsonDecode(File(p.join(skillDir.path, defaultIgnoreFileName)).readAsStringSync())
+              as Map<String, dynamic>,
+        );
+        expect(ignores.skills['my-skill']!.map((entry) => entry.subject), ['first', 'second']);
+      });
+
+      test('with a subject suppress only the error about it', () async {
+        final List<String?> left = await unsuppressedSubjects(
+          ignoring: [
+            {...wholeFile, IgnoreEntry.subjectKey: 'first'},
+          ],
+        );
+
+        expect(left, ['second']);
+      });
+
+      test('without a subject suppress every error of the rule in the file', () async {
+        expect(await unsuppressedSubjects(ignoring: [wholeFile]), isEmpty);
+      });
+    });
   });
 
   group('pub archive', () {
@@ -315,4 +383,28 @@ void _chmod(String mode, String path) {
   if (result.exitCode != 0) {
     throw StateError('chmod $mode $path failed: ${result.stderr}');
   }
+}
+
+/// A custom rule that reports two errors in `SKILL.md`, with the subjects
+/// `first` and `second`.
+class _TwoSubjectsRule extends SkillRule {
+  static const String ruleName = 'two-subjects';
+
+  @override
+  String get name => ruleName;
+
+  @override
+  AnalysisSeverity get severity => AnalysisSeverity.error;
+
+  @override
+  Future<List<ValidationError>> validate(SkillContext context) async => [
+    for (final subject in ['first', 'second'])
+      ValidationError(
+        ruleId: name,
+        severity: severity,
+        file: SkillContext.skillFileName,
+        message: 'Error about $subject.',
+        subject: subject,
+      ),
+  ];
 }
