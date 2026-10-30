@@ -218,7 +218,7 @@ void main() {
     expect(content, contains('Body\n'));
     expect(content, contains('name: foo'));
     expect(err, contains('bar-foo'));
-  }, skip: Platform.isWindows ? 'chmod does not exist on Windows' : false);
+  }, skip: Platform.isWindows ? 'uses the POSIX chmod command' : null);
 
   test('stops after maxPasses and says the fixes did not settle', () async {
     final Directory skillDir = await createPackageSkill('bar-foo');
