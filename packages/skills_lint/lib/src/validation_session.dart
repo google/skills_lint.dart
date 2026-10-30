@@ -639,7 +639,7 @@ class ValidationSession {
   void _applyIgnores(ValidationResult result, List<IgnoreEntry> ignores, Directory skillDir) {
     final List<({IgnoreEntry entry, String normalizedFileName})> preNormalizedIgnores = [
       for (final ignore in ignores)
-        (entry: ignore, normalizedFileName: _normalizeIgnoreFileName(ignore.fileName)),
+        (entry: ignore, normalizedFileName: p.normalize(ignore.fileName)),
     ];
 
     for (final ValidationError error in result.validationErrors) {
@@ -710,18 +710,11 @@ class ValidationSession {
     return normalized;
   }
 
-  /// Normalizes the `file_name` of an ignore entry for matching.
-  ///
-  /// A relative name is read in the portable form that [baselineFileName]
-  /// writes, with either `/` or `\\` between segments, so that an entry
-  /// written with `\\` on Windows still matches on any host. An absolute name
-  /// is normalized with the host context.
-  static String _normalizeIgnoreFileName(String fileName) {
-    if (p.isAbsolute(fileName)) {
-      return p.normalize(fileName);
-    }
-    return p.posix.normalize(fileName.replaceAll(r'\', '/'));
-  }
+  /// The portable form of a relative ignore entry name [fileName], with `/`
+  /// between segments, so that an entry written with `\\` on Windows still
+  /// matches on any host.
+  static String _portableIgnoreFileName(String fileName) =>
+      p.posix.normalize(fileName.replaceAll(r'\', '/'));
 
   /// Where an error reported on [errorFile] sits on disk.
   static String _absoluteErrorFile(String errorFile, Directory skillDir) {
@@ -738,7 +731,10 @@ class ValidationSession {
   /// directory hold the path as it was spelled on the command line. Those
   /// entries keep matching while [absoluteName] ends with them.
   static bool _ignoreCovers(String ignoreFileName, String portableName, String absoluteName) {
-    if (ignoreFileName == portableName || p.equals(ignoreFileName, absoluteName)) {
+    if (ignoreFileName == portableName ||
+        (!p.isAbsolute(ignoreFileName) &&
+            _portableIgnoreFileName(ignoreFileName) == portableName) ||
+        p.equals(ignoreFileName, absoluteName)) {
       return true;
     }
     return _isPathSuffix(ignoreFileName, absoluteName);
