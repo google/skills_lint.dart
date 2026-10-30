@@ -30,7 +30,8 @@ The core analysis engine responsible for inspecting individual skills.
 ### 4. [Rule Subsystem & Extensibility](../../lib/src/rules/)
 The extensible framework for authoring and running skill checks.
 - **Diagnostic Rules:** Independent rule checkers that validate specific constraints (such as metadata schemas, directory layout, path portability, and naming conventions).
-- **Auto-Fix Interface:** Rules that support automated remediation define pure transformation operations, taking current file content and returning modified content without directly touching the filesystem.
+- **Auto-Fix Interface:** Rules that support automated remediation define pure transformation operations. Each takes a `SkillContext` and returns the modified `SKILL.md` content without touching the filesystem.
+- **Fix Planning and Writing:** [`SkillFixer`](../../lib/src/skill_fixer.dart) plans the fixes for one skill in memory, keeping a fix only if it lowers the errors, then warnings. [`SkillWriter`](../../lib/src/skill_writer.dart) does all `--fix` file I/O: it renames the skill directory, then writes `SKILL.md`, and returns every failure as an `ApplyResult`.
 
 ### 5. [Baseline & Suppression Subsystem](../../lib/src/skills_ignores_storage.dart)
 The persistent suppression mechanism enabling incremental adoption and baseline suppression management.
@@ -39,7 +40,7 @@ The persistent suppression mechanism enabling incremental adoption and baseline 
 
 ### 6. [Reporter Subsystem](../../lib/src/reporters/)
 The multi-format output streaming subsystem.
-- **Polymorphic Reporting:** Dispatches session lifecycle events (`onDirectoryEvaluating`, `onSkillEvaluating`, `onSkillValidationComplete`, `onFixApplied`, `onSessionComplete`) across output formats (`TextReporter`, `JsonReporter`, `SarifReporter`). Before changing SARIF output (`SarifReporter` or the models and serializer in `lib/src/models/sarif/`), read the [SARIF Primer](sarif_primer.md).
+- **Polymorphic Reporting:** Dispatches the session lifecycle events defined in [`Reporter`](../../lib/src/reporters/reporter.dart) across output formats (`TextReporter`, `JsonReporter`, `SarifReporter`). Before changing SARIF output (`SarifReporter` or the models and serializer in `lib/src/models/sarif/`), read the [SARIF Primer](sarif_primer.md).
 - **Standardized Output Channels:** Ensures clean channel separation—structured documents (JSON, SARIF) stream to stdout while operational diagnostics and errors stream to stderr.
 
 ---
@@ -72,16 +73,22 @@ sequenceDiagram
         CLI->>Reporter: onSkillValidationComplete
         
         alt Fix Mode Enabled
-            CLI->>Rules: Compute proposed fixes in memory
-            Rules-->>CLI: Transformed content
+            CLI->>Rules: Plan fixes in memory (SkillFixer)
+            Rules-->>CLI: Fixed content and wanted directory name
+            CLI->>CLI: SkillWriter preflight, and plan again without the rename if it is blocked
             alt Dry Run
                 CLI->>Reporter: onDryRunProposed
             else Apply
-                CLI->>CLI: Write updated files to disk
-                CLI->>Reporter: onFixApplied
+                CLI->>CLI: SkillWriter renames, then writes SKILL.md
+                CLI->>Reporter: onFixesWritten
                 CLI->>Engine: Re-validate to verify fix correctness
             end
         end
+    end
+
+    opt A fix renamed a skill directory
+        CLI->>Reporter: onRecheckAfterRenames
+        CLI->>Engine: Re-validate every skill, since a rename can break a sibling's link
     end
 
     alt Baseline Generation Mode
@@ -105,7 +112,7 @@ The codebase applies the [SOLID principles](https://en.wikipedia.org/wiki/SOLID)
    Configuration settings and rule parameters merge cleanly across scopes. Narrower scopes (e.g., target-specific settings or CLI flags) override broader defaults without unintentionally resetting unrelated sibling parameters.
 
 3. **Two-Phase Fix & Verification Lifecycle**  
-   Remediation is always split into two distinct phases: in-memory transformation and subsequent re-validation. Rules produce candidate fixes as data rather than performing disk writes. When fixes are applied, the orchestrator immediately re-validates the target to ensure the fix resolved the error without introducing regressions.
+   Remediation is always split into two distinct phases: in-memory transformation and subsequent re-validation. Rules produce candidate fixes as data rather than performing disk writes. Fixes are planned against the directory name a skill will have after a rename. If the rename can't happen, only the fixes that don't need it are applied (see [`ValidationSession`](../../lib/src/validation_session.dart)). When fixes are applied, the orchestrator immediately re-validates the target to ensure the fix resolved the error without introducing regressions. When a fix renames a skill directory, the session moves that skill's ignore entries to the new name and re-validates every skill once all skills are done.
 
 4. **Structured Baseline Auditing**  
    Suppression baselines rely on stable rule identifiers and relative file paths rather than fragile log message matching. Baselines are actively audited during execution to identify stale suppressions when violations are fixed.

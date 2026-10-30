@@ -2,9 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
 import 'package:meta/meta.dart';
-import 'package:path/path.dart';
 import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 import '../fixable_rule.dart';
@@ -50,7 +48,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final SourceRegion? region = context.yamlNodeToRegion(nameNode);
     final String suggestion = suggestNormalizedName(skillName);
-    final String directoryName = basename(context.directory.path);
+    final String directoryName = context.activeDirectoryName;
 
     if (skillName != directoryName) {
       errors.add(
@@ -176,12 +174,10 @@ class NameFormatRule extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    if (filePath != SkillContext.skillFileName) {
-      return currentContent;
-    }
+  Future<String> fix(SkillContext context) async {
+    final String currentContent = context.rawContent;
 
-    final String directoryName = basename(directory.path);
+    final String directoryName = context.activeDirectoryName;
     if (!isValidSkillName(directoryName)) {
       return currentContent;
     }

@@ -20,7 +20,7 @@ Add a built-in validation rule to `skills_lint`, expose the rule as a CLI flag, 
 - Document any frontmatter structure the rule expects (for example, keys under `metadata`) in the rule class dartdoc.
 - Read YAML frontmatter from `context.parsedYaml` and map nodes to source spans with `context.yamlNodeToRegion`.
 - Cite [`SpecificationUrls`](../../../packages/skills_lint/lib/src/specification_urls.dart) only when the rule enforces the official Agent Skills specification.
-- Implement [`FixableRule`](../../../packages/skills_lint/lib/src/fixable_rule.dart) when the rule supports `--fix`.
+- Implement [`FixableRule`](../../../packages/skills_lint/lib/src/fixable_rule.dart) when the rule supports `--fix`. Return `rawContent` unchanged when there is nothing to fix, make the fix idempotent, and make it lower the rule's own diagnostics. `--fix` drops a fix that doesn't lower the skill's errors or warnings.
 
 ## 2. Registration in [`lib/src/rule_registry.dart`](../../../packages/skills_lint/lib/src/rule_registry.dart)
 

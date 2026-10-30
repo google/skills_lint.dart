@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:convert';
-import 'dart:io';
 import 'package:meta/meta.dart';
 import 'package:source_span/source_span.dart';
 
@@ -122,10 +121,8 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(String filePath, String currentContent, Directory directory) async {
-    if (filePath != _skillFileName) {
-      return currentContent;
-    }
+  Future<String> fix(SkillContext context) async {
+    final String currentContent = context.rawContent;
 
     // LineSplitter drops the line breaks, which the fix must keep. SourceFile
     // finds the same lines and knows where each starts, so the break after a

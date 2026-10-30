@@ -564,7 +564,9 @@ $ruleYaml
         final String outsideFile = p.join(tempDir.path, 'RULES.md');
         final content = '${frontmatter}See [rules]($outsideFile).\n';
 
-        final String fixed = await AbsolutePathsRule().fix('SKILL.md', content, skillDir);
+        final String fixed = await AbsolutePathsRule().fix(
+          SkillContext(directory: skillDir, rawContent: content),
+        );
 
         expect(fixed, contains('[rules](../../RULES.md)'));
         final rule = RelativePathsRule(severity: AnalysisSeverity.error, withinSkill: true);

@@ -1,0 +1,63 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+import 'skill_context.dart';
+import 'skipped_fix.dart';
+import 'validation_result.dart';
+
+/// The state the fixer reaches for one skill, before anything is written.
+class FixOutcome {
+  FixOutcome({
+    required this.result,
+    required this.appliedRuleNames,
+    required this.skippedFixes,
+    required this.settled,
+    required this.passesWithKeptFixes,
+  });
+
+  /// The validation result of the fixed content.
+  ///
+  /// Its context holds the fixed content and the planned directory name.
+  final ValidationResult result;
+
+  /// The rules whose fixes were kept, in the order they first applied.
+  final List<String> appliedRuleNames;
+
+  /// The fixes that were dropped, for rules that still report diagnostics.
+  final List<SkippedFix> skippedFixes;
+
+  /// Whether a last pass over the rules kept no fix.
+  ///
+  /// False when the pass limit, `SkillFixer.maxPasses`, ended the loop.
+  final bool settled;
+
+  /// The number of passes over the rules that kept at least one fix.
+  ///
+  /// It counts up by one for each such pass, so it is 0 when no fix was kept.
+  /// It reaches `SkillFixer.maxPasses` only when the fixes did not settle.
+  final int passesWithKeptFixes;
+
+  /// A copy of this outcome with [skippedFixes].
+  FixOutcome withSkippedFixes(List<SkippedFix> skippedFixes) => FixOutcome(
+    result: result,
+    appliedRuleNames: appliedRuleNames,
+    skippedFixes: skippedFixes,
+    settled: settled,
+    passesWithKeptFixes: passesWithKeptFixes,
+  );
+
+  /// The fixer only builds outcomes from results that have a context.
+  SkillContext get _context {
+    final SkillContext? context = result.context;
+    assert(context != null, 'A FixOutcome needs a result with a context.');
+    return context!;
+  }
+
+  /// The fixed `SKILL.md` content.
+  String get content => _context.rawContent;
+
+  /// The directory name after the fixes, which differs from the current one
+  /// when a fix renames the skill.
+  String get directoryName => _context.activeDirectoryName;
+}

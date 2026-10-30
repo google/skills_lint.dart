@@ -147,7 +147,9 @@ void main() {
         final Directory skillDir = await Directory('${tempDir.path}/my_skill').create();
         final content = '${buildFrontmatter(name: 'wrong-name')}Body';
 
-        final String fixedContent = await NameFormatRule().fix('SKILL.md', content, skillDir);
+        final String fixedContent = await NameFormatRule().fix(
+          SkillContext(directory: skillDir, rawContent: content),
+        );
 
         expect(fixedContent, content);
       });
@@ -159,7 +161,9 @@ void main() {
           const crlfContent =
               '---\r\nname: wrong-name\r\ndescription: A test skill\r\n---\r\nBody\r\n';
           final rule = NameFormatRule();
-          final String fixedContent = await rule.fix('SKILL.md', crlfContent, skillDir);
+          final String fixedContent = await rule.fix(
+            SkillContext(directory: skillDir, rawContent: crlfContent),
+          );
           expect(
             fixedContent,
             equals('---\r\nname: crlf-skill\r\ndescription: A test skill\r\n---\r\nBody\r\n'),
@@ -171,11 +175,15 @@ void main() {
         final Directory skillDir = await Directory('${tempDir.path}/my-skill').create();
         const emptyNameContent = '---\nname:\ndescription: A test skill\n---\nBody\n';
         final rule = NameFormatRule();
-        final String fixedEmpty = await rule.fix('SKILL.md', emptyNameContent, skillDir);
+        final String fixedEmpty = await rule.fix(
+          SkillContext(directory: skillDir, rawContent: emptyNameContent),
+        );
         expect(fixedEmpty, equals(emptyNameContent));
 
         const mapNameContent = '---\nname:\n  sub: value\ndescription: A test skill\n---\nBody\n';
-        final String fixedMap = await rule.fix('SKILL.md', mapNameContent, skillDir);
+        final String fixedMap = await rule.fix(
+          SkillContext(directory: skillDir, rawContent: mapNameContent),
+        );
         expect(fixedMap, equals(mapNameContent));
       });
 
@@ -184,10 +192,16 @@ void main() {
         final rule = NameFormatRule();
 
         const malformedContent = '---\nname: [unclosed\ndescription: A test skill\n---\nBody\n';
-        expect(await rule.fix('SKILL.md', malformedContent, skillDir), equals(malformedContent));
+        expect(
+          await rule.fix(SkillContext(directory: skillDir, rawContent: malformedContent)),
+          equals(malformedContent),
+        );
 
         const scalarContent = '---\njust a string\n---\nBody\n';
-        expect(await rule.fix('SKILL.md', scalarContent, skillDir), equals(scalarContent));
+        expect(
+          await rule.fix(SkillContext(directory: skillDir, rawContent: scalarContent)),
+          equals(scalarContent),
+        );
       });
 
       test('validate does not coerce null name value to literal null string', () async {

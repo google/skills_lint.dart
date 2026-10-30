@@ -3,8 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import '../models/skill_rule.dart';
+import '../models/skipped_fix.dart';
 import '../models/validation_result.dart';
 import 'reporter.dart';
+import 'tool_error_messages.dart';
 
 /// Human-readable streaming text reporter.
 class TextReporter extends Reporter {
@@ -18,6 +20,9 @@ class TextReporter extends Reporter {
 
   /// Heading message emitted before listing warnings.
   static const String warningsMsg = 'Warnings:';
+
+  /// Heading message emitted before the result `--fix --dry-run` predicts.
+  static const String afterDryRunFixesMsg = 'After fixes, the skill would be:';
 
   /// Prefix message emitted before evaluating a directory.
   static const String evaluatingDirMsg = 'Evaluating directory:';
@@ -70,10 +75,47 @@ class TextReporter extends Reporter {
   }
 
   @override
-  void onFixApplied(String skillName) {
+  void onFixesWritten(String skillName, {required List<String> ruleNames}) {
     if (!quiet) {
-      out.writeln('  Applied fixes for $skillName');
+      out.writeln('  Applied fixes for $skillName: ${ruleNames.join(', ')}');
     }
+  }
+
+  @override
+  void onFixedSkillValidationComplete(ValidationResult result, {bool dryRun = false}) {
+    final bool printsWarnings = printWarnings && result.warnings.isNotEmpty;
+    // With --quiet, a valid skill without warnings prints nothing, so the
+    // heading would stand alone.
+    if (dryRun && (!quiet || !result.isValid || printsWarnings)) {
+      out.writeln('  $afterDryRunFixesMsg');
+    }
+    onSkillValidationComplete(result);
+  }
+
+  @override
+  void onRecheckAfterRenames() {
+    if (!quiet) {
+      out.writeln('Re-checking skills after directory renames:');
+    }
+  }
+
+  @override
+  void onFixSkipped(String skillName, SkippedFix skipped) {
+    if (quiet) {
+      return;
+    }
+    final String reason = switch (skipped) {
+      SkippedFix(reason: final String reason) => reason,
+      SkippedFix(needsRename: true) => 'it needs a directory rename that cannot happen',
+      SkippedFix(grownRuleNames: []) => 'it would not lower the number of errors or warnings',
+      SkippedFix(:final grownRuleNames) => 'it would add ${grownRuleNames.join(', ')} diagnostics',
+    };
+    out.writeln('  Skipped the ${skipped.ruleName} fix: $reason.');
+  }
+
+  @override
+  void onFixesDidNotSettle({required String skillName, required int passes}) {
+    err.writeln(ToolErrorMessages.fixesDidNotSettleMessage(skillName: skillName, passes: passes));
   }
 
   @override

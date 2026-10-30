@@ -6,7 +6,9 @@ import 'dart:io';
 
 import '../models/output_format.dart';
 import '../models/skill_rule.dart';
+import '../models/skipped_fix.dart';
 import '../models/validation_result.dart';
+import 'fix_io_messages.dart';
 import 'json_reporter.dart';
 import 'sarif_reporter.dart';
 import 'text_reporter.dart';
@@ -42,6 +44,11 @@ abstract class Reporter {
   /// Prefix used for internal tool failure messages routed to stderr.
   static const String toolErrorPrefix = 'skills_lint internal error:';
 
+  /// Prefix for user errors routed to stderr: failures that the user's files
+  /// or environment cause, such as a `--fix` rename onto an existing
+  /// directory.
+  static const String userErrorPrefix = 'Error:';
+
   /// Destination for normal report output.
   final StringSink out;
 
@@ -65,8 +72,26 @@ abstract class Reporter {
     required String currentContent,
   }) {}
 
-  /// Called when fixes are written to disk for [skillName].
-  void onFixApplied(String skillName) {}
+  /// Called when the fixes of the rules named [ruleNames] are written to
+  /// disk for [skillName].
+  void onFixesWritten(String skillName, {required List<String> ruleNames}) {}
+
+  /// Called by the session once it has fixed a skill and validated it again,
+  /// with the result of that validation.
+  ///
+  /// When fixes are written, this replaces [onSkillValidationComplete] for a
+  /// skill whose fixes changed it, and [result] is the one that sets the exit
+  /// code. With [dryRun], nothing was written, and [result] is the skill as
+  /// the fixes would leave it.
+  void onFixedSkillValidationComplete(ValidationResult result, {bool dryRun = false}) {}
+
+  /// Called when the fixer drops a rule's fix for [skillName] because the fix
+  /// would not lower the skill's errors, then warnings.
+  void onFixSkipped(String skillName, SkippedFix skipped) {}
+
+  /// Called when the fixes for [skillName] still change the skill after
+  /// [passes] passes.
+  void onFixesDidNotSettle({required String skillName, required int passes}) {}
 
   /// Called for each problem found in the configuration file.
   void onConfigurationWarning(String error) {
@@ -78,35 +103,52 @@ abstract class Reporter {
     err.writeln(ToolErrorMessages.fixFailedMessage(ruleName: ruleName, error: error));
   }
 
+  /// Called before the session validates every skill again because fixes
+  /// renamed at least one skill directory.
+  void onRecheckAfterRenames() {}
+
   /// Called when a skill directory is renamed on disk.
   void onSkillRenamed(String oldSkillName, String targetSkillName) {}
 
-  /// Called when a skill directory rename is blocked because the destination exists.
-  void onRenameTargetExists({
+  /// Called when `--fix` can't rename the skill directory [oldSkillName] to
+  /// [targetSkillName], for example because the target exists or the
+  /// parent directory is read-only.
+  ///
+  /// The fixes that need the new name are skipped, and the others still land.
+  void onRenameBlocked({
     required String oldSkillName,
     required String targetSkillName,
-    required String destinationPath,
+    required String reason,
   }) {
     err.writeln(
-      ToolErrorMessages.renameTargetExistsMessage(
+      FixIoMessages.renameBlocked(
         oldSkillName: oldSkillName,
         targetSkillName: targetSkillName,
-        destinationPath: destinationPath,
+        reason: reason,
       ),
     );
   }
 
-  /// Called when a skill directory rename fails due to an internal exception.
-  void onRenameFailed({
-    required String oldSkillName,
-    required String targetSkillName,
-    required Object error,
+  /// Called when `--fix` can't write [skillMdPath], which leaves the skill
+  /// unchanged.
+  void onWriteFailed({required String skillMdPath, required Object error}) {
+    err.writeln(FixIoMessages.writeFailed(skillMdPath: skillMdPath, error: error));
+  }
+
+  /// Called when `--fix` renamed the skill directory [fromPath] to [toPath],
+  /// then couldn't write `SKILL.md`, and couldn't rename the directory back.
+  void onRenamedButNotWritten({
+    required String fromPath,
+    required String toPath,
+    required Object writeError,
+    required Object undoError,
   }) {
     err.writeln(
-      ToolErrorMessages.renameFailedMessage(
-        oldSkillName: oldSkillName,
-        targetSkillName: targetSkillName,
-        error: error,
+      FixIoMessages.renamedButNotWritten(
+        fromPath: fromPath,
+        toPath: toPath,
+        writeError: writeError,
+        undoError: undoError,
       ),
     );
   }

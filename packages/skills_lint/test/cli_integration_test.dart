@@ -16,6 +16,7 @@ import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skills_ignores.dart';
 import 'package:skills_lint/src/reporters/reporters.dart';
 import 'package:skills_lint/src/rule_registry.dart';
+import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
 import 'package:skills_lint/src/validator.dart';
@@ -777,6 +778,65 @@ skills_lint:
       final String content = await File('${skillDir.path}/SKILL.md').readAsString();
       expect(content, isNot(contains('Line with 1 space \n')));
       expect(content, contains('Line with 1 space\n'));
+    });
+
+    test('--fix prints the diagnostics that remain after the fix', () async {
+      // The trailing whitespace has a fix and the broken link has none.
+      final Directory skillDir = await createDummySkill(
+        tempDir,
+        name: 'test-skill',
+        skillContent: '${buildFrontmatter(name: 'test-skill')}See [doc](missing.md). \n',
+      );
+
+      final TestProcess process = await startCli([
+        '-s',
+        skillDir.path,
+        '--check-trailing-whitespace',
+        '--check-relative-paths',
+        '--fix',
+      ]);
+
+      final String stdout = (await process.stdout.rest.toList()).join('\n');
+      final String stderr = (await process.stderr.rest.toList()).join('\n');
+      expect(stdout, contains('Applied fixes for test-skill'));
+      // Only the result after the fix is printed.
+      expect(stderr, isNot(contains('trailing space')));
+      expect(stderr, contains('Linked file does not exist: missing.md'));
+      await process.shouldExit(1);
+    });
+
+    test('--fix skips a fix that would add an error', () async {
+      // Making the absolute link relative would make it leave the skill, which
+      // within-skill reports as an error. The link is a warning as it is.
+      final String root = tempDir.resolveSymbolicLinksSync();
+      final String guidePath = p.join(root, 'shared', 'guide.md');
+      await File(guidePath).create(recursive: true);
+      final content = '${buildFrontmatter(name: 'my-skill')}See [guide]($guidePath).\n';
+      final Directory skillDir = await createDummySkill(
+        Directory(p.join(root, 'skills')),
+        name: 'my-skill',
+        skillContent: content,
+      );
+
+      final TestProcess process = await startCli([
+        '--ignore-config',
+        '-s',
+        skillDir.path,
+        '--check-relative-paths',
+        '--check-relative-paths-within-skill=true',
+        '--fix',
+      ]);
+
+      final String stdout = (await process.stdout.rest.toList()).join('\n');
+      expect(
+        stdout,
+        contains(
+          'Skipped the ${AbsolutePathsRule.ruleName} fix: '
+          'it would add ${RelativePathsRule.ruleName} diagnostics.',
+        ),
+      );
+      await process.shouldExit(0);
+      expect(File(p.join(skillDir.path, 'SKILL.md')).readAsStringSync(), content);
     });
 
     test('--fix-apply alias still works but prints a deprecation notice', () async {
