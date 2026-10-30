@@ -91,7 +91,9 @@ void main() {
 
       final IgnoresLoad result = await storage.load(file.path);
       expect(result.ignores.skills, isEmpty);
-      expect(result.problems, [allOf(contains(file.path), contains('is not valid JSON'))]);
+      expect(result.problems.map((problem) => problem.message), [
+        allOf(contains(file.path), contains('is not valid JSON')),
+      ]);
     });
 
     test('reports a skills value of the wrong shape and loads no entries', () async {
@@ -100,7 +102,9 @@ void main() {
 
       final IgnoresLoad result = await storage.load(file.path);
       expect(result.ignores.skills, isEmpty);
-      expect(result.problems, [allOf(contains(file.path), contains('"skills"'))]);
+      expect(result.problems.map((problem) => problem.message), [
+        allOf(contains(file.path), contains('"skills"')),
+      ]);
     });
 
     test('reports a top level that is not an object', () async {
@@ -109,7 +113,9 @@ void main() {
 
       final IgnoresLoad result = await storage.load(file.path);
       expect(result.ignores.skills, isEmpty);
-      expect(result.problems, [contains('must be a JSON object')]);
+      expect(result.problems.map((problem) => problem.message), [
+        contains('must be a JSON object'),
+      ]);
     });
 
     test('reports an object with no skills key', () async {
@@ -118,7 +124,7 @@ void main() {
 
       final IgnoresLoad result = await storage.load(file.path);
       expect(result.ignores.skills, isEmpty);
-      expect(result.problems, [contains('"skills"')]);
+      expect(result.problems.map((problem) => problem.message), [contains('"skills"')]);
     });
 
     test('loads an empty or whitespace-only file as empty, with no problems', () async {
@@ -159,7 +165,7 @@ void main() {
       expect(result.ignores.skills.keys, unorderedEquals(['skill-a', 'skill-b']));
       expect(result.ignores.skills['skill-a']!.single.ruleId, 'rule1');
       expect(result.ignores.skills['skill-b']!.single.ruleId, 'rule2');
-      expect(result.problems, [
+      expect(result.problems.map((problem) => problem.message), [
         '${file.path}: skill "skill-b", entry 2: missing "file_name".',
         '${file.path}: skill "skill-b", entry 3: must be a JSON object.',
         '${file.path}: skill "skill-b", entry 4: "subject" must be a string.',

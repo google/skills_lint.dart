@@ -70,24 +70,36 @@ void main() {
       '--generate-baseline',
     ]);
     final String stderr = (await process.stderr.rest.toList()).join('\n');
-    await process.shouldExit(1);
+    await process.shouldExit(0);
 
     expect('skill "other", entry 2'.allMatches(stderr), hasLength(1));
-    expect('did not write the baseline'.allMatches(stderr), hasLength(1));
+    expect('Replacing ${ignoreFile.path}'.allMatches(stderr), hasLength(1));
   });
 
-  test('--generate-baseline refuses to overwrite a file with malformed entries', () async {
-    await ignoreFile.writeAsString(malformedIgnores);
+  test(
+    '--generate-baseline replaces a file with malformed entries and says what it drops',
+    () async {
+      await ignoreFile.writeAsString(malformedIgnores);
 
-    final TestProcess process = await startCli(['-d', skillsDir.path, '--generate-baseline']);
-    final String stderr = (await process.stderr.rest.toList()).join('\n');
-    await process.shouldExit(1);
+      final TestProcess process = await startCli(['-d', skillsDir.path, '--generate-baseline']);
+      final String stderr = (await process.stderr.rest.toList()).join('\n');
+      await process.shouldExit(0);
 
-    expect(ignoreFile.readAsStringSync(), malformedIgnores);
-    expect(stderr, contains('did not write the baseline to ${ignoreFile.path}'));
-  });
+      expect(
+        stderr,
+        contains(
+          'Replacing ${ignoreFile.path} without carrying over 1 malformed entry (skill "other").',
+        ),
+      );
+      final String written = ignoreFile.readAsStringSync();
+      expect(written, contains('invalid-skill-name'));
+      expect(written, contains('description-too-long'));
+      expect(written, isNot(contains('"x"')));
+      expect(File('${ignoreFile.path}.bak').existsSync(), isFalse);
+    },
+  );
 
-  test('--fix --generate-baseline refuses to overwrite a file with malformed entries', () async {
+  test('--fix --generate-baseline replaces a file with malformed entries', () async {
     await ignoreFile.writeAsString(malformedIgnores);
 
     final TestProcess process = await startCli([
@@ -96,27 +108,35 @@ void main() {
       '--fix',
       '--generate-baseline',
     ]);
-    await process.stderr.rest.toList();
-    await process.shouldExit(1);
+    final String stderr = (await process.stderr.rest.toList()).join('\n');
+    await process.shouldExit(0);
 
-    expect(ignoreFile.readAsStringSync(), malformedIgnores);
+    expect(stderr, contains('Replacing ${ignoreFile.path}'));
+    expect(ignoreFile.readAsStringSync(), isNot(contains('"x"')));
   });
 
-  test('-s with --generate-baseline refuses to overwrite a malformed custom file', () async {
+  test('--generate-baseline reports only the ignore files that had problems', () async {
     await ignoreFile.writeAsString(malformedIgnores);
+    final Directory moreSkills = await Directory(p.join(tempDir.path, 'more')).create();
+    final Directory third = await Directory(p.join(moreSkills.path, 'third')).create();
+    await File(
+      p.join(third.path, 'SKILL.md'),
+    ).writeAsString('${buildFrontmatter(name: 'third', description: 'A skill.')}Body\n');
+    final validIgnores = File(p.join(moreSkills.path, 'skills_lint_ignore.json'));
+    await validIgnores.writeAsString('{"skills": {}}');
 
     final TestProcess process = await startCli([
-      '-s',
-      p.join(skillsDir.path, 'other'),
-      '--ignore-file',
-      ignoreFile.path,
+      '-d',
+      skillsDir.path,
+      '-d',
+      moreSkills.path,
       '--generate-baseline',
     ]);
     final String stderr = (await process.stderr.rest.toList()).join('\n');
-    await process.shouldExit(1);
+    await process.shouldExit(0);
 
-    expect(ignoreFile.readAsStringSync(), malformedIgnores);
-    expect(stderr, contains('skill "other", entry 2'));
+    expect(stderr, contains('Replacing ${ignoreFile.path}'));
+    expect(stderr, isNot(contains('Replacing ${validIgnores.path}')));
   });
 
   test('reports an ignore file that is not valid JSON without failing', () async {
@@ -131,13 +151,17 @@ void main() {
     expect(stderr, contains('not valid JSON'));
   });
 
-  test('--generate-baseline leaves an ignore file that is not valid JSON unchanged', () async {
+  test('--generate-baseline replaces an ignore file that is not valid JSON', () async {
     await ignoreFile.writeAsString('{ not json');
 
     final TestProcess process = await startCli(['-d', skillsDir.path, '--generate-baseline']);
-    await process.stderr.rest.toList();
-    await process.shouldExit(1);
+    final String stderr = (await process.stderr.rest.toList()).join('\n');
+    await process.shouldExit(0);
 
-    expect(ignoreFile.readAsStringSync(), '{ not json');
+    expect(
+      stderr,
+      contains('Replacing ${ignoreFile.path} without carrying over its unreadable contents.'),
+    );
+    expect(ignoreFile.readAsStringSync(), contains('invalid-skill-name'));
   });
 }

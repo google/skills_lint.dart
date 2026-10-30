@@ -14,7 +14,14 @@ import 'models/skills_ignores.dart';
 /// the file that could not be read, one message per malformed entry. When
 /// `problems` is not empty, `ignores` is missing those entries, so writing it
 /// back to the file would delete them.
-typedef IgnoresLoad = ({SkillsIgnores ignores, List<String> problems});
+typedef IgnoresLoad = ({SkillsIgnores ignores, List<IgnoreProblem> problems});
+
+/// A part of an ignore file that [SkillsIgnoresStorage.load] could not read.
+///
+/// `skill` names the skill whose entry is malformed, or is `null` when the
+/// whole file could not be read. `message` names the file and describes the
+/// problem.
+typedef IgnoreProblem = ({String? skill, String message});
 
 /// Service class for reading and writing the `SkillsIgnores` model to/from disk.
 class SkillsIgnoresStorage {
@@ -30,14 +37,14 @@ class SkillsIgnoresStorage {
   Future<IgnoresLoad> load(String path) async {
     final file = File(path);
     if (!file.existsSync()) {
-      return (ignores: SkillsIgnores(skills: {}), problems: <String>[]);
+      return (ignores: SkillsIgnores(skills: {}), problems: <IgnoreProblem>[]);
     }
 
     final Object? json;
     try {
       final String content = await file.readAsString();
       if (content.trim().isEmpty) {
-        return (ignores: SkillsIgnores(skills: {}), problems: <String>[]);
+        return (ignores: SkillsIgnores(skills: {}), problems: <IgnoreProblem>[]);
       }
       json = jsonDecode(content);
     } on FileSystemException catch (e) {
@@ -50,7 +57,7 @@ class SkillsIgnoresStorage {
   }
 
   static IgnoresLoad _unreadable(String path, String reason) =>
-      (ignores: SkillsIgnores(skills: {}), problems: ['$path $reason']);
+      (ignores: SkillsIgnores(skills: {}), problems: [(skill: null, message: '$path $reason')]);
 
   static IgnoresLoad _parse(String path, Object? json) {
     if (json is! Map<String, dynamic>) {
@@ -60,7 +67,7 @@ class SkillsIgnoresStorage {
     // as one with a misspelled key, is a problem, so that
     // `--generate-baseline` does not overwrite it.
     if (json.isEmpty) {
-      return (ignores: SkillsIgnores(skills: {}), problems: <String>[]);
+      return (ignores: SkillsIgnores(skills: {}), problems: <IgnoreProblem>[]);
     }
     final Object? skillsJson = json[SkillsIgnores.skillsKey];
     if (skillsJson is! Map<String, dynamic>) {
@@ -71,11 +78,14 @@ class SkillsIgnoresStorage {
     }
 
     final skills = <String, List<IgnoreEntry>>{};
-    final problems = <String>[];
+    final problems = <IgnoreProblem>[];
     for (final MapEntry<String, dynamic>(key: skillName, value: entriesJson)
         in skillsJson.entries) {
       if (entriesJson is! List<dynamic>) {
-        problems.add('$path: skill "$skillName" must list its entries in a JSON array.');
+        problems.add((
+          skill: skillName,
+          message: '$path: skill "$skillName" must list its entries in a JSON array.',
+        ));
         continue;
       }
       final entries = <IgnoreEntry>[];
@@ -85,7 +95,10 @@ class SkillsIgnoresStorage {
             ? _entryProblem(entryJson)
             : 'must be a JSON object.';
         if (problem != null) {
-          problems.add('$path: skill "$skillName", entry ${i + 1}: $problem');
+          problems.add((
+            skill: skillName,
+            message: '$path: skill "$skillName", entry ${i + 1}: $problem',
+          ));
           continue;
         }
         try {
@@ -93,7 +106,10 @@ class SkillsIgnoresStorage {
         } on TypeError catch (e) {
           // The generated fromJson checks shape through `as` casts. This
           // catches a field it requires that _entryProblem does not check.
-          problems.add('$path: skill "$skillName", entry ${i + 1}: $e');
+          problems.add((
+            skill: skillName,
+            message: '$path: skill "$skillName", entry ${i + 1}: $e',
+          ));
         }
       }
       skills[skillName] = entries;
