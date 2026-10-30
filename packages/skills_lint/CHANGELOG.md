@@ -30,7 +30,7 @@
 - Made `check-trailing-whitespace` about 20 times faster. Its diagnostics and `--fix` output are unchanged, except for the lone carriage return change under Behavior changes.
 - The `skills-lint-setup` skill picks a setup path: a `dart test` that calls `validateSkills` in a Dart package, or the installed `skills_lint` command otherwise. It no longer links to files outside its own directory.
 - Added a `--version` flag that prints the skills_lint version.
-- The published package includes its agent skills, so `dart run skills@ get` installs them.
+- The published package includes its agent skills, so `dart run skills@^1.0.0 get --agent generic --package skills_lint --all` installs them into `.agents/skills/`.
 - Ignore file entries take an optional `subject` that limits an entry to the findings about one thing in the file. `check-relative-paths` and `check-absolute-paths` set it to the link destination, and `--generate-baseline` records it.
 - Added `ValidationError.subject`, which a custom rule can set so that an ignore entry can name it. `--format=json` output includes it.
 

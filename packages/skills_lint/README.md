@@ -17,15 +17,13 @@ A static analysis linter for Agent Skills to ensure they meet the specification 
 
 ## Overview
 
-An **Agent Skill** is a portable, self-contained directory that extends an AI agent's capabilities. Pre-submit linting ensures that your skill definitions are valid and ready for consumption by agent platforms.
+An **Agent Skill** is a portable, self-contained directory that extends an AI agent's capabilities.
 
-`skills_lint` validates:
-- Presence of mandatory `SKILL.md` file.
-- YAML frontmatter constraints (naming, length, etc.).
-- Directory structure (flat, no deep nesting).
-- Relative path integrity.
-
-For a full definition of the skill standard, see the [Agent Skills Specification](https://agentskills.io/specification).
+By default, `skills_lint` enforces the
+[Agent Skills specification](https://agentskills.io/specification). We
+recommend starting with the configuration in the
+[`skills-lint-setup`](https://github.com/google/skills_lint.dart/blob/main/packages/skills_lint/skills/skills-lint-setup/SKILL.md)
+skill.
 
 ## Installation
 
@@ -121,10 +119,9 @@ brew install google/skills-lint/skills_lint
 ## Usage
 
 `skills_lint` runs as a command-line tool, configured by flags or by
-a `skills_lint.yaml` file. The CLI is the user-facing surface; it
-also has a programmatic API for contributors who need to embed the
-linter in their own test suite — see
-[`CONTRIBUTING.md`](CONTRIBUTING.md#embedding-the-linter-in-tests).
+a `skills_lint.yaml` file. In a Dart package, you can also run it from
+`dart test` with the `validateSkills` API. See
+[Dart test setup](https://github.com/google/skills_lint.dart/blob/main/packages/skills_lint/skills/skills-lint-setup/references/dart-test.md).
 
 ### 1. As a Command Line Tool with Arguments
 Run the linter against your skills or root skills directories by passing arguments.
@@ -376,21 +373,29 @@ invocation.
 
 ### Recipe: have an agent set it up for you
 
-If you're using Claude Code, Gemini, or another agent that can read
-repository-local skills, paste the following prompt to have the agent
-install and validate `skills_lint` for you. The agent will
-follow the
-[`skills-lint-setup`](skills/skills-lint-setup/SKILL.md)
-skill for first-time wiring, then the
-[`skills-lint-validation`](skills/skills-lint-validation/SKILL.md)
-skill to run the linter and resolve any failures.
+If you use an agent that can read repository-local skills, it can
+set up `skills_lint` for you with the
+[`skills-lint-setup`](https://github.com/google/skills_lint.dart/blob/main/packages/skills_lint/skills/skills-lint-setup/SKILL.md) and
+[`skills-lint-validation`](https://github.com/google/skills_lint.dart/blob/main/packages/skills_lint/skills/skills-lint-validation/SKILL.md)
+skills.
 
-> Set up skills_lint in this project. Use the skill at
-> `skills/skills-lint-setup/SKILL.md`
-> to add it as a dev_dependency, create the configuration file,
-> and wire it into CI. Then use the skill at
-> `skills/skills-lint-validation/SKILL.md`
-> to run the linter and resolve any failures.
+1. Install the skills into `.agents/skills/`. From the root of your Dart
+   package:
+
+   ```bash
+   dart pub add dev:skills_lint
+   dart run skills@^1.0.0 get --agent generic --package skills_lint --all
+   ```
+
+2. Paste this prompt into your agent:
+
+   > Set up skills_lint in this project. Use the skill at
+   > `.agents/skills/skills-lint-setup/SKILL.md`
+   > to add it as a dev_dependency and create the configuration file. Then
+   > use the skill at `.agents/skills/skills-lint-validation/SKILL.md`
+   > to run the linter and resolve any failures.
+
+To run the linter in CI, see the other [Recipes](#recipes).
 
 ## Contributing
 

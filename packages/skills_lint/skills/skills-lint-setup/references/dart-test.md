@@ -1,7 +1,6 @@
 # Dart test setup
 
-Use this path for a Dart package, especially one that publishes skills in a
-top-level `skills/` directory. `dart test` then fails when a skill is invalid.
+Use this path for a Dart package. `dart test` then fails when a skill is invalid.
 
 ## 1. Add the dependencies
 
@@ -16,14 +15,24 @@ Skip `dev:test` if `pubspec.yaml` already lists `test`.
 ## 2. Create skills_lint.yaml
 
 Create `skills_lint.yaml` at the package root, next to `pubspec.yaml`. List
-each directory that holds skills. The rules under `skills` are for skills the
-package publishes; leave them out for skills it doesn't publish, such as
-`.agents/skills`:
+only skill directories that exist. A directory that is listed but missing
+fails the test.
+
+If the package has no `skills/` directory at its root, it doesn't publish
+skills. List only its other skill directories, such as `.agents/skills`:
 
 ```yaml
 skills_lint:
   directories:
-    # A package publishes its skills from skills/.
+    - path: ".agents/skills"
+```
+
+If the package has a `skills/` directory at its root, it publishes the skills
+in it. Add a `skills` entry with the rules for published skills:
+
+```yaml
+skills_lint:
+  directories:
     - path: "skills"
       rules:
         pub-archive-includes-skill: error
@@ -31,9 +40,11 @@ skills_lint:
         check-relative-paths:
           severity: error
           within-skill: true
-    # Skills used only by agents working in this package.
     - path: ".agents/skills"
 ```
+
+Leave out the `.agents/skills` entry if that directory doesn't exist. The
+rules under `skills` are only for published skills:
 
 - `check-relative-paths` checks that every relative link resolves.
   `within-skill: true` also reports links that leave the skill's own folder,

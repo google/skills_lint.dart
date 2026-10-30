@@ -14,6 +14,7 @@
         "skills_lint is added under dev_dependencies in pubspec.yaml as a hosted pub.dev dependency, not a git or path dependency.",
         "skills_lint is NOT added under dependencies in pubspec.yaml.",
         "A skills_lint.yaml file is created at the package root, next to pubspec.yaml, and lists .agents/skills under directories.",
+        "skills_lint.yaml does NOT list a skills directory entry, because the package has no skills/ directory, and enables none of pub-archive-includes-skill, published-skill-name, or within-skill.",
         "A test file under test/ calls validateSkills from package:skills_lint/skills_lint.dart and fails when it returns false.",
         "The test does NOT start a dart run skills_lint subprocess.",
         "The generated code uses no deprecated API."
