@@ -16,7 +16,7 @@ third_party/skill-repos/
 │           └── SKILL.md
 ```
 
-Every skill vendored here is symlinked into `.agents/skills/`, so agents working on the package can access it directly without additional setup. Vendor only skills that help with this repository. When a skill stops being useful, delete its vendored copy and its symlink together, and mark it `"isInstalled": false` in the repository's `.config/dart_skills/skills_config.json`.
+Every skill vendored here is symlinked into `.agents/skills/`, so agents working on the package can access it directly without additional setup. Vendor only skills that help with this repository. When a skill stops being useful, delete its vendored copy and its symlink together, and mark it `"isInstalled": false` in the repository's `.config/dart_skills/skills_config.json`. If no skills from that upstream remain, delete its whole `<repo-slug>/` directory instead.
 
 ## Managing Vendored Skills
 
