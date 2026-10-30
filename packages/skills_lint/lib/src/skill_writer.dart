@@ -38,12 +38,17 @@ final class RenameBlocked extends ApplyResult {
   final Object? error;
 }
 
-/// Writing `SKILL.md` failed. The skill is left as it was.
+/// Writing `SKILL.md` failed, and `SKILL.md` keeps its old content.
 final class WriteFailed extends ApplyResult {
-  WriteFailed(this.error);
+  WriteFailed(this.error, {required this.dir});
 
   /// The error from the write.
   final Object error;
+
+  /// The skill directory after the failure.
+  ///
+  /// It has the old name, unless undoing the rename failed too.
+  final Directory dir;
 }
 
 /// Does all of the file I/O for `--fix`: renames a skill directory, then
@@ -75,7 +80,7 @@ class SkillWriter {
   /// `SKILL.md`.
   ///
   /// When the rename is blocked, nothing is written. When the write fails
-  /// after a rename, the rename is undone.
+  /// after a rename, the rename is undone if it can be.
   Future<ApplyResult> apply(Directory skill, String content, String wantedName) async {
     final String currentName = p.basename(skill.path);
     final RenameBlocked? blocked = _checkTarget(skill, wantedName);
@@ -97,16 +102,28 @@ class SkillWriter {
     try {
       await File(p.join(dir.path, SkillContext.skillFileName)).writeAsString(content);
     } on FileSystemException catch (e) {
-      if (renamed) {
-        await dir.rename(skill.path);
-      }
       _reporter.onWriteFailed(skillName: currentName, error: e);
-      return WriteFailed(e);
+      return WriteFailed(e, dir: renamed ? await _undoRename(dir, skill) : dir);
     }
     if (renamed) {
       _reporter.onSkillRenamed(currentName, wantedName);
     }
     return Applied(dir, renamed: renamed);
+  }
+
+  /// Renames [renamedDir] back to [original], and returns the directory the
+  /// skill ends up in.
+  Future<Directory> _undoRename(Directory renamedDir, Directory original) async {
+    try {
+      return await renamedDir.rename(original.path);
+    } on FileSystemException catch (e) {
+      _reporter.onRenameFailed(
+        oldSkillName: p.basename(renamedDir.path),
+        targetSkillName: p.basename(original.path),
+        error: e,
+      );
+      return renamedDir;
+    }
   }
 
   /// Reports and returns a [RenameBlocked] when a directory other than
@@ -117,11 +134,16 @@ class SkillWriter {
       return null;
     }
     final target = Directory(p.join(p.dirname(skill.path), wantedName));
-    // On a case-insensitive file system, a name that differs only in case
-    // finds the skill directory itself, which is not a clash.
-    if (!target.existsSync() ||
-        target.resolveSymbolicLinksSync() == skill.resolveSymbolicLinksSync()) {
-      return null;
+    try {
+      // On a case-insensitive file system, a name that differs only in case
+      // finds the skill directory itself, which is not a clash.
+      if (!target.existsSync() ||
+          target.resolveSymbolicLinksSync() == skill.resolveSymbolicLinksSync()) {
+        return null;
+      }
+    } on FileSystemException catch (e) {
+      _reporter.onRenameFailed(oldSkillName: currentName, targetSkillName: wantedName, error: e);
+      return RenameBlocked(target: wantedName, reason: e.message, error: e);
     }
     _reporter.onRenameTargetExists(
       oldSkillName: currentName,

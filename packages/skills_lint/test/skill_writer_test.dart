@@ -136,6 +136,19 @@ void main() {
     }, skip: Platform.isWindows ? 'uses the POSIX chmod command' : null);
   });
 
+  test('undoes the rename when the write fails after it', () async {
+    final Directory dir = createSkill('foo');
+    final file = File(p.join(dir.path, 'SKILL.md'));
+    await Process.run('chmod', ['444', file.path]);
+    addTearDown(() => Process.run('chmod', ['644', p.join(skills.path, 'foo', 'SKILL.md')]));
+
+    final ApplyResult result = await writer.apply(dir, 'after\n', 'bar-foo');
+
+    expect(result, isA<WriteFailed>().having((r) => p.basename(r.dir.path), 'dir', 'foo'));
+    expect(listing(), ['foo']);
+    expect(skillMd('foo'), 'before\n');
+  }, skip: Platform.isWindows ? 'uses the POSIX chmod command' : null);
+
   test('reports a write error and leaves the skill unchanged', () async {
     final Directory dir = createSkill('foo');
     final file = File(p.join(dir.path, 'SKILL.md'));

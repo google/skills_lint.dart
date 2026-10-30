@@ -29,8 +29,7 @@ class FixOutcome {
 
   /// Whether a last pass over the rules kept no fix.
   ///
-  /// False when the pass limit ended the loop, which only a fix that changes
-  /// between identical calls can cause.
+  /// False when the pass limit, `SkillFixer.maxPasses`, ended the loop.
   final bool settled;
 
   /// How many passes over the rules kept at least one fix.

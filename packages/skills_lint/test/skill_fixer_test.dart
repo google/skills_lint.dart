@@ -26,7 +26,6 @@ import 'package:skills_lint/src/models/skills_ignores.dart';
 import 'package:skills_lint/src/models/skipped_fix.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
-import 'package:skills_lint/src/rules/name_format_rule.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
@@ -101,10 +100,14 @@ void main() {
     ).fix(await validator.validate(skillDir), canRename: canRename);
   }
 
-  /// Runs `--fix` on [skillDir], and returns what it wrote to stderr.
-  Future<String> applyFix(Directory skillDir, Map<String, RuleConfig> ruleConfigs) async {
+  /// Runs `--fix` on [skillDir], and returns whether the run passed and what
+  /// it wrote to stderr.
+  Future<({bool passed, String err})> runFix(
+    Directory skillDir,
+    Map<String, RuleConfig> ruleConfigs,
+  ) async {
     final err = CapturedOutput();
-    await IOOverrides.runZoned(
+    final bool passed = await IOOverrides.runZoned(
       () => validateSkillsInternal(
         individualSkillPaths: [skillDir.path],
         fixApply: true,
@@ -116,8 +119,12 @@ void main() {
       ),
       stderr: () => err,
     );
-    return err.buffer.toString();
+    return (passed: passed, err: err.buffer.toString());
   }
+
+  /// Runs `--fix` on [skillDir], and returns what it wrote to stderr.
+  Future<String> applyFix(Directory skillDir, Map<String, RuleConfig> ruleConfigs) async =>
+      (await runFix(skillDir, ruleConfigs)).err;
 
   /// The rule and severity of each diagnostic, which unlike messages don't
   /// hold the path of the skill.
@@ -192,7 +199,7 @@ void main() {
 
     expect(outcome.content, original);
     expect(outcome.skippedFixes.single.ruleName, PublishedSkillNameRule.ruleName);
-    expect(outcome.skippedFixes.single.grownRuleNames, [NameFormatRule.ruleName]);
+    expect(outcome.skippedFixes.single.needsRename, isTrue);
     for (var run = 1; run <= 2; run++) {
       final String err = await applyFix(skillDir, publishedName);
       expect(
@@ -203,6 +210,44 @@ void main() {
       expect(err, contains('bar-foo'), reason: 'run $run');
     }
   });
+
+  test('drops a fix that needs a blocked rename even when it clears other errors', () async {
+    // `name: Foo` breaks invalid-skill-name and published-skill-name. The
+    // fix to `bar-foo` clears both, but under the current directory name it
+    // leaves `name` and the directory different, and a sibling has the name.
+    await createPackageSkill('bar-foo');
+    final Directory skillDir = await createDummySkill(
+      Directory(p.join(root.path, 'skills')),
+      name: 'Foo',
+      skillContent: '${buildFrontmatter(name: 'Foo')}Body\n',
+    );
+    final String original = File(p.join(skillDir.path, 'SKILL.md')).readAsStringSync();
+
+    final FixOutcome outcome = await predict(skillDir, publishedName, canRename: false);
+
+    expect(outcome.content, original);
+    expect(outcome.skippedFixes, isNotEmpty);
+    expect(outcome.skippedFixes.map((s) => s.needsRename), everyElement(isTrue));
+    final String err = await applyFix(skillDir, publishedName);
+    expect(File(p.join(skillDir.path, 'SKILL.md')).readAsStringSync(), original);
+    expect(err, contains('bar-foo'));
+  });
+
+  test('fails the run when the fixed SKILL.md cannot be written', () async {
+    const Map<String, RuleConfig> warnOnWhitespace = {
+      TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.warning),
+    };
+    final Directory skillDir = await createPackageSkill('bar-foo', body: 'Body   \n');
+    final String skillMd = p.join(skillDir.path, 'SKILL.md');
+    await Process.run('chmod', ['444', skillMd]);
+    addTearDown(() => Process.run('chmod', ['644', skillMd]));
+
+    final ({bool passed, String err}) run = await runFix(skillDir, warnOnWhitespace);
+
+    expect(run.passed, isFalse, reason: run.err);
+    expect(run.err, contains('bar-foo'));
+    expect(File(skillMd).readAsStringSync(), contains('Body   \n'));
+  }, skip: Platform.isWindows ? 'uses the POSIX chmod command' : null);
 
   test('still writes the other fixes when the rename fails at write time', () async {
     const Map<String, RuleConfig> ruleConfigs = {

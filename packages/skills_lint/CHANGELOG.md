@@ -1,8 +1,9 @@
 ## 0.5.3-wip
 
 - Fixed `--fix` printing the diagnostics from before the fix. It now prints the ones that remain, which decide the exit code.
-- `--fix` repeats fixes until none helps, keeps a fix only if it lowers the skill's errors (then warnings), and names each fix it skips. `--fix --dry-run` also prints the result the fixes would leave.
+- **Behavior change:** `--fix` repeats fixes until none helps, keeps a fix only if it lowers the skill's errors (then warnings), and names each fix it skips. `--fix --dry-run` also prints the result the fixes would leave.
 - When a skill directory can't be renamed, `--fix` skips the fixes that need the rename and still writes the others.
+- When `--fix` can't write a skill's `SKILL.md`, it reports the error and the run fails.
 - When `--fix` renames a skill directory, it moves the skill's baseline ignore entries to the new name and re-checks all skills for links the rename broke.
 - Added `SkillContext.activeDirectoryName`, the directory name rules check a skill against, including a planned rename.
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
