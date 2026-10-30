@@ -174,6 +174,20 @@ class ValidationSession {
   bool _anyFailed = false;
   bool _anySkillsValidated = false;
 
+  /// The problems [_loadIgnores] found in each ignore file that had entries
+  /// it could not read.
+  ///
+  /// [_saveBaseline] says what it drops before it replaces one of these
+  /// files, since the new file lacks the entries that could not be read.
+  ///
+  /// Keyed by the path string from [_resolveIgnorePath]. Each caller passes
+  /// [_loadIgnores] and [_saveBaseline] the same string for a file.
+  final Map<String, List<IgnoreProblem>> _ignoreFilesWithErrors = {};
+
+  /// Ignore files whose dropped entries [_saveBaseline] has reported, so the
+  /// message appears once per file.
+  final Set<String> _reportedDroppedEntries = {};
+
   bool get anyFailed => _anyFailed;
   bool get anySkillsValidated => _anySkillsValidated;
 
@@ -615,12 +629,23 @@ class ValidationSession {
   ///
   /// If [isCustomIgnoreFile] is true and the file does not exist, generates an
   /// empty baseline file on disk.
+  ///
+  /// Reports each entry that could not be read the first time it loads a
+  /// given file. The report does not mark the session failed.
   Future<SkillsIgnores> _loadIgnores(String ignorePath, {required bool isCustomIgnoreFile}) async {
     final file = File(ignorePath);
 
     if (file.existsSync()) {
-      final storage = SkillsIgnoresStorage();
-      return storage.load(ignorePath);
+      final IgnoresLoad loaded = await SkillsIgnoresStorage().load(ignorePath);
+      // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/183
+      // Make an ignore file with errors fail the run in 0.6.0.
+      if (loaded.problems.isNotEmpty && !_ignoreFilesWithErrors.containsKey(ignorePath)) {
+        _ignoreFilesWithErrors[ignorePath] = loaded.problems;
+        for (final IgnoreProblem problem in loaded.problems) {
+          _reporter.onIgnoreFileError(problem.message);
+        }
+      }
+      return loaded.ignores;
     }
 
     // If a custom ignore file was specified but not found, create an empty one
@@ -1071,7 +1096,20 @@ class ValidationSession {
   /// Writes [ignores] to [ignorePath]. Write failures are logged at warning
   /// level and otherwise swallowed so a single I/O error does not abort the
   /// rest of the run.
+  ///
+  /// Before replacing an ignore file that had entries [_loadIgnores] could
+  /// not read, reports that those entries are not carried over, since
+  /// [ignores] lacks them. Writes the file regardless, so that regenerating a
+  /// baseline always works.
   Future<void> _saveBaseline(String ignorePath, SkillsIgnores ignores) async {
+    final List<IgnoreProblem>? problems = _ignoreFilesWithErrors[ignorePath];
+    if (problems != null && _reportedDroppedEntries.add(ignorePath)) {
+      _reporter.onIgnoreEntriesDropped(
+        ignorePath,
+        entryCount: problems.length,
+        skills: {for (final IgnoreProblem(:skill) in problems) ?skill}.toList()..sort(),
+      );
+    }
     try {
       await SkillsIgnoresStorage().save(ignorePath, ignores);
     } on FileSystemException catch (e) {
