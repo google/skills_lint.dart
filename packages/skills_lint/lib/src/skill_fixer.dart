@@ -218,7 +218,7 @@ class SkillFixer {
         if (_reports(result, skipped.ruleName)) skipped,
     ],
     settled: settled,
-    passes: passes,
+    passesWithKeptFixes: passes,
   );
 }
 

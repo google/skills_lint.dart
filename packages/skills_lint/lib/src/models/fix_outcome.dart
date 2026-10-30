@@ -13,7 +13,7 @@ class FixOutcome {
     required this.appliedRuleNames,
     required this.skippedFixes,
     required this.settled,
-    required this.passes,
+    required this.passesWithKeptFixes,
   });
 
   /// The validation result of the fixed content.
@@ -32,8 +32,11 @@ class FixOutcome {
   /// False when the pass limit, `SkillFixer.maxPasses`, ended the loop.
   final bool settled;
 
-  /// How many passes over the rules kept at least one fix.
-  final int passes;
+  /// The number of passes over the rules that kept at least one fix.
+  ///
+  /// It counts up by one for each such pass, so it is 0 when no fix was kept.
+  /// It reaches `SkillFixer.maxPasses` only when the fixes did not settle.
+  final int passesWithKeptFixes;
 
   /// A copy of this outcome with [skippedFixes].
   FixOutcome withSkippedFixes(List<SkippedFix> skippedFixes) => FixOutcome(
@@ -41,7 +44,7 @@ class FixOutcome {
     appliedRuleNames: appliedRuleNames,
     skippedFixes: skippedFixes,
     settled: settled,
-    passes: passes,
+    passesWithKeptFixes: passesWithKeptFixes,
   );
 
   /// The fixer only builds outcomes from results that have a context.

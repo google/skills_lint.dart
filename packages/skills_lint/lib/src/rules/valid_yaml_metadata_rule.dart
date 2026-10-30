@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:yaml/yaml.dart';
-
 import '../cutoff_excerpt.dart';
 import '../length_limit.dart';
 import '../models/analysis_severity.dart';

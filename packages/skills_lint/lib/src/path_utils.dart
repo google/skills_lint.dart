@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:io';
-
 import 'package:path/path.dart' as p;
 
 /// Whether the file or directory at path [candidate] is the directory at path

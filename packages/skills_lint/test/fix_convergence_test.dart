@@ -286,7 +286,11 @@ Future<void> _verifyConfigConvergence(_NamedConfig config) async {
 
     // P3a: settles in at most 2 passes that keep a fix.
     expect(predicted.settled, isTrue, reason: '${config.label} on ${fixture.label}');
-    expect(predicted.passes, lessThanOrEqualTo(2), reason: '${config.label} on ${fixture.label}');
+    expect(
+      predicted.passesWithKeptFixes,
+      lessThanOrEqualTo(2),
+      reason: '${config.label} on ${fixture.label}',
+    );
 
     await validateSkillsInternal(
       individualSkillPaths: [skillDir.path],

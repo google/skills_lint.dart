@@ -6,7 +6,6 @@ import 'dart:io';
 
 import 'package:skills_lint/skills_lint.dart';
 import 'package:test/test.dart';
-
 import 'test_utils.dart';
 
 void main() {
