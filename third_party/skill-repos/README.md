@@ -16,7 +16,14 @@ third_party/skill-repos/
 │           └── SKILL.md
 ```
 
-Skills vendored here are symlinked into `.agents/skills/` so agents working on the package can access them directly without additional setup.
+Skills vendored here that help with this repository are symlinked into `.agents/skills/`, so agents working on the package can access them directly without additional setup.
+
+These vendored skills are deliberately not linked. Don't re-link them without a new reason:
+
+- `dart-lang-skills/dart-migrate-to-checks-package`: `package:checks` is experimental, and this repo uses `package:matcher`.
+- `dart-lang-skills/dart-collect-coverage`: its coverage command differs from the one in [CONTRIBUTING.md](../../CONTRIBUTING.md).
+- `dart-lang-skills/dart-add-unit-test`: agents load `dart-test-fundamentals` for the same tasks.
+- `obra-superpowers/test-driven-development`: duplicates the same-named global skill.
 
 ## Managing Vendored Skills
 
