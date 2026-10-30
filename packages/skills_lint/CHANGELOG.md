@@ -40,6 +40,7 @@
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
 - Fixed `invalid-skill-name` `--fix` writing a directory name that YAML misreads, and then renaming the directory to the misread name: `My Skill #1` became `My Skill`, and `0x1f` became `31`. A name such as `0x1f` is written in quotes.
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
+- With `--fast-fail`, a run that stops early no longer reports unused ignore entries as stale, because they may belong to skills it did not validate. [#109](https://github.com/google/skills_lint.dart/issues/109)
 
 ## 0.5.2
 
