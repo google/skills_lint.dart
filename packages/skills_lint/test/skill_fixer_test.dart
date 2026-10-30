@@ -58,6 +58,25 @@ class _OneStepAtATimeRule extends SkillRule implements FixableRule {
   Future<String> fix(SkillContext context) async => '${context.rawContent}x';
 }
 
+/// A rule that always reports an error and whose fix always throws.
+class _ThrowingFixRule extends SkillRule implements FixableRule {
+  static const String ruleName = 'throwing-fix';
+
+  @override
+  String get name => ruleName;
+
+  @override
+  AnalysisSeverity get severity => AnalysisSeverity.error;
+
+  @override
+  Future<List<ValidationError>> validate(SkillContext context) async => [
+    ValidationError(ruleId: name, message: 'Always', severity: severity, file: 'SKILL.md'),
+  ];
+
+  @override
+  Future<String> fix(SkillContext context) => throw StateError('broken fixer');
+}
+
 void main() {
   late Directory root;
 
@@ -101,14 +120,16 @@ void main() {
   /// it wrote to stderr.
   Future<({bool passed, String err})> runFix(
     Directory skillDir,
-    Map<String, RuleConfig> ruleConfigs,
-  ) async {
+    Map<String, RuleConfig> ruleConfigs, {
+    List<SkillRule> customRules = const [],
+  }) async {
     final err = CapturedOutput();
     final bool passed = await IOOverrides.runZoned(
       () => validateSkillsInternal(
         individualSkillPaths: [skillDir.path],
         fixApply: true,
         quiet: true,
+        customRules: customRules,
         resolvedRuleConfigs: {
           for (final MapEntry(:key, :value) in ruleConfigs.entries)
             key: RuleConfigPatch(severity: value.severity, parameters: value.parameters),
@@ -264,6 +285,20 @@ void main() {
     expect(content, contains('name: foo'));
     expect(err, contains('bar-foo'));
   }, skip: Platform.isWindows ? 'uses the POSIX chmod command' : null);
+
+  test('reports a fixer that throws once per skill, across passes and a re-plan', () async {
+    // The sibling blocks the planned rename, so the session plans twice.
+    await createPackageSkill('bar-foo');
+    final Directory skillDir = await createPackageSkill('foo');
+
+    final ({bool passed, String err}) run = await runFix(
+      skillDir,
+      publishedName,
+      customRules: [_ThrowingFixRule()],
+    );
+
+    expect("'${_ThrowingFixRule.ruleName}' fix".allMatches(run.err), hasLength(1), reason: run.err);
+  });
 
   test('stops after maxPasses and says the fixes did not settle', () async {
     final Directory skillDir = await createPackageSkill('bar-foo');

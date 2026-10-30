@@ -23,32 +23,6 @@ abstract final class ToolErrorMessages {
       '$_toolBugNotice\n'
       '  The fixes from the last pass were kept.';
 
-  /// Message for a fixed `SKILL.md` that could not be written.
-  static String writeFailedMessage({required String skillName, required Object error}) =>
-      "${Reporter.toolErrorPrefix} could not write the fixes for '$skillName'.\n"
-      '$_toolBugNotice\n'
-      '  Your skill was left unmodified. Cause: $error';
-
-  /// Message for a skill directory rename that failed.
-  static String renameFailedMessage({
-    required String oldSkillName,
-    required String targetSkillName,
-    required Object error,
-  }) =>
-      "${Reporter.toolErrorPrefix} could not rename skill directory from '$oldSkillName' to '$targetSkillName'.\n"
-      '$_toolBugNotice\n'
-      "  Your skill directory was left at '$oldSkillName'. Cause: $error";
-
-  /// Message for a skill directory rename blocked by an existing destination.
-  static String renameTargetExistsMessage({
-    required String oldSkillName,
-    required String targetSkillName,
-    required String destinationPath,
-  }) =>
-      "${Reporter.toolErrorPrefix} cannot rename skill directory from '$oldSkillName' to '$targetSkillName': destination directory '$destinationPath' already exists.\n"
-      '$_toolBugNotice\n'
-      "  Your skill directory was left at '$oldSkillName'.";
-
   /// Message for a baseline file that could not be written.
   static String baselineFailedMessage({required String ignorePath, required Object error}) =>
       "${Reporter.toolErrorPrefix} failed to generate baseline file at '$ignorePath'.\n"

@@ -8,6 +8,7 @@ import '../models/output_format.dart';
 import '../models/skill_rule.dart';
 import '../models/skipped_fix.dart';
 import '../models/validation_result.dart';
+import 'fix_io_messages.dart';
 import 'json_reporter.dart';
 import 'sarif_reporter.dart';
 import 'text_reporter.dart';
@@ -100,40 +101,47 @@ abstract class Reporter {
   /// Called when a skill directory is renamed on disk.
   void onSkillRenamed(String oldSkillName, String targetSkillName) {}
 
-  /// Called when a skill directory rename is blocked because the destination exists.
-  void onRenameTargetExists({
+  /// Called when `--fix` can't rename the skill directory [oldSkillName] to
+  /// [targetSkillName], for example because the target exists or the
+  /// parent directory is read-only.
+  ///
+  /// The fixes that need the new name are skipped, and the others still land.
+  void onRenameBlocked({
     required String oldSkillName,
     required String targetSkillName,
-    required String destinationPath,
+    required String reason,
   }) {
     err.writeln(
-      ToolErrorMessages.renameTargetExistsMessage(
+      FixIoMessages.renameBlocked(
         oldSkillName: oldSkillName,
         targetSkillName: targetSkillName,
-        destinationPath: destinationPath,
+        reason: reason,
       ),
     );
   }
 
-  /// Called when a skill directory rename fails due to an internal exception.
-  void onRenameFailed({
-    required String oldSkillName,
-    required String targetSkillName,
-    required Object error,
-  }) {
-    err.writeln(
-      ToolErrorMessages.renameFailedMessage(
-        oldSkillName: oldSkillName,
-        targetSkillName: targetSkillName,
-        error: error,
-      ),
-    );
+  /// Called when `--fix` can't write [skillMdPath], which leaves the skill
+  /// unchanged.
+  void onWriteFailed({required String skillMdPath, required Object error}) {
+    err.writeln(FixIoMessages.writeFailed(skillMdPath: skillMdPath, error: error));
   }
 
-  /// Called when writing the fixed `SKILL.md` of [skillName] fails, which
-  /// leaves the skill as it was.
-  void onWriteFailed({required String skillName, required Object error}) {
-    err.writeln(ToolErrorMessages.writeFailedMessage(skillName: skillName, error: error));
+  /// Called when `--fix` renamed the skill directory [fromPath] to [toPath],
+  /// then couldn't write `SKILL.md`, and couldn't rename the directory back.
+  void onRenamedButNotWritten({
+    required String fromPath,
+    required String toPath,
+    required Object writeError,
+    required Object undoError,
+  }) {
+    err.writeln(
+      FixIoMessages.renamedButNotWritten(
+        fromPath: fromPath,
+        toPath: toPath,
+        writeError: writeError,
+        undoError: undoError,
+      ),
+    );
   }
 
   /// Called when an ignore entry was not matched by any finding.

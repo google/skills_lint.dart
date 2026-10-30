@@ -841,12 +841,18 @@ class ValidationSession {
       return result;
     }
 
+    final failedRuleNames = <String>{};
     final fixer = SkillFixer(
       validator: validator,
       applyIgnores: (ValidationResult candidate) =>
           _applyIgnores(candidate, skillIgnores, skillDir),
-      onFixFailed: (String ruleName, Object error) =>
-          _reporter.onFixFailed(ruleName: ruleName, error: error),
+      // A broken fixer throws on every pass and in every plan. Report it
+      // once per skill.
+      onFixFailed: (String ruleName, Object error) {
+        if (failedRuleNames.add(ruleName)) {
+          _reporter.onFixFailed(ruleName: ruleName, error: error);
+        }
+      },
     );
     final writer = SkillWriter(_reporter);
     final String currentDirectoryName = p.basename(skillDir.path);

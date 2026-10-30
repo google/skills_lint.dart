@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'models/skill_context.dart';
+import 'reporters/fix_io_messages.dart';
 import 'reporters/reporter.dart';
 
 /// What happened when [SkillWriter] applied, or checked, a fix plan.
@@ -94,16 +95,19 @@ class SkillWriter {
       try {
         dir = await skill.rename(p.join(p.dirname(skill.path), wantedName));
       } on FileSystemException catch (e) {
-        _reporter.onRenameFailed(oldSkillName: currentName, targetSkillName: wantedName, error: e);
-        return RenameBlocked(target: wantedName, reason: e.message, error: e);
+        return _blocked(skill, wantedName, FixIoMessages.describe(e), error: e);
       }
     }
 
+    final skillMd = File(p.join(dir.path, SkillContext.skillFileName));
     try {
-      await File(p.join(dir.path, SkillContext.skillFileName)).writeAsString(content);
+      await skillMd.writeAsString(content);
     } on FileSystemException catch (e) {
-      _reporter.onWriteFailed(skillName: currentName, error: e);
-      return WriteFailed(e, dir: renamed ? await _undoRename(dir, skill) : dir);
+      if (!renamed) {
+        _reporter.onWriteFailed(skillMdPath: skillMd.path, error: e);
+        return WriteFailed(e, dir: dir);
+      }
+      return _undoRenameAfter(e, renamedDir: dir, original: skill);
     }
     if (renamed) {
       _reporter.onSkillRenamed(currentName, wantedName);
@@ -111,26 +115,38 @@ class SkillWriter {
     return Applied(dir, renamed: renamed);
   }
 
-  /// Renames [renamedDir] back to [original], and returns the directory the
-  /// skill ends up in.
-  Future<Directory> _undoRename(Directory renamedDir, Directory original) async {
+  /// Renames [renamedDir] back to [original] after [writeError], and reports
+  /// where the skill ends up.
+  ///
+  /// Undoing the rename keeps the written content and the directory name in
+  /// step: the skill keeps its old name and its old `SKILL.md`.
+  Future<WriteFailed> _undoRenameAfter(
+    FileSystemException writeError, {
+    required Directory renamedDir,
+    required Directory original,
+  }) async {
     try {
-      return await renamedDir.rename(original.path);
-    } on FileSystemException catch (e) {
-      _reporter.onRenameFailed(
-        oldSkillName: p.basename(renamedDir.path),
-        targetSkillName: p.basename(original.path),
-        error: e,
+      await renamedDir.rename(original.path);
+    } on FileSystemException catch (undoError) {
+      _reporter.onRenamedButNotWritten(
+        fromPath: original.path,
+        toPath: renamedDir.path,
+        writeError: writeError,
+        undoError: undoError,
       );
-      return renamedDir;
+      return WriteFailed(writeError, dir: renamedDir);
     }
+    _reporter.onWriteFailed(
+      skillMdPath: p.join(original.path, SkillContext.skillFileName),
+      error: writeError,
+    );
+    return WriteFailed(writeError, dir: original);
   }
 
   /// Reports and returns a [RenameBlocked] when a directory other than
   /// [skill] already has the name [wantedName].
   RenameBlocked? _checkTarget(Directory skill, String wantedName) {
-    final String currentName = p.basename(skill.path);
-    if (wantedName == currentName) {
+    if (wantedName == p.basename(skill.path)) {
       return null;
     }
     final target = Directory(p.join(p.dirname(skill.path), wantedName));
@@ -142,14 +158,19 @@ class SkillWriter {
         return null;
       }
     } on FileSystemException catch (e) {
-      _reporter.onRenameFailed(oldSkillName: currentName, targetSkillName: wantedName, error: e);
-      return RenameBlocked(target: wantedName, reason: e.message, error: e);
+      return _blocked(skill, wantedName, FixIoMessages.describe(e), error: e);
     }
-    _reporter.onRenameTargetExists(
-      oldSkillName: currentName,
+    return _blocked(skill, wantedName, 'directory $wantedName already exists');
+  }
+
+  /// Reports that [skill] can't be renamed to [wantedName] because of
+  /// [reason], and returns the matching [RenameBlocked].
+  RenameBlocked _blocked(Directory skill, String wantedName, String reason, {Object? error}) {
+    _reporter.onRenameBlocked(
+      oldSkillName: p.basename(skill.path),
       targetSkillName: wantedName,
-      destinationPath: target.path,
+      reason: reason,
     );
-    return RenameBlocked(target: wantedName, reason: 'directory $wantedName already exists');
+    return RenameBlocked(target: wantedName, reason: reason, error: error);
   }
 }

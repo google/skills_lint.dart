@@ -170,8 +170,9 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 
   Diagnostics go to standard output in every format, so redirect them to a
   file to capture a report: `skills_lint --format=sarif > skills-lint.sarif`.
-  Operational failures stay on standard error, prefixed with
-  `skills_lint internal error:`, and never corrupt the report.
+  Operational failures stay on standard error and never corrupt the report.
+  Bugs in skills_lint start with `skills_lint internal error:`. Problems in
+  your files, such as a `--fix` rename that can't happen, start with `Error:`.
 
 ### 2. As a Command Line Tool with a YAML Configuration File
 You can configure the linter using a configuration file (defaulting to `skills_lint.yaml` in the current directory).
@@ -332,8 +333,9 @@ jobs:
 Notes:
 
 - The report goes to standard output, so redirect it to a file.
-  Operational failures go to standard error with a
-  `skills_lint internal error:` prefix and never mix into the report.
+  Operational failures go to standard error and never mix into the report.
+  Bugs in skills_lint start with `skills_lint internal error:`, and
+  problems in your files start with `Error:`.
 - Result paths are recorded relative to the repository root using the
   SARIF `%SRCROOT%` base, so annotations land on the right lines even
   when the linter runs from a subdirectory.

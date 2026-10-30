@@ -14,6 +14,7 @@
 - `--fix` repeats fixes until none helps, keeps a fix only if it lowers the skill's errors (then warnings), and names each fix it skips. `--fix --dry-run` also prints the result the fixes would leave.
 - When a skill directory can't be renamed, `--fix` skips the fixes that need the rename and still writes the others.
 - When `--fix` can't write a skill's `SKILL.md`, it reports the error and the run fails.
+- `--fix` reports a skill directory it can't rename, or a `SKILL.md` it can't write, as an `Error:` that names the cause, not as a skills_lint internal error.
 - A rule name in the configuration that matches no built-in rule is a configuration error. The message suggests the closest rule names.
 - When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.
 - In `--format=sarif` and `--format=json` output, the error for a missing `directories` or `individual_skills` path points at the line of the configuration file that lists it, instead of at the missing directory.
