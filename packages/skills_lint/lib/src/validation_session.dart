@@ -696,8 +696,9 @@ class ValidationSession {
   /// [pathContext] defaults to the host's.
   @visibleForTesting
   static String baselineFileName(String errorFile, Directory skillDir, {p.Context? pathContext}) {
-    // Writing and matching both use this, so they agree. A relative, `/`
-    // name lets a committed baseline match on any machine and OS.
+    // Writing and matching both use this single source of truth, so they
+    // agree on the in-repo form of a path. Using `/` lets a baseline match on
+    // any machine and OS.
     final p.Context context = pathContext ?? p.context;
     final String normalized = context.normalize(errorFile);
     final String skillPath = context.normalize(skillDir.path);
