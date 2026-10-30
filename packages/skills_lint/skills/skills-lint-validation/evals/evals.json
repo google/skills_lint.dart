@@ -33,7 +33,7 @@
     },
     {
       "id": 3,
-      "prompt": "Author a custom skills_lint rule named `RequireInternalMetadataRule` that verifies if a skill's metadata contains `internal: true`. Wire it up into a new test file `test/custom_rule_test.dart`.",
+      "prompt": "Author a custom skills_lint rule named `RequireInternalMetadataRule` that verifies if a skill's metadata contains `internal: true`. Wire it up into a new test file `test/require_internal_metadata_rule_test.dart`.",
       "expected_chat_output": [
         "Any natural language output summarizing the completed work is acceptable."
       ],
@@ -41,7 +41,7 @@
         "The agent created a class extending `SkillRule`.",
         "The agent implemented the `name` and `severity` overrides.",
         "The `validate` method correctly parses the `parsedYaml` to check for `internal: true`.",
-        "The agent created a Dart test file that imports the custom rule and passes it to `validateSkills`.",
+        "The agent created a Dart test file that runs the custom rule through the public API, by passing it to `validateSkills(customRules: ...)` or `Validator(customRules: ...)`.",
         "The newly created test compiles and passes static analysis."
       ]
     }

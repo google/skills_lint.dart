@@ -40,6 +40,7 @@ dev_dependencies:
   coverage: ^1.15.0
   dedupe: ^0.1.1
   undead: ^0.1.2
+  markdown: ^7.3.1
 
 executables:
   skills_lint:

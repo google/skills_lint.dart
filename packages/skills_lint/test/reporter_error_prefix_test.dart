@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/reporters/reporters.dart';
 import 'package:test/test.dart';
@@ -42,62 +44,78 @@ void _testFormatErrors(OutputFormat format) {
       }
     });
 
-    test('onRenameFailed includes prefix, attribution, blast radius on stderr and not stdout', () {
-      reporter.onRenameFailed(
-        oldSkillName: 'my-old-skill',
-        targetSkillName: 'my-new-skill',
-        error: Exception('permission denied'),
-      );
-
-      final errOutput = errSink.toString();
-      final outOutput = outSink.toString();
-
-      expect(errOutput, contains(Reporter.toolErrorPrefix));
-      expect(
-        errOutput,
-        contains("could not rename skill directory from 'my-old-skill' to 'my-new-skill'."),
-      );
-      expect(errOutput, contains('This is a bug in skills_lint, not a problem with your skill.'));
-      expect(
-        errOutput,
-        contains(
-          "Your skill directory was left at 'my-old-skill'. Cause: Exception: permission denied",
-        ),
-      );
-
-      if (format == OutputFormat.json || format == OutputFormat.sarif) {
-        expect(outOutput, isEmpty);
+    group("reports problems in the user's files without calling them a tool bug", () {
+      void expectUserFacing(String errOutput) {
+        expect(errOutput, startsWith('Error: '));
+        expect(errOutput, isNot(contains(Reporter.toolErrorPrefix)));
+        expect(errOutput, isNot(contains('bug in skills_lint')));
+        if (format == OutputFormat.json || format == OutputFormat.sarif) {
+          expect(outSink.toString(), isEmpty);
+        }
       }
-    });
 
-    test(
-      'onRenameTargetExists includes prefix, attribution, blast radius on stderr and not stdout',
-      () {
-        reporter.onRenameTargetExists(
+      test('onRenameBlocked names both directories and the reason', () {
+        reporter.onRenameBlocked(
           oldSkillName: 'my-old-skill',
           targetSkillName: 'my-new-skill',
-          destinationPath: '/path/to/my-new-skill',
+          reason: 'directory my-new-skill already exists',
         );
 
         final errOutput = errSink.toString();
-        final outOutput = outSink.toString();
-
-        expect(errOutput, contains(Reporter.toolErrorPrefix));
+        expectUserFacing(errOutput);
         expect(
           errOutput,
           contains(
-            "cannot rename skill directory from 'my-old-skill' to 'my-new-skill': "
-            "destination directory '/path/to/my-new-skill' already exists.",
+            "could not rename skill directory 'my-old-skill' to 'my-new-skill': "
+            'directory my-new-skill already exists.',
           ),
         );
-        expect(errOutput, contains('This is a bug in skills_lint, not a problem with your skill.'));
-        expect(errOutput, contains("Your skill directory was left at 'my-old-skill'."));
+        expect(errOutput, contains("left at 'my-old-skill'"));
+      });
 
-        if (format == OutputFormat.json || format == OutputFormat.sarif) {
-          expect(outOutput, isEmpty);
-        }
-      },
-    );
+      test('onWriteFailed names the file and the OS error', () {
+        reporter.onWriteFailed(
+          skillMdPath: '/skills/my-skill/SKILL.md',
+          error: const FileSystemException(
+            'Cannot open file',
+            '/skills/my-skill/SKILL.md',
+            OSError('Permission denied', 13),
+          ),
+        );
+
+        final errOutput = errSink.toString();
+        expectUserFacing(errOutput);
+        expect(
+          errOutput,
+          contains("could not write '/skills/my-skill/SKILL.md': Permission denied"),
+        );
+        expect(errOutput, contains('left unchanged'));
+      });
+
+      test('onRenamedButNotWritten says the skill was renamed but not written', () {
+        reporter.onRenamedButNotWritten(
+          fromPath: '/skills/foo',
+          toPath: '/skills/bar-foo',
+          writeError: const FileSystemException(
+            'Cannot open file',
+            '',
+            OSError('Permission denied'),
+          ),
+          undoError: const FileSystemException(
+            'Rename failed',
+            '',
+            OSError('Read-only file system'),
+          ),
+        );
+
+        final errOutput = errSink.toString();
+        expectUserFacing(errOutput);
+        expect(errOutput, contains("renamed '/skills/foo' to '/skills/bar-foo'"));
+        expect(errOutput, contains('but SKILL.md was not written'));
+        expect(errOutput, contains('Permission denied'));
+        expect(errOutput, contains('Read-only file system'));
+      });
+    });
 
     test(
       'onBaselineFailed includes prefix, attribution, blast radius on stderr and not stdout',

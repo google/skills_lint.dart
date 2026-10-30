@@ -9,49 +9,67 @@ import 'package:test/test.dart';
 
 import 'src/package_directories.dart';
 
-/// Pins the BSD copyright header to every Dart source file in the package.
+/// Checks the copyright header policy for every Dart file under
+/// [dartSourceDirectories].
 ///
-/// Every `.dart` file under [dartSourceDirectories] must begin with the
-/// standard three-line copyright block. The year is not pinned — any four-digit
-/// year is accepted — but the rest of the text is matched exactly.
+/// - A file we maintain starts with [_copyrightHeader]. Any four-digit year
+///   is accepted.
+/// - A user template, a Dart file in a skill's `references/` directory, has
+///   no header. Users copy templates into their own packages, where the Dart
+///   authors' copyright doesn't apply.
 
-/// The canonical copyright header. Used in both the check and the error message
-/// so the two never drift apart.
+/// The header a maintained file starts with.
 const String _copyrightHeader =
     '// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file\n'
     '// for details. All rights reserved. Use of this source code is governed by a\n'
     '// BSD-style license that can be found in the LICENSE file.';
 
+/// The directory, inside a skill, that holds files users copy.
+const String _userTemplateDirectory = 'references';
+
 void main() {
-  test('every Dart file has a BSD copyright header', () {
-    final String packageRoot = p.normalize(p.absolute('.'));
-    final List<String> missing = [];
+  final List<String> files = _dartFiles();
+  final List<String> templates = files.where(_isUserTemplate).toList();
+  final List<String> maintained = files.where((f) => !_isUserTemplate(f)).toList();
 
-    for (final String dir in dartSourceDirectories) {
-      final source = Directory(p.join(packageRoot, dir));
-      if (!source.existsSync()) {
-        continue;
-      }
-      for (final FileSystemEntity entity in source.listSync(recursive: true)) {
-        if (entity is File && entity.path.endsWith('.dart')) {
-          final String content = entity.readAsStringSync();
-          if (!_hasCopyrightHeader(content)) {
-            missing.add(p.relative(entity.path, from: packageRoot));
-          }
-        }
-      }
-    }
-
+  test('every maintained Dart file has the copyright header', () {
+    final List<String> missing = maintained.where((f) => !_hasCopyrightHeader(f)).toList();
     expect(
       missing,
       isEmpty,
       reason:
-          'The following Dart files are missing the BSD copyright header:\n'
-          '  ${missing.join('\n  ')}\n\n'
-          'Add the following block as the first three lines of each file:\n'
-          '$_copyrightHeader',
+          'Add this block as the first three lines of each file:\n$_copyrightHeader\n\n'
+          "If the file is a template that users copy, move it into a skill's "
+          '$_userTemplateDirectory/ directory instead.',
     );
   });
+
+  test('no user template has the copyright header', () {
+    final List<String> withHeader = templates.where(_hasCopyrightHeader).toList();
+    expect(
+      withHeader,
+      isEmpty,
+      reason:
+          'Users copy these files into their own packages. Remove the Dart '
+          "authors' copyright header.",
+    );
+  });
+}
+
+/// Every `.dart` file under [dartSourceDirectories], relative to the package
+/// root.
+List<String> _dartFiles() => [
+  for (final String dir in dartSourceDirectories)
+    if (Directory(dir).existsSync())
+      for (final FileSystemEntity entity in Directory(dir).listSync(recursive: true))
+        if (entity is File && entity.path.endsWith('.dart')) p.normalize(entity.path),
+];
+
+/// Whether [path] is in a skill's `references/` directory, such as
+/// `skills/<name>/references/example.dart`.
+bool _isUserTemplate(String path) {
+  final List<String> parts = p.split(path);
+  return parts.length > 3 && parts.first == 'skills' && parts[2] == _userTemplateDirectory;
 }
 
 final RegExp _copyrightPattern = RegExp(
@@ -60,10 +78,10 @@ final RegExp _copyrightPattern = RegExp(
   r'// BSD-style license that can be found in the LICENSE file\.',
 );
 
-bool _hasCopyrightHeader(String content) {
+bool _hasCopyrightHeader(String path) {
   // Normalize Windows line endings so the regex works on files checked out
   // with core.autocrlf enabled.
-  final String normalized = content.replaceAll('\r\n', '\n');
+  final String normalized = File(path).readAsStringSync().replaceAll('\r\n', '\n');
   // Allow an optional shebang line (and any following blank lines) before the
   // copyright header.
   final String checkContent = normalized.startsWith('#!')

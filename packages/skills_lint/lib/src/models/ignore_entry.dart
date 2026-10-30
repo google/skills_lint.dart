@@ -4,18 +4,21 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
+import 'validation_error.dart';
+
 part 'ignore_entry.g.dart';
 
-/// Represents a single ignored rule entry for a specific file.
+/// A rule to ignore in one file, or only for one [subject] in it.
 @JsonSerializable()
 class IgnoreEntry {
-  IgnoreEntry({required this.ruleId, required this.fileName, this.used = false});
+  IgnoreEntry({required this.ruleId, required this.fileName, this.subject, this.used = false});
 
   /// Creates an IgnoreEntry from a JSON map.
   factory IgnoreEntry.fromJson(Map<String, dynamic> json) => _$IgnoreEntryFromJson(json);
 
   static const String ruleIdKey = 'rule_id';
   static const String fileNameKey = 'file_name';
+  static const String subjectKey = 'subject';
 
   /// The rule ID that should be suppressed (e.g., 'description_too_long').
   @JsonKey(name: ruleIdKey)
@@ -24,6 +27,14 @@ class IgnoreEntry {
   /// The file name to apply this suppression to.
   @JsonKey(name: fileNameKey)
   final String fileName;
+
+  /// The thing within [fileName] that this entry suppresses findings about.
+  ///
+  /// When `null`, the entry covers every finding of [ruleId] in [fileName].
+  /// Otherwise it covers only the findings whose [ValidationError.subject] is
+  /// exactly this value.
+  @JsonKey(name: subjectKey, includeIfNull: false)
+  final String? subject;
 
   /// Whether this entry has been used during the run.
   @JsonKey(includeFromJson: false, includeToJson: false)

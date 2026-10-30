@@ -23,6 +23,7 @@ Convention checks go in `packages/skills_lint/repo_test/`. Their helpers go in `
 - Find and parse Dart files only through `parseDirectories` in [source_conventions.dart](../../../packages/skills_lint/repo_test/src/source_conventions.dart). Don't write a second file walker.
 - Unit-test each detector on inline snippets built with `Source.snippet`. Cover what it reports and what it ignores. For example, `findForbiddenOverrides` in [source_conventions.dart](../../../packages/skills_lint/repo_test/src/source_conventions.dart) is tested in [source_convention_detectors_test.dart](../../../packages/skills_lint/repo_test/checkers/source_convention_detectors_test.dart).
 - Put the repo-wide scan in its own test file, apart from the detector tests. For example, [source_conventions_test.dart](../../../packages/skills_lint/repo_test/source_conventions_test.dart).
+- Name the scan `<topic>_convention_test.dart` and the detector test `checkers/<src file>_test.dart`. Never give the two the same filename. For example, [dart_test_process_convention_test.dart](../../../packages/skills_lint/repo_test/dart_test_process_convention_test.dart) and [test_processes_test.dart](../../../packages/skills_lint/repo_test/checkers/test_processes_test.dart).
 
 ## Dartdoc
 
