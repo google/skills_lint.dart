@@ -459,6 +459,35 @@ skills_lint:
       },
     );
 
+    test('--fast-fail does not report ignore entries of unvalidated skills as stale', () async {
+      final Directory skillsDir = await Directory(p.join(tempDir.path, 'skills')).create();
+      Future<void> writeSkill(String dir, String name) async {
+        await Directory(p.join(skillsDir.path, dir)).create();
+        await File(
+          p.join(skillsDir.path, dir, 'SKILL.md'),
+        ).writeAsString('${buildFrontmatter(name: name, description: 'A skill.')}Body');
+      }
+
+      await writeSkill('a-skill', 'Wrong');
+      await writeSkill('b-skill', 'Bad');
+      await File(p.join(skillsDir.path, 'skills_lint_ignore.json')).writeAsString(
+        jsonEncode({
+          'skills': {
+            'b-skill': [
+              {'rule_id': 'invalid-skill-name', 'file_name': 'SKILL.md'},
+            ],
+          },
+        }),
+      );
+
+      final TestProcess process = await startCli(['-d', skillsDir.path, '--fast-fail']);
+
+      final String stdout = (await process.stdout.rest.toList()).join('\n');
+      expect(stdout, isNot(contains('--- Validating skill: b-skill ---')));
+      expect(stdout, isNot(contains('Stale ignore entry')));
+      await process.shouldExit(1);
+    });
+
     test('exits with 0 and suppresses success messages if --quiet is passed', () async {
       final Directory skillDir = await Directory('${tempDir.path}/valid-skill').create();
       await File(
