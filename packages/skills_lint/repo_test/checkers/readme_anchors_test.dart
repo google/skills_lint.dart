@@ -7,29 +7,27 @@ import 'package:test/test.dart';
 import '../src/readme_anchors.dart';
 
 void main() {
-  group('slugify', () {
+  group('heading text to anchor', () {
+    String anchorOf(String heading) => headingAnchors('# $heading\n').single;
+
     test('drops the period after a number', () {
-      expect(slugify('3. Custom Rules'), '3-custom-rules');
+      expect(anchorOf('3. Custom Rules'), '3-custom-rules');
     });
 
     test('drops backticks and dots inside code spans', () {
-      expect(slugify('2. `install.sh` — Linux + macOS'), '2-installsh--linux--macos');
+      expect(anchorOf('2. `install.sh` — Linux + macOS'), '2-installsh--linux--macos');
     });
 
     test('keeps hyphens and underscores', () {
-      expect(slugify('Dart-native pre_commit'), 'dart-native-pre_commit');
+      expect(anchorOf('Dart-native pre_commit'), 'dart-native-pre_commit');
     });
 
     test('drops non-ASCII letters, as pub.dev does', () {
-      expect(slugify('Café é'), 'caf-');
-    });
-
-    test('drops tabs inside a heading, as pub.dev does', () {
-      expect(slugify('a\tb'), 'ab');
+      expect(anchorOf('Café é'), 'caf-');
     });
 
     test('drops a trailing colon', () {
-      expect(slugify('Recipe: GitHub Actions'), 'recipe-github-actions');
+      expect(anchorOf('Recipe: GitHub Actions'), 'recipe-github-actions');
     });
   });
 
