@@ -66,6 +66,9 @@ class SkillWriter {
   ///
   /// It sees a directory that already has the name. It can't see errors that
   /// only the rename itself reveals, such as missing permissions.
+  ///
+  /// Like [apply], it reports a blocked rename through `onRenameBlocked`, so
+  /// callers don't report it again.
   ApplyResult preflight(Directory skill, String wantedName) {
     final RenameBlocked? blocked = _checkTarget(skill, wantedName);
     if (blocked != null) {
@@ -92,6 +95,8 @@ class SkillWriter {
     var dir = skill;
     final renamed = wantedName != currentName;
     if (renamed) {
+      // The check above isn't a guarantee: a directory can appear before the
+      // rename, and on POSIX rename(2) replaces an empty one.
       try {
         dir = await skill.rename(p.join(p.dirname(skill.path), wantedName));
       } on FileSystemException catch (e) {

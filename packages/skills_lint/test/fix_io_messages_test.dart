@@ -22,6 +22,13 @@ void main() {
       expect(FixIoMessages.describe(const FileSystemException('Rename failed')), 'Rename failed');
     });
 
+    test('falls back to the text of the exception when both messages are empty', () {
+      expect(
+        FixIoMessages.describe(const FileSystemException('', '/a', OSError())),
+        contains('FileSystemException'),
+      );
+    });
+
     test('falls back to the text of any other error', () {
       expect(FixIoMessages.describe(StateError('boom')), 'Bad state: boom');
     });

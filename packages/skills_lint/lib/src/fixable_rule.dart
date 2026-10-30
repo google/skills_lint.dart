@@ -15,8 +15,10 @@ abstract class FixableRule extends SkillRule {
   /// [context] can hold content that earlier fixes changed, and a
   /// [SkillContext.activeDirectoryName] that differs from the name on disk.
   ///
-  /// A fix is kept only if it lowers the skill's errors, then warnings,
-  /// across all enabled rules. So a fix must be idempotent, and a fix that
-  /// changes the content must lower this rule's own diagnostics.
+  /// The fixer keeps a fix only if it lowers the skill's errors, then
+  /// warnings, across all enabled rules, and it runs fixes until none is
+  /// kept. A fix that doesn't lower this rule's own diagnostics is dropped,
+  /// and a fix that isn't idempotent can keep changing the skill until the
+  /// pass limit.
   Future<String> fix(SkillContext context);
 }

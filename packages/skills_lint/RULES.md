@@ -262,7 +262,7 @@ governs how changes to these rules ship.
 - **Parameters:**
   - `package_name` (string): explicit Dart package name override.
   - `pubspec_path` (string): explicit path to `pubspec.yaml` (absolute path, or relative to the CLI invocation working directory `Directory.current`). When omitted, `pubspec.yaml` is auto-discovered by walking up parent directories starting from the skill directory.
-- **Auto-fix behavior:** updates the frontmatter `name:` in `SKILL.md` to the suggested normalized package skill name and automatically aligns the parent directory name on disk when run via `--fix`.
+- **Auto-fix behavior:** updates the frontmatter `name:` in `SKILL.md` to the suggested normalized package skill name and automatically aligns the parent directory name on disk when run via `--fix`. When the directory can't be renamed, for example because the name is taken, `--fix` skips this fix.
 - **Related:** published skills are installed one at a time, so
   links out of the skill directory break. Turn on
   [`check-relative-paths`](#check-relative-paths) with

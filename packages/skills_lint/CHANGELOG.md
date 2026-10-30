@@ -11,7 +11,7 @@
 ### Behavior changes
 
 - `--fix` prints the diagnostics that remain after the fixes, instead of the ones from before, and the exit code reflects them.
-- `--fix` fixes more in one run. It repeats fixes until none helps, drops any fix that doesn't reduce the skill's errors or warnings, and says which fixes it skipped and why. `--fix --dry-run` also shows the findings that would remain.
+- `--fix` fixes more in one run. It repeats fixes until they stop helping (up to 10 passes), drops any fix that doesn't reduce the skill's errors or warnings, and says which fixes it skipped and why. `--fix --dry-run` also shows the findings that would remain.
 - When `--fix` can't rename a skill directory, for example because the name is taken, it skips only the fixes that need the new name. When it can't write `SKILL.md`, it prints an `Error:` with the cause, and the run fails.
 - A rule name in the configuration that matches no built-in rule is a configuration error. The message suggests the closest rule names.
 - When a path listed under `directories` or `individual_skills` in your configuration file does not exist, the error shows the path as you wrote it, the file and line where you wrote it, and the directory it was resolved from.

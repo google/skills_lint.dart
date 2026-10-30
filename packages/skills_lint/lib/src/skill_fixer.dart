@@ -101,10 +101,10 @@ class SkillFixer {
     final String fixedContent;
     try {
       fixedContent = await rule.fix(context);
-      // A fixer is rule code: built in, or a custom rule that implements
-      // FixableRule. Any throw from it, Error included, is a bug in that
-      // rule, and onFixFailed reports it as a tool bug. Catching everything
-      // stops one broken fixer from aborting the remaining rules and skills.
+      // Only built-in rules implement FixableRule, so any throw from a fix,
+      // Error included, is a skills_lint bug that onFixFailed reports.
+      // Catching everything stops one broken fixer from aborting the other
+      // rules and skills.
       // ignore: avoid_catches_without_on_clauses
     } catch (e) {
       onFixFailed(rule.name, e);
@@ -126,7 +126,7 @@ class SkillFixer {
     final ValidationResult result = await validator.validateProposedContent(
       context,
       fixedContent,
-      activeDirectoryName: wantedName ?? context.activeDirectoryName,
+      activeDirectoryName: wantedName,
     );
     applyIgnores(result);
     return _Candidate(result);
@@ -229,6 +229,7 @@ final class _Candidate extends _Attempt {
 }
 
 // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/140
+// Compare only errors once the warning severity is removed.
 /// The un-ignored errors and warnings of a result, compared errors first.
 class _DiagnosticCount {
   _DiagnosticCount.of(ValidationResult result)

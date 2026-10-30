@@ -4,6 +4,8 @@
 
 import 'dart:io';
 
+import 'reporter.dart';
+
 /// Stderr messages for `--fix` file operations that the user's files or
 /// environment block, identical across output formats.
 ///
@@ -15,12 +17,12 @@ abstract final class FixIoMessages {
     required String targetSkillName,
     required String reason,
   }) =>
-      "Error: could not rename skill directory '$oldSkillName' to '$targetSkillName': $reason.\n"
+      "${Reporter.userErrorPrefix} could not rename skill directory '$oldSkillName' to '$targetSkillName': $reason.\n"
       "  The directory was left at '$oldSkillName', and the fixes that need the new name were skipped.";
 
   /// Message for a `SKILL.md` that `--fix` can't write.
   static String writeFailed({required String skillMdPath, required Object error}) =>
-      "Error: could not write '$skillMdPath': ${describe(error)}.\n"
+      "${Reporter.userErrorPrefix} could not write '$skillMdPath': ${describe(error)}.\n"
       '  The skill was left unchanged.';
 
   /// Message for a skill directory that `--fix` renamed, then couldn't write
@@ -31,7 +33,7 @@ abstract final class FixIoMessages {
     required Object writeError,
     required Object undoError,
   }) =>
-      "Error: renamed '$fromPath' to '$toPath', but SKILL.md was not written: "
+      "${Reporter.userErrorPrefix} renamed '$fromPath' to '$toPath', but SKILL.md was not written: "
       '${describe(writeError)}.\n'
       '  Renaming the directory back also failed: ${describe(undoError)}.\n'
       "  The skill is at '$toPath' with its old SKILL.md.";
@@ -39,7 +41,7 @@ abstract final class FixIoMessages {
   /// The OS error of [error] when it has one, otherwise [error] as text.
   static String describe(Object error) => switch (error) {
     FileSystemException(osError: OSError(:final String message)) when message.isNotEmpty => message,
-    FileSystemException(:final String message) => message,
+    FileSystemException(:final String message) when message.isNotEmpty => message,
     _ => '$error',
   };
 }

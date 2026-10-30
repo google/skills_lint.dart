@@ -39,7 +39,12 @@ class FixOutcome {
     settled: settled,
   );
 
-  SkillContext get _context => result.context!;
+  /// The fixer only builds outcomes from results that have a context.
+  SkillContext get _context {
+    final SkillContext? context = result.context;
+    assert(context != null, 'A FixOutcome needs a result with a context.');
+    return context!;
+  }
 
   /// The fixed `SKILL.md` content.
   String get content => _context.rawContent;

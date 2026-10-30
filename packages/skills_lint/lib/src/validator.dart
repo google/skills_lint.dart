@@ -119,7 +119,8 @@ class Validator {
   ///
   /// The result's context keeps the directory and pub archive of [current].
   /// Pass [activeDirectoryName] to validate as if the skill directory had
-  /// that name.
+  /// that name. It defaults to the [SkillContext.activeDirectoryName] of
+  /// [current], so a planned rename carries over.
   @internal
   Future<ValidationResult> validateProposedContent(
     SkillContext current,
@@ -129,7 +130,7 @@ class Validator {
     final SkillContext context = _parseContext(
       current.directory,
       content,
-      activeDirectoryName: activeDirectoryName,
+      activeDirectoryName: activeDirectoryName ?? current.activeDirectoryName,
       pubArchive: current.pubArchive,
     );
     return _runRules(context, _rules);
