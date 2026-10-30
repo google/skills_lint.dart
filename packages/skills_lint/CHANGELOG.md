@@ -37,6 +37,7 @@
 ### Bug fixes
 
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
+- Baseline ignore entries for files below a skill directory use `/` on every platform, so a baseline written on Windows matches on macOS and Linux. Entries written with `\` still match. [#35](https://github.com/google/skills_lint.dart/issues/35)
 - Fixed `invalid-skill-name` `--fix` writing a directory name that YAML misreads, and then renaming the directory to the misread name: `My Skill #1` became `My Skill`, and `0x1f` became `31`. A name such as `0x1f` is written in quotes.
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
 

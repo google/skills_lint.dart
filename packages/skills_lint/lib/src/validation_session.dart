@@ -639,7 +639,7 @@ class ValidationSession {
   void _applyIgnores(ValidationResult result, List<IgnoreEntry> ignores, Directory skillDir) {
     final List<({IgnoreEntry entry, String normalizedFileName})> preNormalizedIgnores = [
       for (final ignore in ignores)
-        (entry: ignore, normalizedFileName: p.normalize(ignore.fileName)),
+        (entry: ignore, normalizedFileName: _normalizeIgnoreFileName(ignore.fileName)),
     ];
 
     for (final ValidationError error in result.validationErrors) {
@@ -693,14 +693,34 @@ class ValidationSession {
   /// relative lets a committed baseline match on any machine and from any
   /// working directory. A path outside [skillDir] is returned as reported,
   /// since no relative name would describe it.
+  ///
+  /// A relative name always uses `/` between segments, so a baseline written
+  /// on Windows matches on macOS and Linux. [pathContext] defaults to the host
+  /// context, and lets tests use another platform's paths.
   @visibleForTesting
-  static String baselineFileName(String errorFile, Directory skillDir) {
-    final String normalized = p.normalize(errorFile);
-    final String skillPath = p.normalize(skillDir.path);
-    if (p.isAbsolute(normalized) && isAtOrWithin(skillPath, normalized)) {
-      return p.relative(normalized, from: skillPath);
+  static String baselineFileName(String errorFile, Directory skillDir, {p.Context? pathContext}) {
+    final p.Context context = pathContext ?? p.context;
+    final String normalized = context.normalize(errorFile);
+    final String skillPath = context.normalize(skillDir.path);
+    final bool atOrWithin =
+        context.equals(skillPath, normalized) || context.isWithin(skillPath, normalized);
+    if (context.isAbsolute(normalized) && atOrWithin) {
+      return p.posix.joinAll(context.split(context.relative(normalized, from: skillPath)));
     }
     return normalized;
+  }
+
+  /// Normalizes the `file_name` of an ignore entry for matching.
+  ///
+  /// A relative name is read in the portable form that [baselineFileName]
+  /// writes, with either `/` or `\\` between segments, so that an entry
+  /// written with `\\` on Windows still matches on any host. An absolute name
+  /// is normalized with the host context.
+  static String _normalizeIgnoreFileName(String fileName) {
+    if (p.isAbsolute(fileName)) {
+      return p.normalize(fileName);
+    }
+    return p.posix.normalize(fileName.replaceAll(r'\', '/'));
   }
 
   /// Where an error reported on [errorFile] sits on disk.
