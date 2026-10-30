@@ -24,7 +24,7 @@ The runner requires one of the **5 reserved keywords** (`content`, `triggers`, `
 | `/run-evals content [all \| <skill \| file_path>]` | **Multi-Turn Content** | Runs task execution in isolated workspaces and grades workspace state against content rubrics declared in `repo_criteria` and suite assertions. Accepts `all` or a specific skill/file path. |
 | `/run-evals triggers [all \| <skill>]` | **Trigger Router Test** | Evaluates intent routing and distractor rejection across `triggers.json` files with Turn-1 cutoff. Accepts `all` or a specific skill. |
 | `/run-evals audit [all \| <skill \| file_path>]` | **Static Audit** | Statically audits evaluation suites against audit rubrics declared in `repo_criteria`. Accepts `all` or a specific skill/file path. |
-| `/run-evals all [skill]` | **All Skills + Test Data** | Runs the full **Audit -> Triggers -> Content** staged pipeline across all skills (or a specified `<skill>`), including suites and meta-evals marked with `"test_data": true`. |
+| `/run-evals all [skill]` | **All Skills + Test Data** | Runs the full **Audit -> Triggers -> Content** staged pipeline across all skills (or a specified `<skill>`), including suites and meta-evals marked with `"test_data": true`, and produces one aggregate report covering all three stages. |
 | `/run-evals help` | **Usage Guide** | Displays this command reference and exits. |
 
 ### Discovery & Target Resolution
@@ -69,7 +69,7 @@ See [`evals/README.md`](../../../packages/skills_lint/evals/README.md#evaluation
 
 ## Content Evaluations (`/run-evals content`)
 
-1. **Determine Agent Configuration**: Resolve target `evals.json` and `*_evals.json` suites per [Discovery & Target Resolution](#discovery--target-resolution). The evaluation runner always inherits the active agent configuration/profile used in the chat where `/run-evals` was triggered (`TypeName: self`). When reporting metadata in output artifacts, record the human-readable active profile name rather than the literal parameter `"self"`. Any `agent_config` fields present in `evals.json` are ignored and have no effect on execution.
+1. **Resolve Targets & Agent Configuration**: Resolve target `evals.json` and `*_evals.json` suites per [Discovery & Target Resolution](#discovery--target-resolution). The evaluation runner always inherits the active agent configuration/profile used in the chat where `/run-evals` was triggered (`TypeName: self`). When reporting metadata in output artifacts, record the human-readable active profile name rather than the literal parameter `"self"`. Any `agent_config` fields present in `evals.json` are ignored and have no effect on execution.
 2. **Orchestrate & Isolate**:
    - **Pre-flight & Strategy Selection**: Run `git rev-parse --show-toplevel` and `git rev-parse --show-prefix` to determine repository layout:
      - **Strategy A (`Workspace: branch`)**: Use native branch workspaces when the active workspace is the Git root and a single workspace is mounted.
