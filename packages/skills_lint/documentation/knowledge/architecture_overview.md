@@ -40,7 +40,7 @@ The persistent suppression mechanism enabling incremental adoption and baseline 
 
 ### 6. [Reporter Subsystem](../../lib/src/reporters/)
 The multi-format output streaming subsystem.
-- **Polymorphic Reporting:** Dispatches the session lifecycle events defined in [`Reporter`](../../lib/src/reporters/reporter.dart) across output formats (`TextReporter`, `JsonReporter`, `SarifReporter`). Before changing SARIF output, read the [SARIF Primer](sarif_primer.md).
+- **Polymorphic Reporting:** Dispatches the session lifecycle events defined in [`Reporter`](../../lib/src/reporters/reporter.dart) across output formats (`TextReporter`, `JsonReporter`, `SarifReporter`). Before changing SARIF output (`SarifReporter` or the models and serializer in `lib/src/models/sarif/`), read the [SARIF Primer](sarif_primer.md).
 - **Standardized Output Channels:** Ensures clean channel separation—structured documents (JSON, SARIF) stream to stdout while operational diagnostics and errors stream to stderr.
 
 ---
