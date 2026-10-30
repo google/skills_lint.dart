@@ -3,11 +3,14 @@ name: check-downstream-consumers
 description: >
   Validates an in-progress PR or release candidate of skills_lint against known downstream ecosystem consumers, and rolls or upgrades skills_lint in downstream consumer repositories when requested.
   Use when assessing breaking changes across external repositories during PR evaluation, testing migrations against the changelog, determining backwards compatibility shims, or rolling a skills_lint commit ref or version into a downstream consumer repository.
+  Do NOT use for day-to-day skill validation (use skills-lint-validation).
 metadata:
   internal: true
 ---
 
 # Check Downstream Consumers & Roll `skills_lint` Upgrades
+
+Do NOT use for day-to-day skill validation (use [`skills-lint-validation`](../../../packages/skills_lint/skills/skills-lint-validation/SKILL.md)).
 
 ## Operating Modes
 
@@ -129,7 +132,7 @@ Present the diagnostic summary to the human reviewer and choose one of the two p
 
 #### Pathway B: Downstream Migration via Changelog (Break Accepted)
 1. **Attempt Downstream Upgrade**: Migrate the downstream consumer's calling code **strictly following the migration instructions in [`packages/skills_lint/CHANGELOG.md`](../../../packages/skills_lint/CHANGELOG.md)**.
-2. **Evaluate Changelog Quality**: If the instructions in [`packages/skills_lint/CHANGELOG.md`](../../../packages/skills_lint/CHANGELOG.md) are incomplete or ambiguous during migration, treat that gap as an evaluation finding and update [`packages/skills_lint/CHANGELOG.md`](../../../packages/skills_lint/CHANGELOG.md) so the migration steps are self-contained.
+2. **Evaluate Changelog Quality**: If the instructions in [`packages/skills_lint/CHANGELOG.md`](../../../packages/skills_lint/CHANGELOG.md) are incomplete or ambiguous during migration, treat the gap as an evaluation finding and propose targeted additions to [`packages/skills_lint/CHANGELOG.md`](../../../packages/skills_lint/CHANGELOG.md) so the migration steps are self-contained.
 3. **Verify Build & Tests**: Re-run dependency resolution and the consumer's test suite until the downstream package passes cleanly.
 
 ---
