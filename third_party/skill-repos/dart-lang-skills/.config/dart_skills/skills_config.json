@@ -41,12 +41,6 @@
             "path": "skills/dart-resolve-package-conflicts"
           },
           {
-            "name": "dart-collect-coverage",
-            "installedAt": "2026-09-28T20:15:45.352988Z",
-            "isInstalled": false,
-            "path": "skills/dart-collect-coverage"
-          },
-          {
             "name": "dart-use-doc-examples",
             "installedAt": "2026-09-28T20:15:45.353002Z",
             "isInstalled": false,
@@ -65,22 +59,10 @@
             "path": "skills/dart-setup-ffi-assets"
           },
           {
-            "name": "dart-migrate-to-checks-package",
-            "installedAt": "2026-09-28T20:15:45.354406Z",
-            "isInstalled": false,
-            "path": "skills/dart-migrate-to-checks-package"
-          },
-          {
             "name": "dart-fix-runtime-errors",
             "installedAt": "2026-09-28T20:15:45.354419Z",
             "isInstalled": false,
             "path": "skills/dart-fix-runtime-errors"
-          },
-          {
-            "name": "dart-add-unit-test",
-            "installedAt": "2026-09-28T20:15:45.355577Z",
-            "isInstalled": false,
-            "path": "skills/dart-add-unit-test"
           },
           {
             "name": "dart-run-static-analysis",
