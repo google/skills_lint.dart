@@ -38,6 +38,7 @@
 
 - Fixed `check-absolute-paths` `--fix` corrupting Markdown links whose titles contain parentheses.
 - Fixed `invalid-skill-name` `--fix` writing a directory name that YAML misreads, and then renaming the directory to the misread name: `My Skill #1` became `My Skill`, and `0x1f` became `31`. A name such as `0x1f` is written in quotes.
+- On Windows, `--format=sarif` no longer runs a `git.exe` from the current directory. It runs the first `git.exe` found in a `PATH` directory other than the current directory. [#97](https://github.com/google/skills_lint.dart/issues/97)
 - The published package no longer includes the `benchmark/` directory, which 0.5.2 shipped by mistake.
 
 ## 0.5.2

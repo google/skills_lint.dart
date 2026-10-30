@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../git_executable.dart';
 import '../../path_utils.dart';
 import '../../rule_registry.dart';
 import '../analysis_severity.dart';
@@ -177,9 +178,14 @@ class SarifSerializer {
   }
 
   static String? _findGitRoot() {
+    final String? git = resolveGitExecutable();
+    if (git == null) {
+      // No `git.exe` outside the current directory on Windows.
+      return null;
+    }
     final ProcessResult result;
     try {
-      result = Process.runSync('git', ['rev-parse', '--show-toplevel']);
+      result = Process.runSync(git, ['rev-parse', '--show-toplevel']);
     } on ProcessException {
       // `git` is not installed or not on PATH.
       return null;
