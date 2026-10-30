@@ -22,9 +22,10 @@ class SkillFixer {
 
   /// The most passes over the fixable rules for one skill.
   ///
-  /// Every kept fix strictly lowers the count of errors, then warnings, which
-  /// can't go below zero, so the loop ends on its own. Only a fix whose
-  /// result changes between identical calls can reach this limit.
+  /// Every kept fix strictly lowers the count of errors, then warnings, so
+  /// the loop ends on its own. The limit stops a skill whose fixes take many
+  /// small steps, or a fix or rule whose result changes between identical
+  /// calls.
   static const int maxPasses = 10;
 
   /// Validates each candidate, with the skill's rules.
@@ -58,31 +59,40 @@ class SkillFixer {
         if (!_reports(current, rule.name)) {
           continue;
         }
-        final ValidationResult? candidate = await _tryFix(rule, current, canRename: canRename);
-        if (candidate == null) {
-          continue;
-        }
-        if (_DiagnosticCount.of(candidate).isLowerThan(_DiagnosticCount.of(current))) {
-          current = candidate;
-          settled = false;
-          skippedFixes.remove(rule.name);
-          if (!appliedRuleNames.contains(rule.name)) {
-            appliedRuleNames.add(rule.name);
-          }
-        } else {
-          skippedFixes[rule.name] = SkippedFix(
-            ruleName: rule.name,
-            grownRuleNames: _grownRuleNames(before: current, after: candidate),
-          );
+        switch (await _tryFix(rule, current, canRename: canRename)) {
+          case null:
+            continue;
+          case _NeedsRename():
+            skippedFixes[rule.name] = SkippedFix(
+              ruleName: rule.name,
+              grownRuleNames: const [],
+              needsRename: true,
+            );
+          case _Candidate(:final ValidationResult result)
+              when _DiagnosticCount.of(result).isLowerThan(_DiagnosticCount.of(current)):
+            current = result;
+            settled = false;
+            skippedFixes.remove(rule.name);
+            if (!appliedRuleNames.contains(rule.name)) {
+              appliedRuleNames.add(rule.name);
+            }
+          case _Candidate(:final ValidationResult result):
+            skippedFixes[rule.name] = SkippedFix(
+              ruleName: rule.name,
+              grownRuleNames: _grownRuleNames(before: current, after: result),
+            );
         }
       }
     }
     return _outcome(current, appliedRuleNames, skippedFixes, settled: settled);
   }
 
-  /// Runs [rule]'s fix on the content of [current] and validates the result,
-  /// or returns `null` when the fix throws or changes nothing.
-  Future<ValidationResult?> _tryFix(
+  /// Runs [rule]'s fix on the content of [current] and validates the result.
+  ///
+  /// Returns `null` when the fix throws or changes nothing, and
+  /// [_NeedsRename] when [canRename] is false and the fix changes `name` to a
+  /// valid name that differs from the directory's.
+  Future<_Attempt?> _tryFix(
     FixableRule rule,
     ValidationResult current, {
     required bool canRename,
@@ -104,16 +114,22 @@ class SkillFixer {
       return null;
     }
 
-    final String? wantedName = canRename
-        ? newDirectoryName(originalContent: context.rawContent, fixedContent: fixedContent)
-        : null;
+    final String? wantedName = newDirectoryName(
+      originalContent: context.rawContent,
+      fixedContent: fixedContent,
+    );
+    // Content whose `name` differs from the directory is never kept: it would
+    // leave the skill worse than before the fix.
+    if (!canRename && wantedName != null && wantedName != context.activeDirectoryName) {
+      return _NeedsRename();
+    }
     final ValidationResult result = await validator.validateProposedContent(
       context,
       fixedContent,
       activeDirectoryName: wantedName ?? context.activeDirectoryName,
     );
     applyIgnores(result);
-    return result;
+    return _Candidate(result);
   }
 
   /// The name to rename the skill directory to after a fix, or `null` to
@@ -185,6 +201,19 @@ class SkillFixer {
     ],
     settled: settled,
   );
+}
+
+/// What running one rule's fix produced, before the fixer decides to keep it.
+sealed class _Attempt {}
+
+/// A fix that needs a directory rename that can't happen.
+final class _NeedsRename extends _Attempt {}
+
+/// A fix and the validation result of its content.
+final class _Candidate extends _Attempt {
+  _Candidate(this.result);
+
+  final ValidationResult result;
 }
 
 // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/140
