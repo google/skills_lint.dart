@@ -325,6 +325,83 @@ void main() {
         expect(await unsuppressedSubjects(ignoring: [wholeFile]), isEmpty);
       });
     });
+
+    group('ignore entries for a nested file', () {
+      late Directory skillDir;
+
+      setUp(() async {
+        skillDir = await createDummySkill(
+          tempDir,
+          name: 'my-skill',
+          skillContent: buildFrontmatter(name: 'my-skill'),
+        );
+      });
+
+      String ignorePath() => p.join(skillDir.path, defaultIgnoreFileName);
+
+      /// Validates the skill with [_NestedFileRule], ignoring its error with
+      /// an entry whose `file_name` is [fileName], and returns whether the
+      /// error is suppressed.
+      Future<bool> isSuppressedBy(String fileName) async {
+        File(ignorePath()).writeAsStringSync(
+          jsonEncode({
+            SkillsIgnores.skillsKey: {
+              'my-skill': [
+                {
+                  IgnoreEntry.ruleIdKey: _NestedFileRule.ruleName,
+                  IgnoreEntry.fileNameKey: fileName,
+                },
+              ],
+            },
+          }),
+        );
+        final ValidationSession session = createTestSession(customRules: [_NestedFileRule()]);
+        await session.processIndividualSkill(skillDir.path);
+        return session.results.single.validationErrors
+            .singleWhere((error) => error.ruleId == _NestedFileRule.ruleName)
+            .isIgnored;
+      }
+
+      test('are written to a baseline with forward slashes', () async {
+        final ValidationSession session = createTestSession(
+          customRules: [_NestedFileRule()],
+          generateBaseline: true,
+        );
+        await session.processIndividualSkill(skillDir.path);
+
+        final ignores = SkillsIgnores.fromJson(
+          jsonDecode(File(ignorePath()).readAsStringSync()) as Map<String, dynamic>,
+        );
+        expect(ignores.skills['my-skill']!.map((entry) => entry.fileName), ['references/guide.md']);
+      });
+
+      test('are named with forward slashes for a Windows skill directory', () {
+        expect(
+          ValidationSession.baselineFileName(
+            r'C:\skills\my-skill\references\guide.md',
+            Directory(r'C:\skills\my-skill'),
+            pathContext: p.windows,
+          ),
+          'references/guide.md',
+        );
+        expect(
+          ValidationSession.baselineFileName(
+            r'C:\skills\my-skill',
+            Directory(r'C:\skills\my-skill'),
+            pathContext: p.windows,
+          ),
+          '.',
+        );
+      });
+
+      test('match when written with forward slashes', () async {
+        expect(await isSuppressedBy('references/guide.md'), isTrue);
+      });
+
+      test('match when written with backslashes on Windows', () async {
+        expect(await isSuppressedBy(r'references\guide.md'), isTrue);
+      });
+    });
   });
 
   group('pub archive', () {
@@ -406,5 +483,26 @@ class _TwoSubjectsRule extends SkillRule {
         message: 'Error about $subject.',
         subject: subject,
       ),
+  ];
+}
+
+/// Reports one error on `references/guide.md` inside the skill directory.
+class _NestedFileRule extends SkillRule {
+  static const String ruleName = 'nested-file';
+
+  @override
+  String get name => ruleName;
+
+  @override
+  AnalysisSeverity get severity => AnalysisSeverity.error;
+
+  @override
+  Future<List<ValidationError>> validate(SkillContext context) async => [
+    ValidationError(
+      ruleId: name,
+      severity: severity,
+      file: p.join(context.directory.path, 'references', 'guide.md'),
+      message: 'Error in a nested file.',
+    ),
   ];
 }

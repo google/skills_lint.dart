@@ -731,27 +731,35 @@ class ValidationSession {
     return wholeFile;
   }
 
-  /// Returns the `file_name` to store in a baseline entry for an error that a
-  /// rule reported on [errorFile] while validating [skillDir].
+  /// The `file_name` a baseline entry stores for an error that a rule reported
+  /// on [errorFile] while validating [skillDir].
   ///
-  /// Both writing a baseline and matching against one call this, so that the
-  /// two agree on a single spelling.
+  /// For a path at or inside [skillDir], this is relative to it and uses `/`,
+  /// such as `SKILL.md`, `references/guide.md`, or `.` for the directory
+  /// itself. Any other path comes back normalized but otherwise unchanged.
   ///
-  /// The result is relative to [skillDir]: `SKILL.md` for an error on a file in
-  /// the skill, and `.` for an error on the skill directory itself, which is
-  /// what a rule such as `path-does-not-exist` reports. Keeping the name
-  /// relative lets a committed baseline match on any machine and from any
-  /// working directory. A path outside [skillDir] is returned as reported,
-  /// since no relative name would describe it.
+  /// [pathContext] defaults to the host's.
   @visibleForTesting
-  static String baselineFileName(String errorFile, Directory skillDir) {
-    final String normalized = p.normalize(errorFile);
-    final String skillPath = p.normalize(skillDir.path);
-    if (p.isAbsolute(normalized) && isAtOrWithin(skillPath, normalized)) {
-      return p.relative(normalized, from: skillPath);
+  static String baselineFileName(String errorFile, Directory skillDir, {p.Context? pathContext}) {
+    // Writing and matching both use this single source of truth, so they
+    // agree on the in-repo form of a path. Using `/` lets a baseline match on
+    // any machine and OS.
+    final p.Context context = pathContext ?? p.context;
+    final String normalized = context.normalize(errorFile);
+    final String skillPath = context.normalize(skillDir.path);
+    final bool atOrWithin =
+        context.equals(skillPath, normalized) || context.isWithin(skillPath, normalized);
+    if (context.isAbsolute(normalized) && atOrWithin) {
+      return p.posix.joinAll(context.split(context.relative(normalized, from: skillPath)));
     }
     return normalized;
   }
+
+  /// The portable form of a relative ignore entry name [fileName], with `/`
+  /// between segments, so that an entry written with `\` on Windows still
+  /// matches on any host.
+  static String _portableIgnoreFileName(String fileName) =>
+      p.posix.normalize(fileName.replaceAll(r'\', '/'));
 
   /// Where an error reported on [errorFile] sits on disk.
   static String _absoluteErrorFile(String errorFile, Directory skillDir) {
@@ -768,7 +776,10 @@ class ValidationSession {
   /// directory hold the path as it was spelled on the command line. Those
   /// entries keep matching while [absoluteName] ends with them.
   static bool _ignoreCovers(String ignoreFileName, String portableName, String absoluteName) {
-    if (ignoreFileName == portableName || p.equals(ignoreFileName, absoluteName)) {
+    if (ignoreFileName == portableName ||
+        (!p.isAbsolute(ignoreFileName) &&
+            _portableIgnoreFileName(ignoreFileName) == portableName) ||
+        p.equals(ignoreFileName, absoluteName)) {
       return true;
     }
     return _isPathSuffix(ignoreFileName, absoluteName);

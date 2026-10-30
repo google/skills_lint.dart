@@ -72,7 +72,6 @@ const Map<String, int> _shouldBeFixed = {
   'lib/src/fixable_rule.dart': 1,
   'lib/src/rules/name_format_rule.dart': 3,
   'lib/src/rules/trailing_whitespace_rule.dart': 1,
-  'lib/src/validation_session.dart': 1,
   'lib/src/validator.dart': 1,
 };
 
