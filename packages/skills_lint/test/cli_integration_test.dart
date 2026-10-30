@@ -617,12 +617,12 @@ skills_lint:
     });
 
     test('handles malformed JSON ignore-file gracefully by falling back', () async {
-      final malformedFile = File('${tempDir.path}/malformed.json');
+      final malformedFile = File(p.join(tempDir.path, 'malformed.json'));
       await malformedFile.writeAsString('{ malformed json }');
 
-      final Directory skillFolder = await Directory('${tempDir.path}/skill-x').create();
+      final Directory skillFolder = await Directory(p.join(tempDir.path, 'skill-x')).create();
       await File(
-        '${skillFolder.path}/SKILL.md',
+        p.join(skillFolder.path, 'SKILL.md'),
       ).writeAsString('${buildFrontmatter(name: 'skill-x', description: 'Valid skill')}Body');
 
       final TestProcess process = await startCli([

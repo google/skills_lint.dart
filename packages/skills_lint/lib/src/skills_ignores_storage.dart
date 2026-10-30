@@ -64,10 +64,13 @@ class SkillsIgnoresStorage {
       return _unreadable(path, 'must be a JSON object with a "${SkillsIgnores.skillsKey}" key.');
     }
     // `{}` has no entries. Any other object without a `skills` object, such
-    // as one with a misspelled key, is a problem, so that
-    // `--generate-baseline` does not overwrite it.
+    // as one with a misspelled key, is a problem that the CLI reports, and
+    // that `--generate-baseline` names before it replaces the file.
     if (json.isEmpty) {
       return (ignores: SkillsIgnores(skills: {}), problems: <IgnoreProblem>[]);
+    }
+    if (!json.containsKey(SkillsIgnores.skillsKey)) {
+      return _unreadable(path, 'is missing the "${SkillsIgnores.skillsKey}" key.');
     }
     final Object? skillsJson = json[SkillsIgnores.skillsKey];
     if (skillsJson is! Map<String, dynamic>) {
@@ -112,7 +115,9 @@ class SkillsIgnoresStorage {
           ));
         }
       }
-      skills[skillName] = entries;
+      if (entries.isNotEmpty) {
+        skills[skillName] = entries;
+      }
     }
     return (ignores: SkillsIgnores(skills: skills), problems: problems);
   }

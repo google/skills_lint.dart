@@ -27,6 +27,7 @@ void main() {
 
       final IgnoresLoad result = await storage.load(file.path);
       expect(result.ignores.skills.isEmpty, isTrue);
+      expect(result.problems, isEmpty);
     });
 
     test('inflates single skill with 1 ignore', () async {
@@ -44,6 +45,7 @@ void main() {
       final IgnoresLoad result = await storage.load(file.path);
       expect(result.ignores.skills.containsKey('skill-a'), isTrue);
       expect(result.ignores.skills['skill-a']!.length, equals(1));
+      expect(result.problems, isEmpty);
     });
 
     test('inflates single skill with 2 ignores', () async {
@@ -62,6 +64,7 @@ void main() {
       final IgnoresLoad result = await storage.load(file.path);
       expect(result.ignores.skills.containsKey('skill-a'), isTrue);
       expect(result.ignores.skills['skill-a']!.length, equals(2));
+      expect(result.problems, isEmpty);
     });
 
     test('inflates three skills with varied ignores', () async {
@@ -83,6 +86,7 @@ void main() {
       expect(result.ignores.skills['skill-a']!.length, equals(1));
       expect(result.ignores.skills['skill-b']!.length, equals(2));
       expect(result.ignores.skills['skill-c']!.length, equals(3));
+      expect(result.problems, isEmpty);
     });
 
     test('reports a file that is not valid JSON and loads no entries', () async {
@@ -124,7 +128,9 @@ void main() {
 
       final IgnoresLoad result = await storage.load(file.path);
       expect(result.ignores.skills, isEmpty);
-      expect(result.problems.map((problem) => problem.message), [contains('"skills"')]);
+      expect(result.problems.map((problem) => problem.message), [
+        '${file.path} is missing the "skills" key.',
+      ]);
     });
 
     test('loads an empty or whitespace-only file as empty, with no problems', () async {
@@ -172,6 +178,15 @@ void main() {
         '${file.path}: skill "skill-b", entry 5: missing "rule_id"; "file_name" must be a string.',
         '${file.path}: skill "skill-c" must list its entries in a JSON array.',
       ]);
+    });
+
+    test('omits a skill whose entries are all malformed', () async {
+      final file = File('${tempDir.path}/all_malformed.json');
+      await file.writeAsString('{"skills": {"skill-a": [{"rule_id": "rule1"}]}}');
+
+      final IgnoresLoad result = await storage.load(file.path);
+      expect(result.ignores.skills, isEmpty);
+      expect(result.problems, hasLength(1));
     });
   });
 }

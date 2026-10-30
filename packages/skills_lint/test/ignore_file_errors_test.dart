@@ -10,9 +10,14 @@ import 'package:test_process/test_process.dart';
 
 import 'test_utils.dart';
 
-/// End-to-end tests for an ignore file that contains malformed entries or is
-/// not valid JSON.
 void main() {
+  defineCliTests();
+}
+
+/// End-to-end tests for an ignore file that contains malformed entries or is
+/// not valid JSON. [main] calls this, and `compiled_test/cli_test.dart` calls
+/// it again to run the same tests against the compiled binary.
+void defineCliTests() {
   late Directory tempDir;
   late Directory skillsDir;
   late File ignoreFile;
@@ -99,8 +104,14 @@ void main() {
     },
   );
 
-  test('--fix --generate-baseline replaces a file with malformed entries', () async {
+  test('--fix --generate-baseline fixes a skill and keeps the valid entries', () async {
     await ignoreFile.writeAsString(malformedIgnores);
+    // `fixable` has a name that --fix sets to its directory name.
+    final Directory fixable = await Directory(p.join(skillsDir.path, 'fixable')).create();
+    final fixableSkillMd = File(p.join(fixable.path, 'SKILL.md'));
+    await fixableSkillMd.writeAsString(
+      '${buildFrontmatter(name: 'wrong', description: 'A skill.')}Body\n',
+    );
 
     final TestProcess process = await startCli([
       '-d',
@@ -112,7 +123,21 @@ void main() {
     await process.shouldExit(0);
 
     expect(stderr, contains('Replacing ${ignoreFile.path}'));
-    expect(ignoreFile.readAsStringSync(), isNot(contains('"x"')));
+    expect(fixableSkillMd.readAsStringSync(), contains('name: fixable'));
+    // The ignored skill is not fixed, and the valid entries survive.
+    expect(
+      File(p.join(skillsDir.path, 'my-skill', 'SKILL.md')).readAsStringSync(),
+      contains('name: Wrong'),
+    );
+    final String written = ignoreFile.readAsStringSync();
+    expect(written, contains('invalid-skill-name'));
+    expect(written, contains('description-too-long'));
+    expect(written, isNot(contains('"x"')));
+
+    final TestProcess rerun = await startCli(['-d', skillsDir.path]);
+    final String rerunStderr = (await rerun.stderr.rest.toList()).join('\n');
+    await rerun.shouldExit(0);
+    expect(rerunStderr, isEmpty);
   });
 
   test('--generate-baseline reports only the ignore files that had problems', () async {
@@ -144,11 +169,13 @@ void main() {
     await ignoreFile.writeAsString('{ not json');
 
     final TestProcess process = await startCli(['-d', skillsDir.path]);
+    final String stdout = (await process.stdout.rest.toList()).join('\n');
     final String stderr = (await process.stderr.rest.toList()).join('\n');
     await process.shouldExit(1);
 
     expect(stderr, contains(ignoreFile.path));
     expect(stderr, contains('not valid JSON'));
+    expect('$stdout\n$stderr', contains('does not match the parent directory name'));
   });
 
   test('--generate-baseline replaces an ignore file that is not valid JSON', () async {
