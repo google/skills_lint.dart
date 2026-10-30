@@ -41,7 +41,7 @@ still work and are unchanged.
 Add to your `pubspec.yaml`:
 ```yaml
 dev_dependencies:
-  skills_lint: ^0.5.0
+  skills_lint: ^0.5.3
 ```
 
 Then:
