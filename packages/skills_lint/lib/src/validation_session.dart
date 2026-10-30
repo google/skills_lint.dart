@@ -635,7 +635,7 @@ class ValidationSession {
 
     if (file.existsSync()) {
       final IgnoresLoad loaded = await SkillsIgnoresStorage().load(ignorePath);
-      // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/152
+      // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/183
       // Make an ignore file with errors fail the run in 0.6.0.
       if (loaded.problems.isNotEmpty && _ignoreFilesWithErrors.add(ignorePath)) {
         loaded.problems.forEach(_reporter.onIgnoreFileError);
