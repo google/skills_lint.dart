@@ -24,11 +24,6 @@ skills_lint:
     - path: "packages/skills_lint/example/skills/valid"
       rules:
         prevent-skills-sh-publishing: error
-  # Tracked internal skills in .agents/skills/ (unlike the third_party/
-  # symlinks in .agents/skills/).
-  # packages/skills_lint/repo_test/tracked_skills_publishing_test.dart checks
-  # that every git-tracked skill directory under .agents/skills/ enables
-  # prevent-skills-sh-publishing here.
   individual_skills:
     - path: ".agents/skills/add-dart-lint-validation-rule"
       rules:
