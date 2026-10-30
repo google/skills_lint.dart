@@ -711,7 +711,7 @@ class ValidationSession {
   }
 
   /// The portable form of a relative ignore entry name [fileName], with `/`
-  /// between segments, so that an entry written with `\\` on Windows still
+  /// between segments, so that an entry written with `\` on Windows still
   /// matches on any host.
   static String _portableIgnoreFileName(String fileName) =>
       p.posix.normalize(fileName.replaceAll(r'\', '/'));
