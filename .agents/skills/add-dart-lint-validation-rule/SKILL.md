@@ -27,16 +27,17 @@ Add a built-in validation rule to `skills_lint`, expose the rule as a CLI flag, 
 - Add a case in `RuleRegistry.createRule` that passes `severity` and any parsed `parameters` (falling back to the rule's default constants) to the rule constructor.
 - Enable the rule in `fixtureConfig` and add a planted violation to `violations` and `plantedViolations` in [`benchmark/src/fixture.dart`](../../../packages/skills_lint/benchmark/src/fixture.dart) ([`test/benchmark/fixture_test.dart`](../../../packages/skills_lint/test/benchmark/fixture_test.dart)).
 
-## 3. Tests in `test/rules/`
+## 3. Tests in `packages/skills_lint/test/`
 
-- Add unit tests in `test/rules/<rule>_test.dart` ([`test_coverage_convention_test.dart`](../../../packages/skills_lint/repo_test/test_coverage_convention_test.dart)).
+- Add unit tests in `packages/skills_lint/test/<rule_name>_test.dart` (or `test/rules/<rule_name>_test.dart`; [`test_coverage_convention_test.dart`](../../../packages/skills_lint/repo_test/test_coverage_convention_test.dart) scans `packages/skills_lint/test/` recursively for a test importing the rule).
 - Give minimal `SKILL.md` test fixtures valid required frontmatter (`name` and `description`) unless testing missing frontmatter.
-- Use `Directory.systemTemp.createTemp` (cleaned up in `tearDown`) when testing filesystem rules (see [`path_does_not_exist_rule_test.dart`](../../../packages/skills_lint/test/rules/path_does_not_exist_rule_test.dart)), or in-memory `SkillContext` when testing frontmatter or content rules.
+- Use `Directory.systemTemp.createTemp` (cleaned up in `tearDown`) when testing filesystem rules (see [`path_does_not_exist_rule_test.dart`](../../../packages/skills_lint/test/rules/path_does_not_exist_rule_test.dart)), or [`createTestSkillContext`](../../../packages/skills_lint/test/test_utils.dart) when testing frontmatter or content rules with an in-memory `SkillContext` so `parsedYaml` is populated.
+- Test that each rule parameter changes what the rule reports. [`rule_settings_supply_test.dart`](../../../packages/skills_lint/test/rule_settings_supply_test.dart) automatically tests config-file, CLI, and Dart API supply and precedence for every registered rule and parameter in `RuleConfig`; if a rule reads a setting from anywhere other than its `RuleConfig`, test each way that setting can be supplied.
 - For CLI tests, use `startCli` from [`test/test_utils.dart`](../../../packages/skills_lint/test/test_utils.dart) and wire `defineCliTests()` into [`compiled_test/cli_test.dart`](../../../packages/skills_lint/compiled_test/cli_test.dart) ([`cli_test_wiring_convention_test.dart`](../../../packages/skills_lint/repo_test/cli_test_wiring_convention_test.dart)).
 
 ## 4. Documentation and Verification
 
 - Add a `## <rule-name>` entry in [`RULES.md`](../../../packages/skills_lint/RULES.md) ([`rules_md_consistency_test.dart`](../../../packages/skills_lint/repo_test/rules_md_consistency_test.dart)).
-- Add `- \`--[no-]<rule-name>\`: <description>.` under Flags in [`README.md`](../../../packages/skills_lint/README.md), matching `ruleName` with no `check-` prefix.
+- Add `- \`--[no-]<rule-name>\`: <description>. (Disabled by default).` (omitting `(Disabled by default).` only when enabled by default) under Flags in [`README.md`](../../../packages/skills_lint/README.md); match `ruleName` exactly and don't add a `check-` prefix.
 - Add an entry under `### New rules` in [`CHANGELOG.md`](../../../packages/skills_lint/CHANGELOG.md).
 - Run [`definition-of-done`](../definition-of-done/SKILL.md).
