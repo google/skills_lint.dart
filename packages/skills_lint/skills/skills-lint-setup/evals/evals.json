@@ -6,7 +6,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Set up skills_lint in our Dart package for the skills in .agents/skills.",
+      "prompt": "Set up skills_lint in our Dart package for the skills in .agents/skills. The package has no skills/ directory and doesn't publish skills.",
       "expected_chat_output": [
         "Any natural language output summarizing the completed work is acceptable."
       ],
