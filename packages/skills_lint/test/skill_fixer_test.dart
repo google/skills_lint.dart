@@ -88,18 +88,21 @@ void main() {
     Directory skillDir,
     Map<String, RuleConfig> ruleConfigs, {
     List<SkillRule> customRules = const [],
+    bool canRename = true,
   }) async {
     final validator = Validator(ruleConfigs: ruleConfigs, customRules: customRules);
     return SkillFixer(
       validator: validator,
       applyIgnores: (_) {},
       onFixFailed: (ruleName, error) => fail('$ruleName fix threw $error'),
-    ).fix(await validator.validate(skillDir));
+    ).fix(await validator.validate(skillDir), canRename: canRename);
   }
 
-  /// Runs `--fix` on [skillDir].
-  Future<void> applyFix(Directory skillDir, Map<String, RuleConfig> ruleConfigs) =>
-      validateSkillsInternal(
+  /// Runs `--fix` on [skillDir], and returns what it wrote to stderr.
+  Future<String> applyFix(Directory skillDir, Map<String, RuleConfig> ruleConfigs) async {
+    final err = CapturedOutput();
+    await IOOverrides.runZoned(
+      () => validateSkillsInternal(
         individualSkillPaths: [skillDir.path],
         fixApply: true,
         quiet: true,
@@ -107,7 +110,11 @@ void main() {
           for (final MapEntry(:key, :value) in ruleConfigs.entries)
             key: RuleConfigPatch(severity: value.severity, parameters: value.parameters),
         },
-      );
+      ),
+      stderr: () => err,
+    );
+    return err.buffer.toString();
+  }
 
   /// The rule and severity of each diagnostic, which unlike messages don't
   /// hold the path of the skill.
@@ -178,40 +185,40 @@ void main() {
     final Directory skillDir = await createPackageSkill('foo');
     final String original = File(p.join(skillDir.path, 'SKILL.md')).readAsStringSync();
 
-    final FixOutcome outcome = await predict(skillDir, publishedName);
+    final FixOutcome outcome = await predict(skillDir, publishedName, canRename: false);
 
     expect(outcome.content, original);
     expect(outcome.skippedFixes.single.ruleName, PublishedSkillNameRule.ruleName);
-    expect(outcome.skippedFixes.single.blockedDirectoryName, 'bar-foo');
     expect(outcome.skippedFixes.single.grownRuleNames, [NameFormatRule.ruleName]);
     for (var run = 1; run <= 2; run++) {
-      await applyFix(skillDir, publishedName);
+      final String err = await applyFix(skillDir, publishedName);
       expect(
         File(p.join(skillDir.path, 'SKILL.md')).readAsStringSync(),
         original,
         reason: 'run $run',
       );
+      expect(err, contains('bar-foo'), reason: 'run $run');
     }
   });
 
-  test('renames a directory whose name differs only in case', () async {
-    // On a case-insensitive file system, `bar-x` already "exists" as `Bar-x`.
-    await File(p.join(root.path, 'pubspec.yaml')).writeAsString('name: bar\n');
-    final Directory skillDir = await createDummySkill(
-      Directory(p.join(root.path, 'skills')),
-      name: 'Bar-x',
-      skillContent: '${buildFrontmatter(name: 'x')}Body\n',
-    );
+  test('still writes the other fixes when the rename fails at write time', () async {
+    const Map<String, RuleConfig> ruleConfigs = {
+      ...publishedName,
+      TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.error),
+    };
+    final Directory skillDir = await createPackageSkill('foo', body: 'Body   \n');
+    // A read-only parent passes the preflight check and fails the rename.
+    await Process.run('chmod', ['555', skillDir.parent.path]);
+    addTearDown(() => Process.run('chmod', ['755', skillDir.parent.path]));
 
-    final FixOutcome outcome = await predict(skillDir, publishedName);
+    final String err = await applyFix(skillDir, ruleConfigs);
 
-    expect(outcome.skippedFixes, isEmpty);
-    expect(outcome.directoryName, 'bar-x');
-    await applyFix(skillDir, publishedName);
-    expect(Directory(p.join(root.path, 'skills')).listSync().map((e) => p.basename(e.path)), [
-      'bar-x',
-    ]);
-  });
+    expect(skillDir.existsSync(), isTrue);
+    final String content = File(p.join(skillDir.path, 'SKILL.md')).readAsStringSync();
+    expect(content, contains('Body\n'));
+    expect(content, contains('name: foo'));
+    expect(err, contains('bar-foo'));
+  }, skip: Platform.isWindows ? 'chmod does not exist on Windows' : false);
 
   test('stops after maxPasses and says the fixes did not settle', () async {
     final Directory skillDir = await createPackageSkill('bar-foo');

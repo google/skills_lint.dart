@@ -30,6 +30,7 @@ import 'reporters/reporters.dart';
 import 'rule_registry.dart';
 import 'rules/pub_archive_includes_skill_rule.dart';
 import 'skill_fixer.dart';
+import 'skill_writer.dart';
 import 'skills_ignores_storage.dart';
 import 'validator.dart';
 
@@ -784,93 +785,91 @@ class ValidationSession {
       return result;
     }
 
-    final FixOutcome outcome = await SkillFixer(
+    final fixer = SkillFixer(
       validator: validator,
       applyIgnores: (ValidationResult candidate) =>
           _applyIgnores(candidate, skillIgnores, skillDir),
       onFixFailed: (String ruleName, Object error) =>
           _reporter.onFixFailed(ruleName: ruleName, error: error),
-    ).fix(result);
+    );
+    final writer = SkillWriter(_reporter);
     final String currentDirectoryName = p.basename(skillDir.path);
+
+    // Plan as if the directory can follow a changed `name`. If it can't, plan
+    // again under the current name: the fixes that need the rename drop out,
+    // and the others still land.
+    FixOutcome outcome = await fixer.fix(result);
+    ApplyResult applied = writer.preflight(skillDir, outcome.directoryName);
+    if (applied is RenameBlocked) {
+      outcome = await _planWithoutRename(fixer, result, outcome, applied);
+    }
+    if (fixApply && outcome.content != context.rawContent) {
+      applied = await writer.apply(skillDir, outcome.content, outcome.directoryName);
+      if (applied is RenameBlocked) {
+        // Only the rename failed, before anything was written.
+        outcome = await _planWithoutRename(fixer, result, outcome, applied);
+        applied = await writer.apply(skillDir, outcome.content, outcome.directoryName);
+      }
+    }
+
     for (final SkippedFix skipped in outcome.skippedFixes) {
       _reporter.onFixSkipped(currentDirectoryName, skipped);
     }
     if (!outcome.settled) {
       _reporter.onFixesDidNotSettle(skillName: currentDirectoryName, passes: SkillFixer.maxPasses);
     }
-
     if (outcome.content == context.rawContent) {
       return result;
     }
 
-    if (fixApply) {
-      await skillMdFile.writeAsString(outcome.content);
-      _reporter.onFixesWritten(currentDirectoryName, ruleNames: outcome.appliedRuleNames);
-
-      // A blocked rename is tried again so that the collision is reported.
-      final Directory fixedSkillDir = await _renameSkillDirectory(
-        skillDir,
-        outcome.blockedDirectoryName ?? outcome.directoryName,
+    if (!fixApply) {
+      _reporter.onDryRunProposed(
+        skillName: currentDirectoryName,
+        targetSkillName: outcome.directoryName,
+        originalContent: context.rawContent,
+        currentContent: outcome.content,
       );
-      if (fixedSkillDir.path != skillDir.path) {
-        // The archive lists files by path, so a rename makes it stale.
-        _pubArchiveLoader.clear();
-      }
-      final ValidationResult newResult = await validator.validate(
-        fixedSkillDir,
-        pubArchive: await _pubArchiveFor(fixedSkillDir, validator),
-      );
-      _applyIgnores(newResult, skillIgnores, fixedSkillDir);
-      _reporter.onFixedSkillValidationComplete(newResult);
-      return newResult;
+      _reporter.onFixedSkillValidationComplete(outcome.result, dryRun: true);
+      return result;
     }
 
-    _reporter.onDryRunProposed(
-      skillName: currentDirectoryName,
-      targetSkillName: outcome.directoryName,
-      originalContent: context.rawContent,
-      currentContent: outcome.content,
+    if (applied is! Applied) {
+      // The write failed and the skill is as it was. SkillWriter reported it.
+      return result;
+    }
+    _reporter.onFixesWritten(currentDirectoryName, ruleNames: outcome.appliedRuleNames);
+    if (applied.renamed) {
+      // The archive lists files by path, so a rename makes it stale.
+      _pubArchiveLoader.clear();
+    }
+    final ValidationResult newResult = await validator.validate(
+      applied.dir,
+      pubArchive: await _pubArchiveFor(applied.dir, validator),
     );
-    _reporter.onFixedSkillValidationComplete(outcome.result, dryRun: true);
-    return result;
+    _applyIgnores(newResult, skillIgnores, applied.dir);
+    _reporter.onFixedSkillValidationComplete(newResult);
+    return newResult;
   }
 
-  /// Renames [skillDir] to [newDirectoryName], and returns the skill
-  /// directory as it is afterwards.
+  /// Plans the fixes for [result] again under the current directory name,
+  /// after [blocked] stopped the rename that [planned] needs.
   ///
-  /// Returns [skillDir] when it already has that name or the rename fails.
-  Future<Directory> _renameSkillDirectory(Directory skillDir, String newDirectoryName) async {
-    final String currentDirectoryName = p.basename(skillDir.path);
-    if (newDirectoryName == currentDirectoryName) {
-      return skillDir;
-    }
-
-    final String parentPath = p.dirname(skillDir.path);
-    final String newDirPath = p.join(parentPath, newDirectoryName);
-    final newDir = Directory(newDirPath);
-
-    if (SkillFixer.isNameTaken(skillDir, newDirectoryName)) {
-      _reporter.onRenameTargetExists(
-        oldSkillName: currentDirectoryName,
-        targetSkillName: newDirectoryName,
-        destinationPath: newDir.path,
-      );
-      return skillDir;
-    }
-
-    final Directory renamed;
-    try {
-      renamed = await skillDir.rename(newDirPath);
-    } on FileSystemException catch (e) {
-      _reporter.onRenameFailed(
-        oldSkillName: currentDirectoryName,
-        targetSkillName: newDirectoryName,
-        error: e,
-      );
-      return skillDir;
-    }
-    _reporter.onSkillRenamed(currentDirectoryName, newDirectoryName);
-    return renamed;
+  /// Each fix that was kept in [planned] and is dropped now is skipped
+  /// because of the rename, so it carries the reason from [blocked].
+  static Future<FixOutcome> _planWithoutRename(
+    SkillFixer fixer,
+    ValidationResult result,
+    FixOutcome planned,
+    RenameBlocked blocked,
+  ) async {
+    final FixOutcome replanned = await fixer.fix(result, canRename: false);
+    return replanned.withSkippedFixes([
+      for (final SkippedFix skipped in replanned.skippedFixes)
+        if (planned.appliedRuleNames.contains(skipped.ruleName))
+          skipped.withReason(blocked.reason)
+        else
+          skipped,
+    ]);
   }
 
   /// Mutates [ignores] in place to add baseline entries for any non-ignored

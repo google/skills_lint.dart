@@ -98,7 +98,7 @@ class TextReporter extends Reporter {
       return;
     }
     final String reason = switch (skipped) {
-      SkippedFix(blockedDirectoryName: final String name) => 'directory $name already exists',
+      SkippedFix(reason: final String reason) => reason,
       SkippedFix(grownRuleNames: []) => 'it would not lower the number of errors or warnings',
       SkippedFix(:final grownRuleNames) => 'it would add ${grownRuleNames.join(', ')} diagnostics',
     };

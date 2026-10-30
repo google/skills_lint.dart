@@ -2,9 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
-
-import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import 'fixable_rule.dart';
@@ -43,13 +40,16 @@ class SkillFixer {
 
   /// Fixes the skill that [initial] describes, without writing to disk.
   ///
-  /// [initial] must have a context. The fixer reads the file system only to
-  /// check whether a planned rename would collide with another directory.
-  Future<FixOutcome> fix(ValidationResult initial) async {
+  /// [initial] must have a context. The fixer reads and writes no files.
+  ///
+  /// A fix that changes the skill's `name` plans a directory rename, and is
+  /// judged as if the rename happens. With [canRename] false, every fix is
+  /// judged under the current directory name, so a fix that needs the rename
+  /// is dropped.
+  Future<FixOutcome> fix(ValidationResult initial, {bool canRename = true}) async {
     var current = initial;
     final appliedRuleNames = <String>[];
     final skippedFixes = <String, SkippedFix>{};
-    String? blockedDirectoryName;
 
     for (var pass = 1; pass <= maxPasses; pass++) {
       var keptAFix = false;
@@ -57,15 +57,13 @@ class SkillFixer {
         if (rule is! FixableRule || !_reports(current, rule.name)) {
           continue;
         }
-        final _Attempt? attempt = await _tryFix(rule, current);
-        if (attempt == null) {
+        final ValidationResult? candidate = await _tryFix(rule, current, canRename: canRename);
+        if (candidate == null) {
           continue;
         }
-        final ValidationResult candidate = attempt.result;
         if (_DiagnosticCount.of(candidate).isLowerThan(_DiagnosticCount.of(current))) {
           current = candidate;
           keptAFix = true;
-          blockedDirectoryName = attempt.blockedDirectoryName ?? blockedDirectoryName;
           skippedFixes.remove(rule.name);
           if (!appliedRuleNames.contains(rule.name)) {
             appliedRuleNames.add(rule.name);
@@ -74,26 +72,23 @@ class SkillFixer {
           skippedFixes[rule.name] = SkippedFix(
             ruleName: rule.name,
             grownRuleNames: _grownRuleNames(before: current, after: candidate),
-            blockedDirectoryName: attempt.blockedDirectoryName,
           );
         }
       }
       if (!keptAFix) {
-        return _outcome(
-          current,
-          appliedRuleNames,
-          skippedFixes,
-          blockedDirectoryName,
-          settled: true,
-        );
+        return _outcome(current, appliedRuleNames, skippedFixes, settled: true);
       }
     }
-    return _outcome(current, appliedRuleNames, skippedFixes, blockedDirectoryName, settled: false);
+    return _outcome(current, appliedRuleNames, skippedFixes, settled: false);
   }
 
   /// Runs [rule]'s fix on the content of [current] and validates the result,
   /// or returns `null` when the fix throws or changes nothing.
-  Future<_Attempt?> _tryFix(FixableRule rule, ValidationResult current) async {
+  Future<ValidationResult?> _tryFix(
+    FixableRule rule,
+    ValidationResult current, {
+    required bool canRename,
+  }) async {
     final SkillContext context = current.context!;
     final String fixedContent;
     try {
@@ -111,21 +106,16 @@ class SkillFixer {
       return null;
     }
 
-    final String nameAfterFix =
-        newDirectoryName(originalContent: context.rawContent, fixedContent: fixedContent) ??
-        context.activeDirectoryName;
-    // The rename can't happen if another directory has the name already, so
-    // the fixed content keeps the current name and is judged that way.
-    final bool renameBlocked =
-        nameAfterFix != p.basename(context.directory.path) &&
-        isNameTaken(context.directory, nameAfterFix);
+    final String? wantedName = canRename
+        ? newDirectoryName(originalContent: context.rawContent, fixedContent: fixedContent)
+        : null;
     final ValidationResult result = await validator.validateProposedContent(
       context,
       fixedContent,
-      activeDirectoryName: renameBlocked ? context.activeDirectoryName : nameAfterFix,
+      activeDirectoryName: wantedName ?? context.activeDirectoryName,
     );
     applyIgnores(result);
-    return _Attempt(result, blockedDirectoryName: renameBlocked ? nameAfterFix : null);
+    return result;
   }
 
   /// The name to rename the skill directory to after a fix, or `null` to
@@ -150,16 +140,6 @@ class SkillFixer {
       return null;
     }
     return nameAfter;
-  }
-
-  /// Whether a directory other than [skillDir] already has the name [name]
-  /// next to it.
-  static bool isNameTaken(Directory skillDir, String name) {
-    final target = Directory(p.join(p.dirname(skillDir.path), name));
-    // On a case-insensitive file system, a name that differs only in case
-    // finds the skill directory itself.
-    return target.existsSync() &&
-        target.resolveSymbolicLinksSync() != skillDir.resolveSymbolicLinksSync();
   }
 
   /// Whether [result] has an un-ignored diagnostic from the rule named
@@ -193,8 +173,7 @@ class SkillFixer {
   static FixOutcome _outcome(
     ValidationResult result,
     List<String> appliedRuleNames,
-    Map<String, SkippedFix> skippedFixes,
-    String? blockedDirectoryName, {
+    Map<String, SkippedFix> skippedFixes, {
     required bool settled,
   }) => FixOutcome(
     result: result,
@@ -206,18 +185,7 @@ class SkillFixer {
         if (_reports(result, skipped.ruleName)) skipped,
     ],
     settled: settled,
-    blockedDirectoryName: blockedDirectoryName,
   );
-}
-
-/// The validation result of one fix, before the fixer decides to keep it.
-class _Attempt {
-  _Attempt(this.result, {required this.blockedDirectoryName});
-
-  final ValidationResult result;
-
-  /// See [SkippedFix.blockedDirectoryName].
-  final String? blockedDirectoryName;
 }
 
 /// The un-ignored errors and warnings of a result, compared errors first.

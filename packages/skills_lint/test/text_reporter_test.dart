@@ -56,7 +56,11 @@ void main() {
     test('when the directory to rename to exists', () {
       expect(
         skippedLine(
-          SkippedFix(ruleName: 'r', grownRuleNames: const ['g'], blockedDirectoryName: 'bar-foo'),
+          SkippedFix(
+            ruleName: 'r',
+            grownRuleNames: const ['g'],
+            reason: 'directory bar-foo already exists',
+          ),
         ),
         allOf(startsWith('Skipped the r fix'), contains('bar-foo already exists')),
       );

@@ -124,20 +124,6 @@ class RuleWritesName extends RuleA {
   }
 }
 
-/// A [Stdout] that collects what is written to it.
-class _CapturedOutput implements Stdout {
-  final StringBuffer buffer = StringBuffer();
-
-  @override
-  void write(Object? object) => buffer.write(object);
-
-  @override
-  void writeln([Object? object = '']) => buffer.writeln(object);
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
 void main() {
   group('Fixer Sequential Execution', () {
     late Directory tempDir;
@@ -256,7 +242,7 @@ void main() {
       String oldName = 'old-skill',
     }) async {
       final Directory skillDir = await createOldSkill(oldName);
-      final output = _CapturedOutput();
+      final output = CapturedOutput();
       await IOOverrides.runZoned(
         () => validateSkillsInternal(
           individualSkillPaths: [skillDir.path],
@@ -268,7 +254,7 @@ void main() {
           customRules: [RuleWritesName(newName, oldName: oldName)],
         ),
         stdout: () => output,
-        stderr: _CapturedOutput.new,
+        stderr: CapturedOutput.new,
       );
       return output.buffer.toString();
     }

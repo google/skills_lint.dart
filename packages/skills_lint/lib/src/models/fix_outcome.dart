@@ -13,7 +13,6 @@ class FixOutcome {
     required this.appliedRuleNames,
     required this.skippedFixes,
     required this.settled,
-    this.blockedDirectoryName,
   });
 
   /// The validation result of the fixed content.
@@ -33,10 +32,13 @@ class FixOutcome {
   /// between identical calls can cause.
   final bool settled;
 
-  /// The directory name a kept fix would rename the skill to, when another
-  /// directory already has that name. The fixed content is judged under the
-  /// current name instead.
-  final String? blockedDirectoryName;
+  /// A copy of this outcome with [skippedFixes].
+  FixOutcome withSkippedFixes(List<SkippedFix> skippedFixes) => FixOutcome(
+    result: result,
+    appliedRuleNames: appliedRuleNames,
+    skippedFixes: skippedFixes,
+    settled: settled,
+  );
 
   SkillContext get _context => result.context!;
 
