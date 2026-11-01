@@ -20,7 +20,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: Homebrew/actions/setup-homebrew@eb02c69dbabdb66ff183c614f4ce7ab3c077592c # 2026.10.12.1
+    - uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04 # 2026.10.26.1
     # Homebrew loads no formula from an untrusted non-official tap.
     # `brew tap` clones the checkout into Homebrew's tap directory, so the
     # release formula is copied into that clone, not into the checkout.
