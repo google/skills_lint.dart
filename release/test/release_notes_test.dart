@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:skills_lint_release/src/release_exception.dart';
+import 'package:skills_lint_release/src/release_info.dart';
 import 'package:skills_lint_release/src/release_notes.dart';
 import 'package:test/test.dart';
 
@@ -46,12 +47,51 @@ void main() {
       );
     });
 
-    test('throws when the section is empty', () {
+    test('returns an empty string when the section has no entries', () {
+      expect(changelogSection('## 1.0.0\n\n## 0.9.0\n- Old.\n', '1.0.0'), isEmpty);
+    });
+  });
+
+  group('releaseNotes', () {
+    ReleaseInfo info(String version, ReleaseMode mode) =>
+        ReleaseInfo(version: version, tag: '$tagPrefix$version', prerelease: false, mode: mode);
+
+    const emptyWip = '## 1.1.0-wip\n\n## 1.0.0\n\n- Released.\n';
+    const emptyRelease = '## 1.1.0\n\n## 1.0.0\n\n- Released.\n';
+    final Matcher throwsNoEntries = throwsA(
+      isA<ReleaseException>().having(
+        (e) => e.message,
+        'message',
+        'The "## 1.1.0" section of CHANGELOG.md has no entries.',
+      ),
+    );
+
+    test("returns the version's section in every mode", () {
+      for (final ReleaseMode mode in ReleaseMode.values) {
+        expect(releaseNotes(_changelog, info('0.6.0', mode)), '- Released.\n  More detail.');
+        expect(releaseNotes(_changelog, info('0.6.0-wip', mode)), '- Added a flag.');
+      }
+    });
+
+    test('in a dry run, says that an empty -wip section has no entries yet', () {
       expect(
-        () => changelogSection('## 1.0.0\n\n## 0.9.0\n- Old.\n', '1.0.0'),
-        throwsA(
-          isA<ReleaseException>().having((e) => e.message, 'message', contains('no entries')),
-        ),
+        releaseNotes(emptyWip, info('1.1.0-wip', ReleaseMode.dryRun)),
+        'Dry run of 1.1.0-wip: the "## 1.1.0-wip" section of CHANGELOG.md has no entries yet.',
+      );
+    });
+
+    test('throws for an empty section of a release version in a dry run', () {
+      expect(() => releaseNotes(emptyRelease, info('1.1.0', ReleaseMode.dryRun)), throwsNoEntries);
+    });
+
+    test('throws for an empty section when staging a release', () {
+      expect(() => releaseNotes(emptyRelease, info('1.1.0', ReleaseMode.stage)), throwsNoEntries);
+    });
+
+    test('throws when the version has no heading, even in a dry run', () {
+      expect(
+        () => releaseNotes(_changelog, info('0.7.0-wip', ReleaseMode.dryRun)),
+        throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains('## 0.7.0'))),
       );
     });
   });

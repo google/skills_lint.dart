@@ -33,7 +33,8 @@ Pull requests that change the release run this dry run too.
   `pubspec.yaml` and `version.dart`, adds a `## <version>-wip` section to
   `CHANGELOG.md`, and sets the released version in the `^<version>` and
   `VERSION="<version>"` lines of `packages/skills_lint/README.md`, which no
-  test checks.
+  test checks. The `-wip` section may stay empty until the first change: a
+  dry run accepts that, and a release refuses a section with no entries.
 - Bumping before the formula's pull request merges fails the repo tests: the
   formula's placeholder version must be the pubspec version without `-wip`.
 

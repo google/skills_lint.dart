@@ -34,7 +34,7 @@ void main() {
   });
 
   test(
-    "prepare without --release-version prints a dry run and writes the version's CHANGELOG.md section",
+    "prepare without --release-version prints a dry run and writes the version's release notes",
     () async {
       final Directory temp = Directory.systemTemp.createTempSync('cli_test.');
       addTearDown(() => temp.deleteSync(recursive: true));
@@ -59,8 +59,15 @@ void main() {
       final String changelog = File(
         p.join(skillsLintPackageDir, 'CHANGELOG.md'),
       ).readAsStringSync();
-      expect(changelog, contains(File(notes).readAsStringSync().trim()));
-      expect(changelogSection(changelog, version), File(notes).readAsStringSync().trim());
+      // release_notes_test.dart covers what the notes hold; this checks that
+      // prepare writes the notes of a dry run of the pubspec version.
+      final dryRun = ReleaseInfo(
+        version: version,
+        tag: '$tagPrefix$version',
+        prerelease: isPrerelease(version),
+        mode: ReleaseMode.dryRun,
+      );
+      expect(File(notes).readAsStringSync(), '${releaseNotes(changelog, dryRun)}\n');
     },
   );
 

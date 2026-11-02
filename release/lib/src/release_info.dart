@@ -83,6 +83,10 @@ String? _formulaVersion(String version) {
   return isHomebrewVersion(pending) ? pending : null;
 }
 
+/// Whether [version] is a `-wip` version, such as `0.5.4-wip`: one that
+/// works toward a release and that no run releases.
+bool isWipVersion(String version) => version.contains('-wip');
+
 /// Whether [version] is a prerelease.
 ///
 /// A prerelease has a `-` suffix, such as `1.0.0-dev.1`. It has no Homebrew
@@ -172,7 +176,7 @@ void _checkStage({
       'Releases start from $releaseBranch, not $refName. Run the workflow on $releaseBranch.',
     );
   }
-  if (version.contains('-wip')) {
+  if (isWipVersion(version)) {
     throw ReleaseException(
       '$version is a -wip version. Set the version to release in pubspec.yaml and '
       'CHANGELOG.md first.',
