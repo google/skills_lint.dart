@@ -43,7 +43,13 @@ void main() {
     test('throws when the version has no heading', () {
       expect(
         () => changelogSection(_changelog, '0.7.0'),
-        throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains('## 0.7.0'))),
+        throwsA(
+          isA<ReleaseException>().having(
+            (e) => e.message,
+            'message',
+            'CHANGELOG.md has no "## 0.7.0" heading.',
+          ),
+        ),
       );
     });
 
@@ -111,7 +117,13 @@ void main() {
     test('throws when the version has no heading, even in a dry run', () {
       expect(
         () => releaseNotes(_changelog, info('0.7.0-wip', ReleaseMode.dryRun)),
-        throwsA(isA<ReleaseException>().having((e) => e.message, 'message', contains('## 0.7.0'))),
+        throwsA(
+          isA<ReleaseException>().having(
+            (e) => e.message,
+            'message',
+            'CHANGELOG.md has no "## 0.7.0-wip" heading.',
+          ),
+        ),
       );
     });
   });

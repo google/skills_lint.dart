@@ -4,10 +4,12 @@
 
 1. Merge a pull request that sets the version to release, without `-wip`, in
    `packages/skills_lint/pubspec.yaml` and
-   `packages/skills_lint/lib/src/version.dart`, adds a `## <version>`
-   section to `CHANGELOG.md`, and sets that version in the `^<version>` and
-   `VERSION="<version>"` lines of `packages/skills_lint/README.md`. pub.dev
-   shows the README of the release, so those lines must name it.
+   `packages/skills_lint/lib/src/version.dart`, and adds a `## <version>`
+   section to `CHANGELOG.md`. Unless it is a prerelease, the pull request
+   also sets that version in the `^<version>` and `VERSION="<version>"` lines
+   of `packages/skills_lint/README.md`. pub.dev shows the README of the
+   release, so those lines must name it. A prerelease leaves them alone,
+   because the README's download link, `/releases/latest`, never serves one.
 2. Run **Actions > Build and tag a release** on `main` with that version, or
    `gh workflow run release_build_and_tag.yaml -R google/skills_lint.dart --ref main -f version=<version>`.
    It checks and builds everything, tags `skills_lint-v<version>`, creates a
@@ -36,7 +38,7 @@ Pull requests that change the release run this dry run too.
   `CHANGELOG.md`. The `-wip` section may stay empty until the first change: a
   dry run accepts that, and a release refuses a section with no entries.
 - The repo tests check that the README's `^<version>` and `VERSION=` lines
-  name the newest released version in `CHANGELOG.md`.
+  name the newest release in `CHANGELOG.md` that is not a prerelease.
 - Bumping before the formula's pull request merges fails the repo tests: the
   formula's placeholder version must be the pubspec version without `-wip`.
 

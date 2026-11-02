@@ -11,8 +11,9 @@ import 'release_info.dart';
 
 /// The release notes for [info], from its version's `CHANGELOG.md` section.
 ///
-/// Throws a [ReleaseException] if the heading is missing, or if the section
-/// is empty outside a dry run of a `-wip` version.
+/// In a dry run of a `-wip` version, an empty section gives a sentence that
+/// says so. Throws a [ReleaseException] for any other empty section, or if
+/// the heading is missing.
 String releaseNotes(String changelog, ReleaseInfo info) {
   final String version = info.version;
   final String section = changelogSection(changelog, version);
