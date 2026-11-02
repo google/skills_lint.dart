@@ -136,3 +136,14 @@ version and each target's `url` and `sha256` are generated. Until a release
 has executables, the checksums are placeholders and `brew install` fails. The
 repo tests fail when the formula isn't what the template gives. Don't rename the tap
 `google/skills-lint` or the formula `skills_lint`: published READMEs use them.
+
+The formula installs on macOS Intel, which Homebrew lists as
+[Tier 3](https://docs.brew.sh/Support-Tiers#tier-3): Homebrew runs there
+without support or new bottles, and plans to stop running on Intel Macs in
+or after September 2027. The formula needs no bottles, because it installs
+the release's executable. On the `macos-26-intel` runner, setting up
+Homebrew can build packages from source, so that **Homebrew** job takes
+about 11 minutes. To drop macOS Intel from the formula, change the template
+as well as `homebrewTargets` in [`archive.dart`](release/lib/src/archive.dart).
+A formula with no `url` for macOS Intel doesn't load there, and
+`brew readall --os=all --arch=all` reports it as invalid.
