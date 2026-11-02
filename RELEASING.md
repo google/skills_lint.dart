@@ -33,17 +33,11 @@ Pull requests that change the release run this dry run too.
 ## After the release
 
 - Merge the formula's pull request once all of its checks pass.
-- Then merge a pull request that sets the next `-wip` version in
-  `pubspec.yaml` and `version.dart` and adds a `## <version>-wip` section to
-  `CHANGELOG.md`. The next version is the next build of the release, such as
-  `0.5.3+1-wip` after `0.5.3`, so a release with no changes to the code, such
-  as a README fix, ships as `0.5.3+1`. The `-wip` section may stay empty until
-  the first change: a dry run accepts that, and a release refuses a section
-  with no entries.
-- The first pull request that changes the package's code, not only its docs,
-  also moves the `-wip` version to the release that CONTRIBUTING.md's SemVer
-  policy asks for, such as `0.5.4-wip` or `0.6.0-wip`, in `pubspec.yaml`,
-  `version.dart` and the `CHANGELOG.md` heading.
+- Then merge a pull request that sets the next build, such as `0.5.3+1-wip`,
+  in `pubspec.yaml`, `version.dart` and a new `CHANGELOG.md` section. The
+  section may stay empty until the first change; only a release needs entries.
+- The first pull request that changes code moves the version to the next
+  patch or minor `-wip`, per CONTRIBUTING.md.
 - The repo tests check that the README's `^<version>` and `VERSION=` lines
   name the newest release in `CHANGELOG.md` that is not a prerelease.
 - Bumping before the formula's pull request merges fails the repo tests: the
