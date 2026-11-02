@@ -45,6 +45,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.formula == 'true'
     runs-on: macos-latest
+    # Takes about 2 minutes. The limit fails a stuck job early, instead of
+    # holding the required Homebrew check for 6 hours.
+    timeout-minutes: 15
     permissions:
       contents: read
     outputs:
@@ -101,6 +104,11 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
+    # The macOS Intel job takes about 11 minutes. Homebrew builds no Intel
+    # bottles, so setting up Homebrew there can build packages from source.
+    # The other jobs take about a minute. Without a limit, a stuck job holds
+    # the required Homebrew check for GitHub's 6-hour default.
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
