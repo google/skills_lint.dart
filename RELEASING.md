@@ -5,7 +5,11 @@
 1. Merge a pull request that sets the version to release, without `-wip`, in
    `packages/skills_lint/pubspec.yaml` and
    `packages/skills_lint/lib/src/version.dart`, and adds a `## <version>`
-   section to `CHANGELOG.md`.
+   section to `CHANGELOG.md`. Unless it is a prerelease, the pull request
+   also sets that version in the `^<version>` and `VERSION="<version>"` lines
+   of `packages/skills_lint/README.md`. pub.dev shows the README of the
+   release, so those lines must name it. A prerelease leaves them alone,
+   because the README's download link, `/releases/latest`, never serves one.
 2. Run **Actions > Build and tag a release** on `main` with that version, or
    `gh workflow run release_build_and_tag.yaml -R google/skills_lint.dart --ref main -f version=<version>`.
    It checks and builds everything, tags `skills_lint-v<version>`, creates a
@@ -29,11 +33,13 @@ Pull requests that change the release run this dry run too.
 ## After the release
 
 - Merge the formula's pull request once all of its checks pass.
-- Then merge a pull request that sets the next `-wip` version in
-  `pubspec.yaml` and `version.dart`, adds a `## <version>-wip` section to
-  `CHANGELOG.md`, and sets the released version in the `^<version>` and
-  `VERSION="<version>"` lines of `packages/skills_lint/README.md`, which no
-  test checks.
+- Then merge a pull request that sets the next build, such as `0.5.3+1-wip`,
+  in `pubspec.yaml`, `version.dart` and a new `CHANGELOG.md` section. The
+  section may stay empty until the first change; only a release needs entries.
+- The first pull request that changes code moves the version to the next
+  patch or minor `-wip`, per CONTRIBUTING.md.
+- The repo tests check that the README's `^<version>` and `VERSION=` lines
+  name the newest release in `CHANGELOG.md` that is not a prerelease.
 - Bumping before the formula's pull request merges fails the repo tests: the
   formula's placeholder version must be the pubspec version without `-wip`.
 

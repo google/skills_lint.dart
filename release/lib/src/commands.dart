@@ -208,11 +208,11 @@ class _PrepareCommand extends _ReleaseCommand {
       refName: option('ref-name'),
       releaseVersion: _nonEmpty(argResults!.option('release-version')),
     );
-    final String section = changelogSection(
+    final String notes = releaseNotes(
       File(p.join(skillsLintPackageDir, 'CHANGELOG.md')).readAsStringSync(),
-      version,
+      info,
     );
-    File(option('notes-output')).writeAsStringSync('$section\n');
+    File(option('notes-output')).writeAsStringSync('$notes\n');
     stdout
       ..write(outputLines(info))
       ..writeln('matrix=${buildMatrix()}');
