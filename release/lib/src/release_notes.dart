@@ -9,30 +9,27 @@ import 'line_endings.dart';
 import 'release_exception.dart';
 import 'release_info.dart';
 
-/// The release notes for [info]: the entries of the `CHANGELOG.md` section of
-/// its version.
+/// The release notes for [info], from its version's `CHANGELOG.md` section.
 ///
-/// A dry run of a `-wip` version accepts a section with no entries, because
-/// the `-wip` section starts empty after a release. Its notes then say so. A
-/// stage run never publishes them: it refuses a `-wip` version.
-///
-/// Throws a [ReleaseException] if [changelog] has no heading for the version,
-/// or if the section has no entries and the run is not a dry run of a `-wip`
-/// version.
+/// Throws a [ReleaseException] if the heading is missing, or if the section
+/// is empty outside a dry run of a `-wip` version.
 String releaseNotes(String changelog, ReleaseInfo info) {
   final String version = info.version;
   final String section = changelogSection(changelog, version);
   if (section.isNotEmpty) {
     return section;
   }
+  // The -wip section starts empty after a release, and no run releases a
+  // -wip version.
   final bool mayBeEmpty = switch (info.mode) {
     ReleaseMode.dryRun => isWipVersion(version),
     ReleaseMode.stage => false,
   };
   if (!mayBeEmpty) {
-    throw ReleaseException('The "## $version" section of CHANGELOG.md has no entries.');
+    throw ReleaseException('The "${_heading(version)}" section of CHANGELOG.md has no entries.');
   }
-  return 'Dry run of $version: the "## $version" section of CHANGELOG.md has no entries yet.';
+  return 'Dry run of $version: the "${_heading(version)}" section of CHANGELOG.md has no '
+      'entries yet.';
 }
 
 /// Extracts the entries under the `## <version>` heading of [changelog], up to
@@ -44,7 +41,7 @@ String changelogSection(String changelog, String version) {
   final List<String> lines = changelog.normalizeLineTerminators().split('\n');
   final int start = _headingIndex(lines, version);
   if (start == -1) {
-    throw ReleaseException('CHANGELOG.md has no "## $version" heading.');
+    throw ReleaseException('CHANGELOG.md has no "${_heading(version)}" heading.');
   }
   final int next = lines.indexWhere((line) => line.startsWith('## '), start + 1);
   return lines.sublist(start + 1, next == -1 ? lines.length : next).join('\n').trim();
@@ -57,4 +54,7 @@ bool hasChangelogHeading(String changelog, String version) =>
 
 // trimRight also drops the \r of a CRLF line ending.
 int _headingIndex(List<String> lines, String version) =>
-    lines.indexWhere((line) => line.trimRight() == '## $version');
+    lines.indexWhere((line) => line.trimRight() == _heading(version));
+
+/// The `CHANGELOG.md` heading of the section for [version].
+String _heading(String version) => '## $version';

@@ -61,11 +61,12 @@ void main() {
       ).readAsStringSync();
       // release_notes_test.dart covers what the notes hold; this checks that
       // prepare writes the notes of a dry run of the pubspec version.
-      final dryRun = ReleaseInfo(
+      final ReleaseInfo dryRun = resolveRelease(
         version: version,
-        tag: '$tagPrefix$version',
-        prerelease: isPrerelease(version),
-        mode: ReleaseMode.dryRun,
+        event: 'workflow_dispatch',
+        refType: 'branch',
+        refName: 'main',
+        releaseVersion: null,
       );
       expect(File(notes).readAsStringSync(), '${releaseNotes(changelog, dryRun)}\n');
     },

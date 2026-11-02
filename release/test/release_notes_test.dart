@@ -53,8 +53,12 @@ void main() {
   });
 
   group('releaseNotes', () {
-    ReleaseInfo info(String version, ReleaseMode mode) =>
-        ReleaseInfo(version: version, tag: '$tagPrefix$version', prerelease: false, mode: mode);
+    ReleaseInfo info(String version, ReleaseMode mode) => ReleaseInfo(
+      version: version,
+      tag: '$tagPrefix$version',
+      prerelease: isPrerelease(version),
+      mode: mode,
+    );
 
     const emptyWip = '## 1.1.0-wip\n\n## 1.0.0\n\n- Released.\n';
     const emptyRelease = '## 1.1.0\n\n## 1.0.0\n\n- Released.\n';
@@ -82,6 +86,22 @@ void main() {
 
     test('throws for an empty section of a release version in a dry run', () {
       expect(() => releaseNotes(emptyRelease, info('1.1.0', ReleaseMode.dryRun)), throwsNoEntries);
+    });
+
+    test('throws for an empty section of a prerelease other than -wip in a dry run', () {
+      expect(
+        () => releaseNotes(
+          '## 1.0.0-dev.1\n\n## 0.9.0\n\n- Old.\n',
+          info('1.0.0-dev.1', ReleaseMode.dryRun),
+        ),
+        throwsA(
+          isA<ReleaseException>().having(
+            (e) => e.message,
+            'message',
+            'The "## 1.0.0-dev.1" section of CHANGELOG.md has no entries.',
+          ),
+        ),
+      );
     });
 
     test('throws for an empty section when staging a release', () {
