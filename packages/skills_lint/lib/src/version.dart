@@ -6,4 +6,4 @@
 ///
 /// Matches the `version` in `pubspec.yaml`. A compiled executable cannot read
 /// `pubspec.yaml` at runtime, so the version lives in code.
-const String packageVersion = '0.5.3-wip';
+const String packageVersion = '0.5.3';
