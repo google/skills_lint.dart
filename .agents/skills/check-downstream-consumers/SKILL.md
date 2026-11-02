@@ -155,11 +155,9 @@ When the user explicitly asks to roll `skills_lint` into a downstream consumer r
    - **Locate Template**: Search `.github/`, `.github/PULL_REQUEST_TEMPLATE/`, or the consumer repository root for `PULL_REQUEST_TEMPLATE.md` or `pull_request_template.md`.
    - **Extract & Populate Structure**: Read the discovered template and fill in every required section, issue link, and verification checklist (`[x]`) summarizing the `skills_lint` roll, configuration changes, and test updates.
    - **Fallback**: If the consumer repository has no PR template, construct a concise body summarizing the roll commit hash, configuration/test updates, and verification test results.
-   - **Body Layout**: Order the body as follows:
-     1. One or two plain summary lines that state what changed in this repository (for example, "Update to skills_lint 0.5.3 and enable new configs for published skills.").
-     2. A line with `@reidbaker`.
-     3. The detailed write-up inside `<details>` … `</details>`.
-     4. The template checklist, outside the fold.
+   - **Body Layout**: Leave the top of the body for the maintainer to write and sign. Below it, put:
+     1. The detailed write-up inside `<details>` … `</details>`.
+     2. The template checklist, outside the fold.
 3. **Open a Draft PR and Request Review**:
    ```bash
    gh pr create --draft \
@@ -167,6 +165,6 @@ When the user explicitly asks to roll `skills_lint` into a downstream consumer r
      --body-file <populated_body.md>
    gh pr edit <n> -R <owner>/<repo> --add-reviewer reidbaker
    ```
-   If `--add-reviewer` fails with a `RequestReviewsByLogin` permission error (common on flutter/* and dart-lang/*), don't retry. The `@reidbaker` line stays in the body; report that reidbaker needs to add himself as reviewer.
-4. **Report the Maintainer Steps**: List the consumer's **PR requirements** from [`resources/known_consumers.md`](resources/known_consumers.md) at the top of the report (labels, label order, workflow approval), so the maintainer can do them in one pass.
+   If `--add-reviewer` fails with a `RequestReviewsByLogin` permission error (common on flutter/* and dart-lang/*), don't retry; report that reidbaker needs to add himself as reviewer.
+4. **Report the Maintainer Steps**: List the consumer's **PR requirements** from [`resources/known_consumers.md`](resources/known_consumers.md) at the top of the report (labels, label order, workflow approval), so the maintainer can do them in one pass. Before reporting a step as blocked, check your locally installed skills for a sanctioned helper that can do it; never bypass a permission check.
 5. **Suggest a Second Reviewer After Approval**: Once reidbaker approves, suggest one second reviewer, with evidence: CODEOWNERS for the touched paths, recent authors and reviewers of those files (`gh api repos/<owner>/<repo>/commits?path=<file>`), and the repository's auto-assigned reviewers. Suggest only; don't request the review.
