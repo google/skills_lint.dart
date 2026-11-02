@@ -54,7 +54,6 @@ When evaluating the impact of pull requests on downstream repositories, check ag
 - **Primary Consumer Location**: `tool/`
 - **Tooling Engine**: `dart pub get` and `dart test`
 - **Validation Entry Point**: [`.github/workflows/lint_skills.yml`](https://github.com/flutter/dash-evals/blob/HEAD/.github/workflows/lint_skills.yml). This repository is access restricted, so the link returns 404 unless you are signed in with access. A 404 here does not imply the file moved.
-- **Focus Areas**: Agent skill evaluation benchmarks and prompt validation harnesses.
 
 ### 8. `flutter/agent-plugins`
 - **Repository URL**: [flutter/agent-plugins](https://github.com/flutter/agent-plugins)
@@ -84,28 +83,24 @@ When evaluating the impact of pull requests on downstream repositories, check ag
 
 ### 12. `invertase/melos`
 - **Repository URL**: [invertase/melos](https://github.com/invertase/melos)
-- **Primary Consumer Location**: Root `skills_lint.yaml` targeting `packages/melos/skills`
-- **Tooling Engine**: CI runs floating `dart pub global activate skills_lint` and `dart pub global run skills_lint --print-warnings` in `.github/workflows/validate.yaml`
+- **Primary Consumer Location**: Repository root (`skills_lint.yaml`)
+- **Tooling Engine**: `dart pub global activate skills_lint` (unpinned) and `dart pub global run skills_lint`
 - **Validation Entry Point**: [`.github/workflows/validate.yaml`](https://github.com/invertase/melos/blob/HEAD/.github/workflows/validate.yaml) and [`skills_lint.yaml`](https://github.com/invertase/melos/blob/HEAD/skills_lint.yaml)
-- **Focus Areas**: Enables `pub-archive-includes-skill`, `published-skill-name`, `check-relative-paths`, `check-absolute-paths`, and `check-trailing-whitespace`.
 
 ### 13. `DenisovAV/flutter_edge_ai`
 - **Repository URL**: [DenisovAV/flutter_edge_ai](https://github.com/DenisovAV/flutter_edge_ai)
-- **Primary Consumer Location**: Root `skills_lint.yaml` targeting `packages/flutter_edge_ai/skills`
-- **Tooling Engine**: CI runs `dart run skills_lint` in `.github/workflows/test.yml`
+- **Primary Consumer Location**: Repository root (`skills_lint.yaml`)
+- **Tooling Engine**: `dart run skills_lint`
 - **Validation Entry Point**: [`.github/workflows/test.yml`](https://github.com/DenisovAV/flutter_edge_ai/blob/HEAD/.github/workflows/test.yml) and [`skills_lint.yaml`](https://github.com/DenisovAV/flutter_edge_ai/blob/HEAD/skills_lint.yaml)
-- **Focus Areas**: Enables `disallowed-field`, `check-relative-paths`, `check-absolute-paths`, and `check-trailing-whitespace`.
 
 ### 14. `VeryGoodOpenSource/very_good_workflows`
 - **Repository URL**: [VeryGoodOpenSource/very_good_workflows](https://github.com/VeryGoodOpenSource/very_good_workflows)
-- **Primary Consumer Location**: Reusable GitHub Actions workflow `.github/workflows/skills_lint.yml` and `examples/skills_lint/`
-- **Tooling Engine**: Reusable GitHub Actions workflow executing floating `skills_lint` by default (`dart pub global activate skills_lint` or `dart run skills_lint`)
+- **Primary Consumer Location**: Reusable GitHub Actions workflow that other repositories call
+- **Tooling Engine**: GitHub Actions; installs `skills_lint` unpinned unless the caller sets a version
 - **Validation Entry Point**: [`.github/workflows/skills_lint.yml`](https://github.com/VeryGoodOpenSource/very_good_workflows/blob/HEAD/.github/workflows/skills_lint.yml)
-- **Focus Areas**: Reusable workflow consumed across `VeryGoodOpenSource` repositories (`VeryGoodOpenSource/vgv-ai-flutter-plugin`, `VeryGoodOpenSource/vgv-wingspan` configuring `path-does-not-exist` `exclude`, and `VeryGoodOpenSource/vgv-ffca-plugin`) with floating `skills_lint` by default.
 
 ### 15. `medz/alien-signals-dart`
 - **Repository URL**: [medz/alien-signals-dart](https://github.com/medz/alien-signals-dart)
-- **Primary Consumer Location**: Root `pubspec.yaml` dev_dependency (pub package `alien_signals`)
-- **Tooling Engine**: CI runs `dart run skills_lint --skills-directory skills --published-skill-name --check-relative-paths` in `.github/workflows/test.yml`
+- **Primary Consumer Location**: Repository root (`pubspec.yaml`)
+- **Tooling Engine**: `dart pub get` and `dart run skills_lint`
 - **Validation Entry Point**: [`.github/workflows/test.yml`](https://github.com/medz/alien-signals-dart/blob/HEAD/.github/workflows/test.yml)
-- **Focus Areas**: Validates skills in CI using `--skills-directory skills`, `--published-skill-name`, and `--check-relative-paths`.
