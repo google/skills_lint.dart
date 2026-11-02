@@ -90,6 +90,16 @@ void main() {
       );
     });
 
+    test('in a dry run, accepts an empty section for the -wip version of a build', () {
+      expect(
+        releaseNotes(
+          '## 1.0.0+1-wip\n\n## 1.0.0\n\n- Released.\n',
+          info('1.0.0+1-wip', ReleaseMode.dryRun),
+        ),
+        'Dry run of 1.0.0+1-wip: the "## 1.0.0+1-wip" section of CHANGELOG.md has no entries yet.',
+      );
+    });
+
     test('throws for an empty section of a release version in a dry run', () {
       expect(() => releaseNotes(emptyRelease, info('1.1.0', ReleaseMode.dryRun)), throwsNoEntries);
     });

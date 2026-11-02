@@ -100,6 +100,11 @@ void main() {
         () => _resolve(version: '0.6.0-wip', releaseVersion: '0.6.0-wip'),
         _throwsReleaseException('-wip'),
       );
+      // The -wip version of the next build, which RELEASING.md bumps to.
+      expect(
+        () => _resolve(version: '0.6.0+1-wip', releaseVersion: '0.6.0+1-wip'),
+        _throwsReleaseException('-wip'),
+      );
     });
 
     test('a version with a suffix other than -wip is a prerelease', () {
@@ -131,6 +136,7 @@ void main() {
         contains('formula-version=0.6.0+1\n'),
       );
       expect(outputLines(_resolve(version: '0.6.0-wip')), contains('formula-version=0.6.0\n'));
+      expect(outputLines(_resolve(version: '0.6.0+1-wip')), contains('formula-version=0.6.0+1\n'));
       expect(
         outputLines(_resolve(version: '1.0.0-dev.1', releaseVersion: '1.0.0-dev.1')),
         contains('formula-version=\n'),

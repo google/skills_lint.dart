@@ -51,6 +51,9 @@ void main() {
     test('skips -wip and other prerelease headings', () {
       expect(_newestRelease('## 1.1.0-wip\n\n## 1.0.0-dev.1\n\n- a\n\n## 0.9.0\n\n- b\n'), '0.9.0');
     });
+    test('skips the -wip version of a build', () {
+      expect(_newestRelease('## 1.0.0+1-wip\n\n## 1.0.0\n\n- a\n'), '1.0.0');
+    });
     test('reads a release with a build number and Windows line endings', () {
       expect(_newestRelease('## 1.0.0+1\r\n\r\n- a\r\n'), '1.0.0+1');
     });

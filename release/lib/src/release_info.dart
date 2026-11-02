@@ -83,8 +83,8 @@ String? _formulaVersion(String version) {
   return isHomebrewVersion(pending) ? pending : null;
 }
 
-/// Whether [version] is a `-wip` version, such as `0.5.4-wip`: one that
-/// works toward a release and that no run releases.
+/// Whether [version] is a `-wip` version, such as `0.5.4-wip` or
+/// `0.5.3+1-wip`: one that works toward a release and that no run releases.
 bool isWipVersion(String version) => version.contains('-wip');
 
 /// Whether [version] is a prerelease.
