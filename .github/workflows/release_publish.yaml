@@ -243,7 +243,7 @@ jobs:
             git switch -c "$branch"
             cp "$formula" Formula/skills_lint.rb
             git add Formula/skills_lint.rb
-            # The CLA check allows this robot email; github-actions[bot] fails it.
+            # The CLA check allows this robot email.
             git -c user.name='skills-lint-bot' \
               -c user.email='skills-lint-bot@google.com' \
               commit -m "Update the Homebrew formula to $VERSION"
