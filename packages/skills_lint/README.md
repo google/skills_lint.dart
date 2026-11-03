@@ -41,7 +41,7 @@ still work and are unchanged.
 Add to your `pubspec.yaml`:
 ```yaml
 dev_dependencies:
-  skills_lint: ^0.5.3
+  skills_lint: ^0.5.3+1
 ```
 
 Then:
@@ -97,7 +97,7 @@ and verify its SHA256 against the release's `SHA256SUMS` asset.
 
 ```bash
 TARGET="linux-x64"     # the <platform> of a skills_lint-<platform>.tar.gz asset
-VERSION="0.5.3"
+VERSION="0.5.3+1"
 BASE="https://github.com/google/skills_lint.dart/releases/download/skills_lint-v${VERSION}"
 curl -fsSLO "${BASE}/skills_lint-${TARGET}.tar.gz"
 curl -fsSLO "${BASE}/SHA256SUMS"
