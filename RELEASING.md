@@ -24,7 +24,9 @@
    prints `identical` or `behind` when it is on `main`. pub.dev, then the
    GitHub release, are published.
 4. Follow the link in the **Homebrew** job's summary to open the formula's
-   pull request.
+   pull request. Open it yourself: the CLA check fails pull requests that
+   the workflow opens. The commit's author, `skills-lint-bot@google.com`,
+   passes it.
 
 To try the build without releasing, run it on any branch without a version:
 `gh workflow run release_build_and_tag.yaml -R google/skills_lint.dart --ref <branch>`.
