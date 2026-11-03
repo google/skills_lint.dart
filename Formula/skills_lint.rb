@@ -6,7 +6,7 @@
 class SkillsLint < Formula
   desc "Linter for AI agent skills (SKILL.md files)"
   homepage "https://github.com/google/skills_lint.dart"
-  version "0.5.3"
+  version "0.5.3+1"
   license "BSD-3-Clause"
 
   livecheck do
@@ -20,22 +20,22 @@ class SkillsLint < Formula
 
     on_arm do
       url "https://github.com/google/skills_lint.dart/releases/download/skills_lint-v#{version}/skills_lint-macos-arm64.tar.gz"
-      sha256 "c0ed4fbd95ef9e1b22209ebc8a18ca99badeca55924ca90f90be242b0fd3c897"
+      sha256 "7d3d2de61265ecbb009bcb752d211197b2b72dcaa3555079e06795062a543d79"
     end
     on_intel do
       url "https://github.com/google/skills_lint.dart/releases/download/skills_lint-v#{version}/skills_lint-macos-x64.tar.gz"
-      sha256 "219634daf72dd13eafe66dc39ba23e61c46064bee31f110eb64242f289e01a0e"
+      sha256 "11544949b6c80c23c86f9298995548ea9d40dd2e5eaf0ff73a17b86dfb9f37e3"
     end
   end
 
   on_linux do
     on_intel do
       url "https://github.com/google/skills_lint.dart/releases/download/skills_lint-v#{version}/skills_lint-linux-x64.tar.gz"
-      sha256 "ebb9106b670c9573fc858ccfc02881776d81727215bdc715bf1032c1cee739c3"
+      sha256 "c636c4d47459dd24270851c25b6b61769d0ec20c948e2b21caec2e4e48d12364"
     end
     on_arm do
       url "https://github.com/google/skills_lint.dart/releases/download/skills_lint-v#{version}/skills_lint-linux-arm64.tar.gz"
-      sha256 "1cfa2b1dcf7c0871d34b8f3828bf552ceb795373d027529a05266965c5b5f0c6"
+      sha256 "9746ac2fb3bfba050eae21b362c325889ef499ca484832102ef18fd78dbce213"
     end
   end
 
