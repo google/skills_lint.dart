@@ -99,6 +99,39 @@ void main() {
       expect(result.warnings, isEmpty);
     });
 
+    test('passes with links to an existing directory, with or without a trailing slash', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      await File('${skillDir.path}/SKILL.md').writeAsString(
+        '${buildFrontmatter(name: 'test-skill')}[a](references/) and [b](references)\n',
+      );
+      await Directory('${skillDir.path}/references').create();
+
+      final validator = Validator(
+        ruleConfigs: {
+          RelativePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error),
+        },
+      );
+      final ValidationResult result = await validator.validate(skillDir);
+
+      expect(result.errors, isEmpty);
+    });
+
+    test('reports a link to a missing directory', () async {
+      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
+      await File(
+        '${skillDir.path}/SKILL.md',
+      ).writeAsString('${buildFrontmatter(name: 'test-skill')}[a](missing/)\n');
+
+      final validator = Validator(
+        ruleConfigs: {
+          RelativePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error),
+        },
+      );
+      final ValidationResult result = await validator.validate(skillDir);
+
+      expect(result.errors, [contains('$_missing: missing/')]);
+    });
+
     test('warns with missing relative file path and reports resolved path', () async {
       final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
       await File('${skillDir.path}/SKILL.md').writeAsString(
@@ -453,8 +486,10 @@ void _defineWithinSkillTests() {
       ('references/DETAILS.md', true, null),
       ('./references/DETAILS.md', true, null),
       ('../my-skill/references/DETAILS.md', true, null), // Leaves and comes back.
-      ('.', true, _missing), // A link to a directory is reported as missing.
-      ('references/', true, _missing),
+      ('.', true, null), // A directory that exists.
+      ('references/', true, null),
+      ('references/missing/', true, _missing), // A directory that doesn't exist.
+      ('../', true, _outside),
       ('../README.md', false, null),
       ('../../RULES.md', false, null),
       ('../other-skill/SKILL.md', false, null),

@@ -18,7 +18,8 @@ import '../suggestions/closest_name.dart';
 import '../suggestions/did_you_mean.dart';
 import '../suggestions/sibling_suggestion.dart';
 
-/// Enforces that relative links in SKILL.md point to existing files.
+/// Enforces that relative links in SKILL.md point to existing files or
+/// directories.
 ///
 /// Turn on [withinSkill] for skills that must be portable. It reports links
 /// that leave the skill directory, which break when the skill is copied
@@ -84,8 +85,7 @@ class RelativePathsRule extends SkillRule {
         errors.add(_outsideSkillError(path: path, resolvedPath: resolvedPath, line: line));
         continue;
       }
-      final linkedFile = File(resolvedPath);
-      if (!linkedFile.existsSync()) {
+      if (FileSystemEntity.typeSync(resolvedPath) == FileSystemEntityType.notFound) {
         final String? suggestion = findSiblingSuggestion(
           originalLink: path,
           resolvedPath: resolvedPath,

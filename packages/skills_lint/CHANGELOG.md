@@ -1,5 +1,9 @@
 ## 0.5.3+2-wip
 
+### Behavior changes
+
+- `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
+
 ## 0.5.3+1
 
 - Fixed the README's download example, which named a version with no release assets.

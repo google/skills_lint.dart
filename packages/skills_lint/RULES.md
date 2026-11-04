@@ -59,7 +59,8 @@ governs how changes to these rules ship.
 - **Default severity:** disabled
 - **Fixable:** no
 - **What it checks:** inline Markdown links in `SKILL.md` with
-  relative targets resolve to files that actually exist on disk.
+  relative targets resolve to files or directories that actually exist
+  on disk.
   Web URLs, anchors, `mailto:`, `javascript:`, and `data:` links are
   skipped. Percent escapes are decoded first, as on GitHub, so
   `my%20file.md` resolves to `my file.md` and `a%2Fb.md` to `a/b.md`.
