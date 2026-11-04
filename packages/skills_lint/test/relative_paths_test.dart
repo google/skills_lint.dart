@@ -488,6 +488,7 @@ void _defineWithinSkillTests() {
       ('../my-skill/references/DETAILS.md', true, null), // Leaves and comes back.
       ('.', true, null), // A directory that exists.
       ('references/', true, null),
+      ('references/missing/', true, _missing), // A directory that doesn't exist.
       ('../', true, _outside),
       ('../README.md', false, null),
       ('../../RULES.md', false, null),
