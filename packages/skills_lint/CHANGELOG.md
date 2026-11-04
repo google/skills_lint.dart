@@ -1,4 +1,8 @@
-## 0.5.3+2-wip
+## 0.5.4-wip
+
+### Behavior changes
+
+- `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 
 ## 0.5.3+1
 
