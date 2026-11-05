@@ -31,6 +31,33 @@ bool _tryCreateLink(String link, String target) {
   }
 }
 
+/// Flips the case of a leading Windows drive letter in [path] (for example,
+/// `C:\foo` to `c:\foo`).
+String _flipDriveLetterCase(String path) {
+  final String drive = path[0];
+  final String flipped = drive == drive.toUpperCase() ? drive.toLowerCase() : drive.toUpperCase();
+  return '$flipped${path.substring(1)}';
+}
+
+/// Writes [fixedContent] to `SKILL.md` in [skillDir] and validates that both
+/// `check-absolute-paths` and `check-relative-paths` (`within-skill: true`)
+/// report zero diagnostics.
+Future<void> _expectPortableInSkillRoundTrip(Directory skillDir, String fixedContent) async {
+  await File(p.join(skillDir.path, 'SKILL.md')).writeAsString(fixedContent);
+  final validator = Validator(
+    ruleConfigs: {
+      AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error),
+      RelativePathsRule.ruleName: RuleConfig(
+        severity: AnalysisSeverity.error,
+        parameters: CustomRuleParameters(const {RelativePathsRule.withinSkillParameter: true}),
+      ),
+    },
+  );
+  final ValidationResult roundTrip = await validator.validate(skillDir);
+  expect(roundTrip.errors, isEmpty, reason: 'Fixed content:\n$fixedContent');
+  expect(roundTrip.warnings, isEmpty, reason: 'Fixed content:\n$fixedContent');
+}
+
 void main() {
   group('Absolute Paths Validation', () {
     late Directory tempDir;
@@ -281,21 +308,7 @@ void main() {
           SkillContext(directory: realSkillDir, rawContent: content),
         );
 
-        await File(p.join(realSkillDir.path, 'SKILL.md')).writeAsString(fixed);
-        final validator = Validator(
-          ruleConfigs: {
-            AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error),
-            RelativePathsRule.ruleName: RuleConfig(
-              severity: AnalysisSeverity.error,
-              parameters: CustomRuleParameters(const {
-                RelativePathsRule.withinSkillParameter: true,
-              }),
-            ),
-          },
-        );
-        final ValidationResult roundTrip = await validator.validate(realSkillDir);
-        expect(roundTrip.errors, isEmpty, reason: 'Fixed content:\n$fixed');
-        expect(roundTrip.warnings, isEmpty, reason: 'Fixed content:\n$fixed');
+        await _expectPortableInSkillRoundTrip(realSkillDir, fixed);
         expect(fixed, contains('(references/guide.md)'));
       },
     );
@@ -324,23 +337,31 @@ void main() {
           SkillContext(directory: linkedSkillDir, rawContent: content),
         );
 
-        await File(p.join(linkedSkillDir.path, 'SKILL.md')).writeAsString(fixed);
-        final validator = Validator(
-          ruleConfigs: {
-            AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error),
-            RelativePathsRule.ruleName: RuleConfig(
-              severity: AnalysisSeverity.error,
-              parameters: CustomRuleParameters(const {
-                RelativePathsRule.withinSkillParameter: true,
-              }),
-            ),
-          },
-        );
-        final ValidationResult roundTrip = await validator.validate(linkedSkillDir);
-        expect(roundTrip.errors, isEmpty, reason: 'Fixed content:\n$fixed');
-        expect(roundTrip.warnings, isEmpty, reason: 'Fixed content:\n$fixed');
+        await _expectPortableInSkillRoundTrip(linkedSkillDir, fixed);
         expect(fixed, contains('(references/guide.md)'));
       },
+    );
+
+    test(
+      'rewrites a link whose drive letter differs in case to a path inside the skill directory',
+      () async {
+        final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
+        await Directory(p.join(skillDir.path, 'references')).create();
+        final File guide = await File(p.join(skillDir.path, 'references', 'guide.md')).create();
+        await guide.writeAsString('Guide\n');
+
+        final String flippedTarget = _flipDriveLetterCase(guide.path);
+        final content = '${buildFrontmatter(name: 'test-skill')}See [guide]($flippedTarget).\n';
+        final String fixed = await AbsolutePathsRule().fix(
+          SkillContext(directory: skillDir, rawContent: content),
+        );
+
+        await _expectPortableInSkillRoundTrip(skillDir, fixed);
+        expect(fixed, contains('(references/guide.md)'));
+      },
+      // Windows paths begin with a drive letter whose case can differ without
+      // a symlink.
+      testOn: 'windows',
     );
   });
 

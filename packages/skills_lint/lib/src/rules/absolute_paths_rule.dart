@@ -85,6 +85,11 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     final String frontmatter = currentContent.substring(0, frontmatterEnd);
     final String markdownContent = currentContent.substring(frontmatterEnd);
 
+    // Resolve symlinks on both sides so a link inside the skill stays inside.
+    // When the skill directory is a symlink and the target is outside the
+    // skill, the `../` path climbs from the physical directory, so lexical
+    // resolvers land elsewhere; `check-relative-paths` (`within-skill: true`)
+    // flags out-of-skill links.
     final String skillPath = _physicalPath(context.directory);
     final String fixedMarkdown = markdownContent.replaceAllMapped(SkillContext.markdownLinkRegex, (
       match,
@@ -115,6 +120,8 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     return '$frontmatter$fixedMarkdown';
   }
 
+  /// Path of [entity] with symbolic links resolved, falling back to
+  /// [FileSystemEntity.path] on [FileSystemException].
   static String _physicalPath(FileSystemEntity entity) {
     try {
       return entity.resolveSymbolicLinksSync();
