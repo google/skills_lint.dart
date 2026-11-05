@@ -1408,7 +1408,9 @@ skills_lint:
 
           expect(
             result.stderr,
-            contains('Configuration error: Global rules: Unknown rule "check-relative-path".'),
+            reportsConfigProblem(
+              'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+            ),
           );
           expect(result.stderr, contains('"check-relative-paths"'));
           expect(result.stderr, contains('Fix or remove'));
@@ -1429,7 +1431,10 @@ skills_lint:
 
         expect(
           result.stderr,
-          contains('Configuration warning: Global rules: Unknown rule "check-relative-path"'),
+          reportsConfigProblem(
+            'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+            level: 'warning',
+          ),
         );
         expect('Unknown rule'.allMatches(result.stderr), hasLength(1));
       });
@@ -1447,7 +1452,9 @@ skills_lint:
 
         expect(
           result.stderr,
-          contains('Configuration error: Global rules: Unknown rule "check-relative-path".'),
+          reportsConfigProblem(
+            'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+          ),
         );
       });
 
@@ -1464,8 +1471,8 @@ skills_lint:
 
         expect(
           result.stderr,
-          contains(
-            'Configuration error: Directory entry rules for ".": Unknown rule "valid-yaml-metadat"',
+          reportsConfigProblem(
+            'Directory entry rules for ".": Unknown rule "valid-yaml-metadat". Did you mean "valid-yaml-metadata"?',
           ),
         );
       });
@@ -1507,7 +1514,10 @@ skills_lint:
         );
         expect(
           stderrString,
-          contains('Configuration warning: Unrecognized top-level key "unrecognized_key"'),
+          reportsConfigProblem(
+            'Unrecognized top-level key "unrecognized_key" in skills_lint configuration.',
+            level: 'warning',
+          ),
         );
         expect(() => jsonDecode(stdoutString), returnsNormally);
         final jsonMap = jsonDecode(stdoutString) as Map<String, dynamic>;

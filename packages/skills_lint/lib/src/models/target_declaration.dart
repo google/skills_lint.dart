@@ -25,3 +25,6 @@ class TargetDeclaration {
   /// come from a file.
   final ({String file, int line})? source;
 }
+
+/// Formats [source] as `<file>:<line>` for diagnostics about configuration.
+String formatConfigLocation(({String file, int line}) source) => '${source.file}:${source.line}';
