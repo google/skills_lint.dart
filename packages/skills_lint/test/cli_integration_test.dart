@@ -897,24 +897,66 @@ skills_lint:
       expect(content, contains('Line with 1 space \n'));
     });
 
-    test('--fix does not rewrite a link that an entry with a subject ignores', () async {
-      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-      final String kept = (await File('${tempDir.path}/kept.md').create()).path;
-      final String other = (await File('${tempDir.path}/other.md').create()).path;
-      final content = '${buildFrontmatter(name: 'test-skill')}[Kept]($kept)\n[Other]($other)\n';
-      await File('${skillDir.path}/SKILL.md').writeAsString(content);
-      await _writeIgnoreFile(skillDir, 'test-skill', [
-        {
-          IgnoreEntry.ruleIdKey: 'check-absolute-paths',
-          IgnoreEntry.fileNameKey: 'SKILL.md',
-          IgnoreEntry.subjectKey: kept,
-        },
-      ]);
+    group('--fix with ignored check-absolute-paths findings', () {
+      late Directory skillDir;
+      late String kept;
+      late String other;
+      late String content;
 
-      final TestProcess process = await startCli(['-s', skillDir.path, '--fix']);
-      await process.shouldExit(0);
+      setUp(() async {
+        skillDir = await Directory('${tempDir.path}/test-skill').create();
+        kept = (await File('${tempDir.path}/kept.md').create()).path;
+        other = (await File('${tempDir.path}/other.md').create()).path;
+        content = '${buildFrontmatter(name: 'test-skill')}[Kept]($kept)\n[Other]($other)\n';
+        await File('${skillDir.path}/SKILL.md').writeAsString(content);
+      });
 
-      expect(await File('${skillDir.path}/SKILL.md').readAsString(), content);
+      Map<String, String> subjectEntry(String subject) => {
+        IgnoreEntry.ruleIdKey: 'check-absolute-paths',
+        IgnoreEntry.fileNameKey: 'SKILL.md',
+        IgnoreEntry.subjectKey: subject,
+      };
+
+      test('rewrites the links that no entry covers and keeps the ignored one', () async {
+        await _writeIgnoreFile(skillDir, 'test-skill', [subjectEntry(kept)]);
+
+        final TestProcess fix = await startCli(['-s', skillDir.path, '--fix']);
+        await fix.shouldExit(0);
+
+        final String fixed = await File('${skillDir.path}/SKILL.md').readAsString();
+        expect(fixed, contains('[Kept]($kept)\n'));
+        expect(fixed, contains('[Other](../other.md)\n'));
+        // Validating again with the same ignores finds nothing un-ignored, and
+        // the kept entry is still used, so it isn't reported stale.
+        final TestProcess check = await startCli(['-s', skillDir.path]);
+        final String output = [
+          ...await check.stdoutStream().toList(),
+          ...await check.stderrStream().toList(),
+        ].join('\n');
+        await check.shouldExit(0);
+        expect(output, isNot(contains('Absolute filepath found')));
+        expect(output, isNot(contains('Stale ignore entry')));
+      });
+
+      test('leaves the file unchanged when an entry without a subject covers it', () async {
+        await _writeIgnoreFile(skillDir, 'test-skill', [
+          {IgnoreEntry.ruleIdKey: 'check-absolute-paths', IgnoreEntry.fileNameKey: 'SKILL.md'},
+        ]);
+
+        final TestProcess process = await startCli(['-s', skillDir.path, '--fix']);
+        await process.shouldExit(0);
+
+        expect(await File('${skillDir.path}/SKILL.md').readAsString(), content);
+      });
+
+      test('leaves the file unchanged when entries cover every link', () async {
+        await _writeIgnoreFile(skillDir, 'test-skill', [subjectEntry(kept), subjectEntry(other)]);
+
+        final TestProcess process = await startCli(['-s', skillDir.path, '--fix']);
+        await process.shouldExit(0);
+
+        expect(await File('${skillDir.path}/SKILL.md').readAsString(), content);
+      });
     });
 
     test('--fix does not modify file if invalid-skill-name is ignored', () async {

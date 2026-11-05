@@ -4,6 +4,7 @@
 
 import 'models/skill_context.dart';
 import 'models/skill_rule.dart';
+import 'models/validation_error.dart';
 
 /// A rule that can rewrite a skill's `SKILL.md` to clear its own diagnostics.
 ///
@@ -11,6 +12,10 @@ import 'models/skill_rule.dart';
 abstract class FixableRule extends SkillRule {
   /// Returns [SkillContext.rawContent] of [context] with this rule's
   /// diagnostics fixed, or unchanged when there is nothing to fix.
+  ///
+  /// The fix leaves alone every finding whose [ValidationError.subject] is in
+  /// [ignoredSubjects], because an ignore entry covers it. A rule whose
+  /// findings have no subject never receives any.
   ///
   /// [context] can hold content that earlier fixes changed, and a
   /// [SkillContext.activeDirectoryName] that differs from the name on disk.
@@ -20,5 +25,5 @@ abstract class FixableRule extends SkillRule {
   /// kept. A fix that doesn't lower this rule's own diagnostics is dropped,
   /// and a fix that isn't idempotent can keep changing the skill until the
   /// pass limit.
-  Future<String> fix(SkillContext context);
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}});
 }

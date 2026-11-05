@@ -174,7 +174,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(SkillContext context) async {
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
     final String currentContent = context.rawContent;
 
     final String directoryName = context.activeDirectoryName;
