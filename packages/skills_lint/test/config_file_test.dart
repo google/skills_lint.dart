@@ -432,7 +432,12 @@ skills_lint:
       ], workingDirectory: tempDir.path);
 
       final List<String> stderr = await process.stderr.rest.toList();
-      expect(stderr.join('\n'), reportsConfigProblem('Unrecognized top-level key "invalid-key"'));
+      expect(
+        stderr.join('\n'),
+        reportsConfigProblem(
+          'Unrecognized top-level key "invalid-key" in skills_lint configuration.',
+        ),
+      );
       await process.shouldExit(1);
     });
 
@@ -459,7 +464,12 @@ skills_lint:
 
       final List<String> stderr = await process.stderr.rest.toList();
       final String stderrStr = stderr.join('\n');
-      expect(stderrStr, reportsConfigProblem('Directory entry "path" must be a string'));
+      expect(
+        stderrStr,
+        reportsConfigProblem(
+          'Directory entry "path" must be a string; got "123" (int). Skipping entry.',
+        ),
+      );
       // Without the fix, the unchecked cast would throw inside the
       // top-level try/catch and 'good-skill' would never run.
       await process.shouldExit(1); // exits 1 due to parsing error
@@ -487,7 +497,12 @@ skills_lint:
       ], workingDirectory: tempDir.path);
 
       final List<String> stderr = await process.stderr.rest.toList();
-      expect(stderr.join('\n'), reportsConfigProblem('Unrecognized key "invalid-dir-key"'));
+      expect(
+        stderr.join('\n'),
+        reportsConfigProblem(
+          'Unrecognized key "invalid-dir-key" in directory entry for "test-skill".',
+        ),
+      );
       await process.shouldExit(1);
     });
 
@@ -581,7 +596,10 @@ skills_lint:
         final String output = stderr.join('\n');
         expect(
           output,
-          reportsConfigProblem('Unrecognized top-level key "invalid-key"', level: 'warning'),
+          reportsConfigProblem(
+            'Unrecognized top-level key "invalid-key" in skills_lint configuration.',
+            level: 'warning',
+          ),
         );
         expect(output, contains('DEPRECATION WARNING: --allow-misconfigured-keys is deprecated'));
         await process.shouldExit(0);
@@ -956,7 +974,7 @@ skills_lint:
       expect(
         stderr.join('\n'),
         reportsConfigProblem(
-          'Global rules: Invalid value/type for parameter "exclude" in rule "path-does-not-exist"',
+          'Global rules: Invalid value/type for parameter "exclude" in rule "path-does-not-exist". Expected RegExp (valid regular expression string), got "[.*-workspace]".',
         ),
       );
       await process.shouldExit(1);
@@ -990,7 +1008,7 @@ skills_lint:
         expect(
           stderr.join('\n'),
           reportsConfigProblem(
-            'Global rules: Invalid value/type for parameter "exclude" in rule "path-does-not-exist"',
+            'Global rules: Invalid value/type for parameter "exclude" in rule "path-does-not-exist". Expected RegExp (valid regular expression string), got "[a-z".',
           ),
         );
         expect(stderr.join('\n'), contains('Expected RegExp (valid regular expression string)'));
@@ -1475,6 +1493,22 @@ skills_lint:
         contains('eror'),
         contains('nope-rule'),
         contains('unknown_param'),
+      ], reason: config.parsingErrors.join('\n'));
+    });
+
+    test('point each parameter error at its own key, not the rule', () async {
+      final Configuration config = await load('''
+skills_lint:
+  rules:
+    description-too-long:
+      severity: error
+      first_bad: 1
+      second_bad: 2
+''');
+
+      expect(config.parsingErrors.map(lineNamedBy), [
+        contains('first_bad'),
+        contains('second_bad'),
       ], reason: config.parsingErrors.join('\n'));
     });
 

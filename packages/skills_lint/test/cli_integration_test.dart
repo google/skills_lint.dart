@@ -1408,7 +1408,9 @@ skills_lint:
 
           expect(
             result.stderr,
-            reportsConfigProblem('Global rules: Unknown rule "check-relative-path".'),
+            reportsConfigProblem(
+              'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+            ),
           );
           expect(result.stderr, contains('"check-relative-paths"'));
           expect(result.stderr, contains('Fix or remove'));
@@ -1430,7 +1432,7 @@ skills_lint:
         expect(
           result.stderr,
           reportsConfigProblem(
-            'Global rules: Unknown rule "check-relative-path"',
+            'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
             level: 'warning',
           ),
         );
@@ -1450,7 +1452,9 @@ skills_lint:
 
         expect(
           result.stderr,
-          reportsConfigProblem('Global rules: Unknown rule "check-relative-path".'),
+          reportsConfigProblem(
+            'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+          ),
         );
       });
 
@@ -1467,7 +1471,9 @@ skills_lint:
 
         expect(
           result.stderr,
-          reportsConfigProblem('Directory entry rules for ".": Unknown rule "valid-yaml-metadat"'),
+          reportsConfigProblem(
+            'Directory entry rules for ".": Unknown rule "valid-yaml-metadat". Did you mean "valid-yaml-metadata"?',
+          ),
         );
       });
 
@@ -1508,7 +1514,10 @@ skills_lint:
         );
         expect(
           stderrString,
-          reportsConfigProblem('Unrecognized top-level key "unrecognized_key"', level: 'warning'),
+          reportsConfigProblem(
+            'Unrecognized top-level key "unrecognized_key" in skills_lint configuration.',
+            level: 'warning',
+          ),
         );
         expect(() => jsonDecode(stdoutString), returnsNormally);
         final jsonMap = jsonDecode(stdoutString) as Map<String, dynamic>;

@@ -88,11 +88,7 @@ class ConfigParser {
   }) {
     _checkSourceArguments(configSource, sourcePath, baseDirectory);
     try {
-      final String? filePath = configSource?.filePath ?? sourcePath;
-      final Object? yaml = loadYaml(
-        content,
-        sourceUrl: filePath == null ? null : Uri.file(filePath),
-      );
+      final Object? yaml = loadYaml(content);
       return fromYaml(
         yaml,
         configSource: configSource,
@@ -379,15 +375,18 @@ class ConfigParser {
         ? CustomRuleParameters(parameters)
         : null;
 
-    if (customParams != null) {
+    // Each parameter is validated on its own so that its errors point at its
+    // own key in the file.
+    for (final Object? key in node.nodes.keys) {
+      final name = key.toString();
+      if (name == severityKey) {
+        continue;
+      }
       final List<String> errors =
-          check?.validateParameters(customParams) ??
-          [
-            for (final String key in customParams.params.keys)
-              'Unrecognized parameter "$key" for rule "$ruleName".',
-          ];
+          check?.validateParameters(CustomRuleParameters({name: node[key]})) ??
+          ['Unrecognized parameter "$name" for rule "$ruleName".'];
       for (final error in errors) {
-        parsingErrors.add(node, '$contextLabel: $error');
+        parsingErrors.add(_keyNode(key), '$contextLabel: $error');
       }
     }
 
