@@ -229,3 +229,9 @@ Matcher reportsUnknownRule(String name, {String? section, List<String> suggestio
       if (suggestions.isNotEmpty) contains(didYouMean(suggestions)),
       if (suggestions.isEmpty) contains('newer skills_lint'),
     ]);
+
+/// Matches CLI output that reports [message] as a configuration problem of
+/// [level] (`error` or `warning`), located at a `<file>:<line>` in the
+/// configuration file.
+Matcher reportsConfigProblem(String message, {String level = 'error'}) =>
+    matches(RegExp('Configuration $level: .*:\\d+: ${RegExp.escape(message)}'));

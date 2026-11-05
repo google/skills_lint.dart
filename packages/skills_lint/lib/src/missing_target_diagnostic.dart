@@ -105,7 +105,7 @@ MissingTargetDiagnostic _configurationDiagnostic({
     workingDirectory: workingDirectory,
   );
 
-  final where = source == null ? 'configuration' : '${source.file}:${source.line}';
+  final String where = source == null ? 'configuration' : formatConfigLocation(source);
   final details = StringBuffer('  Declared as "$declared" in $where, relative to $anchor.');
   if (suggestion != null) {
     details.write(' ${didYouMean([suggestion])}');

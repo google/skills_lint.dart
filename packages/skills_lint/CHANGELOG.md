@@ -3,6 +3,7 @@
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
+- Configuration errors from a file, such as an unknown key, an invalid severity, an unrecognized rule parameter or an unknown rule name, start with the `<file>:<line>` of the offending entry.
 
 ## 0.5.3+1
 
