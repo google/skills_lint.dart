@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/analysis_severity.dart';
+import 'package:skills_lint/src/models/custom_rule_parameters.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
@@ -17,6 +18,18 @@ import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 
 import 'test_utils.dart';
+
+/// Creates a directory symlink at [link] pointing to [target], returning
+/// `false` when this platform cannot create one here (for example on Windows
+/// without Developer Mode).
+bool _tryCreateLink(String link, String target) {
+  try {
+    Link(link).createSync(target);
+    return true;
+  } on FileSystemException {
+    return false;
+  }
+}
 
 void main() {
   group('Absolute Paths Validation', () {
@@ -240,6 +253,95 @@ void main() {
       expect(errors.first.ruleId, equals('check-absolute-paths'));
       expect(errors.first.region?.startLine, equals(7));
     });
+
+    test(
+      'rewrites a link that goes through a symlink to a path inside the skill directory',
+      () async {
+        final Directory realRoot = await Directory(p.join(tempDir.path, 'real')).create();
+        final String linkedRoot = p.join(tempDir.path, 'linked');
+        if (!_tryCreateLink(linkedRoot, realRoot.path)) {
+          markTestSkipped('This platform cannot create a directory symlink here.');
+          return;
+        }
+        final Directory realSkillDir = await Directory(
+          p.join(realRoot.resolveSymbolicLinksSync(), 'skills', 'test-skill'),
+        ).create(recursive: true);
+        await Directory(p.join(realSkillDir.path, 'references')).create();
+        await File(p.join(realSkillDir.path, 'references', 'guide.md')).writeAsString('Guide\n');
+
+        final String symlinkedTarget = p.join(
+          linkedRoot,
+          'skills',
+          'test-skill',
+          'references',
+          'guide.md',
+        );
+        final content = '${buildFrontmatter(name: 'test-skill')}See [guide]($symlinkedTarget).\n';
+        final String fixed = await AbsolutePathsRule().fix(
+          SkillContext(directory: realSkillDir, rawContent: content),
+        );
+
+        await File(p.join(realSkillDir.path, 'SKILL.md')).writeAsString(fixed);
+        final validator = Validator(
+          ruleConfigs: {
+            AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error),
+            RelativePathsRule.ruleName: RuleConfig(
+              severity: AnalysisSeverity.error,
+              parameters: CustomRuleParameters(const {
+                RelativePathsRule.withinSkillParameter: true,
+              }),
+            ),
+          },
+        );
+        final ValidationResult roundTrip = await validator.validate(realSkillDir);
+        expect(roundTrip.errors, isEmpty, reason: 'Fixed content:\n$fixed');
+        expect(roundTrip.warnings, isEmpty, reason: 'Fixed content:\n$fixed');
+        expect(fixed, contains('(references/guide.md)'));
+      },
+    );
+
+    test(
+      'rewrites a link to the physical path when the skill directory is opened through a symlink',
+      () async {
+        final Directory realRoot = await Directory(p.join(tempDir.path, 'real')).create();
+        final String linkedRoot = p.join(tempDir.path, 'linked');
+        if (!_tryCreateLink(linkedRoot, realRoot.path)) {
+          markTestSkipped('This platform cannot create a directory symlink here.');
+          return;
+        }
+        final Directory realSkillDir = await Directory(
+          p.join(realRoot.resolveSymbolicLinksSync(), 'skills', 'test-skill'),
+        ).create(recursive: true);
+        await Directory(p.join(realSkillDir.path, 'references')).create();
+        final File realGuide = await File(
+          p.join(realSkillDir.path, 'references', 'guide.md'),
+        ).create();
+        await realGuide.writeAsString('Guide\n');
+
+        final linkedSkillDir = Directory(p.join(linkedRoot, 'skills', 'test-skill'));
+        final content = '${buildFrontmatter(name: 'test-skill')}See [guide](${realGuide.path}).\n';
+        final String fixed = await AbsolutePathsRule().fix(
+          SkillContext(directory: linkedSkillDir, rawContent: content),
+        );
+
+        await File(p.join(linkedSkillDir.path, 'SKILL.md')).writeAsString(fixed);
+        final validator = Validator(
+          ruleConfigs: {
+            AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error),
+            RelativePathsRule.ruleName: RuleConfig(
+              severity: AnalysisSeverity.error,
+              parameters: CustomRuleParameters(const {
+                RelativePathsRule.withinSkillParameter: true,
+              }),
+            ),
+          },
+        );
+        final ValidationResult roundTrip = await validator.validate(linkedSkillDir);
+        expect(roundTrip.errors, isEmpty, reason: 'Fixed content:\n$fixed');
+        expect(roundTrip.warnings, isEmpty, reason: 'Fixed content:\n$fixed');
+        expect(fixed, contains('(references/guide.md)'));
+      },
+    );
   });
 
   defineCliTests();
@@ -271,4 +373,45 @@ void defineCliTests() {
       }
     });
   });
+
+  test(
+    '--fix writes an in-skill relative link when invoked from a symlinked working directory',
+    () async {
+      await withTempDir((tempDir) async {
+        final Directory realRoot = await Directory(p.join(tempDir.path, 'real')).create();
+        final String linkedRoot = p.join(tempDir.path, 'linked');
+        if (!_tryCreateLink(linkedRoot, realRoot.path)) {
+          markTestSkipped('This platform cannot create a directory symlink here.');
+          return;
+        }
+        final Directory skillDir = await Directory(
+          p.join(realRoot.path, 'skills', 'my-skill'),
+        ).create(recursive: true);
+        await Directory(p.join(skillDir.path, 'references')).create();
+        await File(p.join(skillDir.path, 'references', 'guide.md')).writeAsString('Guide\n');
+        final skillFile = File(p.join(skillDir.path, 'SKILL.md'));
+        final String symlinkedGuide = p.join(
+          linkedRoot,
+          'skills',
+          'my-skill',
+          'references',
+          'guide.md',
+        );
+        final String frontmatter = buildFrontmatter(name: 'my-skill');
+        await skillFile.writeAsString('${frontmatter}See [guide]($symlinkedGuide).\n');
+
+        final TestProcess fixProcess = await startCli([
+          '--ignore-config',
+          '-s',
+          p.join('skills', 'my-skill'),
+          '--check-absolute-paths',
+          '--check-relative-paths',
+          '--check-relative-paths-within-skill=true',
+          '--fix',
+        ], workingDirectory: linkedRoot);
+        await fixProcess.shouldExit(0);
+        expect(await skillFile.readAsString(), '${frontmatter}See [guide](references/guide.md).\n');
+      });
+    },
+  );
 }

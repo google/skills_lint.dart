@@ -4,6 +4,10 @@
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 
+### Bug fixes
+
+- Fixed `check-absolute-paths` `--fix` writing an out-of-skill `../` link when the skill directory or the linked path goes through a symlink. [#142](https://github.com/google/skills_lint.dart/issues/142)
+
 ## 0.5.3+1
 
 - Fixed the README's download example, which named a version with no release assets.

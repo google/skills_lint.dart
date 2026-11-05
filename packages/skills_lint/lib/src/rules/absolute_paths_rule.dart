@@ -85,6 +85,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     final String frontmatter = currentContent.substring(0, frontmatterEnd);
     final String markdownContent = currentContent.substring(frontmatterEnd);
 
+    final String skillPath = _physicalPath(context.directory);
     final String fixedMarkdown = markdownContent.replaceAllMapped(SkillContext.markdownLinkRegex, (
       match,
     ) {
@@ -97,7 +98,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
       if (isAbsolute(pathOnly) || windows.isAbsolute(pathOnly)) {
         final file = File(pathOnly);
         if (file.existsSync()) {
-          final String relativePath = relative(pathOnly, from: context.directory.path);
+          final String relativePath = relative(_physicalPath(file), from: skillPath);
           final String posixRelativePath = relativePath.replaceAll(r'\', '/');
           final targetWithTitle = titlePart != null
               ? '$posixRelativePath$titlePart'
@@ -112,5 +113,13 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     });
 
     return '$frontmatter$fixedMarkdown';
+  }
+
+  static String _physicalPath(FileSystemEntity entity) {
+    try {
+      return entity.resolveSymbolicLinksSync();
+    } on FileSystemException {
+      return entity.path;
+    }
   }
 }
