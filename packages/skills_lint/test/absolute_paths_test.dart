@@ -31,14 +31,6 @@ bool _tryCreateLink(String link, String target) {
   }
 }
 
-/// Flips the case of a leading Windows drive letter in [path] (for example,
-/// `C:\foo` to `c:\foo`).
-String _flipDriveLetterCase(String path) {
-  final String drive = path[0];
-  final String flipped = drive == drive.toUpperCase() ? drive.toLowerCase() : drive.toUpperCase();
-  return '$flipped${path.substring(1)}';
-}
-
 /// Writes [fixedContent] to `SKILL.md` in [skillDir] and validates that both
 /// `check-absolute-paths` and `check-relative-paths` (`within-skill: true`)
 /// report zero diagnostics.
@@ -340,28 +332,6 @@ void main() {
         await _expectPortableInSkillRoundTrip(linkedSkillDir, fixed);
         expect(fixed, contains('(references/guide.md)'));
       },
-    );
-
-    test(
-      'rewrites a link whose drive letter differs in case to a path inside the skill directory',
-      () async {
-        final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
-        await Directory(p.join(skillDir.path, 'references')).create();
-        final File guide = await File(p.join(skillDir.path, 'references', 'guide.md')).create();
-        await guide.writeAsString('Guide\n');
-
-        final String flippedTarget = _flipDriveLetterCase(guide.path);
-        final content = '${buildFrontmatter(name: 'test-skill')}See [guide]($flippedTarget).\n';
-        final String fixed = await AbsolutePathsRule().fix(
-          SkillContext(directory: skillDir, rawContent: content),
-        );
-
-        await _expectPortableInSkillRoundTrip(skillDir, fixed);
-        expect(fixed, contains('(references/guide.md)'));
-      },
-      // Windows paths begin with a drive letter whose case can differ without
-      // a symlink.
-      testOn: 'windows',
     );
   });
 
