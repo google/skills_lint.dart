@@ -177,7 +177,7 @@ void main() {
       final String kept = (await File('${tempDir.path}/kept.md').create()).path;
       final String other = (await File('${tempDir.path}/other.md').create()).path;
       final keptLinks = '[A]($kept "a title")\n[B]($kept)\n';
-      final String content = '${buildFrontmatter(name: 'test-skill')}$keptLinks[Other]($other)\n';
+      final content = '${buildFrontmatter(name: 'test-skill')}$keptLinks[Other]($other)\n';
 
       final String fixed = await AbsolutePathsRule().fix(
         SkillContext(directory: skillDir, rawContent: content),
