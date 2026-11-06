@@ -13,9 +13,8 @@ abstract class FixableRule extends SkillRule {
   /// Returns [SkillContext.rawContent] of [context] with this rule's
   /// diagnostics fixed, or unchanged when there is nothing to fix.
   ///
-  /// The fix leaves alone every finding whose [ValidationError.subject] is in
-  /// [ignoredSubjects], because an ignore entry covers it. A rule whose
-  /// findings have no subject never receives any.
+  /// Findings whose [ValidationError.subject] is in [ignoredSubjects] stay
+  /// unchanged.
   ///
   /// [context] can hold content that earlier fixes changed, and a
   /// [SkillContext.activeDirectoryName] that differs from the name on disk.

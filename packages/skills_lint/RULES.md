@@ -48,10 +48,9 @@ governs how changes to these rules ship.
 - **Auto-fix behavior:** if the absolute path resolves to a file that
   exists on disk, the fixer rewrites it to the equivalent POSIX-style
   relative path from `SKILL.md`. If the target does not exist the
-  fixer leaves the link untouched. The fixer also leaves untouched each
-  link that an ignore entry with a `subject` covers, and rewrites the
-  others. If an ignore entry without a `subject` covers the file, the
-  fixer leaves the file unchanged.
+  fixer leaves the link untouched. The fixer skips links that an ignore
+  entry with a `subject` covers. An ignore entry without a `subject`
+  stops the fixer for the whole file.
 - **Ignore subject:** the link destination as written, including any
   `#anchor`, without its title.
 - **Disable:** `--no-check-absolute-paths`.

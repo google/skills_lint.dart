@@ -3,7 +3,7 @@
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
-- `--fix` now rewrites `check-absolute-paths` links that no ignore entry covers, even when a `subject` ignore covers another link in the file. It used to leave the file unchanged.
+- `--fix` rewrites `check-absolute-paths` links that no ignore entry covers, even when a different ignore entry is present for another link in the file.
 
 ## 0.5.3+1
 
