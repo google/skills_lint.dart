@@ -77,7 +77,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(SkillContext context) async {
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
     final String currentContent = context.rawContent;
 
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(currentContent);
@@ -90,9 +90,13 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     ) {
       final String rawTarget = match[1]!;
       final String trimmed = rawTarget.trim();
-      final List<String> parts = trimmed.split(RegExp(r'\s+'));
-      final String pathOnly = parts.first;
-      final String? titlePart = parts.length > 1 ? trimmed.substring(pathOnly.length) : null;
+      final String pathOnly = linkTargetOf(rawTarget);
+      final String? titlePart = trimmed.length > pathOnly.length
+          ? trimmed.substring(pathOnly.length)
+          : null;
+      if (ignoredSubjects.contains(pathOnly)) {
+        return match[0]!;
+      }
 
       if (isAbsolute(pathOnly) || windows.isAbsolute(pathOnly)) {
         final file = File(pathOnly);
