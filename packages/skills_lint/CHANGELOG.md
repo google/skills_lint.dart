@@ -1,4 +1,8 @@
-## 0.5.3+2-wip
+## 0.5.4-wip
+
+### New rules
+
+- Added the `description-yaml-comment` rule, disabled by default. It reports a frontmatter `description:` written as an unquoted YAML scalar in which whitespace followed by `#` starts a comment, so that YAML drops the rest of the value, as in `description: Use when asked "fix #123"`.
 
 ### Behavior changes
 

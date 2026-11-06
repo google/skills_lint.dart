@@ -43,6 +43,7 @@ skills_lint:
     check-relative-paths: error
     check-absolute-paths: error
     check-trailing-whitespace: error
+    description-yaml-comment: error
     disallowed-field: error
     prevent-skills-sh-publishing: error
     pub-archive-includes-skill: error
@@ -74,6 +75,7 @@ final Map<String, SkillEdit> violations = {
   'invalid-skill-name': (s) => s.name = '${s.name}-renamed',
   'check-trailing-whitespace': (s) => s.bodySuffix = 'This line ends in a space. \n',
   'description-too-long': (s) => s.description = 'x' * (maxDescriptionLength + 1),
+  'description-yaml-comment': (s) => s.description = '${s.description} Use when asked "fix #123".',
   'valid-yaml-metadata': (s) => s.fields['compatibility'] = 'x' * (maxCompatibilityLength + 1),
   'disallowed-field': (s) => s.fields['owner'] = 'benchmarks',
   'prevent-skills-sh-publishing': (s) => s.internal = false,
@@ -103,6 +105,7 @@ const List<List<String>> plantedViolations = [
   ['valid-yaml-metadata', 'check-relative-paths'],
   ['path-does-not-exist'],
   ['pub-archive-includes-skill', 'disallowed-field'],
+  ['description-yaml-comment', 'check-trailing-whitespace'],
 ];
 
 /// A checked-in sample skill that the fixture copies.

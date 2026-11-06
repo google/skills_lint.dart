@@ -5,6 +5,7 @@
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
 import 'package:skills_lint/src/rules/description_length_rule.dart';
+import 'package:skills_lint/src/rules/description_yaml_comment_rule.dart';
 import 'package:skills_lint/src/rules/disallowed_field_rule.dart';
 import 'package:skills_lint/src/rules/name_format_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
@@ -16,6 +17,7 @@ void main() {
     final List<SkillRule> rules = [
       AbsolutePathsRule(),
       DescriptionLengthRule(),
+      DescriptionYamlCommentRule(),
       DisallowedFieldRule(),
       NameFormatRule(),
       RelativePathsRule(),
