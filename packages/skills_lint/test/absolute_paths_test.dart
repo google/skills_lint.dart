@@ -205,7 +205,7 @@ void main() {
         SkillContext(directory: skillDir, rawContent: raw),
       );
       expect(errors, hasLength(1));
-      expect(errors.single.ruleId, AbsolutePathsRule.ruleName);
+      expect(errors.single.ruleId, 'check-absolute-paths');
       expect(errors.single.region?.startLine, 7);
     });
 
