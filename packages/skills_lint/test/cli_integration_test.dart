@@ -909,7 +909,9 @@ skills_lint:
         skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
         kept = (await File(p.join(tempDir.path, 'kept.md')).create()).path;
         other = (await File(p.join(tempDir.path, 'other.md')).create()).path;
-        content = '${buildFrontmatter(name: 'test-skill')}[Kept]($kept)\n[Other]($other)\n';
+        content =
+            '${buildFrontmatter(name: 'test-skill')}'
+            '[Kept 1]($kept)\n[Other 1]($other)\n[Kept 2]($kept)\n[Other 2]($other)\n';
         await skillFile().writeAsString(content);
       });
 
@@ -926,8 +928,11 @@ skills_lint:
         await fix.shouldExit(0);
 
         final String fixed = await skillFile().readAsString();
-        expect(fixed, contains('[Kept]($kept)\n'));
-        expect(fixed, contains('[Other](../other.md)\n'));
+        expect(
+          fixed,
+          '${buildFrontmatter(name: 'test-skill')}'
+          '[Kept 1]($kept)\n[Other 1](../other.md)\n[Kept 2]($kept)\n[Other 2](../other.md)\n',
+        );
         // Validating again with the same ignores finds nothing un-ignored. The
         // kept entry matches a finding, so it isn't reported stale.
         final TestProcess check = await startCli(['-s', skillDir.path]);

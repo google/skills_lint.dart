@@ -90,10 +90,9 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     ) {
       final String rawTarget = match[1]!;
       final String trimmed = rawTarget.trim();
-      final String pathOnly = linkTargetOf(rawTarget);
-      final String? titlePart = trimmed.length > pathOnly.length
-          ? trimmed.substring(pathOnly.length)
-          : null;
+      final List<String> parts = trimmed.split(RegExp(r'\s+'));
+      final String pathOnly = parts.first;
+      final String? titlePart = parts.length > 1 ? trimmed.substring(pathOnly.length) : null;
       if (ignoredSubjects.contains(pathOnly)) {
         return match[0]!;
       }
