@@ -599,7 +599,22 @@ class _ParsingErrors {
   /// Is `null` for content that did not come from a file.
   final String? _sourceFile;
 
-  final List<String> messages = <String>[];
+  final List<String> _unlocated = <String>[];
+  final List<({int line, String message})> _located = <({int line, String message})>[];
+
+  /// The recorded messages: those without a location first, in the order
+  /// they were recorded, then the rest in line order.
+  ///
+  /// Messages on the same line keep the order they were recorded in.
+  List<String> get messages {
+    // List.sort is not stable, so the recording order breaks ties.
+    final order = List<int>.generate(_located.length, (int i) => i)
+      ..sort((int a, int b) {
+        final int byLine = _located[a].line.compareTo(_located[b].line);
+        return byLine != 0 ? byLine : a.compareTo(b);
+      });
+    return [..._unlocated, for (final int i in order) _located[i].message];
+  }
 
   /// Records [message] about [node].
   ///
@@ -607,11 +622,12 @@ class _ParsingErrors {
   void add(YamlNode? node, String message) {
     final String? file = _sourceFile;
     if (file == null || node == null) {
-      messages.add(message);
+      _unlocated.add(message);
       return;
     }
-    final String where = formatConfigLocation((file: file, line: ConfigParser._lineOfNode(node)));
-    messages.add('$where: $message');
+    final int line = ConfigParser._lineOfNode(node);
+    final String where = formatConfigLocation((file: file, line: line));
+    _located.add((line: line, message: '$where: $message'));
   }
 }
 
@@ -732,6 +748,7 @@ class Configuration {
   /// unknown key or rule name are left out of the configuration.
   /// An error about a configuration file starts with the `<file>:<line>` of
   /// the entry it is about.
+  /// Errors without a location come first, then the rest in line order.
   ///
   /// The `skills_lint` command fails on these; `validateSkills` only warns
   /// ([#152](https://github.com/google/skills_lint.dart/issues/152) makes it

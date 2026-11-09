@@ -1528,8 +1528,8 @@ skills_lint:
 
       expect(config.parsingErrors.map(lineNamedBy), [
         contains('extra'),
-        contains('valid-yaml-metadat'),
         contains('ignore_file'),
+        contains('valid-yaml-metadat'),
         contains('not-a-map'),
         contains('path: 5'),
       ], reason: config.parsingErrors.join('\n'));
@@ -1549,6 +1549,42 @@ skills_lint:
         contains('loud'),
         contains('oops'),
       ], reason: config.parsingErrors.join('\n'));
+    });
+
+    test('list errors in line order, not in the order of config sections', () async {
+      final Configuration config = await load('''
+skills_lint:
+  directorys: []
+  directories:
+    - path: skills
+      ignorefile: x.json
+  rules:
+    check-relative-path: error
+    description-too-long: loud
+''');
+
+      final List<int> lines = [
+        for (final String error in config.parsingErrors)
+          int.parse(RegExp(r':(\d+): ').firstMatch(error)!.group(1)!),
+      ];
+      expect(lines, [2, 5, 7, 8], reason: config.parsingErrors.join('\n'));
+      expect(config.parsingErrors.map(lineNamedBy), [
+        contains('directorys'),
+        contains('ignorefile'),
+        contains('check-relative-path'),
+        contains('loud'),
+      ], reason: config.parsingErrors.join('\n'));
+    });
+
+    test('keep errors on one line in the order they were found', () async {
+      final Configuration config = await load('''
+skills_lint:
+  directories:
+    - {path: skills, zeta: 1, alpha: 2}
+''');
+
+      expect(config.parsingErrors.map(lineNamedBy).toSet(), hasLength(1));
+      expect(config.parsingErrors, [contains('"zeta"'), contains('"alpha"')]);
     });
 
     test('point a non-map skills_lint value at its line in the file', () async {
