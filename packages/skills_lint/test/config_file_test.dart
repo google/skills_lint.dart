@@ -598,7 +598,7 @@ skills_lint:
           output,
           reportsConfigProblem(
             'Unrecognized top-level key "invalid-key" in skills_lint configuration.',
-            level: 'warning',
+            level: ConfigProblemLevel.warning,
           ),
         );
         expect(output, contains('DEPRECATION WARNING: --allow-misconfigured-keys is deprecated'));

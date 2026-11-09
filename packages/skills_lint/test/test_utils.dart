@@ -230,9 +230,22 @@ Matcher reportsUnknownRule(String name, {String? section, List<String> suggestio
       if (suggestions.isEmpty) contains('newer skills_lint'),
     ]);
 
+/// How severe a configuration problem is in CLI output.
+enum ConfigProblemLevel { error, warning }
+
 /// Matches CLI output that reports [message] as a configuration problem of
-/// [level] (`error` or `warning`), located at a `<file>:<line>` in the
-/// configuration file. [message] must be the whole rest of the line.
-Matcher reportsConfigProblem(String message, {String level = 'error'}) => matches(
-  RegExp('Configuration $level: .*:\\d+: ${RegExp.escape(message)}\r?\$', multiLine: true),
+/// [level], located at a `<file>:<line>` in the configuration file.
+/// [message] must be the whole rest of the line.
+Matcher reportsConfigProblem(
+  String message, {
+  ConfigProblemLevel level = ConfigProblemLevel.error,
+}) => matches(
+  RegExp(
+    r'Configuration '
+    '${RegExp.escape(level.name)}'
+    r': .*:\d+: '
+    '${RegExp.escape(message)}'
+    r'\r?$',
+    multiLine: true,
+  ),
 );

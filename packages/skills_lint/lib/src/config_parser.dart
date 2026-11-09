@@ -522,7 +522,9 @@ class ConfigParser {
   /// The 1-based line on which [node] starts.
   static int _lineOfNode(YamlNode node) => node.span.start.line + 1;
 
-  /// [key] from [YamlMap.nodes] as a node, or `null` for a key that is not one.
+  /// [key] from [YamlMap.nodes] as a [YamlNode].
+  ///
+  /// Is `null` if [key] is not a [YamlNode].
   static YamlNode? _keyNode(Object? key) => key is YamlNode ? key : null;
 
   /// Parses path-specific rule overrides under a target entry's `rules` key.
@@ -592,13 +594,16 @@ class ConfigParser {
 class _ParsingErrors {
   _ParsingErrors(this._sourceFile);
 
-  /// The absolute configuration file, or `null` for content without one.
+  /// The absolute path of the configuration file.
+  ///
+  /// Is `null` for content that did not come from a file.
   final String? _sourceFile;
 
   final List<String> messages = <String>[];
 
-  /// Records [message] about [node], or about no particular node when [node]
-  /// is `null`.
+  /// Records [message] about [node].
+  ///
+  /// A `null` [node] records [message] without a location.
   void add(YamlNode? node, String message) {
     final String? file = _sourceFile;
     if (file == null || node == null) {

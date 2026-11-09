@@ -1433,7 +1433,7 @@ skills_lint:
           result.stderr,
           reportsConfigProblem(
             'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
-            level: 'warning',
+            level: ConfigProblemLevel.warning,
           ),
         );
         expect('Unknown rule'.allMatches(result.stderr), hasLength(1));
@@ -1516,7 +1516,7 @@ skills_lint:
           stderrString,
           reportsConfigProblem(
             'Unrecognized top-level key "unrecognized_key" in skills_lint configuration.',
-            level: 'warning',
+            level: ConfigProblemLevel.warning,
           ),
         );
         expect(() => jsonDecode(stdoutString), returnsNormally);
