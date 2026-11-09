@@ -173,17 +173,15 @@ governs how changes to these rules ship.
 - **Default severity:** disabled
 - **Fixable:** yes
 - **What it checks:** reports an unquoted (plain) frontmatter string value
-  that loses text to a YAML comment. `--fix` treats the text after the
-  `#` as part of the value, so move a deliberate comment to its own line
-  first. In a plain value, a space or tab followed by `#` starts
-  a comment, so
+  that loses text to a YAML comment. In a plain value, a space or tab
+  followed by `#` starts a comment, so
   `description: Use when asked "fix #123" or to triage bugs.` reads as
-  `Use when asked "fix`. The YAML is valid, so no other
-  rule notices. The rule checks every string value in the frontmatter:
-  top-level fields such as `description:` and `compatibility:`, values
-  under `metadata:`, and list items. It skips the top-level `name:`, because a valid
-  name has no spaces or `#`, so the text after the `#` is never part of
-  the name.
+  `Use when asked "fix`. The YAML is valid, so no other rule notices. The
+  rule checks every string value in the frontmatter: top-level fields
+  such as `description:` and `compatibility:`, values under `metadata:`,
+  and list items. It skips the top-level `name:`, because a valid name
+  has no spaces or `#`, so the text after the `#` is never part of the
+  name.
 
   Quoted values, block values (`|`, `>`), and a `#` with no space or tab
   before it, as in `C#` or `owner/repo#1`, are not reported. A comment
@@ -207,8 +205,10 @@ governs how changes to these rules ship.
 - **Auto-fix behavior:** wraps the value and the dropped text in single
   quotes, so YAML reads the full text, and doubles any `'` in them. A
   value that spans several lines is quoted in place and keeps its line
-  breaks. The fixer treats the text after the `#` as part of the value,
-  so move a deliberate comment to its own line before running `--fix`.
+  breaks. In a flow collection (`[...]`, `{...}`) that spans lines, the
+  quotes also take in any `,`, `]` or `}` that the comment hid. The
+  fixer treats the text after the `#` as part of the value, so move a
+  deliberate comment to its own line before running `--fix`.
   The fixer skips values that an ignore entry with a `subject` covers.
 - **Ignore subject:** the keys from the top of the frontmatter to the
   value, joined with `.`, such as `description` or

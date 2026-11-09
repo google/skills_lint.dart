@@ -57,7 +57,7 @@ class RuleRegistry {
     const CheckType(
       name: FrontmatterTruncatedByCommentRule.ruleName,
       defaultSeverity: FrontmatterTruncatedByCommentRule.defaultSeverity,
-      help: 'Check for unquoted frontmatter values that a " #" comment cuts short.',
+      help: 'Check for unquoted frontmatter values that a YAML comment cuts short.',
     ),
     const CheckType(
       name: PreventSkillsShPublishingRule.ruleName,

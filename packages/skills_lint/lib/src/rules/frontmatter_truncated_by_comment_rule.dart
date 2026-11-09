@@ -177,6 +177,10 @@ final class _TruncationFinder {
       return;
     }
     final int valueStart = _skipProperties(spanStart, valueEnd);
+    if (valueStart == valueEnd || _content[valueStart] == '#') {
+      // A comment between the properties and the value; not a case to quote.
+      return;
+    }
     final int droppedStart = _skipBlanks(valueEnd);
     if (droppedStart == valueEnd ||
         droppedStart == _content.length ||
@@ -205,7 +209,10 @@ final class _TruncationFinder {
       while (i < end && !_isBlank(_content[i]) && !_isLineBreak(_content[i])) {
         i++;
       }
-      i = _skipBlanks(i);
+      // The value can start on the next line after its tag or anchor.
+      while (i < end && (_isBlank(_content[i]) || _isLineBreak(_content[i]))) {
+        i++;
+      }
     }
     return i;
   }
@@ -230,6 +237,8 @@ final class _TruncationFinder {
   }
 
   /// The offset before the spaces and tabs that end at [end].
+  ///
+  /// A character that is not a space or tab must come before [end].
   int _trimBlanksBefore(int end) {
     var i = end;
     while (_isBlank(_content[i - 1])) {

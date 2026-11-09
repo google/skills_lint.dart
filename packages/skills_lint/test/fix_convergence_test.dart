@@ -160,7 +160,8 @@ String _renderMutatedSkill({
   required bool outsideAbsLink,
   required bool commentInDescription,
 }) {
-  // ` #` in the unquoted description starts a YAML comment.
+  // ` #` in the unquoted description starts a YAML comment, which
+  // frontmatter-truncated-by-comment reports and fixes.
   final description = commentInDescription
       ? 'Mutated skill $index. Fix #$index first.'
       : 'Mutated skill $index.';

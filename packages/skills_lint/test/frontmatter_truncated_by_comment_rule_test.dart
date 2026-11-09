@@ -347,6 +347,25 @@ void main() {
       expect(_frontmatter(fixed)['compatibility'], 'Fix #1 now');
     });
 
+    test('quotes the value, not the tag or anchor, when they are alone on the key line', () async {
+      final String fixed = await _fixClean(
+        _skillMd([
+          'description: Fix #1 first',
+          'metadata:',
+          '  tagged: !!str',
+          '    Fix it #12 now',
+          '  anchored: &a',
+          '    Run #3 too',
+          '  alias: *a',
+        ]),
+      );
+
+      final metadata = _frontmatter(fixed)['metadata'] as YamlMap;
+      expect(metadata['tagged'], 'Fix it #12 now');
+      expect(metadata['anchored'], 'Run #3 too');
+      expect(metadata['alias'], 'Run #3 too');
+    });
+
     test('pulls a deliberate comment into the value', () async {
       // The rule can't tell a deliberate comment from lost text, so --fix
       // keeps the text. RULES.md tells authors to move such a comment first.
