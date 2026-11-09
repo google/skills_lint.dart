@@ -58,6 +58,8 @@ Words such as "now", "still", "currently", "new", "old", "legacy", "existing beh
 
 If you want to call something "new" or "legacy", pick a name that says what it is. If the history matters, put it in the commit message or PR description.
 
+The conversation or review that produced a change is not part of that history. Code, comments, docs and the PR description don't mention options that were tried and dropped, things a reviewer asked you to remove, or feedback ("this doesn't do Y", "per review", "as discussed"). When you remove something, don't leave a comment about its absence. To check a sentence, ask whether it would make sense to someone who has only the code and docs.
+
 ---
 
 ## Naming
