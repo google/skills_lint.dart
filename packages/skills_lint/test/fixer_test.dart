@@ -42,7 +42,7 @@ class RuleA extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(SkillContext context) async {
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
     return '${context.rawContent} A';
   }
 }
@@ -69,7 +69,7 @@ class RuleB extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(SkillContext context) async {
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
     return '${context.rawContent} B';
   }
 }
@@ -94,7 +94,8 @@ class RuleThrows extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(SkillContext context) => Future<String>.error(Exception('Fix failed'));
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) =>
+      Future<String>.error(Exception('Fix failed'));
 }
 
 class RuleThrowsError extends RuleThrows {
@@ -102,7 +103,8 @@ class RuleThrowsError extends RuleThrows {
   String get name => 'rule-throws-error';
 
   @override
-  Future<String> fix(SkillContext context) => Future.error(StateError('Fixer bug'));
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) =>
+      Future.error(StateError('Fixer bug'));
 }
 
 /// A fixer that sets the frontmatter `name` from [oldName] to [newName].
@@ -119,7 +121,7 @@ class RuleWritesName extends RuleA {
   bool isFixed(String content) => content.contains('name: $newName');
 
   @override
-  Future<String> fix(SkillContext context) async {
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
     return context.rawContent.replaceFirst('name: $oldName', 'name: $newName');
   }
 }

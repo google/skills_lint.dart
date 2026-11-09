@@ -21,12 +21,12 @@ Before stating that a task is complete, you MUST execute and pass the following 
 5.  **Tests**: From `packages/skills_lint`, run `dart test`, `dart test repo_test`, and `dart test compiled_test`, and ensure all pass. If the change touches `release/`, also run Format, Analysis, and Tests in `release/`. See [Where tests go](../../../CONTRIBUTING.md#where-tests-go).
 6.  **Skills**: If any skill files were modified, run `dart run skills_lint -d .agents/skills` to ensure they are valid.
 7.  **Changelog**: Update `CHANGELOG.md` for user-facing CLI flags, package API changes, bug fixes, or user-facing behavior changes, following [Changelog sections](../../../CONTRIBUTING.md#changelog-sections). Do not log internal chores, message-wording tweaks, or incidental fixes no user would notice; if internal-only, leave `CHANGELOG.md` untouched, output `[x] Changelog: (N/A) <reason>`, and add the `skip-changelog-check` label to the PR. Compare against the last released version, not intermediate PR commits.
-8.  **Temporal**: Code, comments and docs describe the code as it is. They don't compare it with an earlier version or with your change. See [Temporal Words](../../../packages/skills_lint/documentation/knowledge/style_guide.md#temporal-words) for examples and the reason.
+8.  **Temporal**: Code, comments and docs describe the code as it is. They don't compare it with an earlier version or with your change. `CHANGELOG.md` entries are the exception: they tell upgrading users what changed. See [Temporal Words](../../../packages/skills_lint/documentation/knowledge/style_guide.md#temporal-words) for examples and the reason.
 9.  **Documentation**: Update every document the change affects. If you change CLI flags, output, or config parsing, check `README.md`, `RULES.md`, and the other docs next to the code. Documented behavior must match the code.
 10. **No Silent Deletions**: Diff the branch against its merge base. Name every removed comment, docstring, test, or eval assertion in the PR description, with the reason. Restore any removal you did not intend.
 11. **Citations**: Open every URL the change adds. Each URL must resolve and support the claim it is attached to. Cite the Agent Skills specification only for rules the specification states.
-12. **Comments**: Comments describe what the code does. Don't describe what isn't there, what a caller does, or work that was not done, unless someone is likely to redo it by accident.
-13. **Doc scope**: Dartdoc states what callers rely on.
+12. **Comments**: Comments describe what the code does. A comment may warn against a change someone is likely to make by accident. Don't describe work that wasn't done, or code or behavior this PR removes, even as a warning; see [Temporal Words](../../../packages/skills_lint/documentation/knowledge/style_guide.md#temporal-words).
+13. **Doc scope**: Dartdoc states what callers rely on, not what a particular caller does.
 14. **API surface**: If the change adds or alters anything users or callers see, fill in the API surface section of the [PR description](../contributor-pr-description/SKILL.md).
 
 ## 🚦 Output Formatting

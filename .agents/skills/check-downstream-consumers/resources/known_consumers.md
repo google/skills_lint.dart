@@ -7,6 +7,8 @@ When evaluating the impact of pull requests on downstream repositories, check ag
 
 > [!TIP]
 > Each entry links the file that actually invokes the linter. Read that file rather than trusting a description of it: it records the working directory, the flags, and the configuration file in use, all of which decide whether a change affects this consumer. The links use `blob/HEAD`, so they follow the default branch and return 404 once a file moves rather than silently pointing at stale content.
+>
+> A consumer can run the linter from more than one place, such as a CI workflow, a release checklist, an agent skill or a pre-commit hook, and each place can pin its own version. Before rolling a version, search the consumer for every `skills_lint` invocation and update or report each one.
 
 ## 1. Dart & Flutter Team Repositories
 
@@ -96,7 +98,7 @@ When evaluating the impact of pull requests on downstream repositories, check ag
 - **Repository URL**: [DenisovAV/flutter_edge_ai](https://github.com/DenisovAV/flutter_edge_ai)
 - **Primary Consumer Location**: Repository root (`skills_lint.yaml`)
 - **Tooling Engine**: `dart run skills_lint`
-- **Validation Entry Point**: [`.github/workflows/test.yml`](https://github.com/DenisovAV/flutter_edge_ai/blob/HEAD/.github/workflows/test.yml) and [`skills_lint.yaml`](https://github.com/DenisovAV/flutter_edge_ai/blob/HEAD/skills_lint.yaml)
+- **Validation Entry Point**: [`.github/workflows/test.yml`](https://github.com/DenisovAV/flutter_edge_ai/blob/HEAD/.github/workflows/test.yml) and [`skills_lint.yaml`](https://github.com/DenisovAV/flutter_edge_ai/blob/HEAD/skills_lint.yaml) for CI, and the release checklist in [`.claude/skills/release/SKILL.md`](https://github.com/DenisovAV/flutter_edge_ai/blob/HEAD/.claude/skills/release/SKILL.md), which pins its own version with `dart run skills_lint@<version>`
 
 ### 14. `VeryGoodOpenSource/very_good_workflows`
 - **Repository URL**: [VeryGoodOpenSource/very_good_workflows](https://github.com/VeryGoodOpenSource/very_good_workflows)

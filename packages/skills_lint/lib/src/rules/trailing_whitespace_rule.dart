@@ -121,7 +121,7 @@ class TrailingWhitespaceRule extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(SkillContext context) async {
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
     final String currentContent = context.rawContent;
 
     // LineSplitter drops the line breaks, which the fix must keep. SourceFile
