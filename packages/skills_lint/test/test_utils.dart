@@ -231,21 +231,59 @@ Matcher reportsUnknownRule(String name, {String? section, List<String> suggestio
     ]);
 
 /// How severe a configuration problem is in CLI output.
+// TODO(reidbaker-agent): Remove `warning` with the warning severity level.
+// https://github.com/google/skills_lint.dart/issues/140
 enum ConfigProblemLevel { error, warning }
 
-/// Matches CLI output that reports [message] as a configuration problem of
-/// [level], located at a `<file>:<line>` in the configuration file.
-/// [message] must be the whole rest of the line.
+/// A `Configuration <level>: <file>:<line>: <message>` line of CLI output.
+typedef ConfigProblem = ({ConfigProblemLevel level, String file, int line, String message});
+
+/// The configuration problems that [output] reports, in order.
+///
+/// Lines that are not configuration problems with a `<file>:<line>` are left
+/// out.
+List<ConfigProblem> configProblemsIn(String output) => [
+  for (final String line in const LineSplitter().convert(output))
+    for (final ConfigProblemLevel level in ConfigProblemLevel.values)
+      if (_parseConfigProblem(line, level) case final ConfigProblem problem) problem,
+];
+
+ConfigProblem? _parseConfigProblem(String line, ConfigProblemLevel level) {
+  final prefix = 'Configuration ${level.name}: ';
+  if (!line.startsWith(prefix)) {
+    return null;
+  }
+  final String rest = line.substring(prefix.length);
+  // A Windows drive letter is followed by `\`, not a space, so the first
+  // `: ` ends the location.
+  final int locationEnd = rest.indexOf(': ');
+  if (locationEnd < 0) {
+    return null;
+  }
+  final String location = rest.substring(0, locationEnd);
+  final int lineStart = location.lastIndexOf(':');
+  final int? lineNumber = int.tryParse(location.substring(lineStart + 1));
+  if (lineStart <= 0 || lineNumber == null) {
+    return null;
+  }
+  return (
+    level: level,
+    file: location.substring(0, lineStart),
+    line: lineNumber,
+    message: rest.substring(locationEnd + 2),
+  );
+}
+
+/// Matches CLI output that reports exactly [message] as a configuration
+/// problem of [level], located at a `<file>:<line>` in the configuration file.
 Matcher reportsConfigProblem(
   String message, {
   ConfigProblemLevel level = ConfigProblemLevel.error,
-}) => matches(
-  RegExp(
-    r'Configuration '
-    '${RegExp.escape(level.name)}'
-    r': .*:\d+: '
-    '${RegExp.escape(message)}'
-    r'\r?$',
-    multiLine: true,
-  ),
+}) => isA<String>().having(
+  (String output) => [
+    for (final ConfigProblem problem in configProblemsIn(output))
+      if (problem.level == level) problem.message,
+  ],
+  'configuration ${level.name} messages',
+  contains(message),
 );
