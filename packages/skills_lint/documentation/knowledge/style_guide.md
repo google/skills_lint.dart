@@ -198,20 +198,18 @@ Extract multi-line strings, diagnostics, and formatted markdown message construc
 
 ## 👀 Messages People Read
 
-Users often read skills_lint output in a CI log, on a narrow screen, while scanning for the one line that matters. Write each message so the problem is visible at a glance.
+An error message is a user interface. Someone reads it at a bad moment, often in a CI log or a narrow terminal, and wants to get back to work. Design each message for that reader and that moment.
 
-- **Lead with the problem.** Start each line with the location, then what is wrong: `skills_lint.yaml:3:5  unknown rule "check-relative-path"`. Don't make the reader get through a prefix or a label before reaching the problem.
-- **Show paths the way the user would type them.** Print a path relative to the working directory when it is inside it, and absolute otherwise. A long absolute path that repeats on every line hides the part that differs.
-- **Give a clickable location.** Use `<file>:<line>:<column>` with 1-based numbers, so editors and terminals can open it.
-- **Say it once.** When several messages share a kind and a file, print one header with the count, then one indented line per message. Don't repeat the same prefix on every line.
-- **Use the user's words, not internal names.** Name the key, value or rule the user wrote. Leave out labels that describe how the parser is organized.
-- **Suggest the fix.** When a name or value is close to a valid one, add "Did you mean …?" using the existing helpers in [`suggestions/`](../../lib/src/suggestions/). When nothing is close, list the valid values.
-- **End with the next step.** Say whether skills_lint ran, how many problems there are, and what to do: "skills_lint did not run. Fix these 4 errors in skills_lint.yaml and run again."
-- **Keep API strings self-contained.** Grouping, headers and footers belong in the CLI printer. Each string a Dart API returns still makes sense on its own.
-- **Make CI fail where the message is.** In a workflow, the step that fails prints the errors. Don't hide the failing step behind `continue-on-error` and then fail a later step with a generic message.
-- **Test the shape, not the wording.** Parse the output into its parts (location, level, message) and assert on those, so rewording a message doesn't break unrelated tests.
+- **Answer three questions.** What is wrong, where is it, and what should I do now? A message that leaves any of them out sends the reader to the source code.
+- **Put the signal where the eye lands.** Readers scan the start of each line. Put the part that differs between messages there, and remove or shorten whatever repeats. If the important word wraps onto the next line, the layout is wrong.
+- **Speak the reader's language.** Use the names, paths and values the user wrote or would type. Internal structure, class names and parser vocabulary mean nothing to them.
+- **Guess intent when you can.** If the input is close to something valid, say what you think they meant. If it isn't, show what is valid. A user with no idea what to try next is the failure to avoid.
+- **Scale with the problem.** One problem gets one line. Many problems get a summary and a list, not a wall of text. Never print the same thing twice.
+- **Be honest about the outcome.** Say whether the tool ran, skipped work or changed files, so the reader knows whether to trust the result. Make the failure show up where the reader looks first.
+- **Make similar problems look alike.** The same kind of problem has the same shape everywhere, so a reader who learns one message can read the rest.
+- **Keep layout separate from content.** Humans get layout. APIs and machine formats get self-contained, structured data that tools can parse and tests can check without depending on wording.
 
-Before you ship a new or changed message, run the real CLI on a bad input and read the output as a user would. Paste it into the PR's API surface section.
+Before you ship a new or changed message, trigger it with real bad input and read the output where users will see it. If you have to read it twice to find the problem, rewrite it. Paste the output into the PR's API surface section.
 
 ---
 
