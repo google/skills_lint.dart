@@ -903,12 +903,14 @@ skills_lint:
       late String other;
       late String content;
 
+      File skillFile() => File(p.join(skillDir.path, 'SKILL.md'));
+
       setUp(() async {
-        skillDir = await Directory('${tempDir.path}/test-skill').create();
-        kept = (await File('${tempDir.path}/kept.md').create()).path;
-        other = (await File('${tempDir.path}/other.md').create()).path;
+        skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
+        kept = (await File(p.join(tempDir.path, 'kept.md')).create()).path;
+        other = (await File(p.join(tempDir.path, 'other.md')).create()).path;
         content = '${buildFrontmatter(name: 'test-skill')}[Kept]($kept)\n[Other]($other)\n';
-        await File('${skillDir.path}/SKILL.md').writeAsString(content);
+        await skillFile().writeAsString(content);
       });
 
       Map<String, String> subjectEntry(String subject) => {
@@ -923,11 +925,11 @@ skills_lint:
         final TestProcess fix = await startCli(['-s', skillDir.path, '--fix']);
         await fix.shouldExit(0);
 
-        final String fixed = await File('${skillDir.path}/SKILL.md').readAsString();
+        final String fixed = await skillFile().readAsString();
         expect(fixed, contains('[Kept]($kept)\n'));
         expect(fixed, contains('[Other](../other.md)\n'));
-        // Validating again with the same ignores finds nothing un-ignored, and
-        // the kept entry is still used, so it isn't reported stale.
+        // Validating again with the same ignores finds nothing un-ignored. The
+        // kept entry matches a finding, so it isn't reported stale.
         final TestProcess check = await startCli(['-s', skillDir.path]);
         final String output = [
           ...await check.stdoutStream().toList(),
@@ -946,7 +948,7 @@ skills_lint:
         final TestProcess process = await startCli(['-s', skillDir.path, '--fix']);
         await process.shouldExit(0);
 
-        expect(await File('${skillDir.path}/SKILL.md').readAsString(), content);
+        expect(await skillFile().readAsString(), content);
       });
 
       test('leaves the file unchanged when entries cover every link', () async {
@@ -955,7 +957,7 @@ skills_lint:
         final TestProcess process = await startCli(['-s', skillDir.path, '--fix']);
         await process.shouldExit(0);
 
-        expect(await File('${skillDir.path}/SKILL.md').readAsString(), content);
+        expect(await skillFile().readAsString(), content);
       });
     });
 

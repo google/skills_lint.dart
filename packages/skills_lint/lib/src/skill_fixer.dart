@@ -165,11 +165,11 @@ class SkillFixer {
   }
 
   /// The subjects of the ignored findings of the rule named [ruleName] in
-  /// [result], or `null` when that rule's fix must not run.
+  /// [result].
   ///
-  /// The fix doesn't run when the rule reports no un-ignored finding, or when
-  /// an ignored finding has no subject: a fixer can only leave a finding alone
-  /// by its subject.
+  /// Is `null` when that rule's fix must not run: the rule reports no
+  /// un-ignored finding, or an ignored finding has no subject, because a
+  /// fixer can only leave a finding alone by its subject.
   static Set<String>? _ignoredSubjects(ValidationResult result, String ruleName) {
     final ignoredSubjects = <String>{};
     var hasUnignored = false;
