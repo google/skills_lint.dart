@@ -166,6 +166,45 @@ governs how changes to these rules ship.
   field) so it requires a human decision.
 - **Disable:** `--no-disallowed-field` (also the default state).
 
+## frontmatter-truncated-by-comment
+
+- **Default severity:** disabled
+- **Fixable:** yes
+- **What it checks:** no unquoted (plain) frontmatter value loses text to
+  a YAML comment. In a plain value, a space or tab followed by `#` starts
+  a comment, so
+  `description: Use when asked "fix #123" or to triage bugs.` reads as
+  `Use when asked "fix`. The YAML is valid, so no other
+  rule notices. The rule checks every string value in the frontmatter:
+  top-level fields such as `description:` and `compatibility:`, values
+  under `metadata:`, and list items. It skips `name:`, because a valid
+  name has no spaces or `#`, so the text after the `#` is never part of
+  the name.
+
+  Quoted values, block values (`|`, `>`), and a `#` with no space or tab
+  before it, as in `C#` or `owner/repo#1`, are not reported. A comment
+  on its own line is not reported. A comment after a value that is not a
+  string, such as `internal: true # x`, is not reported.
+
+  YAML can't tell a deliberate comment from lost text, so a deliberate
+  comment after a string value, such as
+  `description: Triage bugs. # TODO reword`, is reported too. Move the
+  comment to its own line.
+- **Diagnostic shape:**
+  `"<field>" is cut short at "#": YAML reads "<value YAML reads>" and drops "<text from # to the end of the line>". Quote the value to keep the full text, or move the comment to its own line.`
+  The region covers the dropped text.
+- **Auto-fix behavior:** wraps the value and the dropped text in single
+  quotes, so YAML reads the full text, and doubles any `'` in them. A
+  value that spans several lines is quoted in place and keeps its line
+  breaks. The fixer treats the text after the `#` as part of the value,
+  so move a deliberate comment to its own line before running `--fix`.
+  The fixer skips values that an ignore entry with a `subject` covers.
+- **Ignore subject:** the keys from the top of the frontmatter to the
+  value, joined with `.`, such as `description` or
+  `metadata.short-description`. Every item of a list has the subject of
+  the list, so one entry covers all items in it.
+- **Disable:** `--no-frontmatter-truncated-by-comment`.
+
 ## prevent-skills-sh-publishing
 
 - **Default severity:** disabled

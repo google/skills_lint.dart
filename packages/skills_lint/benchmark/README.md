@@ -1,8 +1,8 @@
 # Benchmarks
 
 The benchmark measures the compiled CLI as a separate process, the way a user
-or a CI step runs it. `validate_1000_package_skills_all_rules` validates a generated
-repository of 1000 skills with every built-in rule on, and records wall time
+or a CI step runs it. `validate_1000_package_skills_all_rules_v2` validates a
+generated repository of 1000 skills with every built-in rule on, and records wall time
 and peak RSS (the most physical RAM that the process used; Linux and macOS
 only). [`src/fixture.dart`](src/fixture.dart) describes the repository.
 

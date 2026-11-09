@@ -1,4 +1,8 @@
-## 0.5.3+2-wip
+## 0.5.4-wip
+
+### New rules
+
+- Added the `frontmatter-truncated-by-comment` rule, disabled by default. It reports a frontmatter value, such as `description:`, that a `#` truncates. For example, `description: Use when asked "fix #123"` is not quoted, so YAML reads it as `Use when asked "fix`. `--fix` adds quotes.
 
 ### Behavior changes
 

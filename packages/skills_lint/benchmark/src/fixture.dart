@@ -44,6 +44,7 @@ skills_lint:
     check-absolute-paths: error
     check-trailing-whitespace: error
     disallowed-field: error
+    frontmatter-truncated-by-comment: error
     prevent-skills-sh-publishing: error
     pub-archive-includes-skill: error
     published-skill-name:
@@ -87,6 +88,7 @@ final Map<String, SkillEdit> violations = {
   'check-absolute-paths': (s) => s.absoluteLinks.add(s.sample.firstReference),
   'path-does-not-exist': (s) => s.omitSkillMd = true,
   'pub-archive-includes-skill': (s) => s.excludeFromArchive = true,
+  'frontmatter-truncated-by-comment': (s) => s.description = '${s.description} Not #1 in a list.',
 };
 
 /// The rule IDs whose [violations] each invalid skill gets. Invalid skills
@@ -103,6 +105,7 @@ const List<List<String>> plantedViolations = [
   ['valid-yaml-metadata', 'check-relative-paths'],
   ['path-does-not-exist'],
   ['pub-archive-includes-skill', 'disallowed-field'],
+  ['frontmatter-truncated-by-comment', 'check-trailing-whitespace'],
 ];
 
 /// A checked-in sample skill that the fixture copies.

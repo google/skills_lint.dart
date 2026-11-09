@@ -6,6 +6,7 @@ import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
 import 'package:skills_lint/src/rules/description_length_rule.dart';
 import 'package:skills_lint/src/rules/disallowed_field_rule.dart';
+import 'package:skills_lint/src/rules/frontmatter_truncated_by_comment_rule.dart';
 import 'package:skills_lint/src/rules/name_format_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/rules/valid_yaml_metadata_rule.dart';
@@ -17,6 +18,7 @@ void main() {
       AbsolutePathsRule(),
       DescriptionLengthRule(),
       DisallowedFieldRule(),
+      FrontmatterTruncatedByCommentRule(),
       NameFormatRule(),
       RelativePathsRule(),
       ValidYamlMetadataRule(),

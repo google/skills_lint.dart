@@ -11,6 +11,7 @@ import 'models/skill_rule.dart';
 import 'rules/absolute_paths_rule.dart';
 import 'rules/description_length_rule.dart';
 import 'rules/disallowed_field_rule.dart';
+import 'rules/frontmatter_truncated_by_comment_rule.dart';
 import 'rules/name_format_rule.dart';
 import 'rules/path_does_not_exist_rule.dart';
 import 'rules/prevent_skills_sh_publishing_rule.dart';
@@ -52,6 +53,11 @@ class RuleRegistry {
       name: DisallowedFieldRule.ruleName,
       defaultSeverity: DisallowedFieldRule.defaultSeverity,
       help: 'Check for disallowed fields in YAML metadata.',
+    ),
+    const CheckType(
+      name: FrontmatterTruncatedByCommentRule.ruleName,
+      defaultSeverity: FrontmatterTruncatedByCommentRule.defaultSeverity,
+      help: 'Check for unquoted frontmatter values that a " #" comment cuts short.',
     ),
     const CheckType(
       name: PreventSkillsShPublishingRule.ruleName,
@@ -126,6 +132,8 @@ class RuleRegistry {
         );
       case DisallowedFieldRule.ruleName:
         return DisallowedFieldRule(severity: severity);
+      case FrontmatterTruncatedByCommentRule.ruleName:
+        return FrontmatterTruncatedByCommentRule(severity: severity);
       case PreventSkillsShPublishingRule.ruleName:
         return PreventSkillsShPublishingRule(severity: severity);
       case NameFormatRule.ruleName:
