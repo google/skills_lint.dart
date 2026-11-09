@@ -37,8 +37,8 @@ All SARIF locations in `skills_lint` use 1-based coordinates in accordance with 
 To ingest SARIF findings into GitHub Code Scanning, give the job `security-events: write` permission and add these steps:
 
 ```yaml
-# skills_lint exits with code 1 when it finds violations. continue-on-error lets
-# the upload step run before the final step fails the job.
+# skills_lint exits non-zero (1 for findings, 78 for configuration errors).
+# continue-on-error lets the upload step run before the final step fails the job.
 - name: Run linter and generate SARIF
   id: lint
   continue-on-error: true

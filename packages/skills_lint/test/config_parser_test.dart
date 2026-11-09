@@ -356,6 +356,8 @@ skills_lint:
       expect(directory?.source?.file, expectedFile);
       // Line 6: `directories:` on line 5 is followed by its entry.
       expect(directory?.source?.line, 6);
+      // Column 13: the quoted path value after `    - path: `.
+      expect(directory?.source?.column, 13);
       expect(directory?.anchorDirectory, expectedAnchor);
 
       final TargetDeclaration? skill = declarationOf(config.individualSkillConfigs.single);
@@ -372,6 +374,8 @@ skills_lint:
       );
 
       expect(config.directoryConfigs.map((t) => declarationOf(t)?.source?.line), [2, 2]);
+      // Columns of `a` and `b`, the two path values on that line.
+      expect(config.directoryConfigs.map((t) => declarationOf(t)?.source?.column), [24, 35]);
     });
 
     test('names no file for content parsed without a source path', () {
