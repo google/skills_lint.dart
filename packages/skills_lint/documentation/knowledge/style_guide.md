@@ -196,7 +196,7 @@ Extract multi-line strings, diagnostics, and formatted markdown message construc
 
 ---
 
-## 👀 Messages People Read
+## Messages People Read
 
 An error message is a user interface. Someone reads it at a bad moment, often in a CI log or a narrow terminal, and wants to get back to work. Design each message for that reader and that moment.
 
@@ -209,7 +209,7 @@ An error message is a user interface. Someone reads it at a bad moment, often in
 - **Make similar problems look alike.** The same kind of problem has the same shape everywhere, so a reader who learns one message can read the rest.
 - **Keep layout separate from content.** Humans get layout. APIs and machine formats get self-contained, structured data that tools can parse and tests can check without depending on wording.
 
-Before you ship a new or changed message, trigger it with real bad input and read the output where users will see it. If you have to read it twice to find the problem, rewrite it. Paste the output into the PR's API surface section.
+Before you ship a new or changed message, trigger it with real bad input and read the output where users will see it. If you have to read it twice to find the problem, rewrite it.
 
 ---
 
