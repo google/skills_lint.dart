@@ -1404,7 +1404,7 @@ skills_lint:
             '--format=$format',
             '-d',
             tempDir.path,
-          ], 1);
+          ], configErrorExitCode);
 
           expect(
             result.stderr,
@@ -1448,7 +1448,7 @@ skills_lint:
           'lint.yaml',
           '-d',
           tempDir.path,
-        ], 1);
+        ], configErrorExitCode);
 
         expect(
           result.stderr,
@@ -1467,7 +1467,7 @@ skills_lint:
         valid-yaml-metadat: error
 ''');
 
-        final ({String stdout, String stderr}) result = await run([], 1);
+        final ({String stdout, String stderr}) result = await run([], configErrorExitCode);
 
         expect(
           result.stderr,
@@ -1480,11 +1480,17 @@ skills_lint:
       test('is not suppressed by a baseline or an ignore file', () async {
         final String ignorePath = p.join(tempDir.path, 'ignore.json');
 
-        await run(['--generate-baseline', '--ignore-file', ignorePath, '-d', tempDir.path], 1);
+        await run([
+          '--generate-baseline',
+          '--ignore-file',
+          ignorePath,
+          '-d',
+          tempDir.path,
+        ], configErrorExitCode);
         expect(File(ignorePath).existsSync(), isFalse);
 
         File(ignorePath).writeAsStringSync('{"skills": {}}');
-        await run(['--ignore-file', ignorePath, '-d', tempDir.path], 1);
+        await run(['--ignore-file', ignorePath, '-d', tempDir.path], configErrorExitCode);
       });
     });
 
