@@ -119,15 +119,13 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     return '$frontmatter$fixedMarkdown';
   }
 
-  /// Rewrites [pathOnly], which points to [target], as a POSIX relative link
-  /// from [skillDirectory] (whose resolved path is [physicalSkillPath]).
+  /// Relative POSIX link from [skillDirectory] to [target].
   ///
-  /// Comparing physical paths prevents a symlink on either path from producing
-  /// a `../` climb out of the skill or repository. `check-relative-paths`
-  /// resolves `../` segments lexically from [skillDirectory], so when
-  /// [skillDirectory] is a symlink to a directory at a different depth and the
-  /// physical relative path does not resolve from [skillDirectory] back to
-  /// [target], the lexical relative path from [skillDirectory] is used instead.
+  /// [pathOnly] is the link destination from `SKILL.md`, and
+  /// [physicalSkillPath] is [skillDirectory] with symbolic links resolved.
+  /// Uses the physical relative path when it resolves lexically from
+  /// [skillDirectory] to [target], and the lexical path from [skillDirectory]
+  /// otherwise.
   static String _relativeLink({
     required File target,
     required String pathOnly,
@@ -136,6 +134,9 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
   }) {
     final String targetPath = _physicalPath(target);
     final String physical = relative(targetPath, from: physicalSkillPath);
+    // `check-relative-paths` resolves `../` segments lexically from
+    // `skillDirectory`, so a physical `../` path fails there when
+    // `skillDirectory` is a symlink to a directory at a different depth.
     final String chosen = _resolvesTo(skillDirectory, physical, targetPath)
         ? physical
         : relative(pathOnly, from: skillDirectory.path);

@@ -83,9 +83,7 @@ Future<void> _expectPortableInSkillRoundTrip(Directory skillDir, String fixedCon
       ),
     },
   );
-  final ValidationResult roundTrip = await validator.validate(skillDir);
-  expect(roundTrip.errors, isEmpty, reason: 'Fixed content:\n$fixedContent');
-  expect(roundTrip.warnings, isEmpty, reason: 'Fixed content:\n$fixedContent');
+  _expectClean(await validator.validate(skillDir), content: fixedContent);
 }
 
 /// Runs `skills_lint --ignore-config --fix` with [arguments] and expects exit
@@ -99,10 +97,11 @@ Future<void> _runCliFix(List<String> arguments, {String? workingDirectory}) asyn
   await process.shouldExit(0);
 }
 
-void _expectClean(ValidationResult result) {
-  expect(result.isValid, isTrue);
-  expect(result.errors, isEmpty);
-  expect(result.warnings, isEmpty);
+void _expectClean(ValidationResult result, {String? content}) {
+  final String? reason = content != null ? 'Fixed content:\n$content' : null;
+  expect(result.isValid, isTrue, reason: reason);
+  expect(result.errors, isEmpty, reason: reason);
+  expect(result.warnings, isEmpty, reason: reason);
 }
 
 void main() {
@@ -276,7 +275,7 @@ void _defineFixTests(Directory Function() currentTempDir) {
           (_SymlinkedSkill f) => f.linkedGuide,
         ),
         (
-          'rewrites a link to the physical path when the skill directory is opened through a symlink',
+          'rewrites a link that names the physical path when the skill directory is opened through a symlink',
           (_SymlinkedSkill f) => f.linkedSkillDir,
           (_SymlinkedSkill f) => f.realGuide.path,
         ),
@@ -329,7 +328,7 @@ void _defineFixTests(Directory Function() currentTempDir) {
           RelativePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error),
         },
       ).validate(linkedSkillDir);
-      _expectClean(roundTrip);
+      _expectClean(roundTrip, content: fixed);
     },
   );
 }
@@ -373,10 +372,9 @@ void defineCliTests() {
           '--check-relative-paths',
           '--check-relative-paths-within-skill=true',
         ], workingDirectory: fixture.linkedRoot);
-        expect(
-          await skillFile.readAsString(),
-          '${_frontmatter}See [guide](references/guide.md).\n',
-        );
+        final String fixed = await skillFile.readAsString();
+        expect(fixed, '${_frontmatter}See [guide](references/guide.md).\n');
+        await _expectPortableInSkillRoundTrip(fixture.realSkillDir, fixed);
       });
     },
   );
