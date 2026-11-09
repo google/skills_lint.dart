@@ -202,7 +202,8 @@ governs how changes to these rules ship.
   comment to its own line.
 - **Diagnostic shape:**
   `"<field>" is cut short at "#": YAML reads "<value YAML reads>" and drops "<text from # to the end of the line>". Quote the value to keep the full text, or move the comment to its own line.`
-  The region covers the dropped text.
+  The region covers the dropped text. A line break in the value YAML
+  reads is shown as `\n`.
 - **Auto-fix behavior:** wraps the value and the dropped text in single
   quotes, so YAML reads the full text, and doubles any `'` in them. A
   value that spans several lines is quoted in place and keeps its line

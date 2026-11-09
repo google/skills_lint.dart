@@ -38,7 +38,7 @@ Run `dart run skills_lint --help` (or `skills_lint --help`) for the full flag li
    the offending value, and a suggested fix when one applies.
 3. **Fix the violations.** For fixable rules
    (`check-absolute-paths`, `check-trailing-whitespace`,
-   `invalid-skill-name`), pass `--fix` to write the corrections
+   `frontmatter-truncated-by-comment`, `invalid-skill-name`), pass `--fix` to write the corrections
    to disk; add `--dry-run` to preview the diff first.
 4. **Re-run** to confirm the run is clean.
 

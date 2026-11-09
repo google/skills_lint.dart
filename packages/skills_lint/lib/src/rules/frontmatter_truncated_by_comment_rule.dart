@@ -65,7 +65,10 @@ class FrontmatterTruncatedByCommentRule extends SkillRule implements FixableRule
   }
 
   ValidationError _buildError(_Truncation truncation, SourceRegion region) {
-    final _Truncation(:String path, :String parsed, :String dropped) = truncation;
+    final _Truncation(:String path, :String dropped) = truncation;
+    // A blank line in a plain value reads as a line break; keep the message
+    // on one line.
+    final String parsed = truncation.parsed.replaceAll('\n', r'\n');
     return ValidationError(
       ruleId: name,
       severity: severity,
@@ -78,7 +81,7 @@ class FrontmatterTruncatedByCommentRule extends SkillRule implements FixableRule
       markdownMessage:
           '**`$path` is cut short at `#`.**\n\n'
           'In an unquoted YAML value, whitespace followed by `#` starts a comment, '
-          'so YAML reads `$parsed` and drops `$dropped`.\n\n'
+          'so YAML reads "$parsed" and drops "$dropped".\n\n'
           '**How to fix:**\n'
           '- Quote the value to keep the full text. `--fix` does this.\n'
           '- If the text after `#` is a comment, move it to its own line.',
@@ -94,14 +97,20 @@ typedef _Truncation = ({
   /// The keys from the frontmatter root to the value, joined with `.`.
   String path,
 
-  /// What YAML reads.
+  /// The value as YAML reads it, without the dropped text.
   String parsed,
 
   /// The text from the `#` to the end of its line, without trailing
   /// whitespace.
   String dropped,
+
+  /// The start of the value, after any anchor or tag.
   int valueStart,
+
+  /// The offset of the `#`.
   int droppedStart,
+
+  /// The end of [dropped], before trailing whitespace and the line break.
   int droppedEnd,
 });
 
@@ -185,8 +194,10 @@ final class _TruncationFinder {
     ));
   }
 
-  /// [offset] moved past the anchor (`&a`) and tag (`!t`) that a scalar's
-  /// span starts with. A plain value can't start with `&` or `!`.
+  /// The first offset after the anchor (`&a`) and tag (`!t`) at the start
+  /// of the scalar span that begins at [offset]. A plain value can't start
+  /// with `&` or `!`.
+  ///
   /// Stops at [end].
   int _skipProperties(int offset, int end) {
     var i = offset;
@@ -218,7 +229,7 @@ final class _TruncationFinder {
     return i;
   }
 
-  /// [end] moved back over the spaces and tabs before it.
+  /// The offset before the spaces and tabs that end at [end].
   int _trimBlanksBefore(int end) {
     var i = end;
     while (_isBlank(_content[i - 1])) {

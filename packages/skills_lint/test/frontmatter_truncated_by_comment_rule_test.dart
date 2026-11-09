@@ -113,6 +113,14 @@ void main() {
       expect(errors.map((e) => e.subject), ['tags', 'tags']);
     });
 
+    test('keeps the message on one line when the value has a blank line', () async {
+      final List<ValidationError> errors = await _validate(
+        _skillMd(['description: Fix bugs', '', '  from #1 first']),
+      );
+
+      expect(errors.single.message, contains(r'YAML reads "Fix bugs\nfrom" and drops "#1 first"'));
+    });
+
     test('reports CRLF line endings without the carriage return', () async {
       final List<ValidationError> errors = await _validate(
         _skillMd(['description: Fix #1 now', 'license: MIT'], lineEnding: '\r\n'),
