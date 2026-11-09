@@ -50,7 +50,8 @@ void main() {
         ': invalid: [',
         configSource: ConfigSource.file(file),
       );
-      expect(invalid.parsingErrors.single, contains(file));
+      // The file is inside the working directory, so diagnostics show it relative.
+      expect(invalid.parsingErrors.single, startsWith('${p.relative(file, from: cwd)}:'));
     });
 
     test('accepts a directory source for in-memory content', () {
@@ -178,7 +179,8 @@ void main() {
         sourcePath: file,
         baseDirectory: projectRoot,
       );
-      expect(invalid.parsingErrors.single, contains(file));
+      // The file is inside the working directory, so diagnostics show it relative.
+      expect(invalid.parsingErrors.single, startsWith('${p.relative(file, from: cwd)}:'));
     });
 
     test('accepts both deprecated arguments for decoded YAML', () {
@@ -245,7 +247,7 @@ skills_lint:
 
       expect(
         config.parsingErrors.single,
-        'Unrecognized key "unknown_key" in directory entry for "relative/dir".',
+        'Directory entry "relative/dir": unknown key "unknown_key" in a directory entry.',
       );
     });
 
@@ -314,7 +316,7 @@ skills_lint:
 
       final Configuration config = await ConfigParser.loadConfig(path: configFile.path);
 
-      expect(config.parsingErrors.single, contains('Failed to parse'));
+      expect(config.parsingErrors.single, contains('invalid YAML'));
     });
   });
 

@@ -434,9 +434,7 @@ skills_lint:
       final List<String> stderr = await process.stderr.rest.toList();
       expect(
         stderr.join('\n'),
-        reportsConfigProblem(
-          'Unrecognized top-level key "invalid-key" in skills_lint configuration.',
-        ),
+        reportsConfigProblem('unknown key "invalid-key" in "skills_lint".'),
       );
       await process.shouldExit(1);
     });
@@ -499,9 +497,7 @@ skills_lint:
       final List<String> stderr = await process.stderr.rest.toList();
       expect(
         stderr.join('\n'),
-        reportsConfigProblem(
-          'Unrecognized key "invalid-dir-key" in directory entry for "test-skill".',
-        ),
+        reportsConfigProblem('unknown key "invalid-dir-key" in a directory entry.'),
       );
       await process.shouldExit(1);
     });
@@ -532,7 +528,7 @@ skills_lint:
       expect(
         stderr.join('\n'),
         reportsConfigProblem(
-          'Global rules: Unrecognized parameter "invalid-parameter-key" for rule "path-does-not-exist".',
+          'unknown parameter "invalid-parameter-key" for "path-does-not-exist".',
         ),
       );
       await process.shouldExit(1);
@@ -564,7 +560,7 @@ skills_lint:
       expect(
         stderr.join('\n'),
         reportsConfigProblem(
-          'Global rules: Invalid value/type for parameter "exclude" in rule "path-does-not-exist". Expected RegExp (valid regular expression string), got "123".',
+          'Invalid value/type for parameter "exclude" in rule "path-does-not-exist". Expected RegExp (valid regular expression string), got "123".',
         ),
       );
       await process.shouldExit(1);
@@ -597,7 +593,7 @@ skills_lint:
         expect(
           output,
           reportsConfigProblem(
-            'Unrecognized top-level key "invalid-key" in skills_lint configuration.',
+            'unknown key "invalid-key" in "skills_lint".',
             level: ConfigProblemLevel.warning,
           ),
         );
@@ -710,9 +706,7 @@ skills_lint:
       final List<String> stderr = await process.stderr.rest.toList();
       expect(
         stderr.join('\n'),
-        reportsConfigProblem(
-          'Unrecognized key "invalid-ind-key" in individual skill entry for "test-skill".',
-        ),
+        reportsConfigProblem('unknown key "invalid-ind-key" in an individual skill entry.'),
       );
       await process.shouldExit(1);
     });
@@ -974,7 +968,7 @@ skills_lint:
       expect(
         stderr.join('\n'),
         reportsConfigProblem(
-          'Global rules: Invalid value/type for parameter "exclude" in rule "path-does-not-exist". Expected RegExp (valid regular expression string), got "[.*-workspace]".',
+          'Invalid value/type for parameter "exclude" in rule "path-does-not-exist". Expected RegExp (valid regular expression string), got "[.*-workspace]".',
         ),
       );
       await process.shouldExit(1);
@@ -1008,7 +1002,7 @@ skills_lint:
         expect(
           stderr.join('\n'),
           reportsConfigProblem(
-            'Global rules: Invalid value/type for parameter "exclude" in rule "path-does-not-exist". Expected RegExp (valid regular expression string), got "[a-z".',
+            'Invalid value/type for parameter "exclude" in rule "path-does-not-exist". Expected RegExp (valid regular expression string), got "[a-z".',
           ),
         );
         expect(stderr.join('\n'), contains('Expected RegExp (valid regular expression string)'));
@@ -1442,8 +1436,8 @@ skills_lint:
       // No RuleParameterType describes an int list or a nested map, so the
       // parser reports those two parameters but still keeps their values.
       expect(parsed.parsingErrors, [
-        'Global rules: Unrecognized parameter "numbers" for rule "custom-rule".',
-        'Global rules: Unrecognized parameter "nested" for rule "custom-rule".',
+        'Global rules: unknown parameter "numbers" for "custom-rule".',
+        'Global rules: unknown parameter "nested" for "custom-rule".',
       ]);
       expect(parsed.toYamlString(), equals(config.toYamlString()));
     });
@@ -1467,14 +1461,29 @@ skills_lint:
       return ConfigParser.loadConfig(path: configFile.path);
     }
 
-    /// Reads the `<file>:<line>: ` prefix of [error] back from disk and
-    /// returns the text on that line, so a test can check that the location
-    /// points at the offending YAML.
-    String lineNamedBy(String error) {
-      final Match? match = RegExp(r'^(.*):(\d+): ').firstMatch(error);
-      expect(match, isNotNull, reason: 'No <file>:<line> prefix in: $error');
-      final List<String> lines = File(match!.group(1)!).readAsLinesSync();
-      return lines[int.parse(match.group(2)!) - 1];
+    /// The `<file>:<line>:<column>` prefix of [error].
+    ({String file, int line, int column}) locationOf(String error) {
+      // A Windows drive letter is followed by `\`, not a space, so the first
+      // `: ` ends the location.
+      final int end = error.indexOf(': ');
+      expect(end, greaterThan(0), reason: 'No <file>:<line>:<column> prefix in: $error');
+      final String location = error.substring(0, end);
+      final int columnStart = location.lastIndexOf(':');
+      final int lineStart = location.lastIndexOf(':', columnStart - 1);
+      return (
+        file: location.substring(0, lineStart),
+        line: int.parse(location.substring(lineStart + 1, columnStart)),
+        column: int.parse(location.substring(columnStart + 1)),
+      );
+    }
+
+    /// Reads the location of [error] back from disk and returns the text from
+    /// that line and column to the end of the line, so a test can check that
+    /// the location points at the offending YAML.
+    String textAt(String error) {
+      final ({String file, int line, int column}) location = locationOf(error);
+      final List<String> lines = File(location.file).readAsLinesSync();
+      return lines[location.line - 1].substring(location.column - 1);
     }
 
     test('point each top-level error at its line in the file', () async {
@@ -1488,11 +1497,11 @@ skills_lint:
       unknown_param: 1
 ''');
 
-      expect(config.parsingErrors.map(lineNamedBy), [
-        contains('unknown_key'),
-        contains('eror'),
-        contains('nope-rule'),
-        contains('unknown_param'),
+      expect(config.parsingErrors.map(textAt), [
+        startsWith('unknown_key'),
+        startsWith('eror'),
+        startsWith('nope-rule'),
+        startsWith('unknown_param'),
       ], reason: config.parsingErrors.join('\n'));
     });
 
@@ -1506,9 +1515,9 @@ skills_lint:
       second_bad: 2
 ''');
 
-      expect(config.parsingErrors.map(lineNamedBy), [
-        contains('first_bad'),
-        contains('second_bad'),
+      expect(config.parsingErrors.map(textAt), [
+        startsWith('first_bad'),
+        startsWith('second_bad'),
       ], reason: config.parsingErrors.join('\n'));
     });
 
@@ -1526,12 +1535,12 @@ skills_lint:
     - path: 5
 ''');
 
-      expect(config.parsingErrors.map(lineNamedBy), [
-        contains('extra'),
-        contains('ignore_file'),
-        contains('valid-yaml-metadat'),
-        contains('not-a-map'),
-        contains('path: 5'),
+      expect(config.parsingErrors.map(textAt), [
+        startsWith('extra'),
+        startsWith('7'),
+        startsWith('valid-yaml-metadat'),
+        startsWith('not-a-map'),
+        startsWith('5'),
       ], reason: config.parsingErrors.join('\n'));
     });
 
@@ -1545,9 +1554,9 @@ skills_lint:
     - {path: two/skill, oops: 1}
 ''');
 
-      expect(config.parsingErrors.map(lineNamedBy), [
-        contains('loud'),
-        contains('oops'),
+      expect(config.parsingErrors.map(textAt), [
+        startsWith('loud'),
+        startsWith('oops'),
       ], reason: config.parsingErrors.join('\n'));
     });
 
@@ -1564,15 +1573,14 @@ skills_lint:
 ''');
 
       final List<int> lines = [
-        for (final String error in config.parsingErrors)
-          int.parse(RegExp(r':(\d+): ').firstMatch(error)!.group(1)!),
+        for (final String error in config.parsingErrors) locationOf(error).line,
       ];
       expect(lines, [2, 5, 7, 8], reason: config.parsingErrors.join('\n'));
-      expect(config.parsingErrors.map(lineNamedBy), [
-        contains('directorys'),
-        contains('ignorefile'),
-        contains('check-relative-path'),
-        contains('loud'),
+      expect(config.parsingErrors.map(textAt), [
+        startsWith('directorys'),
+        startsWith('ignorefile'),
+        startsWith('check-relative-path'),
+        startsWith('loud'),
       ], reason: config.parsingErrors.join('\n'));
     });
 
@@ -1583,14 +1591,61 @@ skills_lint:
     - {path: skills, zeta: 1, alpha: 2}
 ''');
 
-      expect(config.parsingErrors.map(lineNamedBy).toSet(), hasLength(1));
+      expect({
+        for (final String error in config.parsingErrors) locationOf(error).line,
+      }, hasLength(1));
       expect(config.parsingErrors, [contains('"zeta"'), contains('"alpha"')]);
     });
 
     test('point a non-map skills_lint value at its line in the file', () async {
       final Configuration config = await load('# comment\nskills_lint: [a]\n');
 
-      expect(lineNamedBy(config.parsingErrors.single), contains('skills_lint'));
+      expect(textAt(config.parsingErrors.single), startsWith('[a]'));
+    });
+
+    test('point a YAML syntax error at its line and column', () async {
+      final Configuration config = await load('skills_lint:\n  rules: [\n');
+
+      expect(config.parsingErrors.single, contains('invalid YAML'));
+      expect(locationOf(config.parsingErrors.single).line, greaterThan(1));
+    });
+
+    test('suggest the closest name for a mistyped key, parameter or severity', () async {
+      final Configuration config = await load('''
+skills_lint:
+  directorys: []
+  directories:
+    - path: skills
+      ignorefile: x.json
+  rules:
+    check-absolute-paths: eror
+    path-does-not-exist:
+      exclud: x
+''');
+
+      expect(config.parsingErrors, [
+        endsWith('Did you mean "directories"?'),
+        endsWith('Did you mean "ignore_file"?'),
+        endsWith('Did you mean "error"?'),
+        endsWith('Did you mean "exclude"?'),
+      ]);
+    });
+
+    test('list the allowed severities when none is close', () async {
+      final Configuration config = await load(
+        'skills_lint:\n  rules:\n    check-absolute-paths: loud\n',
+      );
+
+      expect(config.parsingErrors.single, endsWith('Expected one of: disabled, warning, error.'));
+    });
+
+    test('show the file relative to a working directory that contains it', () async {
+      final Configuration config = await IOOverrides.runZoned(
+        () => load('skills_lint:\n  unknown_key: value\n'),
+        getCurrentDirectory: () => tempDir,
+      );
+
+      expect(config.parsingErrors.single, startsWith('skills_lint.yaml:2:3: '));
     });
 
     test('leave errors from content without a file unprefixed', () {
@@ -1599,9 +1654,7 @@ skills_lint:
         configSource: ConfigSource.directory(Directory.systemTemp.path),
       );
 
-      expect(config.parsingErrors, [
-        'Unrecognized top-level key "unknown_key" in skills_lint configuration.',
-      ]);
+      expect(config.parsingErrors, ['unknown key "unknown_key" in "skills_lint".']);
     });
   });
 
@@ -1618,7 +1671,7 @@ skills_lint:
   unknown_key: value
 ''');
       expect(config.parsingErrors, isNotEmpty);
-      expect(config.parsingErrors.first, contains('Unrecognized top-level key "unknown_key"'));
+      expect(config.parsingErrors.first, contains('unknown key "unknown_key"'));
     });
 
     test('records parsing error on unknown rule severity', () {
@@ -1630,7 +1683,7 @@ skills_lint:
       expect(config.parsingErrors, isNotEmpty);
       expect(
         config.parsingErrors.first,
-        contains('Invalid severity "eror" for rule "check-relative-paths"'),
+        contains('invalid severity "eror" for "check-relative-paths". Did you mean "error"?'),
       );
     });
 
@@ -1707,7 +1760,7 @@ skills_lint:
       bogus-param: 123
 ''');
       expect(withParam.parsingErrors, [
-        'Global rules: Unrecognized parameter "bogus-param" for rule "skill-file-inaccessible".',
+        'Global rules: unknown parameter "bogus-param" for "skill-file-inaccessible".',
       ]);
     });
 
@@ -1719,7 +1772,7 @@ skills_lint:
         ).toYamlString(),
       );
 
-      expect(config.parsingErrors.single, contains('Unknown rule "${rule.name}"'));
+      expect(config.parsingErrors.single, contains('unknown rule "${rule.name}"'));
     });
 
     test('explains a plain YAML merge key, and treats a quoted one as a name', () {
