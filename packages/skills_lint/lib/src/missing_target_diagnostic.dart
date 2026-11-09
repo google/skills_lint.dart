@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'models/config_location.dart';
 import 'models/source_region.dart';
 import 'models/target_declaration.dart';
 import 'suggestions/did_you_mean.dart';
@@ -97,7 +98,7 @@ MissingTargetDiagnostic _configurationDiagnostic({
 }) {
   final String declared = declaration.declaredPath;
   final String anchor = declaration.anchorDirectory;
-  final ({String file, int line})? source = declaration.source;
+  final ConfigLocation? source = declaration.source;
   final String? suggestion = suggestDirectory(
     declaredText: declared,
     resolvedPath: resolvedPath,
@@ -115,7 +116,9 @@ MissingTargetDiagnostic _configurationDiagnostic({
     text: '$headline\n$details',
     markdown: _markdown(kind, declared, suggestion, anchor: anchor),
     file: source?.file ?? resolvedPath,
-    region: source == null ? null : SourceRegion(startLine: source.line),
+    region: source == null
+        ? null
+        : SourceRegion(startLine: source.line, startColumn: source.column),
   );
 }
 

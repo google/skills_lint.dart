@@ -224,7 +224,7 @@ class QuietRule extends SkillRule {
 /// punctuation does not break it.
 Matcher reportsUnknownRule(String name, {String? section, List<String> suggestions = const []}) =>
     allOf([
-      contains('Unknown rule "$name"'),
+      contains('unknown rule "$name"'),
       if (section != null) contains(section),
       if (suggestions.isNotEmpty) contains(didYouMean(suggestions)),
       if (suggestions.isEmpty) contains('newer skills_lint'),
@@ -235,53 +235,87 @@ Matcher reportsUnknownRule(String name, {String? section, List<String> suggestio
 // https://github.com/google/skills_lint.dart/issues/140
 enum ConfigProblemLevel { error, warning }
 
-/// A `Configuration <level>: <file>:<line>: <message>` line of CLI output.
-typedef ConfigProblem = ({ConfigProblemLevel level, String file, int line, String message});
+/// A located configuration problem in CLI output.
+typedef ReportedConfigProblem = ({
+  ConfigProblemLevel level,
+  String file,
+  int line,
+  int column,
+  String message,
+});
 
-/// The configuration problems that [output] reports, in order.
+/// The located configuration problems that [output] reports, in order.
 ///
-/// Lines that are not configuration problems with a `<file>:<line>` are left
-/// out.
-List<ConfigProblem> configProblemsIn(String output) => [
-  for (final String line in const LineSplitter().convert(output))
-    for (final ConfigProblemLevel level in ConfigProblemLevel.values)
-      if (_parseConfigProblem(line, level) case final ConfigProblem problem) problem,
-];
+/// The CLI prints a header that counts the configuration errors or warnings,
+/// then one indented `<file>:<line>:<column>  <message>` line per problem. The header gives the level. Lines without a location are
+/// left out.
+List<ReportedConfigProblem> configProblemsIn(String output) {
+  final problems = <ReportedConfigProblem>[];
+  ConfigProblemLevel? level;
+  for (final String line in const LineSplitter().convert(output)) {
+    if (line.trim().isEmpty) {
+      continue;
+    }
+    if (!line.startsWith('  ')) {
+      level = _headerLevel(line);
+      continue;
+    }
+    if (level != null) {
+      if (_parseConfigProblem(line.trim(), level) case final ReportedConfigProblem problem) {
+        problems.add(problem);
+      }
+    }
+  }
+  return problems;
+}
 
-ConfigProblem? _parseConfigProblem(String line, ConfigProblemLevel level) {
-  final prefix = 'Configuration ${level.name}: ';
-  if (!line.startsWith(prefix)) {
+ConfigProblemLevel? _headerLevel(String line) {
+  if (!line.endsWith(':')) {
     return null;
   }
-  final String rest = line.substring(prefix.length);
-  // A Windows drive letter is followed by `\`, not a space, so the first
-  // `: ` ends the location.
-  final int locationEnd = rest.indexOf(': ');
+  for (final ConfigProblemLevel level in ConfigProblemLevel.values) {
+    if (line.contains(' configuration ${level.name}')) {
+      return level;
+    }
+  }
+  return null;
+}
+
+ReportedConfigProblem? _parseConfigProblem(String line, ConfigProblemLevel level) {
+  // Two spaces separate the location from the message.
+  final int locationEnd = line.indexOf('  ');
   if (locationEnd < 0) {
     return null;
   }
-  final String location = rest.substring(0, locationEnd);
-  final int lineStart = location.lastIndexOf(':');
-  final int? lineNumber = int.tryParse(location.substring(lineStart + 1));
-  if (lineStart <= 0 || lineNumber == null) {
+  final String location = line.substring(0, locationEnd);
+  final int columnStart = location.lastIndexOf(':');
+  final int lineStart = columnStart <= 0 ? -1 : location.lastIndexOf(':', columnStart - 1);
+  if (lineStart <= 0) {
+    return null;
+  }
+  final int? lineNumber = int.tryParse(location.substring(lineStart + 1, columnStart));
+  final int? column = int.tryParse(location.substring(columnStart + 1));
+  if (lineNumber == null || column == null) {
     return null;
   }
   return (
     level: level,
     file: location.substring(0, lineStart),
     line: lineNumber,
-    message: rest.substring(locationEnd + 2),
+    column: column,
+    message: line.substring(locationEnd).trim(),
   );
 }
 
 /// Matches CLI output that reports exactly [message] as a configuration
-/// problem of [level], located at a `<file>:<line>` in the configuration file.
+/// problem of [level], located at a `<file>:<line>:<column>` in the
+/// configuration file.
 Matcher reportsConfigProblem(
   String message, {
   ConfigProblemLevel level = ConfigProblemLevel.error,
 }) => isA<String>().having(
   (String output) => [
-    for (final ConfigProblem problem in configProblemsIn(output))
+    for (final ReportedConfigProblem problem in configProblemsIn(output))
       if (problem.level == level) problem.message,
   ],
   'configuration ${level.name} messages',

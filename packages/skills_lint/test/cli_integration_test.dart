@@ -1409,11 +1409,11 @@ skills_lint:
           expect(
             result.stderr,
             reportsConfigProblem(
-              'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+              'unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
             ),
           );
           expect(result.stderr, contains('"check-relative-paths"'));
-          expect(result.stderr, contains('Fix or remove'));
+          expect(result.stderr, contains('skills_lint did not run.'));
           expect(result.stdout, isNot(contains('"ruleId"')));
         });
       }
@@ -1432,11 +1432,11 @@ skills_lint:
         expect(
           result.stderr,
           reportsConfigProblem(
-            'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+            'unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
             level: ConfigProblemLevel.warning,
           ),
         );
-        expect('Unknown rule'.allMatches(result.stderr), hasLength(1));
+        expect('unknown rule'.allMatches(result.stderr), hasLength(1));
       });
 
       test('fails on an unknown rule in the file given to --config', () async {
@@ -1453,7 +1453,7 @@ skills_lint:
         expect(
           result.stderr,
           reportsConfigProblem(
-            'Global rules: Unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+            'unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
           ),
         );
       });
@@ -1472,7 +1472,7 @@ skills_lint:
         expect(
           result.stderr,
           reportsConfigProblem(
-            'Directory entry rules for ".": Unknown rule "valid-yaml-metadat". Did you mean "valid-yaml-metadata"?',
+            'unknown rule "valid-yaml-metadat". Did you mean "valid-yaml-metadata"?',
           ),
         );
       });
@@ -1515,7 +1515,7 @@ skills_lint:
         expect(
           stderrString,
           reportsConfigProblem(
-            'Unrecognized top-level key "unrecognized_key" in skills_lint configuration.',
+            'unknown key "unrecognized_key" in "skills_lint".',
             level: ConfigProblemLevel.warning,
           ),
         );
