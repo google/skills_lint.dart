@@ -196,6 +196,25 @@ Extract multi-line strings, diagnostics, and formatted markdown message construc
 
 ---
 
+## 👀 Messages People Read
+
+Users often read skills_lint output in a CI log, on a narrow screen, while scanning for the one line that matters. Write each message so the problem is visible at a glance.
+
+- **Lead with the problem.** Start each line with the location, then what is wrong: `skills_lint.yaml:3:5  unknown rule "check-relative-path"`. Don't make the reader get through a prefix or a label before reaching the problem.
+- **Show paths the way the user would type them.** Print a path relative to the working directory when it is inside it, and absolute otherwise. A long absolute path that repeats on every line hides the part that differs.
+- **Give a clickable location.** Use `<file>:<line>:<column>` with 1-based numbers, so editors and terminals can open it.
+- **Say it once.** When several messages share a kind and a file, print one header with the count, then one indented line per message. Don't repeat the same prefix on every line.
+- **Use the user's words, not internal names.** Name the key, value or rule the user wrote. Leave out labels that describe how the parser is organized.
+- **Suggest the fix.** When a name or value is close to a valid one, add "Did you mean …?" using the existing helpers in [`suggestions/`](../../lib/src/suggestions/). When nothing is close, list the valid values.
+- **End with the next step.** Say whether skills_lint ran, how many problems there are, and what to do: "skills_lint did not run. Fix these 4 errors in skills_lint.yaml and run again."
+- **Keep API strings self-contained.** Grouping, headers and footers belong in the CLI printer. Each string a Dart API returns still makes sense on its own.
+- **Make CI fail where the message is.** In a workflow, the step that fails prints the errors. Don't hide the failing step behind `continue-on-error` and then fail a later step with a generic message.
+- **Test the shape, not the wording.** Parse the output into its parts (location, level, message) and assert on those, so rewording a message doesn't break unrelated tests.
+
+Before you ship a new or changed message, run the real CLI on a bad input and read the output as a user would. Paste it into the PR's API surface section.
+
+---
+
 ## 🔄 Mode Flags
 
 When a function needs to do two different jobs, split it. Don't add a boolean parameter that picks the job. Do the same when a requirement or a review comment shows that a function already mixes two jobs.
