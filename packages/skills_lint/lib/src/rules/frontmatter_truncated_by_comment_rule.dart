@@ -15,9 +15,10 @@ import '../models/validation_error.dart';
 ///
 /// In an unquoted (plain) YAML value, whitespace followed by `#` starts a
 /// comment, so `description: Fix "#123" now` reads as `Fix "`. The rule
-/// checks every string value in the frontmatter, at any depth, except
-/// `name`: a valid name has no whitespace or `#`, so the text after the `#`
-/// is never part of the name.
+/// checks every unquoted string value in the frontmatter, at any depth,
+/// except the top-level `name`: a valid name has no whitespace or `#`, so
+/// the text after the `#` is never part of the name. A comment after a value
+/// that YAML reads as a number, boolean or null is taken as deliberate.
 ///
 /// The fix wraps the value and the dropped text in single quotes, so YAML
 /// reads the full text. It can't tell a deliberate comment from lost text,
@@ -114,7 +115,10 @@ List<_Truncation> _findTruncations(SkillContext context) {
   if (yaml == null || match == null) {
     return const [];
   }
-  final finder = _TruncationFinder(context.rawContent, match.start + match[0]!.indexOf(match[1]!));
+  final finder = _TruncationFinder(
+    context.rawContent,
+    context.rawContent.indexOf(match[1]!, match.start),
+  );
   for (final MapEntry(:Object? key, :YamlNode value) in yaml.nodes.entries) {
     final Object? field = (key! as YamlNode).value;
     if (field != 'name') {

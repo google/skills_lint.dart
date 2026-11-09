@@ -193,7 +193,9 @@ void main() {
       expect(await _rule.validate(context), isEmpty);
     });
 
-    test('reports nothing, without throwing, for content that starts with a BOM', () async {
+    // The validator reads files without the BOM; this guards a context whose
+    // offsets are one off from its parsedYaml.
+    test('reports nothing, without throwing, when rawContent has a leading BOM', () async {
       final content = '\uFEFF${_skillMd(['description: Fix #1 now'])}';
       final context = SkillContext(
         directory: Directory('my-skill'),

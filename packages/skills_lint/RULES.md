@@ -139,6 +139,8 @@ governs how changes to these rules ship.
   https://agentskills.io/specification#description-field)`
   The `|HERE|` marker sits at character `<limit>`, so the author can
   see what slipped past the limit without having to count characters.
+  The length is that of the value YAML reads. Text that a YAML comment
+  cuts off is not counted; `frontmatter-truncated-by-comment` reports it.
 - **Parameters:**
   - `max-length` (positive integer): maximum description
     length in characters. Defaults to `1024`. Set it in
@@ -170,21 +172,29 @@ governs how changes to these rules ship.
 
 - **Default severity:** disabled
 - **Fixable:** yes
-- **What it checks:** no unquoted (plain) frontmatter value loses text to
-  a YAML comment. In a plain value, a space or tab followed by `#` starts
+- **What it checks:** reports an unquoted (plain) frontmatter string value
+  that loses text to a YAML comment. `--fix` treats the text after the
+  `#` as part of the value, so move a deliberate comment to its own line
+  first. In a plain value, a space or tab followed by `#` starts
   a comment, so
   `description: Use when asked "fix #123" or to triage bugs.` reads as
   `Use when asked "fix`. The YAML is valid, so no other
   rule notices. The rule checks every string value in the frontmatter:
   top-level fields such as `description:` and `compatibility:`, values
-  under `metadata:`, and list items. It skips `name:`, because a valid
+  under `metadata:`, and list items. It skips the top-level `name:`, because a valid
   name has no spaces or `#`, so the text after the `#` is never part of
   the name.
 
   Quoted values, block values (`|`, `>`), and a `#` with no space or tab
   before it, as in `C#` or `owner/repo#1`, are not reported. A comment
-  on its own line is not reported. A comment after a value that is not a
-  string, such as `internal: true # x`, is not reported.
+  on its own line is not reported. A comment after a value that YAML reads
+  as a number, boolean or null, such as `internal: true # x`, is taken as
+  deliberate and not reported.
+
+  `description-too-long` measures the description that YAML reads, so it
+  doesn't count the dropped text. When quoting the full text makes the
+  description too long, `--fix` keeps the fix only if it still lowers the
+  skill's errors, then warnings.
 
   YAML can't tell a deliberate comment from lost text, so a deliberate
   comment after a string value, such as
@@ -202,7 +212,10 @@ governs how changes to these rules ship.
 - **Ignore subject:** the keys from the top of the frontmatter to the
   value, joined with `.`, such as `description` or
   `metadata.short-description`. Every item of a list has the subject of
-  the list, so one entry covers all items in it.
+  the list, so one entry covers all items in it, and the entry keeps
+  covering the same list when items are added or reordered. A key that
+  contains a `.` is not escaped, so `a.b:` and a `b:` nested under `a:`
+  share the subject `a.b`.
 - **Disable:** `--no-frontmatter-truncated-by-comment`.
 
 ## prevent-skills-sh-publishing

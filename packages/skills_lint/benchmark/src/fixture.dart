@@ -88,6 +88,7 @@ final Map<String, SkillEdit> violations = {
   'check-absolute-paths': (s) => s.absoluteLinks.add(s.sample.firstReference),
   'path-does-not-exist': (s) => s.omitSkillMd = true,
   'pub-archive-includes-skill': (s) => s.excludeFromArchive = true,
+  // renderSkillMd writes the description unquoted, so ` #` starts a comment.
   'frontmatter-truncated-by-comment': (s) => s.description = '${s.description} Not #1 in a list.',
 };
 

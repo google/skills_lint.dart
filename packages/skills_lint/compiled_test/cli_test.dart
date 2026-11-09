@@ -60,9 +60,9 @@ void main() {
     absolute_paths.defineCliTests();
     cli_integration.main();
     example_fixtures.main();
-    frontmatter_truncated_by_comment.defineCliTests();
     config_file.defineCliTests();
     description_length_limit.defineCliTests();
+    frontmatter_truncated_by_comment.defineCliTests();
     ignore_file_errors.defineCliTests();
     benchmark_fixture.defineCliTests();
     name_format_fix.defineCliTests();
