@@ -20,6 +20,8 @@ import 'test_utils.dart';
 const String _skillName = 'test-skill';
 final String _frontmatter = buildFrontmatter(name: _skillName);
 
+/// Physical and symlinked paths for a test skill fixture whose parent root is
+/// exposed through a directory symlink (`linked -> real`).
 typedef _SymlinkedSkill = ({
   String linkedRoot,
   Directory realSkillDir,
@@ -109,6 +111,8 @@ void main() {
       }
     });
 
+    /// Writes a temporary `SKILL.md` containing valid frontmatter followed by
+    /// [body] and validates the skill directory with [ruleConfigs].
     Future<ValidationResult> validateBody(
       String body, {
       Map<String, RuleConfig>? ruleConfigs,
@@ -121,6 +125,9 @@ void main() {
       return Validator(ruleConfigs: ruleConfigs).validate(skillDir);
     }
 
+    /// Asserts that [result] is valid without errors and reports a
+    /// `check-absolute-paths` warning whose subject and message carry
+    /// [expectedPath].
     void expectAbsolutePathWarning(ValidationResult result, String expectedPath) {
       // Warnings don't fail validation; see
       // https://github.com/google/skills_lint.dart/issues/140.
@@ -358,13 +365,12 @@ void _defineRelativeSkillLinkUnitTests() {
 
   group('AbsolutePathsRule.relativeSkillLink', () {
     test('normalizes Windows backslashes to forward slashes for an in-skill link', () {
+      const skill = r'C:\real\skills\test-skill';
       const target = r'C:\real\skills\test-skill\references\guide.md';
       final String link = AbsolutePathsRule.relativeSkillLink(
-        pathOnly: r'C:\linked\skills\test-skill\references\guide.md',
-        physicalTargetPath: target,
-        skillPath: r'C:\real\skills\test-skill',
-        physicalSkillPath: r'C:\real\skills\test-skill',
-        resolveFilePhysicalPath: existingWindowsFiles([target]),
+        skillDirectory: (logical: skill, physical: skill),
+        targetFile: (logical: r'C:\linked\skills\test-skill\references\guide.md', physical: target),
+        resolveExistingFile: existingWindowsFiles([target]),
         pathContext: p.windows,
       );
       expect(link, 'references/guide.md');
@@ -373,11 +379,12 @@ void _defineRelativeSkillLinkUnitTests() {
     test('resolves a Windows symlinked skill directory against a physical link path', () {
       const target = r'C:\real\skills\test-skill\references\guide.md';
       final String link = AbsolutePathsRule.relativeSkillLink(
-        pathOnly: target,
-        physicalTargetPath: target,
-        skillPath: r'C:\linked\skills\test-skill',
-        physicalSkillPath: r'C:\real\skills\test-skill',
-        resolveFilePhysicalPath: existingWindowsFiles([
+        skillDirectory: (
+          logical: r'C:\linked\skills\test-skill',
+          physical: r'C:\real\skills\test-skill',
+        ),
+        targetFile: (logical: target, physical: target),
+        resolveExistingFile: existingWindowsFiles([
           r'C:\linked\skills\test-skill\references\guide.md',
         ], physicalTarget: target),
         pathContext: p.windows,
@@ -386,13 +393,15 @@ void _defineRelativeSkillLinkUnitTests() {
     });
 
     test('handles mixed forward and backslash separators on Windows', () {
+      const skill = r'C:\real\skills\test-skill';
       const target = r'C:\real\skills\test-skill\references\nested\guide.md';
       final String link = AbsolutePathsRule.relativeSkillLink(
-        pathOnly: 'C:/linked/skills/test-skill/references/nested/guide.md',
-        physicalTargetPath: target,
-        skillPath: r'C:\real\skills\test-skill',
-        physicalSkillPath: r'C:\real\skills\test-skill',
-        resolveFilePhysicalPath: existingWindowsFiles([target]),
+        skillDirectory: (logical: skill, physical: skill),
+        targetFile: (
+          logical: 'C:/linked/skills/test-skill/references/nested/guide.md',
+          physical: target,
+        ),
+        resolveExistingFile: existingWindowsFiles([target]),
         pathContext: p.windows,
       );
       expect(link, 'references/nested/guide.md');
@@ -403,11 +412,12 @@ void _defineRelativeSkillLinkUnitTests() {
       () {
         const target = r'C:\work\repo\docs\README.md';
         final String link = AbsolutePathsRule.relativeSkillLink(
-          pathOnly: 'C:/work/repo/docs/README.md',
-          physicalTargetPath: target,
-          skillPath: r'C:\work\repo\skills\test-skill',
-          physicalSkillPath: r'C:\work\store\a\b\c\test-skill',
-          resolveFilePhysicalPath: existingWindowsFiles([target]),
+          skillDirectory: (
+            logical: r'C:\work\repo\skills\test-skill',
+            physical: r'C:\work\store\a\b\c\test-skill',
+          ),
+          targetFile: (logical: 'C:/work/repo/docs/README.md', physical: target),
+          resolveExistingFile: existingWindowsFiles([target]),
           pathContext: p.windows,
         );
         expect(link, '../../docs/README.md');
@@ -415,13 +425,12 @@ void _defineRelativeSkillLinkUnitTests() {
     );
 
     test('resolves a POSIX symlinked link path to an in-skill relative path', () {
+      const skill = '/private/tmp/work/skills/test-skill';
       const target = '/private/tmp/work/skills/test-skill/references/guide.md';
       final String link = AbsolutePathsRule.relativeSkillLink(
-        pathOnly: '/tmp/work/skills/test-skill/references/guide.md',
-        physicalTargetPath: target,
-        skillPath: '/private/tmp/work/skills/test-skill',
-        physicalSkillPath: '/private/tmp/work/skills/test-skill',
-        resolveFilePhysicalPath: {target: target}.lookup,
+        skillDirectory: (logical: skill, physical: skill),
+        targetFile: (logical: '/tmp/work/skills/test-skill/references/guide.md', physical: target),
+        resolveExistingFile: {target: target}.lookup,
         pathContext: p.posix,
       );
       expect(link, 'references/guide.md');
