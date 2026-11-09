@@ -60,7 +60,8 @@ class _OneStepAtATimeRule extends SkillRule implements FixableRule {
   }
 
   @override
-  Future<String> fix(SkillContext context) async => '${context.rawContent}x';
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async =>
+      '${context.rawContent}x';
 }
 
 /// A rule that always reports an error and whose fix always throws.
@@ -79,7 +80,8 @@ class _ThrowingFixRule extends SkillRule implements FixableRule {
   ];
 
   @override
-  Future<String> fix(SkillContext context) => throw StateError('broken fixer');
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) =>
+      throw StateError('broken fixer');
 }
 
 /// A writer that renames the skill, then fails as if both the write and

@@ -58,10 +58,11 @@ class SkillFixer {
     while (!settled && passes < maxPasses) {
       settled = true;
       for (final FixableRule rule in validator.rules.whereType<FixableRule>()) {
-        if (!_canFix(current, rule.name)) {
+        final Set<String>? ignoredSubjects = _ignoredSubjects(current, rule.name);
+        if (ignoredSubjects == null) {
           continue;
         }
-        switch (await _tryFix(rule, current, canRename: canRename)) {
+        switch (await _tryFix(rule, current, ignoredSubjects, canRename: canRename)) {
           case null:
             continue;
           case _NeedsRename():
@@ -92,20 +93,22 @@ class SkillFixer {
     return _outcome(current, appliedRuleNames, skippedFixes, settled: settled, passes: passes);
   }
 
-  /// Runs [rule]'s fix on the content of [current] and validates the result.
+  /// Runs [rule]'s fix on the content of [current], leaving the findings with
+  /// [ignoredSubjects], and validates the result.
   ///
   /// Returns `null` when the fix throws or changes nothing, and
   /// [_NeedsRename] when [canRename] is false and the fix changes `name` to a
   /// valid name that differs from the directory's.
   Future<_Attempt?> _tryFix(
     FixableRule rule,
-    ValidationResult current, {
+    ValidationResult current,
+    Set<String> ignoredSubjects, {
     required bool canRename,
   }) async {
     final SkillContext context = current.context!;
     final String fixedContent;
     try {
-      fixedContent = await rule.fix(context);
+      fixedContent = await rule.fix(context, ignoredSubjects: ignoredSubjects);
       // Only built-in rules implement FixableRule, so any throw from a fix,
       // Error included, is a skills_lint bug that onFixFailed reports.
       // Catching everything stops one broken fixer from aborting the other
@@ -161,16 +164,28 @@ class SkillFixer {
     return nameAfter;
   }
 
-  /// Whether the fix of the rule named [ruleName] may run on [result]: the
-  /// rule reports a diagnostic, and an ignore entry covers none of them.
+  /// The subjects of the ignored findings of the rule named [ruleName] in
+  /// [result].
   ///
-  /// A fixer rewrites every finding of its rule, so it must not run when an
-  /// ignore entry covers some of them.
-  static bool _canFix(ValidationResult result, String ruleName) {
-    final Iterable<ValidationError> findings = result.validationErrors.where(
-      (e) => e.ruleId == ruleName,
-    );
-    return findings.isNotEmpty && findings.every((e) => !e.isIgnored);
+  /// Is `null` when that rule's fix must not run: the rule reports no
+  /// un-ignored finding, or an ignored finding has no subject, because a
+  /// fixer can only leave a finding alone by its subject.
+  static Set<String>? _ignoredSubjects(ValidationResult result, String ruleName) {
+    final ignoredSubjects = <String>{};
+    var hasUnignored = false;
+    for (final ValidationError error in result.validationErrors) {
+      if (error.ruleId != ruleName) {
+        continue;
+      }
+      if (!error.isIgnored) {
+        hasUnignored = true;
+      } else if (error.subject case final String subject) {
+        ignoredSubjects.add(subject);
+      } else {
+        return null;
+      }
+    }
+    return hasUnignored ? ignoredSubjects : null;
   }
 
   /// Whether [result] has an un-ignored diagnostic from the rule named
