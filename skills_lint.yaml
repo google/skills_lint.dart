@@ -1,7 +1,7 @@
 skills_lint:
   rules:
-    check-relative-paths: error
-    check-absolute-paths: error
+    check-relative-path: error
+    check-absolute-paths: eror
   directories:
     - path: ".agents/skills"
       rules:
@@ -9,7 +9,9 @@ skills_lint:
         path-does-not-exist:
           severity: error
           exclude: ".*-workspace"
+          exclud: ".*-workspace"
       ignore_file: ".agents/skills/ignore.json"
+      ignorefile: ".agents/skills/ignore.json"
     - path: "packages/skills_lint/skills"
       rules:
         check-relative-paths:
