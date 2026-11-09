@@ -171,6 +171,14 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
   Bugs in skills_lint start with `skills_lint internal error:`. Problems in
   your files, such as a `--fix` rename that can't happen, start with `Error:`.
 
+### Exit codes
+
+- `0`: every skill passed.
+- `1`: skills_lint ran and found at least one error.
+- `64`: the command line is wrong, such as an unknown flag.
+- `78`: the configuration file is missing or has errors, so skills_lint did
+  not check any skill.
+
 ### 2. As a Command Line Tool with a YAML Configuration File
 You can configure the linter using a configuration file (defaulting to `skills_lint.yaml` in the current directory).
 

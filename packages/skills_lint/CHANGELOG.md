@@ -6,6 +6,7 @@
 - Configuration errors from a file, such as an unknown key, an invalid severity, an unknown rule parameter or an unknown rule name, start with the `<file>:<line>:<column>` of the offending entry. The file is relative to the working directory when it is inside it. They are listed in line order.
 - Configuration error messages start with the problem, such as `unknown rule "check-relative-path"`. An unknown key, parameter or severity gets a "Did you mean" suggestion when a known name is close.
 - The CLI prints configuration errors under one header per file, such as `skills_lint.yaml has 2 configuration errors:`, and ends with a line that says how many errors to fix and that skills_lint did not run.
+- The CLI exits with code `78` when the configuration file is missing or has errors, and skills_lint did not check any skill. It used to exit with `1`, the code for skills that have errors.
 
 ## 0.5.3+1
 
