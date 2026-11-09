@@ -106,10 +106,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
             physicalTargetPath: _physicalPath(file),
             skillPath: context.directory.path,
             physicalSkillPath: physicalSkillPath,
-            resolveFilePhysicalPath: (String candidate) {
-              final resolved = File(candidate);
-              return resolved.existsSync() ? _physicalPath(resolved) : null;
-            },
+            resolveFilePhysicalPath: _existingPhysicalPath,
           );
           final targetWithTitle = titlePart != null
               ? '$posixRelativePath$titlePart'
@@ -154,6 +151,13 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
         resolvedCandidate != null && context.equals(resolvedCandidate, physicalTargetPath);
     final String chosen = physicalResolves ? physical : context.relative(pathOnly, from: skillPath);
     return chosen.replaceAll(r'\', '/');
+  }
+
+  /// Physical path of [candidatePath] when the file exists, or `null` when it
+  /// does not.
+  static String? _existingPhysicalPath(String candidatePath) {
+    final resolved = File(candidatePath);
+    return resolved.existsSync() ? _physicalPath(resolved) : null;
   }
 
   /// Path of [entity] with symbolic links resolved, falling back to

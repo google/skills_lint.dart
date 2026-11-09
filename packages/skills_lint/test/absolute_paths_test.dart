@@ -10,6 +10,7 @@ import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
+import 'package:skills_lint/src/skill_links.dart';
 import 'package:skills_lint/src/validator.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
@@ -55,13 +56,10 @@ Future<_SymlinkedSkill> _createSymlinkedSkill(Directory root) async {
 }
 
 /// Validates [fixedContent] in memory as `SKILL.md` in [skillDir] with
-/// [AbsolutePathsRule] at error severity, and asserts that the link target
-/// [expectedRelativePath] exists at that path relative to [skillDir].
-Future<void> _expectFixedLinkResolves(
-  Directory skillDir,
-  String fixedContent, {
-  required String expectedRelativePath,
-}) async {
+/// [AbsolutePathsRule] at error severity, and extracts the single Markdown link
+/// destination resolved lexically from [skillDir].
+Future<String> _validateAndResolveSingleLink(Directory skillDir, String fixedContent) async {
+  final reason = 'Fixed content:\n$fixedContent';
   final validator = Validator(
     ruleConfigs: {AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error)},
   );
@@ -69,12 +67,31 @@ Future<void> _expectFixedLinkResolves(
     SkillContext(directory: skillDir, rawContent: fixedContent),
     fixedContent,
   );
-  expect(result, hasNoErrorsOrWarnings, reason: 'Fixed content:\n$fixedContent');
-  final resolvedTarget = File(p.normalize(p.join(skillDir.path, expectedRelativePath)));
+  expect(result, hasNoErrorsOrWarnings, reason: reason);
+
+  final RegExpMatch? fmMatch = SkillContext.skillStartRegex.firstMatch(fixedContent);
+  final String body = fmMatch != null ? fixedContent.substring(fmMatch.end) : fixedContent;
+  final List<RegExpMatch> links = SkillContext.markdownLinkRegex.allMatches(body).toList();
+  expect(links, hasLength(1), reason: reason);
+  final String linkPath = linkTargetOf(links.single.group(1)!);
+  return p.normalize(p.join(skillDir.path, linkPath));
+}
+
+/// Validates [fixedContent] in [skillDir] and asserts that its single link
+/// stays lexically inside [skillDir] and resolves to [expectedTarget].
+Future<void> _expectFixedInSkillLink(
+  Directory skillDir,
+  String fixedContent, {
+  required File expectedTarget,
+}) async {
+  final reason = 'Fixed content:\n$fixedContent';
+  final String resolved = await _validateAndResolveSingleLink(skillDir, fixedContent);
+  expect(p.isWithin(skillDir.path, resolved), isTrue, reason: reason);
+  expect(File(resolved).existsSync(), isTrue, reason: reason);
   expect(
-    resolvedTarget.existsSync(),
+    p.equals(File(resolved).resolveSymbolicLinksSync(), expectedTarget.resolveSymbolicLinksSync()),
     isTrue,
-    reason: 'Expected $expectedRelativePath to exist from ${skillDir.path}',
+    reason: reason,
   );
 }
 
@@ -128,7 +145,8 @@ void main() {
 
     test('flags windows absolute path starting with drive letter as warning by default', () async {
       final ValidationResult result = await validateBody(
-        '${r'[Windows absolute link](C:\absolute\path.md)'}\n',
+        r'[Windows absolute link](C:\absolute\path.md)'
+        '\n',
       );
       expectAbsolutePathWarning(result, r'C:\absolute\path.md');
     });
@@ -266,11 +284,7 @@ void _defineFixTests(Directory Function() currentTempDir) {
         directory: fixture.realSkillDir,
       );
       expect(fixed, contains('(references/guide.md)'));
-      await _expectFixedLinkResolves(
-        fixture.realSkillDir,
-        fixed,
-        expectedRelativePath: 'references/guide.md',
-      );
+      await _expectFixedInSkillLink(fixture.realSkillDir, fixed, expectedTarget: fixture.realGuide);
     },
   );
 
@@ -286,10 +300,10 @@ void _defineFixTests(Directory Function() currentTempDir) {
         directory: fixture.linkedSkillDir,
       );
       expect(fixed, contains('(references/guide.md)'));
-      await _expectFixedLinkResolves(
+      await _expectFixedInSkillLink(
         fixture.linkedSkillDir,
         fixed,
-        expectedRelativePath: 'references/guide.md',
+        expectedTarget: fixture.realGuide,
       );
     },
   );
@@ -320,11 +334,9 @@ void _defineFixTests(Directory Function() currentTempDir) {
         directory: linkedSkillDir,
       );
       expect(fixed, contains('(../../README.md)'));
-      await _expectFixedLinkResolves(
-        linkedSkillDir,
-        fixed,
-        expectedRelativePath: '../../README.md',
-      );
+      final String resolved = await _validateAndResolveSingleLink(linkedSkillDir, fixed);
+      expect(p.equals(resolved, repoReadme.path), isTrue, reason: 'Fixed content:\n$fixed');
+      expect(File(resolved).existsSync(), isTrue, reason: 'Fixed content:\n$fixed');
     },
   );
 }
@@ -493,10 +505,10 @@ void defineCliTests() {
 
           final String fixed = await skillFile.readAsString();
           expect(fixed, '${_frontmatter}See [guide](references/guide.md).\n');
-          await _expectFixedLinkResolves(
+          await _expectFixedInSkillLink(
             fixture.realSkillDir,
             fixed,
-            expectedRelativePath: 'references/guide.md',
+            expectedTarget: fixture.realGuide,
           );
         });
       },
