@@ -49,6 +49,8 @@ All Dart code across this repository must adhere strictly to the official [Effec
 
 Describe the code as it is. Don't compare it with an earlier version of the code, or with the change that produced it. This applies to code, comments and docs.
 
+`CHANGELOG.md` is the exception. Its readers are upgrading from an earlier release, so an entry says what changed, and a behavior change or breaking change states the old behavior too.
+
 The reader has only the code in front of them. A comparison with a version they never saw doesn't help them, and it stops being true once that version is forgotten. For example:
 
 - Instead of "the legacy `--fix-apply` alias", write "the deprecated `--fix-apply` alias".
@@ -57,6 +59,8 @@ The reader has only the code in front of them. A comparison with a version they 
 Words such as "now", "still", "currently", "new", "old", "legacy", "existing behavior", "used to", "previously", "no longer" and "originally" often signal a comparison. Rewrite the sentence rather than swap the word. The same words are fine when they describe what the program does at runtime, as in "the directory no longer exists after the rename".
 
 If you want to call something "new" or "legacy", pick a name that says what it is. If the history matters, put it in the commit message or PR description.
+
+The conversation or review that produced a change is not part of that history. Don't narrate it in code, comments or docs: no "per review", "as discussed", or "this doesn't do Y" because a reviewer asked you to drop Y. In docs, if a rejected alternative explains the design, give the reason without the story. In code, when you remove something, don't leave a comment about its absence. To check a sentence, ask whether it would make sense to someone who has only the code and docs.
 
 ---
 

@@ -52,6 +52,7 @@ Always use the following template (or a very similar structure) when drafting a 
 2. **Focus on the "Why"**: The diff shows *what* changed. The description should explain *why* it changed.
 3. **Be professional**: Use natural, accessible language.
 4. **Explain scope**: Explain every change outside the PR's primary scope. Some changes should be pulled out into a separate PR.
+5. **Describe the change, not its review**: Give the reason for each choice or removal in terms of the code, not who asked for it. Don't narrate the review ("per review", "as a reviewer suggested"). See [Temporal Words](../../../packages/skills_lint/documentation/knowledge/style_guide.md#temporal-words).
 
 ## Examples of Bad vs Good Summaries
 
