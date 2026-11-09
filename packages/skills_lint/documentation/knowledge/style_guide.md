@@ -49,7 +49,7 @@ All Dart code across this repository must adhere strictly to the official [Effec
 
 Describe the code as it is. Don't compare it with an earlier version of the code, or with the change that produced it. This applies to code, comments and docs.
 
-`CHANGELOG.md` is the exception. Its readers are upgrading from an earlier release, so an entry says what changed, and a behavior change or breaking change states the old behavior too ("It used to report them as missing files.").
+`CHANGELOG.md` is the exception. Its readers are upgrading from an earlier release, so an entry says what changed, and a behavior change or breaking change states the old behavior too.
 
 The reader has only the code in front of them. A comparison with a version they never saw doesn't help them, and it stops being true once that version is forgotten. For example:
 
