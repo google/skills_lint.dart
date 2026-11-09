@@ -3,7 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:io';
-import 'package:path/path.dart';
+
+import 'package:meta/meta.dart';
+import 'package:path/path.dart' as p;
+
 import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
@@ -42,7 +45,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
       final String fullPath = linkMatch.group(1)!;
       final String path = linkTargetOf(fullPath);
 
-      if (isAbsolute(path) || windows.isAbsolute(path)) {
+      if (isAbsoluteLink(path)) {
         final int linkOffsetInFile = frontmatterEnd + linkMatch.start;
         final int line = context.offsetToLine(linkOffsetInFile);
         errors.add(
@@ -95,14 +98,18 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
       final String pathOnly = parts.first;
       final String? titlePart = parts.length > 1 ? trimmed.substring(pathOnly.length) : null;
 
-      if (isAbsolute(pathOnly) || windows.isAbsolute(pathOnly)) {
+      if (isAbsoluteLink(pathOnly)) {
         final file = File(pathOnly);
         if (file.existsSync()) {
-          final String posixRelativePath = _relativeLink(
-            target: file,
+          final String posixRelativePath = relativeSkillLink(
             pathOnly: pathOnly,
-            skillDirectory: context.directory,
+            physicalTargetPath: _physicalPath(file),
+            skillPath: context.directory.path,
             physicalSkillPath: physicalSkillPath,
+            resolveFilePhysicalPath: (String candidate) {
+              final resolved = File(candidate);
+              return resolved.existsSync() ? _physicalPath(resolved) : null;
+            },
           );
           final targetWithTitle = titlePart != null
               ? '$posixRelativePath$titlePart'
@@ -119,35 +126,34 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     return '$frontmatter$fixedMarkdown';
   }
 
-  /// Relative POSIX link from [skillDirectory] to [target].
+  /// Relative POSIX link from [skillPath] to [pathOnly].
   ///
-  /// [pathOnly] is the link destination from `SKILL.md`, and
-  /// [physicalSkillPath] is [skillDirectory] with symbolic links resolved.
-  /// Uses the physical relative path when it resolves lexically from
-  /// [skillDirectory] to [target], and the lexical path from [skillDirectory]
-  /// otherwise.
-  static String _relativeLink({
-    required File target,
+  /// [physicalSkillPath] and [physicalTargetPath] are [skillPath] and
+  /// [pathOnly] with symbolic links resolved, and [resolveFilePhysicalPath]
+  /// maps a candidate file path to its physical path when the file exists, or
+  /// `null` when it does not. Uses the physical relative path when it resolves
+  /// lexically from [skillPath] to [physicalTargetPath], and the lexical path
+  /// from [skillPath] otherwise.
+  @visibleForTesting
+  static String relativeSkillLink({
     required String pathOnly,
-    required Directory skillDirectory,
+    required String physicalTargetPath,
+    required String skillPath,
     required String physicalSkillPath,
+    required String? Function(String candidatePath) resolveFilePhysicalPath,
+    p.Context? pathContext,
   }) {
-    final String targetPath = _physicalPath(target);
-    final String physical = relative(targetPath, from: physicalSkillPath);
-    // `check-relative-paths` resolves `../` segments lexically from
-    // `skillDirectory`, so a physical `../` path fails there when
-    // `skillDirectory` is a symlink to a directory at a different depth.
-    final String chosen = _resolvesTo(skillDirectory, physical, targetPath)
-        ? physical
-        : relative(pathOnly, from: skillDirectory.path);
+    final p.Context context = pathContext ?? p.context;
+    final String physical = context.relative(physicalTargetPath, from: physicalSkillPath);
+    final String candidate = context.normalize(context.join(skillPath, physical));
+    final String? resolvedCandidate = resolveFilePhysicalPath(candidate);
+    // Relative links in SKILL.md resolve `../` segments lexically from
+    // `skillPath`, so a physical `../` path misses when `skillPath` is a
+    // symlink to a directory at a different depth.
+    final bool physicalResolves =
+        resolvedCandidate != null && context.equals(resolvedCandidate, physicalTargetPath);
+    final String chosen = physicalResolves ? physical : context.relative(pathOnly, from: skillPath);
     return chosen.replaceAll(r'\', '/');
-  }
-
-  /// Whether [relativeLink], joined lexically onto [skillDirectory], points to
-  /// [targetPath] on disk.
-  static bool _resolvesTo(Directory skillDirectory, String relativeLink, String targetPath) {
-    final resolved = File(normalize(join(skillDirectory.path, relativeLink)));
-    return resolved.existsSync() && equals(_physicalPath(resolved), targetPath);
   }
 
   /// Path of [entity] with symbolic links resolved, falling back to

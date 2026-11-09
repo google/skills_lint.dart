@@ -11,6 +11,7 @@ import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
+import 'package:skills_lint/src/models/validation_result.dart';
 import 'package:skills_lint/src/suggestions/did_you_mean.dart';
 import 'package:tar/tar.dart';
 import 'package:test/test.dart';
@@ -229,3 +230,12 @@ Matcher reportsUnknownRule(String name, {String? section, List<String> suggestio
       if (suggestions.isNotEmpty) contains(didYouMean(suggestions)),
       if (suggestions.isEmpty) contains('newer skills_lint'),
     ]);
+
+/// Matches a [ValidationResult] that is valid and has neither [ValidationResult.errors]
+/// nor [ValidationResult.warnings].
+// [ValidationResult.isValid] ignores warnings until
+// https://github.com/google/skills_lint.dart/issues/140 removes warning severity.
+final Matcher hasNoErrorsOrWarnings = isA<ValidationResult>()
+    .having((ValidationResult r) => r.isValid, 'isValid', isTrue)
+    .having((ValidationResult r) => r.errors, 'errors', isEmpty)
+    .having((ValidationResult r) => r.warnings, 'warnings', isEmpty);
