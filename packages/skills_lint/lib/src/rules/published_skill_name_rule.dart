@@ -307,7 +307,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
       input.toLowerCase().split(RegExp(r'[^a-z0-9]+')).where((token) => token.isNotEmpty).toList();
 
   @override
-  Future<String> fix(SkillContext context) async {
+  Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
     final String currentContent = context.rawContent;
 
     final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(currentContent);
