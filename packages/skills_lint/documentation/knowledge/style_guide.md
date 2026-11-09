@@ -58,7 +58,7 @@ Words such as "now", "still", "currently", "new", "old", "legacy", "existing beh
 
 If you want to call something "new" or "legacy", pick a name that says what it is. If the history matters, put it in the commit message or PR description.
 
-The conversation or review that produced a change is not part of that history. Don't narrate it in code, comments or docs: no "per review", "as discussed", or "this doesn't do Y" because a reviewer asked you to drop Y. If a rejected alternative explains the design, give the reason without the story. When you remove something, don't leave a comment about its absence. To check a sentence, ask whether it would make sense to someone who has only the code and docs.
+The conversation or review that produced a change is not part of that history. Don't narrate it in code, comments or docs: no "per review", "as discussed", or "this doesn't do Y" because a reviewer asked you to drop Y. In docs, if a rejected alternative explains the design, give the reason without the story. In code, when you remove something, don't leave a comment about its absence. To check a sentence, ask whether it would make sense to someone who has only the code and docs.
 
 ---
 
