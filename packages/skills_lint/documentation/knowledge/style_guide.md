@@ -196,6 +196,23 @@ Extract multi-line strings, diagnostics, and formatted markdown message construc
 
 ---
 
+## Messages People Read
+
+An error message is a user interface. Someone reads it at a bad moment, often in a CI log or a narrow terminal, and wants to get back to work. Design each message for that reader and that moment.
+
+- **Answer three questions.** What is wrong, where is it, and what should I do now? A message that leaves any of them out sends the reader to the source code.
+- **Put the signal where the eye lands.** Readers scan the start of each line. Put the part that differs between messages there, and remove or shorten whatever repeats. If the important word wraps onto the next line, the layout is wrong.
+- **Speak the reader's language.** Use the names, paths and values the user wrote or would type. Internal structure, class names and parser vocabulary mean nothing to them.
+- **Guess intent when you can.** If the input is close to something valid, say what you think they meant. If it isn't, show what is valid. A user with no idea what to try next is the failure to avoid.
+- **Scale with the problem.** One problem gets one line. Many problems get a summary and a list, not a wall of text. Never print the same thing twice.
+- **Be honest about the outcome.** Say whether the tool ran, skipped work or changed files, so the reader knows whether to trust the result. Make the failure show up where the reader looks first.
+- **Make similar problems look alike.** The same kind of problem has the same shape everywhere, so a reader who learns one message can read the rest.
+- **Keep layout separate from content.** Humans get layout. APIs and machine formats get self-contained, structured data that tools can parse and tests can check without depending on wording.
+
+Before you ship a new or changed message, trigger it with real bad input and read the output where users will see it. If you have to read it twice to find the problem, rewrite it.
+
+---
+
 ## 🔄 Mode Flags
 
 When a function needs to do two different jobs, split it. Don't add a boolean parameter that picks the job. Do the same when a requirement or a review comment shows that a function already mixes two jobs.
