@@ -110,7 +110,6 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
           final String posixRelativePath = relativeSkillLink(
             skillDirectory: skillLocation,
             targetFile: (logical: pathOnly, physical: _physicalPath(file)),
-            resolveExistingFile: _existingPhysicalPath,
           );
           final targetWithTitle = titlePart != null
               ? '$posixRelativePath$titlePart'
@@ -129,46 +128,25 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
 
   /// Forward-slash relative link text to write into `SKILL.md` for [targetFile].
   ///
-  /// Prefers the relative path between the symlink-resolved (`physical`) paths
-  /// of [skillDirectory] and [targetFile], so a link into the skill stays
-  /// inside the skill directory even when one side goes through a symlink. When
-  /// joining that relative path onto `skillDirectory.logical` does not resolve
-  /// back to `targetFile.physical` via [resolveExistingFile], falls back to the
-  /// relative path between the `logical` paths as written.
+  /// Computes the path from the `physical` (symlink-resolved) paths when
+  /// [targetFile] resolves inside [skillDirectory], so a link into the skill
+  /// stays inside the skill directory even when either path goes through a
+  /// symlink. Otherwise computes the path from the `logical` paths as written,
+  /// so `../` segments match the depth of [skillDirectory] as reached.
   @visibleForTesting
   static String relativeSkillLink({
     required SkillPathPair skillDirectory,
     required SkillPathPair targetFile,
-    required String? Function(String candidatePath) resolveExistingFile,
     p.Context? pathContext,
   }) {
     final p.Context context = pathContext ?? p.context;
-    final String physicalRelative = context.relative(
-      targetFile.physical,
-      from: skillDirectory.physical,
-    );
-    final String candidateFromSkill = context.normalize(
-      context.join(skillDirectory.logical, physicalRelative),
-    );
-    final String? resolvedCandidate = resolveExistingFile(candidateFromSkill);
-    // A skill directory reached through a symlink can sit at a different depth
-    // than its physical directory (for example `repo/skills/s` ->
-    // `store/a/b/c/s`). For a file outside the skill (`repo/README.md`), the
-    // `../` count computed from `store/a/b/c/s` climbs the wrong number of
-    // levels when joined onto `repo/skills/s` and resolves to the wrong place.
-    final bool physicalRelativeResolves =
-        resolvedCandidate != null && context.equals(resolvedCandidate, targetFile.physical);
-    final String chosen = physicalRelativeResolves
-        ? physicalRelative
+    final bool isInsideSkill =
+        context.equals(skillDirectory.physical, targetFile.physical) ||
+        context.isWithin(skillDirectory.physical, targetFile.physical);
+    final String relativePath = isInsideSkill
+        ? context.relative(targetFile.physical, from: skillDirectory.physical)
         : context.relative(targetFile.logical, from: skillDirectory.logical);
-    return chosen.replaceAll(r'\', '/');
-  }
-
-  /// Physical path of [candidatePath] when the file exists, or `null` when it
-  /// does not.
-  static String? _existingPhysicalPath(String candidatePath) {
-    final resolved = File(candidatePath);
-    return resolved.existsSync() ? _physicalPath(resolved) : null;
+    return relativePath.replaceAll(r'\', '/');
   }
 
   /// Path of [entity] with symbolic links resolved, falling back to

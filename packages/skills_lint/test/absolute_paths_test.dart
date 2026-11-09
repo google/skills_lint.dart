@@ -30,14 +30,31 @@ typedef _SymlinkedSkill = ({
   String linkedGuide,
 });
 
+/// Creates a directory symlink at [linkPath] pointing to [targetPath] and
+/// asserts that the symlink exists and resolves to [targetPath].
+void _createDirectorySymlink(String linkPath, String targetPath) {
+  // Real filesystem symlinks are needed because AbsolutePathsRule.fix calls
+  // dart:io's FileSystemEntity.resolveSymbolicLinksSync directly; see
+  // https://github.com/google/skills_lint.dart/issues/188.
+  try {
+    Link(linkPath).createSync(targetPath);
+  } on FileSystemException catch (error) {
+    fail(
+      'Creating a symlink failed on ${Platform.operatingSystem} ($error); '
+      'this test needs symlink support (on Windows, Developer Mode or admin).',
+    );
+  }
+  expect(FileSystemEntity.isLinkSync(linkPath), isTrue);
+  final String resolvedLink = Directory(linkPath).resolveSymbolicLinksSync();
+  expect(p.equals(resolvedLink, linkPath), isFalse);
+  expect(p.equals(resolvedLink, Directory(targetPath).resolveSymbolicLinksSync()), isTrue);
+}
+
 /// Builds a skill tree under `real/` and a directory symlink `linked -> real`.
 Future<_SymlinkedSkill> _createSymlinkedSkill(Directory root) async {
   final Directory realRoot = await Directory(p.join(root.path, 'real')).create();
   final String linkedRoot = p.join(root.path, 'linked');
-  // Real filesystem symlinks are needed because AbsolutePathsRule.fix calls
-  // dart:io's FileSystemEntity.resolveSymbolicLinksSync directly; see
-  // https://github.com/google/skills_lint.dart/issues/188.
-  Link(linkedRoot).createSync(realRoot.path);
+  _createDirectorySymlink(linkedRoot, realRoot.path);
   final String physicalRoot = realRoot.resolveSymbolicLinksSync();
   final Directory skillsDir = await Directory(p.join(physicalRoot, 'skills')).create();
   final Directory realSkillDir = await createDummySkill(
@@ -216,10 +233,192 @@ void main() {
       expect(errors.single.region?.startLine, 7);
     });
 
-    _defineFixTests(() => tempDir);
+    /// Runs [AbsolutePathsRule.fix] on valid frontmatter followed by [body] in
+    /// [directory] (or a fresh skill directory under [tempDir]).
+    Future<String> fixBody(String body, {Directory? directory}) async {
+      final Directory skillDir =
+          directory ?? await Directory(p.join(tempDir.path, _skillName)).create(recursive: true);
+      return AbsolutePathsRule().fix(
+        SkillContext(directory: skillDir, rawContent: '$_frontmatter$body'),
+      );
+    }
+
+    /// Asserts that [AbsolutePathsRule.fix] rewrites an absolute link carrying
+    /// [title] to a relative link and preserves [title] across repeated runs.
+    Future<void> expectPreservesTitle(String title) async {
+      final Directory skillDir = await Directory(p.join(tempDir.path, _skillName)).create();
+      final File targetFile = await File(p.join(tempDir.path, 'target.md')).create();
+      final expected = '${_frontmatter}See [Link (label)](../target.md $title) now.\n';
+      final String fixed = await fixBody(
+        'See [Link (label)](${targetFile.path} $title) now.\n',
+        directory: skillDir,
+      );
+      expect(fixed, expected);
+      expect(
+        await AbsolutePathsRule().fix(SkillContext(directory: skillDir, rawContent: fixed)),
+        expected,
+      );
+    }
+
+    test('fixes absolute path to relative if file exists', () async {
+      final File targetFile = await File(p.join(tempDir.path, 'target.md')).create();
+      final String fixedContent = await fixBody('[Link](${targetFile.path})\n');
+      expect(fixedContent, contains('(../target.md)'));
+    });
+
+    test('fixes absolute path with title to relative preserving title', () async {
+      final File targetFile = await File(p.join(tempDir.path, 'target.md')).create();
+      final String fixedContent = await fixBody('[Link](${targetFile.path} "Target Title")\n');
+      expect(fixedContent, contains('(../target.md "Target Title")'));
+    });
+
+    test('preserves double-quoted title with parentheses when fixing an absolute link', () async {
+      await expectPreservesTitle('"see (note)"');
+    });
+
+    test('preserves single-quoted title with parentheses when fixing an absolute link', () async {
+      await expectPreservesTitle("'see (note)'");
+    });
+
+    test('preserves parenthesized title when fixing an absolute link', () async {
+      await expectPreservesTitle('(see note)');
+    });
+
+    test('does not fix absolute path if file does not exist', () async {
+      final String fixedContent = await fixBody('[Link](/non/existent/file.md)\n');
+      expect(fixedContent, contains('(/non/existent/file.md)'));
+    });
+
+    test(
+      'rewrites a link that goes through a symlink to a path inside the skill directory',
+      () async {
+        final _SymlinkedSkill fixture = await _createSymlinkedSkill(tempDir);
+        final String fixed = await fixBody(
+          'See [guide](${fixture.linkedGuide}).\n',
+          directory: fixture.realSkillDir,
+        );
+        expect(fixed, contains('(references/guide.md)'));
+        await _expectFixedInSkillLink(
+          fixture.realSkillDir,
+          fixed,
+          expectedTarget: fixture.realGuide,
+        );
+      },
+    );
+
+    test(
+      'rewrites a link that names the physical path when the skill directory is opened through a symlink',
+      () async {
+        final _SymlinkedSkill fixture = await _createSymlinkedSkill(tempDir);
+        final String fixed = await fixBody(
+          'See [guide](${fixture.realGuide.path}).\n',
+          directory: fixture.linkedSkillDir,
+        );
+        expect(fixed, contains('(references/guide.md)'));
+        await _expectFixedInSkillLink(
+          fixture.linkedSkillDir,
+          fixed,
+          expectedTarget: fixture.realGuide,
+        );
+      },
+    );
+
+    test(
+      'rewrites an outside link lexically when the skill directory is a symlink at a different depth',
+      () async {
+        final String root = tempDir.resolveSymbolicLinksSync();
+        await Directory(p.join(root, 'repo', 'skills')).create(recursive: true);
+        final repoReadme = File(p.join(root, 'repo', 'README.md'));
+        await repoReadme.writeAsString('Readme\n');
+        final Directory storeParent = await Directory(
+          p.join(root, 'store', 'a', 'b', 'c'),
+        ).create(recursive: true);
+        final Directory storeSkill = await createDummySkill(
+          storeParent,
+          name: _skillName,
+          skillContent: _frontmatter,
+        );
+        final linkedSkillDir = Directory(p.join(root, 'repo', 'skills', _skillName));
+        _createDirectorySymlink(linkedSkillDir.path, storeSkill.path);
+
+        final String fixed = await fixBody(
+          'See [readme](${repoReadme.path}).\n',
+          directory: linkedSkillDir,
+        );
+        expect(fixed, contains('(../../README.md)'));
+        final String resolved = await _validateAndResolveSingleLink(linkedSkillDir, fixed);
+        expect(p.equals(resolved, repoReadme.path), isTrue, reason: 'Fixed content:\n$fixed');
+        expect(File(resolved).existsSync(), isTrue, reason: 'Fixed content:\n$fixed');
+      },
+    );
   });
 
-  _defineRelativeSkillLinkUnitTests();
+  group('AbsolutePathsRule.relativeSkillLink', () {
+    test('normalizes Windows backslashes to forward slashes for an in-skill link', () {
+      const skill = r'C:\real\skills\test-skill';
+      const target = r'C:\real\skills\test-skill\references\guide.md';
+      final String link = AbsolutePathsRule.relativeSkillLink(
+        skillDirectory: (logical: skill, physical: skill),
+        targetFile: (logical: r'C:\linked\skills\test-skill\references\guide.md', physical: target),
+        pathContext: p.windows,
+      );
+      expect(link, 'references/guide.md');
+    });
+
+    test('resolves a Windows symlinked skill directory against a physical link path', () {
+      const target = r'C:\real\skills\test-skill\references\guide.md';
+      final String link = AbsolutePathsRule.relativeSkillLink(
+        skillDirectory: (
+          logical: r'C:\linked\skills\test-skill',
+          physical: r'C:\real\skills\test-skill',
+        ),
+        targetFile: (logical: target, physical: target),
+        pathContext: p.windows,
+      );
+      expect(link, 'references/guide.md');
+    });
+
+    test('handles mixed forward and backslash separators on Windows', () {
+      const skill = r'C:\real\skills\test-skill';
+      const target = r'C:\real\skills\test-skill\references\nested\guide.md';
+      final String link = AbsolutePathsRule.relativeSkillLink(
+        skillDirectory: (logical: skill, physical: skill),
+        targetFile: (
+          logical: 'C:/linked/skills/test-skill/references/nested/guide.md',
+          physical: target,
+        ),
+        pathContext: p.windows,
+      );
+      expect(link, 'references/nested/guide.md');
+    });
+
+    test(
+      'uses the logical Windows path with forward slashes for an outside target when a symlinked skill directory changes depth',
+      () {
+        const target = r'C:\work\repo\docs\README.md';
+        final String link = AbsolutePathsRule.relativeSkillLink(
+          skillDirectory: (
+            logical: r'C:\work\repo\skills\test-skill',
+            physical: r'C:\work\store\a\b\c\test-skill',
+          ),
+          targetFile: (logical: 'C:/work/repo/docs/README.md', physical: target),
+          pathContext: p.windows,
+        );
+        expect(link, '../../docs/README.md');
+      },
+    );
+
+    test('resolves a POSIX symlinked link path to an in-skill relative path', () {
+      const skill = '/private/tmp/work/skills/test-skill';
+      const target = '/private/tmp/work/skills/test-skill/references/guide.md';
+      final String link = AbsolutePathsRule.relativeSkillLink(
+        skillDirectory: (logical: skill, physical: skill),
+        targetFile: (logical: '/tmp/work/skills/test-skill/references/guide.md', physical: target),
+        pathContext: p.posix,
+      );
+      expect(link, 'references/guide.md');
+    });
+  });
 
   test('fix leaves the links whose target is an ignored subject unchanged', () async {
     await withTempDir((tempDir) async {
@@ -243,225 +442,6 @@ void main() {
   });
 
   defineCliTests();
-}
-
-/// Defines the unit tests of [AbsolutePathsRule.fix].
-void _defineFixTests(Directory Function() currentTempDir) {
-  Future<String> fixBody(String body, {Directory? directory}) async {
-    final Directory skillDir =
-        directory ??
-        await Directory(p.join(currentTempDir().path, _skillName)).create(recursive: true);
-    return AbsolutePathsRule().fix(
-      SkillContext(directory: skillDir, rawContent: '$_frontmatter$body'),
-    );
-  }
-
-  Future<void> expectPreservesTitle(String title) async {
-    final Directory tempDir = currentTempDir();
-    final Directory skillDir = await Directory(p.join(tempDir.path, _skillName)).create();
-    final File targetFile = await File(p.join(tempDir.path, 'target.md')).create();
-    final expected = '${_frontmatter}See [Link (label)](../target.md $title) now.\n';
-    final String fixed = await fixBody(
-      'See [Link (label)](${targetFile.path} $title) now.\n',
-      directory: skillDir,
-    );
-    expect(fixed, expected);
-    expect(
-      await AbsolutePathsRule().fix(SkillContext(directory: skillDir, rawContent: fixed)),
-      expected,
-    );
-  }
-
-  test('fixes absolute path to relative if file exists', () async {
-    final File targetFile = await File(p.join(currentTempDir().path, 'target.md')).create();
-    final String fixedContent = await fixBody('[Link](${targetFile.path})\n');
-    expect(fixedContent, contains('(../target.md)'));
-  });
-
-  test('fixes absolute path with title to relative preserving title', () async {
-    final File targetFile = await File(p.join(currentTempDir().path, 'target.md')).create();
-    final String fixedContent = await fixBody('[Link](${targetFile.path} "Target Title")\n');
-    expect(fixedContent, contains('(../target.md "Target Title")'));
-  });
-
-  test('preserves double-quoted title with parentheses when fixing an absolute link', () async {
-    await expectPreservesTitle('"see (note)"');
-  });
-
-  test('preserves single-quoted title with parentheses when fixing an absolute link', () async {
-    await expectPreservesTitle("'see (note)'");
-  });
-
-  test('preserves parenthesized title when fixing an absolute link', () async {
-    await expectPreservesTitle('(see note)');
-  });
-
-  test('does not fix absolute path if file does not exist', () async {
-    final String fixedContent = await fixBody('[Link](/non/existent/file.md)\n');
-    expect(fixedContent, contains('(/non/existent/file.md)'));
-  });
-
-  test(
-    'rewrites a link that goes through a symlink to a path inside the skill directory',
-    skip: Platform.isWindows
-        ? 'Creating directory symlinks on Windows requires Developer Mode or elevated privileges.'
-        : null,
-    () async {
-      final _SymlinkedSkill fixture = await _createSymlinkedSkill(currentTempDir());
-      final String fixed = await fixBody(
-        'See [guide](${fixture.linkedGuide}).\n',
-        directory: fixture.realSkillDir,
-      );
-      expect(fixed, contains('(references/guide.md)'));
-      await _expectFixedInSkillLink(fixture.realSkillDir, fixed, expectedTarget: fixture.realGuide);
-    },
-  );
-
-  test(
-    'rewrites a link that names the physical path when the skill directory is opened through a symlink',
-    skip: Platform.isWindows
-        ? 'Creating directory symlinks on Windows requires Developer Mode or elevated privileges.'
-        : null,
-    () async {
-      final _SymlinkedSkill fixture = await _createSymlinkedSkill(currentTempDir());
-      final String fixed = await fixBody(
-        'See [guide](${fixture.realGuide.path}).\n',
-        directory: fixture.linkedSkillDir,
-      );
-      expect(fixed, contains('(references/guide.md)'));
-      await _expectFixedInSkillLink(
-        fixture.linkedSkillDir,
-        fixed,
-        expectedTarget: fixture.realGuide,
-      );
-    },
-  );
-
-  test(
-    'rewrites an outside link lexically when the skill directory is a symlink at a different depth',
-    skip: Platform.isWindows
-        ? 'Creating directory symlinks on Windows requires Developer Mode or elevated privileges.'
-        : null,
-    () async {
-      final String root = currentTempDir().resolveSymbolicLinksSync();
-      await Directory(p.join(root, 'repo', 'skills')).create(recursive: true);
-      final repoReadme = File(p.join(root, 'repo', 'README.md'));
-      await repoReadme.writeAsString('Readme\n');
-      final Directory storeParent = await Directory(
-        p.join(root, 'store', 'a', 'b', 'c'),
-      ).create(recursive: true);
-      final Directory storeSkill = await createDummySkill(
-        storeParent,
-        name: _skillName,
-        skillContent: _frontmatter,
-      );
-      final linkedSkillDir = Directory(p.join(root, 'repo', 'skills', _skillName));
-      Link(linkedSkillDir.path).createSync(storeSkill.path);
-
-      final String fixed = await fixBody(
-        'See [readme](${repoReadme.path}).\n',
-        directory: linkedSkillDir,
-      );
-      expect(fixed, contains('(../../README.md)'));
-      final String resolved = await _validateAndResolveSingleLink(linkedSkillDir, fixed);
-      expect(p.equals(resolved, repoReadme.path), isTrue, reason: 'Fixed content:\n$fixed');
-      expect(File(resolved).existsSync(), isTrue, reason: 'Fixed content:\n$fixed');
-    },
-  );
-}
-
-/// Defines file-free unit tests of [AbsolutePathsRule.relativeSkillLink] across
-/// Windows and POSIX path contexts, including mixed path separators and
-/// symlink mappings.
-void _defineRelativeSkillLinkUnitTests() {
-  String? Function(String) existingWindowsFiles(List<String> files, {String? physicalTarget}) {
-    return (String candidate) {
-      for (final file in files) {
-        if (p.windows.equals(candidate, file)) {
-          return physicalTarget ?? file;
-        }
-      }
-      return null;
-    };
-  }
-
-  group('AbsolutePathsRule.relativeSkillLink', () {
-    test('normalizes Windows backslashes to forward slashes for an in-skill link', () {
-      const skill = r'C:\real\skills\test-skill';
-      const target = r'C:\real\skills\test-skill\references\guide.md';
-      final String link = AbsolutePathsRule.relativeSkillLink(
-        skillDirectory: (logical: skill, physical: skill),
-        targetFile: (logical: r'C:\linked\skills\test-skill\references\guide.md', physical: target),
-        resolveExistingFile: existingWindowsFiles([target]),
-        pathContext: p.windows,
-      );
-      expect(link, 'references/guide.md');
-    });
-
-    test('resolves a Windows symlinked skill directory against a physical link path', () {
-      const target = r'C:\real\skills\test-skill\references\guide.md';
-      final String link = AbsolutePathsRule.relativeSkillLink(
-        skillDirectory: (
-          logical: r'C:\linked\skills\test-skill',
-          physical: r'C:\real\skills\test-skill',
-        ),
-        targetFile: (logical: target, physical: target),
-        resolveExistingFile: existingWindowsFiles([
-          r'C:\linked\skills\test-skill\references\guide.md',
-        ], physicalTarget: target),
-        pathContext: p.windows,
-      );
-      expect(link, 'references/guide.md');
-    });
-
-    test('handles mixed forward and backslash separators on Windows', () {
-      const skill = r'C:\real\skills\test-skill';
-      const target = r'C:\real\skills\test-skill\references\nested\guide.md';
-      final String link = AbsolutePathsRule.relativeSkillLink(
-        skillDirectory: (logical: skill, physical: skill),
-        targetFile: (
-          logical: 'C:/linked/skills/test-skill/references/nested/guide.md',
-          physical: target,
-        ),
-        resolveExistingFile: existingWindowsFiles([target]),
-        pathContext: p.windows,
-      );
-      expect(link, 'references/nested/guide.md');
-    });
-
-    test(
-      'falls back to the lexical Windows path with forward slashes when a symlinked skill directory changes depth',
-      () {
-        const target = r'C:\work\repo\docs\README.md';
-        final String link = AbsolutePathsRule.relativeSkillLink(
-          skillDirectory: (
-            logical: r'C:\work\repo\skills\test-skill',
-            physical: r'C:\work\store\a\b\c\test-skill',
-          ),
-          targetFile: (logical: 'C:/work/repo/docs/README.md', physical: target),
-          resolveExistingFile: existingWindowsFiles([target]),
-          pathContext: p.windows,
-        );
-        expect(link, '../../docs/README.md');
-      },
-    );
-
-    test('resolves a POSIX symlinked link path to an in-skill relative path', () {
-      const skill = '/private/tmp/work/skills/test-skill';
-      const target = '/private/tmp/work/skills/test-skill/references/guide.md';
-      final String link = AbsolutePathsRule.relativeSkillLink(
-        skillDirectory: (logical: skill, physical: skill),
-        targetFile: (logical: '/tmp/work/skills/test-skill/references/guide.md', physical: target),
-        resolveExistingFile: {target: target}.lookup,
-        pathContext: p.posix,
-      );
-      expect(link, 'references/guide.md');
-    });
-  });
-}
-
-extension on Map<String, String> {
-  String? lookup(String key) => this[key];
 }
 
 /// Defines the tests that start the CLI. [main] calls this, and
@@ -515,9 +495,6 @@ void defineCliTests() {
 
     test(
       '--fix writes an in-skill relative link when invoked from a symlinked working directory',
-      skip: Platform.isWindows
-          ? 'Creating directory symlinks on Windows requires Developer Mode or elevated privileges.'
-          : null,
       () async {
         await withTempDir((tempDir) async {
           final _SymlinkedSkill fixture = await _createSymlinkedSkill(tempDir);
