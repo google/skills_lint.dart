@@ -58,4 +58,4 @@ To ingest SARIF findings into GitHub Code Scanning, give the job `security-event
   run: exit 1
 ```
 
-> Note: Without the last step, `continue-on-error` makes the job pass even when the linter finds violations. This repository runs the same steps in [.github/workflows/code_scanning.yaml](../../../../.github/workflows/code_scanning.yaml).
+> Note: Without the last step, `continue-on-error` makes the job pass even when the linter finds violations. This repository's [.github/workflows/code_scanning.yaml](../../../../.github/workflows/code_scanning.yaml) instead lets the lint step fail, uploads with `always()`, and reruns the linter in text format so the failing job's log shows the findings.
