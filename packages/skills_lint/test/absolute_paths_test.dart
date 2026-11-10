@@ -20,15 +20,9 @@ import 'test_utils.dart';
 const String _skillName = 'test-skill';
 final String _frontmatter = buildFrontmatter(name: _skillName);
 
-/// Physical and symlinked paths for a test skill fixture whose parent root is
-/// exposed through a directory symlink (`linked -> real`).
-typedef _SymlinkedSkill = ({
-  String linkedRoot,
-  Directory realSkillDir,
-  Directory linkedSkillDir,
-  File realGuide,
-  String linkedGuide,
-});
+/// Logical (under `linked/`) and physical (under `real/`) paths for the skill
+/// directory and `references/guide.md` created by [_createSymlinkedSkill].
+typedef _SymlinkedSkill = ({String linkedRoot, SkillPathPair skillDir, SkillPathPair guide});
 
 /// Creates a directory symlink at [linkPath] pointing to [targetPath] and
 /// asserts that the symlink exists and resolves to [targetPath].
@@ -50,7 +44,8 @@ void _createDirectorySymlink(String linkPath, String targetPath) {
   expect(p.equals(resolvedLink, Directory(targetPath).resolveSymbolicLinksSync()), isTrue);
 }
 
-/// Builds a skill tree under `real/` and a directory symlink `linked -> real`.
+/// Creates a test skill with `references/guide.md` under `<root>/real` and a
+/// directory symlink `<root>/linked` pointing to `<root>/real`.
 Future<_SymlinkedSkill> _createSymlinkedSkill(Directory root) async {
   final Directory realRoot = await Directory(p.join(root.path, 'real')).create();
   final String linkedRoot = p.join(root.path, 'linked');
@@ -65,12 +60,11 @@ Future<_SymlinkedSkill> _createSymlinkedSkill(Directory root) async {
   await Directory(p.join(realSkillDir.path, 'references')).create();
   final realGuide = File(p.join(realSkillDir.path, 'references', 'guide.md'));
   await realGuide.writeAsString('Guide\n');
+  final String linkedSkillPath = p.join(linkedRoot, 'skills', _skillName);
   return (
     linkedRoot: linkedRoot,
-    realSkillDir: realSkillDir,
-    linkedSkillDir: Directory(p.join(linkedRoot, 'skills', _skillName)),
-    realGuide: realGuide,
-    linkedGuide: p.join(linkedRoot, 'skills', _skillName, 'references', 'guide.md'),
+    skillDir: (logical: linkedSkillPath, physical: realSkillDir.path),
+    guide: (logical: p.join(linkedSkillPath, 'references', 'guide.md'), physical: realGuide.path),
   );
 }
 
@@ -128,20 +122,6 @@ void main() {
       }
     });
 
-    /// Writes a temporary `SKILL.md` containing valid frontmatter followed by
-    /// [body] and validates the skill directory with [ruleConfigs].
-    Future<ValidationResult> validateBody(
-      String body, {
-      Map<String, RuleConfig>? ruleConfigs,
-    }) async {
-      final Directory skillDir = await createDummySkill(
-        tempDir,
-        name: _skillName,
-        skillContent: '$_frontmatter$body',
-      );
-      return Validator(ruleConfigs: ruleConfigs).validate(skillDir);
-    }
-
     /// Asserts that [result] is valid without errors and reports a
     /// `check-absolute-paths` warning whose subject and message carry
     /// [expectedPath].
@@ -163,38 +143,51 @@ void main() {
     }
 
     test('flags absolute path starting with / as warning by default', () async {
-      final ValidationResult result = await validateBody('[Absolute link](/absolute/path.md)\n');
+      final ValidationResult result = await writeAndValidateSkill(
+        tempDir,
+        body: '[Absolute link](/absolute/path.md)\n',
+      );
       expectAbsolutePathWarning(result, '/absolute/path.md');
     });
 
     test('flags windows absolute path starting with drive letter as warning by default', () async {
-      final ValidationResult result = await validateBody(
-        r'[Windows absolute link](C:\absolute\path.md)'
-        '\n',
+      final ValidationResult result = await writeAndValidateSkill(
+        tempDir,
+        body:
+            r'[Windows absolute link](C:\absolute\path.md)'
+            '\n',
       );
       expectAbsolutePathWarning(result, r'C:\absolute\path.md');
     });
 
     test('names the link destination, without its title, as the subject', () async {
-      final ValidationResult result = await validateBody(
-        '[Absolute link](/absolute/path.md "Title")\n',
+      final ValidationResult result = await writeAndValidateSkill(
+        tempDir,
+        body: '[Absolute link](/absolute/path.md "Title")\n',
       );
       expect(result.validationErrors.map((e) => e.subject), ['/absolute/path.md']);
     });
 
     test('ignores valid relative paths resembling windows drives', () async {
-      final ValidationResult result = await validateBody('[Relative link](C:relative.md)\n');
+      final ValidationResult result = await writeAndValidateSkill(
+        tempDir,
+        body: '[Relative link](C:relative.md)\n',
+      );
       expect(result, hasNoErrorsOrWarnings);
     });
 
     test('ignores ordinary file links', () async {
-      final ValidationResult result = await validateBody('[Relative link](file.md)\n');
+      final ValidationResult result = await writeAndValidateSkill(
+        tempDir,
+        body: '[Relative link](file.md)\n',
+      );
       expect(result, hasNoErrorsOrWarnings);
     });
 
     test('ignores absolute paths when disabled', () async {
-      final ValidationResult result = await validateBody(
-        'Body with [broken link](missing.md) and [absolute link](/absolute/path.md)',
+      final ValidationResult result = await writeAndValidateSkill(
+        tempDir,
+        body: 'Body with [broken link](missing.md) and [absolute link](/absolute/path.md)',
         ruleConfigs: {
           AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.disabled),
         },
@@ -205,8 +198,9 @@ void main() {
     test(
       'flags absolute path as warning when absolutePathsSeverity: AnalysisSeverity.warning',
       () async {
-        final ValidationResult result = await validateBody(
-          'Body with [absolute link](/absolute/path.md)',
+        final ValidationResult result = await writeAndValidateSkill(
+          tempDir,
+          body: 'Body with [absolute link](/absolute/path.md)',
           ruleConfigs: {
             AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.warning),
           },
@@ -293,15 +287,16 @@ void main() {
       'rewrites a link that goes through a symlink to a path inside the skill directory',
       () async {
         final _SymlinkedSkill fixture = await _createSymlinkedSkill(tempDir);
+        final realSkillDir = Directory(fixture.skillDir.physical);
         final String fixed = await fixBody(
-          'See [guide](${fixture.linkedGuide}).\n',
-          directory: fixture.realSkillDir,
+          'See [guide](${fixture.guide.logical}).\n',
+          directory: realSkillDir,
         );
         expect(fixed, contains('(references/guide.md)'));
         await _expectFixedInSkillLink(
-          fixture.realSkillDir,
+          realSkillDir,
           fixed,
-          expectedTarget: fixture.realGuide,
+          expectedTarget: File(fixture.guide.physical),
         );
       },
     );
@@ -310,15 +305,16 @@ void main() {
       'rewrites a link that names the physical path when the skill directory is opened through a symlink',
       () async {
         final _SymlinkedSkill fixture = await _createSymlinkedSkill(tempDir);
+        final linkedSkillDir = Directory(fixture.skillDir.logical);
         final String fixed = await fixBody(
-          'See [guide](${fixture.realGuide.path}).\n',
-          directory: fixture.linkedSkillDir,
+          'See [guide](${fixture.guide.physical}).\n',
+          directory: linkedSkillDir,
         );
         expect(fixed, contains('(references/guide.md)'));
         await _expectFixedInSkillLink(
-          fixture.linkedSkillDir,
+          linkedSkillDir,
           fixed,
-          expectedTarget: fixture.realGuide,
+          expectedTarget: File(fixture.guide.physical),
         );
       },
     );
@@ -496,8 +492,9 @@ void defineCliTests() {
       () async {
         await withTempDir((tempDir) async {
           final _SymlinkedSkill fixture = await _createSymlinkedSkill(tempDir);
-          final skillFile = File(p.join(fixture.realSkillDir.path, 'SKILL.md'));
-          await skillFile.writeAsString('${_frontmatter}See [guide](${fixture.linkedGuide}).\n');
+          final realSkillDir = Directory(fixture.skillDir.physical);
+          final skillFile = File(p.join(realSkillDir.path, 'SKILL.md'));
+          await skillFile.writeAsString('${_frontmatter}See [guide](${fixture.guide.logical}).\n');
 
           final (:String stdout, :String stderr) = await run([
             '--ignore-config',
@@ -512,9 +509,9 @@ void defineCliTests() {
           final String fixed = await skillFile.readAsString();
           expect(fixed, '${_frontmatter}See [guide](references/guide.md).\n');
           await _expectFixedInSkillLink(
-            fixture.realSkillDir,
+            realSkillDir,
             fixed,
-            expectedTarget: fixture.realGuide,
+            expectedTarget: File(fixture.guide.physical),
           );
         });
       },

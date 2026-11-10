@@ -8,11 +8,12 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/analysis_severity.dart';
+import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
-import 'package:skills_lint/src/models/validation_result.dart';
 import 'package:skills_lint/src/suggestions/did_you_mean.dart';
+import 'package:skills_lint/src/validator.dart';
 import 'package:tar/tar.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
@@ -129,6 +130,34 @@ Future<Directory> createDummySkill(
   final Directory skillDir = await Directory(p.join(parentDir.path, name)).create(recursive: true);
   await File(p.join(skillDir.path, 'SKILL.md')).writeAsString(skillContent);
   return skillDir;
+}
+
+/// Writes `<parentDir>/<directoryName ?? name>/SKILL.md` with YAML frontmatter
+/// and [body], then validates that skill directory.
+///
+/// Frontmatter fields come from [name], [description], and optional
+/// [compatibility]; [ruleConfigs] and [customRules] configure [Validator].
+Future<ValidationResult> writeAndValidateSkill(
+  Directory parentDir, {
+  String name = 'test-skill',
+  String? directoryName,
+  String description = 'A test skill',
+  String? compatibility,
+  String body = '',
+  Map<String, RuleConfig>? ruleConfigs,
+  List<SkillRule>? customRules,
+}) async {
+  final String frontmatter = buildFrontmatter(
+    name: name,
+    description: description,
+    compatibility: compatibility,
+  );
+  final Directory skillDir = await createDummySkill(
+    parentDir,
+    name: directoryName ?? name,
+    skillContent: '$frontmatter$body',
+  );
+  return Validator(ruleConfigs: ruleConfigs, customRules: customRules).validate(skillDir);
 }
 
 /// Constructs an in-memory [SkillContext] data object for unit testing [SkillRule]s.
