@@ -11,6 +11,7 @@
 
 ### Bug fixes
 
+- `check-absolute-paths --fix` writes a link that stays inside the skill when the skill directory or the linked path goes through a symlink. [#142](https://github.com/google/skills_lint.dart/issues/142)
 - `check-absolute-paths`, `check-relative-paths` and `pub-archive-includes-skill` skip link syntax in code spans and in fenced and indented code blocks. They read a destination in `<` and `>`, such as `[a](<my file.md>)`, and a destination with balanced parentheses, such as `[a](a(b).md)`, as a whole.
 
 ## 0.5.3+1

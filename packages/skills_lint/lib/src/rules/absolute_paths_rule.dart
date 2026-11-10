@@ -3,7 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:io';
-import 'package:path/path.dart';
+
+import 'package:meta/meta.dart';
+import 'package:path/path.dart' as p;
+
 import '../fixable_rule.dart';
 import '../markdown_links.dart';
 import '../models/analysis_severity.dart';
@@ -33,7 +36,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     for (final MarkdownLink link in bodyLinksOf(context)) {
       final String path = link.target;
 
-      if (isAbsolute(path) || windows.isAbsolute(path)) {
+      if (isAbsoluteLink(path)) {
         final int line = context.offsetToLine(link.start);
         errors.add(
           _buildAbsolutePathError(
@@ -70,6 +73,10 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
   Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
     final String currentContent = context.rawContent;
 
+    final SkillPathPair skillLocation = (
+      logical: context.directory.path,
+      physical: _physicalPath(context.directory),
+    );
     final fixed = StringBuffer();
     var copiedUpTo = 0;
     for (final MarkdownLink link in bodyLinksOf(context)) {
@@ -78,11 +85,13 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
         continue;
       }
 
-      if (isAbsolute(pathOnly) || windows.isAbsolute(pathOnly)) {
+      if (isAbsoluteLink(pathOnly)) {
         final file = File(pathOnly);
         if (file.existsSync()) {
-          final String relativePath = relative(pathOnly, from: context.directory.path);
-          final String posixRelativePath = relativePath.replaceAll(r'\', '/');
+          final String posixRelativePath = relativeSkillLink(
+            skillDirectory: skillLocation,
+            targetFile: (logical: pathOnly, physical: _physicalPath(file)),
+          );
           // A space or parenthesis ends a destination unless < and > enclose it.
           final bool needsBrackets =
               !link.isAngleBracketed && posixRelativePath.contains(RegExp(r'[\s()]'));
@@ -96,4 +105,42 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
     fixed.write(currentContent.substring(copiedUpTo));
     return fixed.toString();
   }
+
+  /// Forward-slash relative link text to write into `SKILL.md` for [targetFile].
+  ///
+  /// Computes the path from the `physical` (symlink-resolved) paths when
+  /// [targetFile] resolves inside [skillDirectory], so a link into the skill
+  /// stays inside the skill directory even when either path goes through a
+  /// symlink. Otherwise computes the path from the `logical` paths as written,
+  /// so `../` segments match the depth of [skillDirectory] as reached.
+  @visibleForTesting
+  static String relativeSkillLink({
+    required SkillPathPair skillDirectory,
+    required SkillPathPair targetFile,
+    p.Context? pathContext,
+  }) {
+    final p.Context context = pathContext ?? p.context;
+    final bool isInsideSkill =
+        context.equals(skillDirectory.physical, targetFile.physical) ||
+        context.isWithin(skillDirectory.physical, targetFile.physical);
+    final String relativePath = isInsideSkill
+        ? context.relative(targetFile.physical, from: skillDirectory.physical)
+        : context.relative(targetFile.logical, from: skillDirectory.logical);
+    return relativePath.replaceAll(r'\', '/');
+  }
+
+  /// Path of [entity] with symbolic links resolved, falling back to
+  /// [FileSystemEntity.path] on [FileSystemException].
+  static String _physicalPath(FileSystemEntity entity) {
+    try {
+      return entity.resolveSymbolicLinksSync();
+    } on FileSystemException {
+      return entity.path;
+    }
+  }
 }
+
+/// An unresolved (`logical`) filesystem path paired with its symlink-resolved
+/// (`physical`) path.
+@visibleForTesting
+typedef SkillPathPair = ({String logical, String physical});
