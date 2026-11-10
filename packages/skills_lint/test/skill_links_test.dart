@@ -28,7 +28,7 @@ void main() {
     test('rejects text that is not an inline link', () {
       expect(
         targetsIn(
-          '[a] (a.md) [b](b c.md) [c](<c\n.md>) [d](d(.md) [e]\n\n(e.md) [f][ref]\n'
+          '[a] (a.md) [b](b c.md) [c](<c\n.md>) [d](d(.md "t") [e]\n\n(e.md) [f][ref]\n'
           '[ref]: ref.md\n',
         ),
         isEmpty,

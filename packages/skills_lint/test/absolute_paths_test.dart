@@ -19,6 +19,56 @@ import 'package:test_process/test_process.dart';
 import 'test_utils.dart';
 
 void main() {
+  group('Markdown syntax', () {
+    test('ignores absolute paths in code spans and code blocks', () async {
+      await withTempDir((tempDir) async {
+        final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
+        final String target = (await File(p.join(tempDir.path, 'target.md')).create()).path;
+        final content =
+            '${buildFrontmatter(name: 'test-skill')}'
+            'Write `[a]($target)`.\n'
+            '\n'
+            '```\n'
+            '[b]($target)\n'
+            '```\n';
+        final context = SkillContext(directory: skillDir, rawContent: content);
+
+        expect(await AbsolutePathsRule().validate(context), isEmpty);
+        expect(await AbsolutePathsRule().fix(context), content);
+      });
+    });
+
+    test('reports and fixes angle-bracket and parenthesized destinations', () async {
+      await withTempDir((tempDir) async {
+        final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
+        final String spaced = (await File(p.join(tempDir.path, 'my file.md')).create()).path;
+        final String parens = (await File(p.join(tempDir.path, 'a(b).md')).create()).path;
+        final String logo = (await File(p.join(tempDir.path, 'logo.png')).create()).path;
+        final String frontmatter = buildFrontmatter(name: 'test-skill');
+        final content =
+            '$frontmatter[a](<$spaced> "t") [b]($parens)\n'
+            '[![logo]($logo)]($parens)\n';
+        final rule = AbsolutePathsRule();
+
+        final List<ValidationError> errors = await rule.validate(
+          SkillContext(directory: skillDir, rawContent: content),
+        );
+        final String fixed = await rule.fix(SkillContext(directory: skillDir, rawContent: content));
+
+        expect(errors.map((e) => e.subject), [spaced, parens, logo, parens]);
+        expect(
+          fixed,
+          '$frontmatter[a](<../my file.md> "t") [b](<../a(b).md>)\n'
+          '[![logo](../logo.png)](<../a(b).md>)\n',
+        );
+        final fixedContext = SkillContext(directory: skillDir, rawContent: fixed);
+        expect(await rule.validate(fixedContext), isEmpty);
+        expect(await rule.fix(fixedContext), fixed);
+        expect(await RelativePathsRule().validate(fixedContext), isEmpty);
+      });
+    });
+  });
+
   group('Absolute Paths Validation', () {
     late Directory tempDir;
 
@@ -239,56 +289,6 @@ void main() {
       expect(errors.length, equals(1));
       expect(errors.first.ruleId, equals('check-absolute-paths'));
       expect(errors.first.region?.startLine, equals(7));
-    });
-  });
-
-  group('Markdown syntax', () {
-    test('ignores absolute paths in code spans and code blocks', () async {
-      await withTempDir((tempDir) async {
-        final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
-        final String target = (await File(p.join(tempDir.path, 'target.md')).create()).path;
-        final content =
-            '${buildFrontmatter(name: 'test-skill')}'
-            'Write `[a]($target)`.\n'
-            '\n'
-            '```\n'
-            '[b]($target)\n'
-            '```\n';
-        final context = SkillContext(directory: skillDir, rawContent: content);
-
-        expect(await AbsolutePathsRule().validate(context), isEmpty);
-        expect(await AbsolutePathsRule().fix(context), content);
-      });
-    });
-
-    test('reports and fixes angle-bracket and parenthesized destinations', () async {
-      await withTempDir((tempDir) async {
-        final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
-        final String spaced = (await File(p.join(tempDir.path, 'my file.md')).create()).path;
-        final String parens = (await File(p.join(tempDir.path, 'a(b).md')).create()).path;
-        final String logo = (await File(p.join(tempDir.path, 'logo.png')).create()).path;
-        final String frontmatter = buildFrontmatter(name: 'test-skill');
-        final content =
-            '$frontmatter[a](<$spaced> "t") [b]($parens)\n'
-            '[![logo]($logo)]($parens)\n';
-        final rule = AbsolutePathsRule();
-
-        final List<ValidationError> errors = await rule.validate(
-          SkillContext(directory: skillDir, rawContent: content),
-        );
-        final String fixed = await rule.fix(SkillContext(directory: skillDir, rawContent: content));
-
-        expect(errors.map((e) => e.subject), [spaced, parens, logo, parens]);
-        expect(
-          fixed,
-          '$frontmatter[a](<../my file.md> "t") [b](<../a(b).md>)\n'
-          '[![logo](../logo.png)](<../a(b).md>)\n',
-        );
-        final fixedContext = SkillContext(directory: skillDir, rawContent: fixed);
-        expect(await rule.validate(fixedContext), isEmpty);
-        expect(await rule.fix(fixedContext), fixed);
-        expect(await RelativePathsRule().validate(fixedContext), isEmpty);
-      });
     });
   });
 
