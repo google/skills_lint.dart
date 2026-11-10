@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import '../models/config_notification.dart';
 import '../models/skill_rule.dart';
 import '../models/skipped_fix.dart';
 import '../models/validation_result.dart';
@@ -187,5 +188,6 @@ class TextReporter extends Reporter {
   void onSessionComplete(
     List<ValidationResult> results, {
     List<SkillRule> customRules = const [],
+    List<ConfigNotification> configNotifications = const [],
   }) {}
 }

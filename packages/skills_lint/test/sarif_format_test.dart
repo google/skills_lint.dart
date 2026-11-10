@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
+import 'package:skills_lint/src/models/config_notification.dart';
 import 'package:skills_lint/src/models/sarif/sarif.dart';
 import 'package:test/test.dart';
 import 'test_utils.dart';
@@ -274,6 +275,90 @@ void main() {
         equals(['lint', 'quality', 'custom-rule']),
       );
     });
+
+    group('configuration notifications', () {
+      final String rootDir = p.normalize(p.absolute('/workspace/project'));
+
+      SarifInvocation invocationFor(List<ConfigNotification> notifications) {
+        final SarifLog sarif = SarifSerializer.toSarifLog(
+          [],
+          rootDirectory: rootDir,
+          configNotifications: notifications,
+        );
+        // Decoding the encoded log checks that the invocation round-trips.
+        final Object? json = jsonDecode(jsonEncode(sarif.toJson()));
+        return SarifLog.fromJson(json! as Map<String, Object?>).runs.single.invocations.single;
+      }
+
+      test('a run without notifications succeeded and lists none', () {
+        final SarifInvocation invocation = invocationFor([]);
+
+        expect(invocation.executionSuccessful, isTrue);
+        expect(invocation.toolConfigurationNotifications, isEmpty);
+      });
+
+      test('an error notification means the run failed', () {
+        final SarifInvocation invocation = invocationFor([
+          ConfigNotification(
+            severity: AnalysisSeverity.error,
+            message: 'unknown key "rulez".',
+            file: p.join(rootDir, 'skills_lint.yaml'),
+            position: (line: 2, column: 3),
+          ),
+        ]);
+
+        expect(invocation.executionSuccessful, isFalse);
+        final SarifNotification notification = invocation.toolConfigurationNotifications.single;
+        expect(notification.level, 'error');
+        expect(notification.message.text, 'unknown key "rulez".');
+        final SarifPhysicalLocation location = notification.locations.single.physicalLocation;
+        expect(location.artifactLocation.uri, 'skills_lint.yaml');
+        expect(location.artifactLocation.uriBaseId, '%SRCROOT%');
+        expect(location.region?.startLine, 2);
+        expect(location.region?.startColumn, 3);
+      });
+
+      test('warning notifications leave the run successful', () {
+        final SarifInvocation invocation = invocationFor([
+          ConfigNotification(
+            severity: AnalysisSeverity.warning,
+            message: 'is not valid JSON.',
+            file: p.join(rootDir, 'skills_lint_ignore.json'),
+          ),
+        ]);
+
+        expect(invocation.executionSuccessful, isTrue);
+        final SarifNotification notification = invocation.toolConfigurationNotifications.single;
+        expect(notification.level, 'warning');
+        expect(notification.locations.single.physicalLocation.region, isNull);
+      });
+
+      test('a file outside the root gets an absolute URI', () {
+        final String outside = p.normalize(p.absolute('/elsewhere/lint.yaml'));
+
+        final SarifInvocation invocation = invocationFor([
+          ConfigNotification(severity: AnalysisSeverity.error, message: 'bad', file: outside),
+        ]);
+
+        final SarifArtifactLocation artifact = invocation
+            .toolConfigurationNotifications
+            .single
+            .locations
+            .single
+            .physicalLocation
+            .artifactLocation;
+        expect(artifact.uri, p.toUri(outside).toString());
+        expect(artifact.uriBaseId, isNull);
+      });
+
+      test('a problem from no file has no location', () {
+        final SarifInvocation invocation = invocationFor([
+          const ConfigNotification(severity: AnalysisSeverity.warning, message: 'unknown rule'),
+        ]);
+
+        expect(invocation.toolConfigurationNotifications.single.locations, isEmpty);
+      });
+    });
   });
 
   group('ValidationSession Format Integration', () {
@@ -325,6 +410,30 @@ Body content
       expect(runs.length, equals(1));
       final run = runs.first as Map<String, dynamic>;
       expect(run['results'], isEmpty);
+    });
+
+    test('ValidationSession lists configuration problems as SARIF warnings', () {
+      final session = ValidationSession(
+        config: const Configuration(parsingErrors: ['unknown key "rulez".']),
+        ignoreFileOverride: null,
+        customRules: const [],
+        printWarnings: true,
+        fastFail: false,
+        quiet: true,
+        generateBaseline: false,
+        fix: false,
+        fixApply: false,
+        format: OutputFormat.sarif,
+      );
+
+      final SarifInvocation invocation = SarifLog.fromJson(
+        jsonDecode(session.toSarifJson()) as Map<String, Object?>,
+      ).runs.single.invocations.single;
+
+      expect(invocation.executionSuccessful, isTrue);
+      final SarifNotification notification = invocation.toolConfigurationNotifications.single;
+      expect(notification.level, 'warning');
+      expect(notification.message.text, 'unknown key "rulez".');
     });
 
     test('ValidationSession generates raw JSON array for --format=json', () async {

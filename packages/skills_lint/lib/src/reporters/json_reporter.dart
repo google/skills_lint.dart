@@ -4,6 +4,7 @@
 
 import 'dart:convert';
 
+import '../models/config_notification.dart';
 import '../models/skill_rule.dart';
 import '../models/validation_result.dart';
 import 'reporter.dart';
@@ -15,7 +16,11 @@ class JsonReporter extends Reporter {
   final bool pretty;
 
   @override
-  void onSessionComplete(List<ValidationResult> results, {List<SkillRule> customRules = const []}) {
+  void onSessionComplete(
+    List<ValidationResult> results, {
+    List<SkillRule> customRules = const [],
+    List<ConfigNotification> configNotifications = const [],
+  }) {
     final List<Map<String, Object?>> jsonList = results.map((r) => r.toJson()).toList();
     final encoder = pretty ? const JsonEncoder.withIndent('  ') : const JsonEncoder();
     out.writeln(encoder.convert(jsonList));

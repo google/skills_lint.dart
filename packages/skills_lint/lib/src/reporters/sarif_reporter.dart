@@ -4,6 +4,7 @@
 
 import 'dart:convert';
 
+import '../models/config_notification.dart';
 import '../models/sarif/models/models.dart';
 import '../models/sarif/sarif_serializer.dart';
 import '../models/skill_rule.dart';
@@ -19,12 +20,17 @@ class SarifReporter extends Reporter {
   final String? toolVersion;
 
   @override
-  void onSessionComplete(List<ValidationResult> results, {List<SkillRule> customRules = const []}) {
+  void onSessionComplete(
+    List<ValidationResult> results, {
+    List<SkillRule> customRules = const [],
+    List<ConfigNotification> configNotifications = const [],
+  }) {
     final SarifLog sarif = SarifSerializer.toSarifLog(
       results,
       toolVersion: toolVersion,
       checkTypes: RuleRegistry.allChecks,
       customRules: customRules,
+      configNotifications: configNotifications,
     );
     final encoder = pretty ? const JsonEncoder.withIndent('  ') : const JsonEncoder();
     out.writeln(encoder.convert(sarif.toJson()));

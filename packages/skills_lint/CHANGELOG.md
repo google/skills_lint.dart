@@ -1,9 +1,18 @@
-## 0.5.3+2-wip
+## 0.5.4-wip
 
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
+- Configuration errors from a file start with the `<file>:<line>:<column>` of the offending entry, relative to the working directory when the file is inside it, and are listed in line order.
+- A missing target's `Declared as … in <file>:<line>:<column>` text uses the same location format.
+- Configuration error messages start with the problem, such as `unknown rule "check-relative-path"`. An unknown key, parameter or severity gets a "Did you mean" suggestion when a known name is close.
+- The CLI prints configuration errors under one header per file, such as `skills_lint.yaml has 2 configuration errors:`, and ends with a line that says how many errors to fix and that skills_lint did not run.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
+
+### New features
+
+- `--format=sarif` lists configuration errors and ignore file errors in `runs[].invocations[].toolConfigurationNotifications`, with the file, and the line and column when known. `executionSuccessful` is `false` when a configuration error stops skills_lint.
+- When skills_lint does not run because of a configuration error, `--format=sarif` and `--format=json` still write a valid document to standard output: a SARIF log with the errors and no results, or an empty JSON array. The errors still go to standard error, and the exit code does not change.
 
 ## 0.5.3+1
 

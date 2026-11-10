@@ -4,18 +4,29 @@
 
 import 'package:meta/meta.dart';
 
+import 'sarif_invocation.dart';
 import 'sarif_result.dart';
 import 'sarif_tool.dart';
 
 /// A static analysis run within a SARIF log.
 @immutable
 class SarifRun {
-  const SarifRun({required this.tool, this.results = const [], this.originalUriBaseIds});
+  const SarifRun({
+    required this.tool,
+    this.invocations = const [],
+    this.results = const [],
+    this.originalUriBaseIds,
+  });
 
   /// Constructs a [SarifRun] from a JSON map.
   factory SarifRun.fromJson(Map<String, Object?> json) {
     return SarifRun(
       tool: SarifTool.fromJson(json[keyTool]! as Map<String, Object?>),
+      invocations:
+          (json[keyInvocations] as List<Object?>?)
+              ?.map((i) => SarifInvocation.fromJson(i! as Map<String, Object?>))
+              .toList() ??
+          [],
       results:
           (json[keyResults] as List<Object?>?)
               ?.map((r) => SarifResult.fromJson(r! as Map<String, Object?>))
@@ -28,6 +39,9 @@ class SarifRun {
   /// JSON key for [tool].
   static const String keyTool = 'tool';
 
+  /// JSON key for [invocations].
+  static const String keyInvocations = 'invocations';
+
   /// JSON key for [results].
   static const String keyResults = 'results';
 
@@ -36,6 +50,9 @@ class SarifRun {
 
   /// The analysis tool component that executed this run.
   final SarifTool tool;
+
+  /// How the tool was invoked to produce [results].
+  final List<SarifInvocation> invocations;
 
   /// The diagnostic findings emitted during this run.
   final List<SarifResult> results;
@@ -46,6 +63,7 @@ class SarifRun {
   /// Converts this run to a JSON map.
   Map<String, Object?> toJson() => {
     keyTool: tool.toJson(),
+    if (invocations.isNotEmpty) keyInvocations: invocations.map((i) => i.toJson()).toList(),
     if (originalUriBaseIds != null) keyOriginalUriBaseIds: originalUriBaseIds,
     keyResults: results.map((r) => r.toJson()).toList(),
   };

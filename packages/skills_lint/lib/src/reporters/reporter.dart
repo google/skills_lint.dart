@@ -4,6 +4,7 @@
 
 import 'dart:io';
 
+import '../models/config_notification.dart';
 import '../models/output_format.dart';
 import '../models/skill_rule.dart';
 import '../models/skipped_fix.dart';
@@ -206,5 +207,13 @@ abstract class Reporter {
   }
 
   /// Called at the end of the validation session with all accumulated results.
-  void onSessionComplete(List<ValidationResult> results, {List<SkillRule> customRules = const []});
+  ///
+  /// [configNotifications] are the problems with the configuration and ignore
+  /// files. Reporters that write them elsewhere, such as standard error, may
+  /// leave them out.
+  void onSessionComplete(
+    List<ValidationResult> results, {
+    List<SkillRule> customRules = const [],
+    List<ConfigNotification> configNotifications = const [],
+  });
 }

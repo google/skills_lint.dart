@@ -32,6 +32,20 @@ All SARIF locations in `skills_lint` use 1-based coordinates in accordance with 
 - `endColumn`: Optional 1-based ending character column offset.
 - Whole-File Diagnostics: Whole-file violations (such as missing skill files or directory structure failures) default to line 1.
 
+## Configuration Notifications
+
+Each run has one entry in `runs[].invocations[]`. Problems with `skills_lint.yaml` or an ignore file go in that entry's `toolConfigurationNotifications`, not in `results`, because SARIF 2.1.0 §3.20.22 keeps configuration problems apart from findings about the analyzed code. Each notification has:
+
+- `level`: `error` when the problem stopped skills_lint from running, and `warning` when skills_lint ran without the problem entry, as with a malformed ignore entry or `--allow-misconfigured-keys`.
+- `message.text`: the problem. A configuration file message leaves out the location; an ignore file message starts with the file's path, as on standard error.
+- `locations[].physicalLocation`: the configuration or ignore file, resolved against `%SRCROOT%` like the result locations. `region.startLine` and `region.startColumn` give the entry in `skills_lint.yaml`. Ignore file notifications point to the file only. A notification about a configuration built in code, rather than read from a file, has no location.
+
+`executionSuccessful` is `false` when any notification has level `error`, since §3.20.22 says such a notification means the run failed. Findings in `results` don't change it.
+
+When a configuration error stops skills_lint, standard output still holds a SARIF log, with the notifications and no results. The errors also go to standard error.
+
+GitHub Code Scanning accepts any valid SARIF 2.1.0 file, but its [list of supported properties](https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/sarif-support-for-code-scanning#supported-properties) leaves out `invocations`, so Code Scanning does not show these notifications. Read them from the uploaded file or from the job log.
+
 ## GitHub Code Scanning Integration
 
 To ingest SARIF findings into GitHub Code Scanning, give the job `security-events: write` permission and add these steps:
@@ -58,4 +72,4 @@ To ingest SARIF findings into GitHub Code Scanning, give the job `security-event
   run: exit 1
 ```
 
-> Note: Without the last step, `continue-on-error` makes the job pass even when the linter finds violations. This repository runs the same steps in [.github/workflows/code_scanning.yaml](../../../../.github/workflows/code_scanning.yaml).
+> Note: Without the last step, `continue-on-error` makes the job pass even when the linter finds violations. This repository's [.github/workflows/code_scanning.yaml](../../../../.github/workflows/code_scanning.yaml) instead lets the lint step fail, uploads with `always()`, and reruns the linter in text format so the failing job's log shows the findings.

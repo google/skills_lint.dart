@@ -224,8 +224,100 @@ class QuietRule extends SkillRule {
 /// punctuation does not break it.
 Matcher reportsUnknownRule(String name, {String? section, List<String> suggestions = const []}) =>
     allOf([
-      contains('Unknown rule "$name"'),
+      contains('unknown rule "$name"'),
       if (section != null) contains(section),
       if (suggestions.isNotEmpty) contains(didYouMean(suggestions)),
       if (suggestions.isEmpty) contains('newer skills_lint'),
     ]);
+
+/// How severe a configuration problem is in CLI output.
+// TODO(reidbaker-agent): Remove `warning` with the warning severity level.
+// https://github.com/google/skills_lint.dart/issues/140
+enum ConfigProblemLevel { error, warning }
+
+/// A located configuration problem in CLI output.
+typedef ReportedConfigProblem = ({
+  ConfigProblemLevel level,
+  String file,
+  int line,
+  int column,
+  String message,
+});
+
+/// The located configuration problems that [output] reports, in order.
+///
+/// The CLI prints a header that counts the configuration errors or warnings,
+/// then one indented `<file>:<line>:<column>  <message>` line per problem. The header gives the level. Lines without a location are
+/// left out.
+List<ReportedConfigProblem> configProblemsIn(String output) {
+  final problems = <ReportedConfigProblem>[];
+  ConfigProblemLevel? level;
+  for (final String line in const LineSplitter().convert(output)) {
+    if (line.trim().isEmpty) {
+      continue;
+    }
+    if (!line.startsWith('  ')) {
+      level = _headerLevel(line);
+      continue;
+    }
+    if (level != null) {
+      if (_parseConfigProblem(line.trim(), level) case final ReportedConfigProblem problem) {
+        problems.add(problem);
+      }
+    }
+  }
+  return problems;
+}
+
+ConfigProblemLevel? _headerLevel(String line) {
+  if (!line.endsWith(':')) {
+    return null;
+  }
+  for (final ConfigProblemLevel level in ConfigProblemLevel.values) {
+    if (line.contains(' configuration ${level.name}')) {
+      return level;
+    }
+  }
+  return null;
+}
+
+ReportedConfigProblem? _parseConfigProblem(String line, ConfigProblemLevel level) {
+  // Two spaces separate the location from the message.
+  final int locationEnd = line.indexOf('  ');
+  if (locationEnd < 0) {
+    return null;
+  }
+  final String location = line.substring(0, locationEnd);
+  final int columnStart = location.lastIndexOf(':');
+  final int lineStart = columnStart <= 0 ? -1 : location.lastIndexOf(':', columnStart - 1);
+  if (lineStart <= 0) {
+    return null;
+  }
+  final int? lineNumber = int.tryParse(location.substring(lineStart + 1, columnStart));
+  final int? column = int.tryParse(location.substring(columnStart + 1));
+  if (lineNumber == null || column == null) {
+    return null;
+  }
+  return (
+    level: level,
+    file: location.substring(0, lineStart),
+    line: lineNumber,
+    column: column,
+    message: line.substring(locationEnd).trim(),
+  );
+}
+
+/// Matches CLI output that reports exactly [message] as a configuration
+/// problem of [level], located at a `<file>:<line>:<column>` in the
+/// configuration file.
+Matcher reportsConfigProblem(
+  String message, {
+  ConfigProblemLevel level = ConfigProblemLevel.error,
+}) => isA<String>().having(
+  (String output) => [
+    for (final ReportedConfigProblem problem in configProblemsIn(output))
+      if (problem.level == level) problem.message,
+  ],
+  'configuration ${level.name} messages',
+  contains(message),
+);

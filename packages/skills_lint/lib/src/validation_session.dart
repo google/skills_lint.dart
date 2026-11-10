@@ -13,6 +13,8 @@ import 'config_parser.dart';
 import 'missing_target_diagnostic.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
+import 'models/config_notification.dart';
+import 'models/config_problem.dart';
 import 'models/fix_outcome.dart';
 import 'models/ignore_entry.dart';
 import 'models/output_format.dart';
@@ -1179,11 +1181,34 @@ class ValidationSession {
   /// Emits the formatted validation output (SARIF or JSON) to [sink] (defaults to [stdout]).
   void emitFormattedOutput([StringSink? sink]) {
     if (sink != null) {
-      Reporter.fromFormat(format, out: sink).onSessionComplete(_results, customRules: customRules);
+      Reporter.fromFormat(format, out: sink).onSessionComplete(
+        _results,
+        customRules: customRules,
+        configNotifications: _configNotifications,
+      );
     } else {
-      _reporter.onSessionComplete(_results, customRules: customRules);
+      _reporter.onSessionComplete(
+        _results,
+        customRules: customRules,
+        configNotifications: _configNotifications,
+      );
     }
   }
+
+  /// The problems in [config] and in the ignore files read so far, as
+  /// warnings, since the session runs without the entries they name.
+  List<ConfigNotification> get _configNotifications => [
+    for (final ConfigProblem problem in configProblemsOf(config))
+      ConfigNotification.fromProblem(problem, severity: AnalysisSeverity.warning),
+    for (final MapEntry(key: String ignorePath, value: List<IgnoreProblem> problems)
+        in _ignoreFilesWithErrors.entries)
+      for (final IgnoreProblem problem in problems)
+        ConfigNotification(
+          severity: AnalysisSeverity.warning,
+          message: problem.message,
+          file: ignorePath,
+        ),
+  ];
 
   /// Formats all accumulated validation results according to [format].
   String formatOutput({bool pretty = true}) {
@@ -1224,6 +1249,7 @@ class ValidationSession {
       checkTypes: RuleRegistry.allChecks,
       customRules: customRules,
       rootDirectory: rootDirectory,
+      configNotifications: _configNotifications,
     );
   }
 
