@@ -65,9 +65,7 @@ void main() {
       );
       final ValidationResult result = await validator.validate(skillDir);
 
-      expect(result.isValid, isTrue);
-      expect(result.errors, isEmpty);
-      expect(result.warnings, isEmpty);
+      expect(result, hasNoErrorsOrWarnings);
     });
   });
 }

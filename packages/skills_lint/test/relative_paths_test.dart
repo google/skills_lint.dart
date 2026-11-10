@@ -94,9 +94,7 @@ void main() {
       );
       final ValidationResult result = await validator.validate(skillDir);
 
-      expect(result.isValid, isTrue);
-      expect(result.errors, isEmpty);
-      expect(result.warnings, isEmpty);
+      expect(result, hasNoErrorsOrWarnings);
     });
 
     test('passes with links to an existing directory, with or without a trailing slash', () async {
@@ -253,9 +251,7 @@ void main() {
         );
         final ValidationResult result = await validator.validate(skillDir);
 
-        expect(result.isValid, isTrue);
-        expect(result.errors, isEmpty);
-        expect(result.warnings, isEmpty); // None of these should trigger local file checks
+        expect(result, hasNoErrorsOrWarnings); // None of these should trigger local file checks
       });
     }
 
@@ -275,9 +271,7 @@ void main() {
       );
       final ValidationResult result = await validator.validate(skillDir);
 
-      expect(result.isValid, isTrue);
-      expect(result.errors, isEmpty);
-      expect(result.warnings, isEmpty);
+      expect(result, hasNoErrorsOrWarnings);
     });
 
     test('passes with relative path containing line fragments', () async {
@@ -297,9 +291,7 @@ void main() {
       );
       final ValidationResult result = await validator.validate(skillDir);
 
-      expect(result.isValid, isTrue);
-      expect(result.errors, isEmpty);
-      expect(result.warnings, isEmpty);
+      expect(result, hasNoErrorsOrWarnings);
     });
 
     test('passes with relative path containing anchor fragments', () async {
@@ -317,9 +309,7 @@ void main() {
       );
       final ValidationResult result = await validator.validate(skillDir);
 
-      expect(result.isValid, isTrue);
-      expect(result.errors, isEmpty);
-      expect(result.warnings, isEmpty);
+      expect(result, hasNoErrorsOrWarnings);
     });
 
     test('passes with leading and trailing whitespace in link', () async {
@@ -337,9 +327,7 @@ void main() {
       );
       final ValidationResult result = await validator.validate(skillDir);
 
-      expect(result.isValid, isTrue);
-      expect(result.errors, isEmpty);
-      expect(result.warnings, isEmpty);
+      expect(result, hasNoErrorsOrWarnings);
     });
 
     test('reports accurate 1-based line number for missing relative link', () async {

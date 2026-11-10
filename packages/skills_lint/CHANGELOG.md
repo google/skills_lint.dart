@@ -14,6 +14,10 @@
 
 - A rule that throws no longer stops the run. The skill gets an `unexpected-error` result that starts with `skills_lint internal error:`, and the other skills, JSON and SARIF output still follow. The exit code is non-zero.
 
+### Bug fixes
+
+- `check-absolute-paths --fix` writes a link that stays inside the skill when the skill directory or the linked path goes through a symlink. [#142](https://github.com/google/skills_lint.dart/issues/142)
+
 ## 0.5.3+1
 
 - Fixed the README's download example, which named a version with no release assets.
