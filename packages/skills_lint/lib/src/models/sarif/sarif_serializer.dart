@@ -243,22 +243,17 @@ class SarifSerializer {
 
   /// The path of the file that [error] is about.
   static String _resultPath(ValidationError error, SkillContext? context) {
-    String rawPath;
-    if (context != null) {
-      final String dirPath = context.directory.path;
-      if (error.file == SkillContext.skillFileName) {
-        rawPath = p.join(dirPath, error.file);
-      } else if (isAtOrWithin(dirPath, error.file)) {
-        rawPath = error.file;
-      } else if (p.isAbsolute(error.file)) {
-        rawPath = error.file;
-      } else {
-        rawPath = p.join(dirPath, error.file);
-      }
-    } else {
-      rawPath = error.file;
+    if (context == null) {
+      return error.file;
     }
-    return rawPath;
+    final String dirPath = context.directory.path;
+    if (error.file == SkillContext.skillFileName) {
+      return p.join(dirPath, error.file);
+    }
+    if (isAtOrWithin(dirPath, error.file) || p.isAbsolute(error.file)) {
+      return error.file;
+    }
+    return p.join(dirPath, error.file);
   }
 
   /// [path] relative to [rootDirectory] against `%SRCROOT%` when it is

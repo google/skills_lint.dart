@@ -11,7 +11,7 @@
 
 ### New features
 
-- `--format=sarif` lists configuration errors and ignore file errors in `runs[].invocations[].toolConfigurationNotifications`, each with a `level`, a `message`, and the file's location, with the line and column when known. Errors that stop skills_lint from running have level `error`; errors it runs without, such as a malformed ignore entry, have level `warning`. Each SARIF run has one `invocations` entry, whose `executionSuccessful` is `false` only when skills_lint did not run.
+- `--format=sarif` lists configuration errors and ignore file errors in `runs[].invocations[].toolConfigurationNotifications`, with the file, line and column. `executionSuccessful` is `false` when a configuration error stops skills_lint.
 - When skills_lint does not run because of a configuration error, `--format=sarif` and `--format=json` still write a valid document to standard output: a SARIF log with the errors and no results, or an empty JSON array. The errors still go to standard error, and the exit code does not change.
 
 ## 0.5.3+1

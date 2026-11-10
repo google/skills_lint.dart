@@ -51,7 +51,7 @@ class SarifRun {
   /// The analysis tool component that executed this run.
   final SarifTool tool;
 
-  /// The runs of the tool that produced [results].
+  /// How the tool was invoked to produce [results].
   final List<SarifInvocation> invocations;
 
   /// The diagnostic findings emitted during this run.

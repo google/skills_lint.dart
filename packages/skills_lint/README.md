@@ -162,7 +162,8 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `--format`: Output format for validation diagnostics. One of:
   - `text` (default): human-readable terminal output.
   - `json`: a machine-readable JSON array of validation results.
-    Configuration and ignore file errors go to standard error only.
+    Configuration and ignore file errors go to standard error only, and
+    when a configuration error stops skills_lint, the array is empty.
   - `sarif`: a SARIF 2.1.0 document for CI and GitHub Code Scanning. It
     also lists configuration and ignore file errors under
     `runs[].invocations[].toolConfigurationNotifications`; see the
@@ -172,8 +173,8 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
   Diagnostics go to standard output in every format, so redirect them to a
   file to capture a report: `skills_lint --format=sarif > skills-lint.sarif`.
   Operational failures stay on standard error and never corrupt the report.
-  When a configuration error stops skills_lint, `json` writes an empty array
-  and `sarif` writes a log with the errors and no results.
+  When a configuration error stops skills_lint, `sarif` writes a log with the
+  errors and no results.
   Bugs in skills_lint start with `skills_lint internal error:`. Problems in
   your files, such as a `--fix` rename that can't happen, start with `Error:`.
 

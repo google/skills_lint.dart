@@ -37,8 +37,8 @@ All SARIF locations in `skills_lint` use 1-based coordinates in accordance with 
 Each run has one entry in `runs[].invocations[]`. Problems with `skills_lint.yaml` or an ignore file go in that entry's `toolConfigurationNotifications`, not in `results`, because SARIF 2.1.0 §3.20.22 keeps configuration problems apart from findings about the analyzed code. Each notification has:
 
 - `level`: `error` when the problem stopped skills_lint from running, and `warning` when skills_lint ran without the problem entry, as with a malformed ignore entry or `--allow-misconfigured-keys`.
-- `message.text`: the problem, without its location.
-- `locations[].physicalLocation`: the configuration or ignore file, resolved against `%SRCROOT%` like the result locations. `region.startLine` and `region.startColumn` give the entry when skills_lint knows it. A notification about a configuration built in code, rather than read from a file, has no location.
+- `message.text`: the problem. A configuration file message leaves out the location; an ignore file message starts with the file's path, as on standard error.
+- `locations[].physicalLocation`: the configuration or ignore file, resolved against `%SRCROOT%` like the result locations. `region.startLine` and `region.startColumn` give the entry in `skills_lint.yaml`. Ignore file notifications point to the file only. A notification about a configuration built in code, rather than read from a file, has no location.
 
 `executionSuccessful` is `false` when any notification has level `error`, since §3.20.22 says such a notification means the run failed. Findings in `results` don't change it.
 
