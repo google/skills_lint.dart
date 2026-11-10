@@ -103,9 +103,27 @@ void main() {
 /// document and shares a node between two places, the document used an
 /// alias, so the scanner must report something.
 ({int aliased, List<String> missed}) _scanGeneratedAliases() {
-  const owners = ['', '- ', '? ', '- ? ', '- - ', 'k: ', '- k: ', '- ? k: ', '? - '];
+  const owners = [
+    '',
+    '- ',
+    '? ',
+    '- ? ',
+    '- - ',
+    'k: ',
+    '- k: ',
+    '- ? k: ',
+    '? - ',
+    '- - k: ',
+    '- ? ? ',
+    '? a\n: ',
+  ];
   const scalars = ['a', '"a"', "'a'", '|\n', '>-\n', '|2\n', ''];
-  const keys = ['j: &a [1]\n{i}m: *a\n', 'j: &a [1]\n{i}*a : v\n', '? *a\n{i}: v\n'];
+  const keys = [
+    'j: &a [1]\n{i}m: *a\n',
+    'j: &a s\n{i}m: *a\n',
+    'j: &a [1]\n{i}*a : v\n',
+    '? *a\n{i}: v\n',
+  ];
   final missed = <String>[];
   var aliased = 0;
   for (final owner in owners) {
@@ -139,9 +157,6 @@ bool _hasSharedNode(String yaml) {
   }
   final seen = Set<YamlNode>.identity();
   bool visit(YamlNode node) {
-    if (node is YamlScalar) {
-      return false;
-    }
     if (!seen.add(node)) {
       return true;
     }
