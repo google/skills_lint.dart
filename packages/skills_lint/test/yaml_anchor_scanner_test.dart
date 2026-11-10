@@ -88,36 +88,45 @@ void main() {
   });
 
   test('YamlAnchorScanner finds every alias that package:yaml resolves', () {
-    // Compact `-`, `?` and `:` nesting, then scalars of each style, then keys
-    // at each indentation. Whenever package:yaml loads a document and shares
-    // a node between two places, the document used an alias, so the scanner
-    // must report something.
-    const owners = ['', '- ', '? ', '- ? ', '- - ', 'k: ', '- k: ', '- ? k: ', '? - '];
-    const scalars = ['a', '"a"', "'a'", '|\n', '>-\n', '|2\n', ''];
-    const keys = ['j: &a [1]\n{i}m: *a\n', 'j: &a [1]\n{i}*a : v\n', '? *a\n{i}: v\n'];
-    final missed = <String>[];
-    var aliased = 0;
-    for (final owner in owners) {
-      for (final scalar in scalars) {
-        for (final key in keys) {
-          for (var indent = 0; indent <= 6; indent++) {
-            final String i = ' ' * indent;
-            final String yaml = 'name: x\nl:\n$owner$scalar\n$i${key.replaceAll('{i}', i)}'
-                .replaceFirst('$scalar\n\n', '$scalar\n');
-            if (!_hasSharedNode(yaml)) {
-              continue;
-            }
-            aliased++;
-            if (YamlAnchorScanner.firstAnchorOrAlias(yaml) == null) {
-              missed.add(yaml);
-            }
+    final (:int aliased, :List<String> missed) = _scanGeneratedAliases();
+
+    expect(aliased, greaterThan(100), reason: 'The generator should build many aliased documents.');
+    expect(missed, isEmpty, reason: 'Missed aliases in:\n${missed.join('\n---\n')}');
+  });
+}
+
+/// Scans generated documents that use an alias, and counts them along with
+/// the ones the scanner missed.
+///
+/// The documents combine compact `-`, `?` and `:` nesting, scalars of each
+/// style, and keys at each indentation. Whenever package:yaml loads a
+/// document and shares a node between two places, the document used an
+/// alias, so the scanner must report something.
+({int aliased, List<String> missed}) _scanGeneratedAliases() {
+  const owners = ['', '- ', '? ', '- ? ', '- - ', 'k: ', '- k: ', '- ? k: ', '? - '];
+  const scalars = ['a', '"a"', "'a'", '|\n', '>-\n', '|2\n', ''];
+  const keys = ['j: &a [1]\n{i}m: *a\n', 'j: &a [1]\n{i}*a : v\n', '? *a\n{i}: v\n'];
+  final missed = <String>[];
+  var aliased = 0;
+  for (final owner in owners) {
+    for (final scalar in scalars) {
+      for (final key in keys) {
+        for (var indent = 0; indent <= 6; indent++) {
+          final String i = ' ' * indent;
+          final String yaml = 'name: x\nl:\n$owner$scalar\n$i${key.replaceAll('{i}', i)}'
+              .replaceFirst('$scalar\n\n', '$scalar\n');
+          if (!_hasSharedNode(yaml)) {
+            continue;
+          }
+          aliased++;
+          if (YamlAnchorScanner.firstAnchorOrAlias(yaml) == null) {
+            missed.add(yaml);
           }
         }
       }
     }
-    expect(aliased, greaterThan(100), reason: 'The generator should build many aliased documents.');
-    expect(missed, isEmpty, reason: 'Missed aliases in:\n${missed.join('\n---\n')}');
-  });
+  }
+  return (aliased: aliased, missed: missed);
 }
 
 /// Whether [yaml] loads and holds one collection node in two places.

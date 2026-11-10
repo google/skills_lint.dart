@@ -52,6 +52,9 @@ class YamlAnchorScanner {
   /// The column where the last scalar on the line started.
   int _scalarColumn = 0;
 
+  /// A block scalar header with an indentation indicator, such as `|2`.
+  static final RegExp _indentationIndicator = RegExp(r'^[|>][+-]?([1-9])');
+
   /// Line breaks as `package:yaml` reads them.
   static final RegExp _lineBreak = RegExp('\r\n|\r|\n');
 
@@ -174,38 +177,65 @@ class YamlAnchorScanner {
       _scalarColumn = i;
       return i + 1;
     }
-    if ((char == '-' && !flow || char == '?' || char == ':') && _isIndicator(line, i)) {
-      if (!flow && char != ':') {
-        _nodeColumn = i;
+    if (_takesNodeIndicator(line, i)) {
+      return i + 1;
+    }
+    if (flow ? _startsFlowNode(char) : char == '[' || char == '{') {
+      if (!flow) {
+        _flowDepth++;
       }
-      return i + 1;
-    }
-    if (char == '[' || char == '{') {
-      _flowDepth++;
-      return i + 1;
-    }
-    if (flow && (char == ']' || char == '}')) {
-      _flowDepth--;
-      _atNodeStart = false;
-      return i + 1;
-    }
-    if (flow && char == ',') {
       return i + 1;
     }
     if (!flow && (char == '|' || char == '>')) {
-      _blockScalarParentIndent = _nodeColumn;
-      // An indentation indicator such as `|2` fixes the content indentation
-      // relative to the owning node. Without one, the first line sets it.
-      final RegExpMatch? indicator = RegExp(r'^[|>][+-]?([1-9])').firstMatch(line.substring(i));
-      if (indicator != null) {
-        _blockScalarIndent = _nodeColumn + int.parse(indicator.group(1)!);
-      }
+      _startBlockScalar(line, i);
       return null;
     }
     _atNodeStart = false;
     _inPlain = true;
     _scalarColumn = i;
     return i + 1;
+  }
+
+  /// Whether the character at [i] is a `-`, `?` or `:` indicator, after which
+  /// a node starts. A block `-` or `?` sets the owning node's column.
+  bool _takesNodeIndicator(String line, int i) {
+    final String char = line[i];
+    final bool flow = _flowDepth > 0;
+    if (!(char == '-' && !flow || char == '?' || char == ':') || !_isIndicator(line, i)) {
+      return false;
+    }
+    if (!flow && char != ':') {
+      _nodeColumn = i;
+    }
+    return true;
+  }
+
+  /// Handles a flow indicator where a node can start in a flow collection,
+  /// and returns whether [char] was one.
+  bool _startsFlowNode(String char) {
+    switch (char) {
+      case '[' || '{':
+        _flowDepth++;
+      case ']' || '}':
+        _flowDepth--;
+        _atNodeStart = false;
+      case ',':
+        break;
+      default:
+        return false;
+    }
+    return true;
+  }
+
+  /// Opens the block scalar whose header starts at [i].
+  void _startBlockScalar(String line, int i) {
+    _blockScalarParentIndent = _nodeColumn;
+    // An indentation indicator such as `|2` fixes the content indentation
+    // relative to the owning node. Without one, the first line sets it.
+    final RegExpMatch? indicator = _indentationIndicator.firstMatch(line.substring(i));
+    if (indicator != null) {
+      _blockScalarIndent = _nodeColumn + int.parse(indicator.group(1)!);
+    }
   }
 
   /// Handles the character at [i] after a scalar has started, and returns the
