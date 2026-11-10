@@ -2,9 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
-/// Size limits on the files and YAML that skills_lint reads.
+import 'models/skill_context.dart';
+import 'yaml_anchor_scanner.dart';
+
+/// Size limits on the YAML that skills_lint reads.
 ///
 /// `package:yaml` shares the node behind each alias, so a few hundred bytes
 /// can describe billions of values. Code that walks or prints such a value
@@ -12,9 +16,6 @@ import 'package:yaml/yaml.dart';
 /// stop both before any rule sees the value. Each one is far above what a
 /// real `SKILL.md` or `skills_lint.yaml` uses.
 abstract final class YamlLimits {
-  /// The largest `SKILL.md` that skills_lint reads, in bytes: 1 MiB.
-  static const int maxSkillFileBytes = 1024 * 1024;
-
   /// The most `[` and `{` characters a YAML document may hold.
   ///
   /// Each flow collection starts with one of them, so this bounds flow
@@ -54,6 +55,24 @@ abstract final class YamlLimits {
     }
     _checkSize(root);
     return root.value;
+  }
+
+  /// Parses the frontmatter of a `SKILL.md` like [load], and also throws a
+  /// [YamlException] if it holds a YAML anchor or alias.
+  ///
+  /// The check runs on the text before parsing, because `package:yaml` can
+  /// take exponential time to load an alias used as a mapping key.
+  static Object? loadFrontmatter(String yaml) {
+    final YamlAnchorToken? found = YamlAnchorScanner.firstAnchorOrAlias(yaml);
+    if (found != null) {
+      final kind = found.token.startsWith('&') ? 'anchor' : 'alias';
+      throw YamlException(
+        '`${found.token}` is a YAML $kind. ${SkillContext.skillFileName} frontmatter '
+        "doesn't support anchors (`&`) or aliases (`*`). Write the value out in full.",
+        SourceFile.fromString(yaml).span(found.offset, found.offset + found.token.length),
+      );
+    }
+    return load(yaml);
   }
 
   static const String _tooDeepMessage = 'The YAML nests more than $maxDepth levels deep.';

@@ -183,20 +183,6 @@ class Validator {
 
     final String content;
     try {
-      final int size = await skillMdFile.length();
-      if (size > YamlLimits.maxSkillFileBytes) {
-        fatalErrors.add(
-          ValidationError(
-            ruleId: skillFileInaccessible,
-            file: skillMdFile.path,
-            message:
-                '${SkillContext.skillFileName} is $size bytes, more than the limit of '
-                '${YamlLimits.maxSkillFileBytes} bytes. skills_lint did not read it.',
-            severity: _getSeverity(skillFileInaccessible, AnalysisSeverity.error),
-          ),
-        );
-        return null;
-      }
       content = await skillMdFile.readAsString();
     } on FileSystemException catch (e) {
       fatalErrors.add(
@@ -228,7 +214,7 @@ class Validator {
         yamlParsingError = 'Missing YAML metadata in ${SkillContext.skillFileName}';
       } else {
         final String yamlStr = match.group(1)!;
-        final Object? doc = YamlLimits.load(yamlStr);
+        final Object? doc = YamlLimits.loadFrontmatter(yamlStr);
         if (doc is YamlMap) {
           parsedYaml = doc;
         } else {

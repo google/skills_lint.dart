@@ -192,7 +192,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final Object? yaml;
     try {
-      yaml = YamlLimits.load(frontmatter);
+      yaml = YamlLimits.loadFrontmatter(frontmatter);
     } on YamlException {
       // Malformed frontmatter has no name node to rewrite. The validator
       // reports the YAML error, so leave the content unchanged.
@@ -269,7 +269,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
     final Object? yaml;
     try {
-      yaml = YamlLimits.load(match.group(1)!);
+      yaml = YamlLimits.loadFrontmatter(match.group(1)!);
     } on YamlException {
       return null;
     }

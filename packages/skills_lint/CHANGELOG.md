@@ -1,11 +1,14 @@
 ## 0.5.3+2-wip
 
+### Breaking changes
+
+- `valid-yaml-metadata` reports YAML anchors (`&name`) and aliases (`*name`) in `SKILL.md` frontmatter. A skill that uses them passed before and fails now. Write the values out in full.
+
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
 - `valid-yaml-metadata` reports frontmatter over the new size limits, and `skills_lint.yaml` over them fails to parse. Such YAML used to exhaust memory or overflow the stack and stop the run. See [valid-yaml-metadata](RULES.md#valid-yaml-metadata) for the limits.
-- `skill-file-inaccessible` reports a `SKILL.md` larger than 1 MiB without reading it.
 
 ### Bug fixes
 

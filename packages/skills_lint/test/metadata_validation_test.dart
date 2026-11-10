@@ -220,22 +220,49 @@ Body''');
       orElse: () => fail('No valid-yaml-metadata error in: ${result.validationErrors}'),
     );
 
-    test('rejects block-style alias expansion before any rule reads the value', () async {
-      // Nine levels of ten aliases each expand to 10^9 values.
-      final ValidationResult result = await validateFrontmatter(_billionLaughs(flowStyle: false));
+    test('rejects an anchor and names it with its line', () async {
+      final ValidationResult result = await validateFrontmatter(
+        'name: shared\ndescription: &text A skill.\nmetadata:\n  summary: *text\n',
+      );
 
       expect(result.context?.parsedYaml, isNull);
       expect(
         onlyYamlError(result).message,
-        contains('more than ${YamlLimits.maxNodes} values once aliases are expanded'),
+        allOf(
+          contains('line 2, column 14'),
+          contains(
+            "`&text` is a YAML anchor. SKILL.md frontmatter doesn't support anchors (`&`) or "
+            'aliases (`*`). Write the value out in full.',
+          ),
+        ),
       );
-    }, timeout: const Timeout(Duration(seconds: 20)));
+    });
 
-    test('rejects flow-style alias expansion before any rule reads the value', () async {
-      final ValidationResult result = await validateFrontmatter(_billionLaughs(flowStyle: true));
+    test('rejects an alias used as a mapping key before parsing', () async {
+      // Loading this would hash all 10^9 values of the key. The scan of the
+      // text rejects it first.
+      final ValidationResult result = await validateFrontmatter(
+        '${_billionLaughs(flowStyle: true).replaceFirst(RegExp(r'description: \*i\n$'), '')}'
+        'description: d\n? *i\n: value\n',
+      );
 
-      expect(result.context?.parsedYaml, isNull);
-      expect(onlyYamlError(result).message, contains('once aliases are expanded'));
+      expect(onlyYamlError(result).message, contains('`&a` is a YAML anchor'));
+    }, timeout: const Timeout(Duration(seconds: 5)));
+
+    test('rejects alias expansion over the node limit before anything reads the value', () {
+      // Nine levels of ten aliases each expand to 10^9 values.
+      for (final bool flowStyle in [false, true]) {
+        expect(
+          () => YamlLimits.load(_billionLaughs(flowStyle: flowStyle)),
+          throwsA(
+            isA<YamlException>().having(
+              (YamlException e) => e.message,
+              'message',
+              'The YAML holds more than ${YamlLimits.maxNodes} values once aliases are expanded.',
+            ),
+          ),
+        );
+      }
     }, timeout: const Timeout(Duration(seconds: 20)));
 
     test('rejects block nesting deeper than the limit', () async {
@@ -275,12 +302,14 @@ Body''');
       );
     }, timeout: const Timeout(Duration(seconds: 20)));
 
-    test('accepts frontmatter that uses aliases and nesting within the limits', () async {
+    test('accepts frontmatter with nesting and star or ampersand text', () async {
       final ValidationResult result = await validateFrontmatter('''
 name: shared
-description: &text A skill that reuses a value.
+description: Use *bold* text & more. # a comment with *star
 metadata:
-  summary: *text
+  url: "https://example.com/?a=1&b=2"
+  notes: |
+    *bold* and &amp;
   levels: [[[[[[[[1]]]]]]]]
 ''');
 
@@ -297,24 +326,6 @@ metadata:
       );
 
       expect(result.context?.parsedYaml, isNotNull);
-    });
-
-    test('reports a SKILL.md over the size limit without reading it', () async {
-      final file = File('${tempDir.path}/SKILL.md');
-      await file.writeAsString('---\nname: big\ndescription: d\n---\n');
-      // Grow the file without building its contents in memory.
-      final RandomAccessFile handle = await file.open(mode: FileMode.append);
-      await handle.truncate(YamlLimits.maxSkillFileBytes + 1);
-      await handle.close();
-
-      final ValidationResult result = await Validator().validate(tempDir);
-
-      expect(result.context, isNull);
-      expect(
-        result.validationErrors.single.message,
-        'SKILL.md is ${YamlLimits.maxSkillFileBytes + 1} bytes, more than the limit of '
-        '${YamlLimits.maxSkillFileBytes} bytes. skills_lint did not read it.',
-      );
     });
   });
 }

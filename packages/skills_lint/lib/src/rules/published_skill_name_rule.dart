@@ -319,7 +319,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
 
     final Object? yamlObj;
     try {
-      yamlObj = YamlLimits.load(yamlStr);
+      yamlObj = YamlLimits.loadFrontmatter(yamlStr);
     } on YamlException {
       return currentContent;
     }
