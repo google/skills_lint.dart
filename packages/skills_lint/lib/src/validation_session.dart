@@ -745,8 +745,6 @@ class ValidationSession {
     return const WriteBoundary.none();
   }
 
-  /// The directory that the paths of [target] are relative to, when [target]
-  /// was read from a configuration file, or `null` otherwise.
   /// Reports, once each, the `write_allow` directories of [target] that a
   /// symlink leads outside the directory of its configuration file, which
   /// [WriteBoundary] leaves out.
@@ -767,6 +765,8 @@ class ValidationSession {
     }
   }
 
+  /// The directory that the paths of [target] are relative to, when [target]
+  /// was read from a configuration file, or `null` otherwise.
   static String? _configDirectoryOf(LintTargetConfig? target) =>
       target == null ? null : declarationOf(target)?.anchorDirectory;
 

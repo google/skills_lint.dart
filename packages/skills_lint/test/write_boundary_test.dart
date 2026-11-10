@@ -91,6 +91,14 @@ void main() {
       expect(WriteBoundary(linkedRoot).refusal(p.join(inside.path, 'a.json')), isNull);
     });
 
+    test('accepts an allowed directory itself, and paths inside it', () {
+      final boundary = WriteBoundary(inside.path, allowed: [outside.path]);
+
+      expect(boundary.refusal(outside.path), isNull);
+      expect(boundary.refusal(p.join(outside.path, 'a.json')), isNull);
+      expect(boundary.refusal(p.join(root.path, 'other.json')), isNotNull);
+    });
+
     test('accepts anything without a boundary', () {
       expect(const WriteBoundary.none().refusal(p.join(outside.path, 'a.json')), isNull);
     });

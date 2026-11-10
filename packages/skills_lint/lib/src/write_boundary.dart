@@ -118,9 +118,8 @@ final class WriteBoundary {
   /// What a user does to write outside a boundary on purpose.
   static const String hint =
       'skills_lint writes only inside the directories it scans. To write to that '
-      'path anyway, name it with -s, -d or --ignore-file, or allow its directory '
-      'with --allow-write, or with write_allow when the directory is inside the '
-      'folder that holds skills_lint.yaml.';
+      'path anyway, name it with -s, -d or --ignore-file, or pass --allow-write <dir>. '
+      'write_allow in skills_lint.yaml also works for directories next to that file.';
 
   /// Why writing or creating [path] is refused, readable as the end of a
   /// sentence, or `null` when [path] is inside the boundary.
