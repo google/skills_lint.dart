@@ -15,6 +15,12 @@ import 'package:skills_lint/src/skill_links.dart';
 import 'package:test/test.dart';
 
 void main() {
+  _defineMarkdownLinksTests();
+  _defineScannerPipelineTests();
+  _defineRewriteAndHelperTests();
+}
+
+void _defineMarkdownLinksTests() {
   group('markdownLinksIn', () {
     List<String> targetsIn(String markdown) => [
       for (final MarkdownLink link in markdownLinksIn(markdown)) link.target,
@@ -203,7 +209,9 @@ void main() {
       expect(targetsIn('- item\n\nText\n\n    [a](a.md)\n'), isEmpty);
     });
   });
+}
 
+void _defineScannerPipelineTests() {
   group('MarkdownBlockScanner and MarkdownInlineScanner', () {
     test('separates ATX headings from paragraphs and consumes leading definitions', () {
       const markdown =
@@ -226,7 +234,9 @@ void main() {
       expect([for (final LinkMatch m in matches) m.destination.target], ['docs/guide.md']);
     });
   });
+}
 
+void _defineRewriteAndHelperTests() {
   group('replaceMarkdownLinkTargets', () {
     test('rewrites inline and shared reference definitions in source order, wrapping spaces', () {
       const input =
