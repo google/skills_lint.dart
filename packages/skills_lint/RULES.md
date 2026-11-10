@@ -280,7 +280,7 @@ governs how changes to these rules ship.
     that parses without errors.
   - The frontmatter stays within the size limits: at most 10,000 values
     once aliases are expanded, at most 64 levels of nesting, and at most
-    1,000 `[` and `{` characters. Frontmatter over a limit counts as a
+    10,000 `[` and `{` characters. Frontmatter over a limit counts as a
     parse error, and the rules that read the frontmatter skip it.
   - Required fields `name` and `description` are both present.
   - If `compatibility:` is present, it is at most 500 characters.

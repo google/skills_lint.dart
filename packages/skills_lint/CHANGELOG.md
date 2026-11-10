@@ -4,12 +4,12 @@
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
-- `skills_lint` rejects YAML that would take too much memory or time to check, in `SKILL.md` frontmatter and in `skills_lint.yaml`. A document fails with more than 10,000 values once aliases are expanded, nesting deeper than 64 levels, or more than 1,000 `[` and `{` characters. In `SKILL.md`, `valid-yaml-metadata` reports the problem and the rules that read the frontmatter are skipped. Such a document used to exhaust memory or overflow the stack and stop the whole run.
+- `valid-yaml-metadata` reports frontmatter over the new size limits, and `skills_lint.yaml` over them fails to parse. Such YAML used to exhaust memory or overflow the stack and stop the run. See [valid-yaml-metadata](RULES.md#valid-yaml-metadata) for the limits.
 - `skill-file-inaccessible` reports a `SKILL.md` larger than 1 MiB without reading it.
 
 ### Bug fixes
 
-- A rule that throws no longer stops the run. The skill gets an `unexpected-error` result that starts with `skills_lint internal error:`, the other skills are still checked, JSON and SARIF output is still written, and the exit code is non-zero.
+- A rule that throws no longer stops the run. The skill gets an `unexpected-error` result that starts with `skills_lint internal error:`, and the other skills, JSON and SARIF output still follow. The exit code is non-zero.
 
 ## 0.5.3+1
 

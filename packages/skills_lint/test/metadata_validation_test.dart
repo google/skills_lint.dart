@@ -217,12 +217,12 @@ Body''');
 
     ValidationError onlyYamlError(ValidationResult result) => result.validationErrors.singleWhere(
       (ValidationError error) => error.ruleId == ValidYamlMetadataRule.ruleName,
-      orElse: () => fail("No valid-yaml-metadata error in: ${result.validationErrors}"),
+      orElse: () => fail('No valid-yaml-metadata error in: ${result.validationErrors}'),
     );
 
     test('rejects block-style alias expansion before any rule reads the value', () async {
       // Nine levels of ten aliases each expand to 10^9 values.
-      final ValidationResult result = await validateFrontmatter(billionLaughs(flowStyle: false));
+      final ValidationResult result = await validateFrontmatter(_billionLaughs(flowStyle: false));
 
       expect(result.context?.parsedYaml, isNull);
       expect(
@@ -232,7 +232,7 @@ Body''');
     }, timeout: const Timeout(Duration(seconds: 20)));
 
     test('rejects flow-style alias expansion before any rule reads the value', () async {
-      final ValidationResult result = await validateFrontmatter(billionLaughs(flowStyle: true));
+      final ValidationResult result = await validateFrontmatter(_billionLaughs(flowStyle: true));
 
       expect(result.context?.parsedYaml, isNull);
       expect(onlyYamlError(result).message, contains('once aliases are expanded'));
@@ -291,6 +291,14 @@ metadata:
       );
     });
 
+    test('accepts brackets in text, which count toward the limit but do not nest', () async {
+      final ValidationResult result = await validateFrontmatter(
+        'name: links\ndescription: d\nmetadata:\n  notes: "${'[link](https://example.com) ' * 2000}"\n',
+      );
+
+      expect(result.context?.parsedYaml, isNotNull);
+    });
+
     test('reports a SKILL.md over the size limit without reading it', () async {
       final file = File('${tempDir.path}/SKILL.md');
       await file.writeAsString('---\nname: big\ndescription: d\n---\n');
@@ -313,11 +321,11 @@ metadata:
 
 /// A frontmatter whose `description` expands to 10^9 values through nine
 /// levels of ten aliases each.
-String billionLaughs({required bool flowStyle}) {
+String _billionLaughs({required bool flowStyle}) {
   const levels = 'abcdefghi';
   final buffer = StringBuffer('name: demo\n');
   for (var i = 0; i < levels.length; i++) {
-    final String item = i == 0 ? 'x' : '*${levels[i - 1]}';
+    final item = i == 0 ? 'x' : '*${levels[i - 1]}';
     final items = List<String>.filled(10, item);
     buffer.writeln(
       flowStyle

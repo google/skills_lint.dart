@@ -19,9 +19,8 @@ abstract final class YamlLimits {
   ///
   /// Each flow collection starts with one of them, so this bounds flow
   /// nesting before parsing. `package:yaml` slows down with the square of
-  /// that nesting, and its parser overflows the stack a few thousand levels
-  /// deep.
-  static const int maxFlowCollectionStarts = 1000;
+  /// that nesting: 10,000 levels take about a quarter of a second.
+  static const int maxFlowCollectionStarts = 10000;
 
   /// The most nodes a parsed document may hold, counting each alias as a full
   /// copy of the node it refers to.
@@ -48,6 +47,9 @@ abstract final class YamlLimits {
     try {
       root = loadYamlNode(yaml);
     } on StackOverflowError {
+      // Block nesting such as `- - - x` has no cheap bound before parsing,
+      // and the parser recurses once per level. The VM unwinds a stack
+      // overflow cleanly, so treat it as nesting over the limit.
       throw YamlException(_tooDeepMessage, null);
     }
     _checkSize(root);

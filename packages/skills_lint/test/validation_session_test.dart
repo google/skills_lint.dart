@@ -188,13 +188,16 @@ void main() {
 
     test('reports a rule that throws as a tool error and checks the other skills', () async {
       final rootDir = Directory(p.join(tempDir.path, 'skills'))..createSync();
-      for (final name in ['broken-skill', 'good-skill']) {
-        await createDummySkill(
-          rootDir,
-          name: name,
-          skillContent: '${buildFrontmatter(name: name)}\n# Skill\n',
-        );
-      }
+      await createDummySkill(
+        rootDir,
+        name: 'broken-skill',
+        skillContent: '${buildFrontmatter(name: 'broken-skill')}\n# Skill\n',
+      );
+      await createDummySkill(
+        rootDir,
+        name: 'good-skill',
+        skillContent: '${buildFrontmatter(name: 'good-skill')}\n# Skill\n',
+      );
 
       final ValidationSession session = createTestSession(
         format: OutputFormat.json,
@@ -204,15 +207,14 @@ void main() {
 
       expect(session.anyFailed, isTrue);
       final String output = session.formatOutput();
-      final results = jsonDecode(output) as List<Object?>;
-      final byName = {
-        for (final result in results.cast<Map<String, Object?>>())
-          result[ValidationResult.keySkillName]: result,
-      };
-      expect(byName['good-skill']?[ValidationResult.keyIsValid], isTrue, reason: output);
-      expect(byName['broken-skill']?[ValidationResult.keyIsValid], isFalse, reason: output);
+      final List<Map<String, Object?>> results = (jsonDecode(output) as List<Object?>)
+          .cast<Map<String, Object?>>();
+      Map<String, Object?> resultFor(String skillName) =>
+          results.singleWhere((result) => result[ValidationResult.keySkillName] == skillName);
+      expect(resultFor('good-skill')[ValidationResult.keyIsValid], isTrue, reason: output);
+      expect(resultFor('broken-skill')[ValidationResult.keyIsValid], isFalse, reason: output);
       expect(
-        jsonEncode(byName['broken-skill']),
+        jsonEncode(resultFor('broken-skill')),
         allOf(contains(Validator.unexpectedError), contains('boom in broken-skill')),
       );
     });

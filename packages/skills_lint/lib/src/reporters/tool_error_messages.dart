@@ -21,7 +21,7 @@ abstract final class ToolErrorMessages {
   static String ruleFailedMessage({required String ruleName, required Object error}) =>
       "${Reporter.toolErrorPrefix} the '$ruleName' rule failed.\n"
       '$_toolBugNotice\n'
-      '  skills_lint checked the other rules and skills. Cause: $error';
+      '  skills_lint still checks the other rules and skills. Cause: $error';
 
   /// Message for fixes that kept changing a skill until the pass limit.
   static String fixesDidNotSettleMessage({required String skillName, required int passes}) =>

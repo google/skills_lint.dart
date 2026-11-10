@@ -22,6 +22,10 @@ class MockInaccessibleFile implements File {
   @override
   bool existsSync() => true;
 
+  // A small size, so validation goes on to the read, which fails.
+  @override
+  Future<int> length() => Future<int>.value(0);
+
   @override
   Future<String> readAsString({Encoding encoding = utf8}) =>
       Future<String>.error(FileSystemException('File is inaccessible', _path));
