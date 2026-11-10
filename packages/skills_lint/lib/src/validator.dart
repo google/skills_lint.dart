@@ -146,7 +146,7 @@ class Validator {
       try {
         errors = await rule.validate(context);
       } on Object catch (error, stackTrace) {
-        _log.severe('Rule "${rule.name}" threw.', error, stackTrace);
+        _log.severe('Rule "${rule.name}" threw: $error\n$stackTrace');
         // One failing rule must not abort the run: report it with this skill
         // and keep going, so other skills and machine-readable output survive.
         validationErrors.add(

@@ -19,7 +19,7 @@ abstract final class YamlLimits {
   ///
   /// Each flow collection starts with one of them, so this bounds flow
   /// nesting before parsing. `package:yaml` slows down with the square of
-  /// that nesting: 10,000 levels take about a quarter of a second.
+  /// that nesting: 10,000 levels take under a second.
   static const int maxFlowCollectionStarts = 10000;
 
   /// The most nodes a parsed document may hold, counting each alias as a full
