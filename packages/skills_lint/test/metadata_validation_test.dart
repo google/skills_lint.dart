@@ -251,7 +251,7 @@ Body''');
 
     test('rejects alias expansion over the node limit before anything reads the value', () {
       // Nine levels of ten aliases each expand to 10^9 values.
-      for (final bool flowStyle in [false, true]) {
+      for (final flowStyle in [false, true]) {
         expect(
           () => YamlLimits.load(_billionLaughs(flowStyle: flowStyle)),
           throwsA(

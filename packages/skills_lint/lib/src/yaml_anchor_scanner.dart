@@ -17,7 +17,7 @@ typedef YamlAnchorToken = ({String token, int offset});
 class YamlAnchorScanner {
   YamlAnchorScanner._(this._yaml);
 
-  /// Returns the first anchor or alias in [yaml], or `null` if it has none.
+  /// Finds the first anchor or alias in [yaml], or `null` if it has none.
   static YamlAnchorToken? firstAnchorOrAlias(String yaml) => YamlAnchorScanner._(yaml)._scan();
 
   final String _yaml;
