@@ -38,30 +38,38 @@ class YamlAnchorScanner {
   /// continue onto more-indented lines.
   int? _plainLineIndent;
 
-  /// The indentation of the line that holds a block scalar header.
+  /// The column of the node that owns an open block scalar.
   int? _blockScalarParentIndent;
 
-  /// The indentation of a block scalar's content, once its first line is seen.
+  /// The indentation of a block scalar's content, once it is known.
   int? _blockScalarIndent;
 
+  /// The column of the block node that the current line position belongs
+  /// to: the line's indentation, the last `-` or `?` indicator, or the start
+  /// of the last mapping key.
+  int _nodeColumn = 0;
+
+  /// The column where the last scalar on the line started.
+  int _scalarColumn = 0;
+
+  /// Line breaks as `package:yaml` reads them.
+  static final RegExp _lineBreak = RegExp('\r\n|\r|\n');
+
   YamlAnchorToken? _scan() {
-    var lineStart = 0;
-    while (lineStart <= _yaml.length) {
-      int lineEnd = _yaml.indexOf('\n', lineStart);
-      if (lineEnd == -1) {
-        lineEnd = _yaml.length;
-      }
-      final YamlAnchorToken? found = _scanLine(lineStart, lineEnd);
+    // A byte order mark is not part of the first line's content.
+    var lineStart = _yaml.startsWith('\uFEFF') ? 1 : 0;
+    for (final RegExpMatch lineBreak in _lineBreak.allMatches(_yaml, lineStart)) {
+      final YamlAnchorToken? found = _scanLine(lineStart, lineBreak.start);
       if (found != null) {
         return found;
       }
-      lineStart = lineEnd + 1;
+      lineStart = lineBreak.end;
     }
-    return null;
+    return _scanLine(lineStart, _yaml.length);
   }
 
   YamlAnchorToken? _scanLine(int start, int end) {
-    final String line = _yaml.substring(start, end).replaceFirst(RegExp(r'\r$'), '');
+    final String line = _yaml.substring(start, end);
     final int indent = line.length - line.trimLeft().length;
     final bool blank = line.trim().isEmpty;
     if (_skipsBlockScalarLine(indent: indent, blank: blank)) {
@@ -74,6 +82,7 @@ class YamlAnchorScanner {
       _atNodeStart = true;
       _inPlain = false;
     }
+    _nodeColumn = indent;
     final YamlAnchorToken? found = _scanText(line, start, indent);
     if (_inPlain && _flowDepth == 0 && _plainLineIndent == null) {
       _plainLineIndent = indent;
@@ -135,7 +144,7 @@ class YamlAnchorScanner {
         if (char == '&' || char == '*') {
           return (token: _tokenAt(line, i), offset: lineOffset + i);
         }
-        final int? next = _startNode(line, i, indent);
+        final int? next = _startNode(line, i);
         if (next == null) {
           return null;
         }
@@ -149,18 +158,26 @@ class YamlAnchorScanner {
 
   /// Handles the character at [i] where a node can start, and returns the
   /// index to continue from, or `null` when the rest of the line is skipped.
-  int? _startNode(String line, int i, int indent) {
+  int? _startNode(String line, int i) {
     final String char = line[i];
     final bool flow = _flowDepth > 0;
+    if (i == 0 && (line.startsWith('---') || line.startsWith('...')) && _isIndicator(line, 2)) {
+      // A document marker, which a node can follow on the same line.
+      return 3;
+    }
     if (char == '!') {
       return _endOfToken(line, i);
     }
     if (char == "'" || char == '"') {
       _openQuote = char;
       _atNodeStart = false;
+      _scalarColumn = i;
       return i + 1;
     }
     if ((char == '-' && !flow || char == '?' || char == ':') && _isIndicator(line, i)) {
+      if (!flow && char != ':') {
+        _nodeColumn = i;
+      }
       return i + 1;
     }
     if (char == '[' || char == '{') {
@@ -176,11 +193,18 @@ class YamlAnchorScanner {
       return i + 1;
     }
     if (!flow && (char == '|' || char == '>')) {
-      _blockScalarParentIndent = indent;
+      _blockScalarParentIndent = _nodeColumn;
+      // An indentation indicator such as `|2` fixes the content indentation
+      // relative to the owning node. Without one, the first line sets it.
+      final RegExpMatch? indicator = RegExp(r'^[|>][+-]?([1-9])').firstMatch(line.substring(i));
+      if (indicator != null) {
+        _blockScalarIndent = _nodeColumn + int.parse(indicator.group(1)!);
+      }
       return null;
     }
     _atNodeStart = false;
     _inPlain = true;
+    _scalarColumn = i;
     return i + 1;
   }
 
@@ -190,6 +214,9 @@ class YamlAnchorScanner {
     final String char = line[i];
     final bool flow = _flowDepth > 0;
     if (char == ':' && (_isIndicator(line, i) || flow && !_inPlain)) {
+      if (!flow) {
+        _nodeColumn = _scalarColumn;
+      }
       _inPlain = false;
       _atNodeStart = true;
     } else if (flow && char == ',') {

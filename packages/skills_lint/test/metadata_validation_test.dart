@@ -232,7 +232,7 @@ Body''');
           contains('line 2, column 14'),
           contains(
             "`&text` is a YAML anchor. SKILL.md frontmatter doesn't support anchors (`&`) or "
-            'aliases (`*`). Write the value out in full.',
+            'aliases (`*`). Write the value out in full, or quote it.',
           ),
         ),
       );

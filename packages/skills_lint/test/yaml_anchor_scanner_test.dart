@@ -29,6 +29,20 @@ void main() {
       ),
       ('an alias after a plain value on the line before', 'a: text\nb: *item\n', '*item'),
       ('an alias as a value that starts with a star', 'description: *Important*\n', '*Important*'),
+      (
+        'a key after an empty block scalar in a compact sequence entry',
+        'name: x\nl:\n- k: |\n  j: &a [1]\n  *a : v\n',
+        '&a',
+      ),
+      (
+        'a key after an empty folded scalar in a nested sequence',
+        'l:\n  - k: >\n    &a j: 1\n',
+        '&a',
+      ),
+      ('a value after a block scalar explicit key', '? |\n  text\n: *a\n', '*a'),
+      ('an anchor after a byte order mark', '\uFEFF&a name: x\n', '&a'),
+      ('an anchor after a lone carriage return', 'name: x\r&a k: v\r', '&a'),
+      ('an anchor after a document marker', '--- &a [x]\n', '&a'),
     ]) {
       test(description, () {
         expect(YamlAnchorScanner.firstAnchorOrAlias(yaml)?.token, token);
@@ -59,6 +73,8 @@ void main() {
       ('a multi-line double-quoted scalar', 'description: "one\n  *two* \\" &three"\nname: x\n'),
       ('plain text in a flow sequence', 'tags: [a & b, c*d]\n'),
       ('a star inside a plain key', 'a*b: c\n'),
+      ('a block scalar with an indentation indicator', 'a: |2\n    x\n  b: *i\nc: d\n'),
+      ('an indented block scalar in a sequence entry', '- k: |2\n      x\n    *i\n- y\n'),
       ('a document with no anchors', 'name: x\ndescription: y\nmetadata:\n  k: [1, 2]\n'),
     ]) {
       test(description, () {

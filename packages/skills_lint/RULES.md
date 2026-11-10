@@ -284,7 +284,9 @@ governs how changes to these rules ship.
     parse error, and the rules that read the frontmatter skip it.
   - The frontmatter has no YAML anchors (`&name`) or aliases (`*name`).
     The check reads the text before parsing it, and skips quoted text,
-    block scalars, plain text such as `*bold*`, and comments.
+    block scalars, plain text such as `*bold*`, and comments. A value that
+    starts with `*` or `&`, such as `*Important*`, reads as an alias or
+    anchor; quote it.
   - Required fields `name` and `description` are both present.
   - If `compatibility:` is present, it is at most 500 characters.
 - **Diagnostic shape:**

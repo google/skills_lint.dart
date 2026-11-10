@@ -68,7 +68,7 @@ abstract final class YamlLimits {
       final kind = found.token.startsWith('&') ? 'anchor' : 'alias';
       throw YamlException(
         '`${found.token}` is a YAML $kind. ${SkillContext.skillFileName} frontmatter '
-        "doesn't support anchors (`&`) or aliases (`*`). Write the value out in full.",
+        "doesn't support anchors (`&`) or aliases (`*`). Write the value out in full, or quote it.",
         SourceFile.fromString(yaml).span(found.offset, found.offset + found.token.length),
       );
     }
