@@ -35,6 +35,21 @@ void main() {
       );
     });
 
+    test('ends a code span, link text and a destination at a blank line', () {
+      expect(
+        targetsIn(
+          'Press the ` key.\n\n[a](a.md) then `x`.\n'
+          '[b\n\nc](c.md)\n'
+          '[d](<d\n\n.md>)\n',
+        ),
+        ['a.md'],
+      );
+    });
+
+    test('ends a paragraph at a blank line with a carriage return', () {
+      expect(targetsIn('[a\r\n\r\nb](b.md) `x\r\n \r\n[c](c.md)`\r\n'), ['c.md']);
+    });
+
     test('keeps a code span that never closes as text', () {
       expect(targetsIn('A ``tick` then [a](a.md)\n'), ['a.md']);
     });

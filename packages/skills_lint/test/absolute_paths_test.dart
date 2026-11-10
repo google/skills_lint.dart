@@ -242,27 +242,6 @@ void main() {
     });
   });
 
-  test('fix leaves the links whose target is an ignored subject unchanged', () async {
-    await withTempDir((tempDir) async {
-      final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
-      final String kept = (await File(p.join(tempDir.path, 'kept.md')).create()).path;
-      final String other = (await File(p.join(tempDir.path, 'other.md')).create()).path;
-      final keptLinks = '[A]($kept "a title")\n[B]($kept)\n';
-      final content = '${buildFrontmatter(name: 'test-skill')}$keptLinks[Other]($other)\n';
-
-      final String fixed = await AbsolutePathsRule().fix(
-        SkillContext(directory: skillDir, rawContent: content),
-        ignoredSubjects: {kept},
-      );
-
-      expect(fixed, '${buildFrontmatter(name: 'test-skill')}$keptLinks[Other](../other.md)\n');
-      final List<ValidationError> remaining = await AbsolutePathsRule().validate(
-        SkillContext(directory: skillDir, rawContent: fixed),
-      );
-      expect(remaining.map((e) => e.subject), [kept, kept]);
-    });
-  });
-
   group('Markdown syntax', () {
     test('ignores absolute paths in code spans and code blocks', () async {
       await withTempDir((tempDir) async {
@@ -310,6 +289,27 @@ void main() {
         expect(await rule.fix(fixedContext), fixed);
         expect(await RelativePathsRule().validate(fixedContext), isEmpty);
       });
+    });
+  });
+
+  test('fix leaves the links whose target is an ignored subject unchanged', () async {
+    await withTempDir((tempDir) async {
+      final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
+      final String kept = (await File(p.join(tempDir.path, 'kept.md')).create()).path;
+      final String other = (await File(p.join(tempDir.path, 'other.md')).create()).path;
+      final keptLinks = '[A]($kept "a title")\n[B]($kept)\n';
+      final content = '${buildFrontmatter(name: 'test-skill')}$keptLinks[Other]($other)\n';
+
+      final String fixed = await AbsolutePathsRule().fix(
+        SkillContext(directory: skillDir, rawContent: content),
+        ignoredSubjects: {kept},
+      );
+
+      expect(fixed, '${buildFrontmatter(name: 'test-skill')}$keptLinks[Other](../other.md)\n');
+      final List<ValidationError> remaining = await AbsolutePathsRule().validate(
+        SkillContext(directory: skillDir, rawContent: fixed),
+      );
+      expect(remaining.map((e) => e.subject), [kept, kept]);
     });
   });
 

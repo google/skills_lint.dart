@@ -29,8 +29,7 @@ class MarkdownLink {
 }
 
 /// The inline links and images in [markdown], in the order of their targets,
-/// with offsets
-/// into [markdown] that start at [offset].
+/// with offsets into [markdown] that start at [offset].
 ///
 /// The scanner follows CommonMark for what matters to path checks: it skips
 /// code spans and fenced and indented code blocks, reads `<...>`
@@ -39,7 +38,7 @@ class MarkdownLink {
 List<MarkdownLink> markdownLinksIn(String markdown, {int offset = 0}) {
   final links = <MarkdownLink>[];
   final scanner = _InlineScanner(markdown, offset, links);
-  for (final (int start, int end) in _proseRanges(markdown)) {
+  for (final (int start, int end) in _BlockScanner(markdown).paragraphs()) {
     scanner.scan(start, end);
   }
   return links;
@@ -48,69 +47,99 @@ List<MarkdownLink> markdownLinksIn(String markdown, {int offset = 0}) {
 final RegExp _fencePattern = RegExp(r'^( *)(`{3,}|~{3,})');
 final RegExp _listItemPattern = RegExp(r'^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]|$)');
 
-/// The ranges of [markdown] outside fenced and indented code blocks.
+/// Splits Markdown into the runs of lines that hold inline content.
 ///
 /// Inside a list, an indented line continues the list item rather than
 /// starting a code block, and a fence may be indented to the item's content.
-List<(int, int)> _proseRanges(String markdown) {
-  final ranges = <(int, int)>[];
-  int? proseStart = 0;
-  String? fence;
-  var previousBlank = true;
-  var inIndentedCode = false;
-  var inList = false;
-  var lineStart = 0;
-  while (lineStart < markdown.length) {
-    final int newline = markdown.indexOf('\n', lineStart);
-    final int lineEnd = newline == -1 ? markdown.length : newline + 1;
-    final String line = markdown.substring(lineStart, lineEnd).replaceAll('\t', '    ');
+/// A list ends at an unindented line after a blank line.
+class _BlockScanner {
+  _BlockScanner(this._markdown);
+
+  final String _markdown;
+
+  /// The fence that opened the fenced code block the scanner is in.
+  String? _fence;
+  bool _previousBlank = true;
+  bool _inIndentedCode = false;
+  bool _inList = false;
+
+  /// The ranges of the runs of non-blank lines outside code blocks.
+  ///
+  /// A code span or link never crosses the end of a range.
+  List<(int, int)> paragraphs() {
+    final ranges = <(int, int)>[];
+    int? paragraphStart;
+    var lineStart = 0;
+    while (lineStart < _markdown.length) {
+      final int newline = _markdown.indexOf('\n', lineStart);
+      final int lineEnd = newline == -1 ? _markdown.length : newline + 1;
+      final String line = _markdown.substring(lineStart, lineEnd).replaceAll('\t', '    ');
+      final bool isText = _isTextLine(line);
+      if (!isText && paragraphStart != null) {
+        ranges.add((paragraphStart, lineStart));
+        paragraphStart = null;
+      } else if (isText) {
+        paragraphStart ??= lineStart;
+      }
+      lineStart = lineEnd;
+    }
+    if (paragraphStart != null) {
+      ranges.add((paragraphStart, _markdown.length));
+    }
+    return ranges;
+  }
+
+  /// Whether [line] holds inline content, and not code or blank space.
+  bool _isTextLine(String line) {
     final bool blank = line.trim().isEmpty;
-    final int indent = line.length - line.trimLeft().length;
-
-    var inCode = false;
-    if (fence != null) {
-      inCode = true;
-      final RegExpMatch? close = _fencePattern.firstMatch(line);
-      if (close != null &&
-          close[2]![0] == fence[0] &&
-          close[2]!.length >= fence.length &&
-          line.substring(close.end).trim().isEmpty) {
-        fence = null;
-      }
-    } else if (_fencePattern.firstMatch(line) case final RegExpMatch open
-        when (inList || open[1]!.length <= 3) &&
-            !(open[2]![0] == '`' && line.substring(open.end).contains('`'))) {
-      inCode = true;
-      fence = open[2];
-      inIndentedCode = false;
-    } else if (!blank && indent >= 4 && !inList && (previousBlank || inIndentedCode)) {
-      inCode = true;
-      inIndentedCode = true;
-    } else if (!blank) {
-      inIndentedCode = false;
-      if (_listItemPattern.hasMatch(line)) {
-        inList = true;
-      } else if (indent == 0 && previousBlank) {
-        inList = false;
-      }
-    }
-
-    if (inCode && proseStart != null) {
-      ranges.add((proseStart, lineStart));
-      proseStart = null;
-    } else if (!inCode && proseStart == null) {
-      proseStart = lineStart;
-    }
+    final bool isCode = _fence != null ? _continuesFence(line) : _startsCode(line, blank: blank);
     // A blank line inside an indented code block keeps the block open.
-    if (!(blank && inIndentedCode)) {
-      previousBlank = blank;
+    if (!(blank && _inIndentedCode)) {
+      _previousBlank = blank;
     }
-    lineStart = lineEnd;
+    return !isCode && !blank;
   }
-  if (proseStart != null) {
-    ranges.add((proseStart, markdown.length));
+
+  /// Whether [line], inside a fenced code block, is code. A closing fence
+  /// ends the block and counts as code.
+  bool _continuesFence(String line) {
+    final String fence = _fence!;
+    final RegExpMatch? close = _fencePattern.firstMatch(line);
+    if (close != null &&
+        close[2]![0] == fence[0] &&
+        close[2]!.length >= fence.length &&
+        line.substring(close.end).trim().isEmpty) {
+      _fence = null;
+    }
+    return true;
   }
-  return ranges;
+
+  /// Whether [line], outside a fenced code block, opens a fenced code block
+  /// or is part of an indented one.
+  bool _startsCode(String line, {required bool blank}) {
+    final int indent = line.length - line.trimLeft().length;
+    if (_fencePattern.firstMatch(line) case final RegExpMatch open
+        when (_inList || open[1]!.length <= 3) &&
+            !(open[2]![0] == '`' && line.substring(open.end).contains('`'))) {
+      _fence = open[2];
+      _inIndentedCode = false;
+      return true;
+    }
+    if (blank) {
+      return false;
+    }
+    if (indent >= 4 && !_inList && (_previousBlank || _inIndentedCode)) {
+      _inIndentedCode = true;
+      return true;
+    }
+    _inIndentedCode = false;
+    if (_listItemPattern.hasMatch(line)) {
+      _inList = true;
+    } else if (indent == 0 && _previousBlank) {
+      _inList = false;
+    }
+    return false;
+  }
 }
 
 class _InlineScanner {
@@ -119,8 +148,6 @@ class _InlineScanner {
   final String _text;
   final int _offset;
   final List<MarkdownLink> _links;
-
-  static final RegExp _paragraphBreak = RegExp(r'\n[ \t]*\n');
 
   void scan(int start, int end) {
     var i = start;
@@ -200,9 +227,6 @@ class _InlineScanner {
         i = _afterCodeSpan(i, end);
         continue;
       }
-      if (char == _newline && _paragraphBreak.matchAsPrefix(_text, i) != null) {
-        return null;
-      }
       if (char == _openBracket) {
         depth++;
       } else if (char == _closeBracket) {
@@ -219,57 +243,17 @@ class _InlineScanner {
   /// The link opening at [linkStart] whose destination follows the `(` at
   /// [start] - 1, with the offset after its `)`.
   (MarkdownLink, int)? _destination(int linkStart, int start, int end) {
-    var i = _skipSpace(start, end);
-    final int targetStart;
-    final int targetEnd;
+    int i = _skipSpace(start, end);
     final bool angleBracketed = i < end && _text.codeUnitAt(i) == _lessThan;
-    if (angleBracketed && _text.codeUnitAt(i) == _lessThan) {
-      targetStart = i + 1;
-      i = targetStart;
-      while (i < end) {
-        final int char = _text.codeUnitAt(i);
-        if (char == _backslash) {
-          i += 2;
-        } else if (char == _greaterThan) {
-          break;
-        } else if (char == _lessThan || char == _newline) {
-          return null;
-        } else {
-          i++;
-        }
-      }
-      if (i >= end) {
-        return null;
-      }
-      targetEnd = i;
-      i++;
-    } else {
-      targetStart = i;
-      var depth = 0;
-      while (i < end) {
-        final int char = _text.codeUnitAt(i);
-        if (char == _backslash && i + 1 < end) {
-          i += 2;
-        } else if (char <= _space) {
-          break;
-        } else if (char == _openParen) {
-          depth++;
-          i++;
-        } else if (char == _closeParen) {
-          if (depth == 0) {
-            break;
-          }
-          depth--;
-          i++;
-        } else {
-          i++;
-        }
-      }
-      if (depth != 0) {
-        return null;
-      }
-      targetEnd = i;
+    final int targetStart = angleBracketed ? i + 1 : i;
+    final int? targetEnd = angleBracketed
+        ? _angleTargetEnd(targetStart, end)
+        : _bareTargetEnd(targetStart, end);
+    if (targetEnd == null) {
+      return null;
     }
+    // Step past the closing >.
+    i = angleBracketed ? targetEnd + 1 : targetEnd;
     i = _skipSpace(i, end);
     if (i < end && i > targetEnd) {
       final int? titleEnd = _titleEnd(i, end);
@@ -289,6 +273,48 @@ class _InlineScanner {
     return (link, i + 1);
   }
 
+  /// The offset of the `>` that closes a destination starting at [start].
+  int? _angleTargetEnd(int start, int end) {
+    var i = start;
+    while (i < end) {
+      final int char = _text.codeUnitAt(i);
+      if (char == _backslash) {
+        i += 2;
+      } else if (char == _greaterThan) {
+        return i;
+      } else if (char == _lessThan || char == _newline) {
+        return null;
+      } else {
+        i++;
+      }
+    }
+    return null;
+  }
+
+  /// The offset after a destination without `<` that starts at [start], or
+  /// null if its parentheses are unbalanced.
+  int? _bareTargetEnd(int start, int end) {
+    var i = start;
+    var depth = 0;
+    while (i < end) {
+      final int char = _text.codeUnitAt(i);
+      if (char == _backslash && i + 1 < end) {
+        i += 2;
+        continue;
+      }
+      if (char <= _space || (char == _closeParen && depth == 0)) {
+        break;
+      }
+      if (char == _openParen) {
+        depth++;
+      } else if (char == _closeParen) {
+        depth--;
+      }
+      i++;
+    }
+    return depth == 0 ? i : null;
+  }
+
   /// The offset after the title that opens at [start], if one does.
   int? _titleEnd(int start, int end) {
     final int open = _text.codeUnitAt(start);
@@ -300,7 +326,7 @@ class _InlineScanner {
     if (close == -1) {
       return null;
     }
-    var i = start + 1;
+    int i = start + 1;
     while (i < end) {
       final int char = _text.codeUnitAt(i);
       if (char == _backslash) {

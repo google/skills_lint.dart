@@ -232,7 +232,8 @@ governs how changes to these rules ship.
   with a `pubspec.yaml`. Skills outside its `skills/` directory pass without
   running `pub`. Links to files that don't
   exist pass too, even when `check-relative-paths` is disabled; enable
-  `check-relative-paths` to report them.
+  `check-relative-paths` to report them. Link syntax in code spans and
+  code blocks is skipped.
 - **How it works:** runs
   `dart pub publish --skip-validation --to-archive=<temp file>` once per
   package and reads the file names from the archive. Needs `dart` on

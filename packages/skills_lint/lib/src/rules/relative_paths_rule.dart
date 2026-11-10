@@ -52,7 +52,6 @@ class RelativePathsRule extends SkillRule {
   Future<List<ValidationError>> validate(SkillContext context) async {
     final errors = <ValidationError>[];
 
-    // Extract content after YAML frontmatter
     for (final MarkdownLink link in bodyLinksOf(context)) {
       final String path = link.target;
 
