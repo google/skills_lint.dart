@@ -10,6 +10,7 @@ import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
+import 'valid_yaml_metadata_rule.dart';
 
 /// Reports unquoted frontmatter values that YAML cuts short at an unintended
 /// comment.
@@ -21,8 +22,8 @@ import '../models/validation_error.dart';
 /// reported when either:
 /// - `#` is followed immediately by a character other than a space, tab, `#`,
 ///   or line break (`#123`, `#tag`), or
-/// - the value YAML reads before the comment has an unclosed `"`, `` ` ``,
-///   `(`, `[`, or `{`.
+/// - the value YAML reads before the comment leaves a Markdown code span,
+///   `"`, `(`, `[`, or `{` unclosed.
 ///
 /// The rule checks every unquoted string value in the frontmatter, at any
 /// depth, except the top-level `name`: a valid name has no whitespace or `#`,
@@ -75,7 +76,7 @@ class FrontmatterTruncatedByCommentRule extends SkillRule implements FixableRule
     final _Truncation(:String path, :String dropped) = truncation;
     // A blank line in a plain value reads as a line break; keep the message
     // on one line.
-    final String parsed = truncation.parsed.replaceAll('\n', r'\n');
+    final String parsed = truncation.parsed.replaceAll('\n', r'\n').replaceAll('\r', r'\r');
     return ValidationError(
       ruleId: name,
       severity: severity,
@@ -90,8 +91,8 @@ class FrontmatterTruncatedByCommentRule extends SkillRule implements FixableRule
           'In an unquoted YAML value, whitespace followed by `#` starts a comment, '
           'so YAML reads "$parsed" and drops "$dropped".\n\n'
           '**How to fix:**\n'
-          '- Quote the value to keep the full text. `--fix` does this.\n'
-          '- If the text after `#` is a comment, move it to its own line.',
+          '- Quote the value to keep the full text (or run `--fix` to single-quote the value).\n'
+          '- If the text after `#` is a comment, move the comment to its own line.',
       region: region,
     );
   }
@@ -137,7 +138,7 @@ List<_Truncation> _findTruncations(SkillContext context) {
   );
   for (final MapEntry(:Object? key, :YamlNode value) in yaml.nodes.entries) {
     final Object? field = (key! as YamlNode).value;
-    if (field != 'name') {
+    if (field != ValidYamlMetadataRule.keyName) {
       finder.visit(value, '$field');
     }
   }
@@ -210,10 +211,9 @@ final class _TruncationFinder {
   }
 
   /// The offset of the first character after the anchors (`&a`), tags
-  /// (`!t`) and whitespace at the start of the scalar span that begins at
-  /// [offset]. A plain value can't start with `&` or `!`.
+  /// (`!t`), and whitespace at the start of the scalar span at [offset].
   ///
-  /// Stops at [end].
+  /// Stops at [end]. A plain value cannot start with `&` or `!`.
   int _skipProperties(int offset, int end) {
     var i = offset;
     while (i < end && (_content[i] == '&' || _content[i] == '!')) {
@@ -267,31 +267,74 @@ bool _isAccidentalTruncation(String parsed, String dropped) =>
 bool _hasImmediateCommentToken(String dropped) =>
     dropped.length > 1 && !_isBlank(dropped[1]) && dropped[1] != '#';
 
-/// Whether [parsed] leaves a `"`, `` ` ``, `(`, `[`, or `{` unclosed.
+/// Whether [parsed] leaves a Markdown code span, `"`, `(`, `[`, or `{`
+/// unclosed.
+///
+/// Characters inside a closed code span or double-quoted phrase are ignored.
 bool _hasUnclosedDelimiter(String parsed) {
-  var doubleQuotes = 0;
-  var backticks = 0;
+  var inDoubleQuotes = false;
   final stack = <String>[];
-  for (var i = 0; i < parsed.length; i++) {
-    switch (parsed[i]) {
-      case '"':
-        doubleQuotes++;
-      case '`':
-        backticks++;
-      case '(':
-        stack.add(')');
-      case '[':
-        stack.add(']');
-      case '{':
-        stack.add('}');
-      case ')' || ']' || '}':
-        if (stack.isNotEmpty && stack.last == parsed[i]) {
-          stack.removeLast();
-        }
+  var i = 0;
+  while (i < parsed.length) {
+    final String char = parsed[i];
+    if (!inDoubleQuotes && char == '`') {
+      final int? afterSpan = _skipCodeSpan(parsed, i);
+      if (afterSpan == null) {
+        return true;
+      }
+      i = afterSpan;
+      continue;
+    }
+    if (char == '"') {
+      inDoubleQuotes = !inDoubleQuotes;
+    } else if (!inDoubleQuotes) {
+      _updateBracketStack(stack, char);
+    }
+    i++;
+  }
+  return inDoubleQuotes || stack.isNotEmpty;
+}
+
+/// The offset right after the closing backtick run matching the opening run
+/// at [start] in [text], or `null` if no matching run closes the code span.
+int? _skipCodeSpan(String text, int start) {
+  var i = start;
+  while (i < text.length && text[i] == '`') {
+    i++;
+  }
+  final int tickCount = i - start;
+  while (i < text.length) {
+    if (text[i] != '`') {
+      i++;
+      continue;
+    }
+    final runStart = i;
+    while (i < text.length && text[i] == '`') {
+      i++;
+    }
+    if (i - runStart == tickCount) {
+      return i;
     }
   }
-  return doubleQuotes.isOdd || backticks.isOdd || stack.isNotEmpty;
+  return null;
 }
+
+void _updateBracketStack(List<String> stack, String char) {
+  switch (char) {
+    case '(':
+      stack.add(')');
+    case '[':
+      stack.add(']');
+    case '{':
+      stack.add('}');
+    case ')' || ']' || '}':
+      if (stack.isNotEmpty && stack.last == char) {
+        stack.removeLast();
+      }
+  }
+}
+
+final RegExp _lineBreakRegex = RegExp(r'[\r\n]');
 
 bool _isBlank(String char) => char == ' ' || char == '\t';
 
@@ -301,7 +344,7 @@ bool _isLineBreak(String char) => char == '\n' || char == '\r';
 SourceRegion _regionOf(SkillContext context, _Truncation truncation) {
   final String content = context.rawContent;
   final int line = context.offsetToLine(truncation.droppedStart);
-  final int lineStart = content.lastIndexOf(RegExp(r'[\r\n]'), truncation.droppedStart) + 1;
+  final int lineStart = content.lastIndexOf(_lineBreakRegex, truncation.droppedStart) + 1;
   return SourceRegion(
     startLine: line,
     startColumn: truncation.droppedStart - lineStart + 1,

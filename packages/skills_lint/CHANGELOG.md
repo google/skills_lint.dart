@@ -2,7 +2,7 @@
 
 ### New rules
 
-- Added the `frontmatter-truncated-by-comment` rule, disabled by default. It reports unquoted frontmatter strings where `#` truncates the value—such as `description: Use when asked "fix #123"`, which YAML reads as `Use when asked "fix`—while leaving `# comments` alone. `--fix` quotes the value.
+- Added the `frontmatter-truncated-by-comment` rule, disabled by default. The rule reports unquoted frontmatter strings cut short by `#`, such as `description: Use when asked "fix #123"` (which YAML reads as `Use when asked "fix`), while leaving trailing `# comments` alone. `--fix` quotes the value.
 
 ### Behavior changes
 

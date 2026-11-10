@@ -145,6 +145,9 @@ void main() {
     final unclosedDelimiters = <String, List<String>>{
       'an unclosed double quote before `# `': ['description: Use when asked "fix # issue"'],
       'an unclosed backtick before `# `': ['description: Run `git # branch` in the repo'],
+      'an unclosed double-backtick code span before `# `': [
+        'description: Use ``foo ` # bar`` in docs',
+      ],
       'an unclosed parenthesis before `# `': ['description: Triage bugs (see # note) first'],
       'an unclosed square bracket before `# `': ['description: Link [see # section] in docs'],
       'an unclosed curly brace before `# `': ['description: Expand {key # value} placeholders'],
@@ -173,6 +176,15 @@ void main() {
       ],
       'a trailing comment after balanced quotes, backticks and brackets': [
         'description: Triage "bugs" (`cli`) [v1] {ok} (fast). # see docs',
+      ],
+      'a trailing comment after a double-backtick code span wrapping a backtick': [
+        'description: Escapes `` ` `` in Markdown. # see docs',
+      ],
+      'a trailing comment after delimiters inside a code span or double quotes': [
+        'description: Parses `foo(` and "[" and `"` tokens. # see docs',
+      ],
+      'a trailing comment after an ordered-list marker `1)`': [
+        'description: 1) Triage bugs # see docs',
       ],
       'a trailing comment after an apostrophe in prose': [
         "description: Don't triage stale bugs. # see docs",
@@ -455,9 +467,9 @@ void main() {
   defineCliTests();
 }
 
-/// Defines the tests that start the CLI. [main] calls this, and
-/// `compiled_test/cli_test.dart` calls it again to run the same tests
-/// against the compiled binary.
+/// Defines the tests that start the CLI. [main] calls [defineCliTests], and
+/// `compiled_test/cli_test.dart` calls [defineCliTests] again to run the same
+/// tests against the compiled binary.
 void defineCliTests() {
   group('frontmatter-truncated-by-comment CLI', () {
     const truncated = 'description: Use when asked "fix #123" or to triage bugs.';

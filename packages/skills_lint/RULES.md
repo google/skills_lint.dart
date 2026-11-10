@@ -139,8 +139,9 @@ governs how changes to these rules ship.
   https://agentskills.io/specification#description-field)`
   The `|HERE|` marker sits at character `<limit>`, so the author can
   see what slipped past the limit without having to count characters.
-  The length is that of the value YAML reads. Text that a YAML comment
-  cuts off is not counted; `frontmatter-truncated-by-comment` reports it.
+  `description-too-long` measures the value YAML reads. Text cut off by a
+  YAML comment is not counted; `frontmatter-truncated-by-comment` reports
+  the cut-off text.
 - **Parameters:**
   - `max-length` (positive integer): maximum description
     length in characters. Defaults to `1024`. Set it in
@@ -183,36 +184,36 @@ governs how changes to these rules ship.
   after an unquoted string value is reported only when `#` is followed
   immediately by a character other than a space, tab, `#`, or line break
   (`#123`, `#bugs`), or when the value YAML reads before the comment leaves
-  a `"`, `` ` ``, `(`, `[`, or `{` unclosed (`"fix # issue"`).
+  a Markdown code span (`` `...` ``), `"`, `(`, `[`, or `{` unclosed
+  (`"fix # issue"`).
 
   The rule checks every string value in the frontmatter: top-level fields
   such as `description:` and `compatibility:`, values under `metadata:`,
-  and list items. It skips the top-level `name:`, because a valid name
-  has no spaces or `#`, so the text after the `#` is never part of the
-  name. Quoted values, block values (`|`, `>`), a `#` with no space or tab
-  before it (`C#`, `owner/repo#1`), a comment on its own line, and a
-  comment after a number, boolean, or null (`internal: true # x`) are not
-  reported.
+  and list items, except the top-level `name:` (a valid name has no spaces
+  or `#`, so text after `#` is never part of the name). Quoted values,
+  block values (`|`, `>`), a `#` with no space or tab before `#` (`C#`,
+  `owner/repo#1`), a comment on its own line, and a comment after a number,
+  boolean, or null (`internal: true # x`) are not reported.
 
-  `description-too-long` measures the description that YAML reads, so it
-  doesn't count the dropped text. When quoting the full text makes the
-  description too long, `--fix` keeps the fix only if it still lowers the
-  skill's errors, then warnings.
+  `description-too-long` measures the description YAML reads, without the
+  dropped text. When quoting the full text makes the description exceed
+  `max-length`, `--fix` keeps the quote fix only if quoting lowers the
+  skill's total errors, then warnings.
 - **Diagnostic shape:**
   `"<field>" is cut short at "#": YAML reads "<value YAML reads>" and drops "<text from # to the end of the line>". Quote the value to keep the full text, or move the comment to its own line.`
-  The region covers the dropped text. A line break in the value YAML
-  reads is shown as `\n`.
+  The region covers the dropped text. Line breaks in the value YAML
+  reads are shown as `\n` and `\r`.
 - **Auto-fix behavior:** wraps each reported value and its dropped text in
-  single quotes, so YAML reads the full text, and doubles any `'` in them.
-  Deliberate comments that the rule does not report are left untouched. A
-  value that spans several lines is quoted in place and keeps its line
-  breaks. In a flow collection (`[...]`, `{...}`) that spans lines, the
-  quotes also take in any `,`, `]` or `}` that the comment hid.
+  single quotes so YAML reads the full text, doubling any `'` inside the
+  quoted text. Deliberate comments that the rule does not report are left
+  untouched. A value that spans several lines is quoted in place and keeps
+  its line breaks. In a flow collection (`[...]`, `{...}`) that spans
+  lines, the quotes also take in any `,`, `]`, or `}` that the comment hid.
   The fixer skips values that an ignore entry with a `subject` covers.
 - **Ignore subject:** the keys from the top of the frontmatter to the
   value, joined with `.`, such as `description` or
   `metadata.short-description`. Every item of a list has the subject of
-  the list, so one entry covers all items in it, and the entry keeps
+  the list, so one entry covers all items in the list, and the entry keeps
   covering the same list when items are added or reordered. A key that
   contains a `.` is not escaped, so `a.b:` and a `b:` nested under `a:`
   share the subject `a.b`.
