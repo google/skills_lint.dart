@@ -11,6 +11,10 @@
 - `write_allow:` on a `directories` or `individual_skills` entry, and `--allow-write`, add directories that `--fix` and `--generate-baseline` may write in.
 - `fix: true|false` in a rule entry, and `--[no-]<rule-name>-fix`, turn one rule's fix on or off, with the same precedence as severity.
 
+### Bug fixes
+
+- `check-absolute-paths --fix` writes a link that stays inside the skill when the skill directory or the linked path goes through a symlink. [#142](https://github.com/google/skills_lint.dart/issues/142)
+
 ## 0.5.3+1
 
 - Fixed the README's download example, which named a version with no release assets.
