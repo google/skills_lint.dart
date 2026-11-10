@@ -37,13 +37,7 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
       final String path = link.target;
 
       if (isAbsoluteLink(path)) {
-        final int line = context.offsetToLine(link.start);
-        errors.add(
-          _buildAbsolutePathError(
-            path: path,
-            region: SourceRegion(startLine: line),
-          ),
-        );
+        errors.add(_buildAbsolutePathError(path: path, region: link.region));
       }
     }
 
@@ -71,39 +65,23 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
 
   @override
   Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
-    final String currentContent = context.rawContent;
-
     final SkillPathPair skillLocation = (
       logical: context.directory.path,
       physical: _physicalPath(context.directory),
     );
-    final fixed = StringBuffer();
-    var copiedUpTo = 0;
-    for (final MarkdownLink link in bodyLinksOf(context)) {
-      final String pathOnly = link.target;
-      if (ignoredSubjects.contains(pathOnly)) {
-        continue;
+    return replaceBodyLinkTargets(context, (String target) {
+      if (ignoredSubjects.contains(target) || !isAbsoluteLink(target)) {
+        return null;
       }
-
-      if (isAbsoluteLink(pathOnly)) {
-        final file = File(pathOnly);
-        if (file.existsSync()) {
-          final String posixRelativePath = relativeSkillLink(
-            skillDirectory: skillLocation,
-            targetFile: (logical: pathOnly, physical: _physicalPath(file)),
-          );
-          // A space or parenthesis ends a destination unless < and > enclose it.
-          final bool needsBrackets =
-              !link.isAngleBracketed && posixRelativePath.contains(RegExp(r'[\s()]'));
-          fixed
-            ..write(currentContent.substring(copiedUpTo, link.targetStart))
-            ..write(needsBrackets ? '<$posixRelativePath>' : posixRelativePath);
-          copiedUpTo = link.targetEnd;
-        }
+      final file = File(target);
+      if (!file.existsSync()) {
+        return null;
       }
-    }
-    fixed.write(currentContent.substring(copiedUpTo));
-    return fixed.toString();
+      return relativeSkillLink(
+        skillDirectory: skillLocation,
+        targetFile: (logical: target, physical: _physicalPath(file)),
+      );
+    });
   }
 
   /// Forward-slash relative link text to write into `SKILL.md` for [targetFile].

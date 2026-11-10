@@ -154,6 +154,42 @@ void main() {
         expect(await RelativePathsRule().validate(fixedContext), isEmpty);
       });
     });
+
+    test(
+      'reports and fixes reference-style links sharing a definition, respecting ignoredSubjects',
+      () async {
+        await withTempDir((tempDir) async {
+          final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
+          final String guide = (await File(p.join(tempDir.path, 'my guide.md')).create()).path;
+          final String kept = (await File(p.join(tempDir.path, 'kept.md')).create()).path;
+          final String frontmatter = buildFrontmatter(name: 'test-skill');
+          final content =
+              '${frontmatter}See [first][guide], [guide][], and [kept].\n'
+              '\n'
+              '[guide]: <$guide> "Guide"\n'
+              '[kept]: $kept\n';
+          final rule = AbsolutePathsRule();
+          final context = SkillContext(directory: skillDir, rawContent: content);
+
+          final List<ValidationError> errors = await rule.validate(context);
+          expect(errors.map((e) => e.subject), [guide, guide, kept]);
+
+          final String fixed = await rule.fix(context, ignoredSubjects: {kept});
+          expect(
+            fixed,
+            '${frontmatter}See [first][guide], [guide][], and [kept].\n'
+            '\n'
+            '[guide]: <../my guide.md> "Guide"\n'
+            '[kept]: $kept\n',
+          );
+          final fixedContext = SkillContext(directory: skillDir, rawContent: fixed);
+          final List<ValidationError> remaining = await rule.validate(fixedContext);
+          expect(remaining.map((e) => e.subject), [kept]);
+          expect(await rule.fix(fixedContext, ignoredSubjects: {kept}), fixed);
+          expect(await RelativePathsRule().validate(fixedContext), isEmpty);
+        });
+      },
+    );
   });
 
   group('Absolute Paths Validation', () {

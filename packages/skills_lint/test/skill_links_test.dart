@@ -2,17 +2,18 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-// Covers the link parsing that check-relative-paths and
-// pub-archive-includes-skill share.
+// Covers the link parsing and destination rewriting shared by
+// check-absolute-paths, check-relative-paths, and pub-archive-includes-skill.
 
 import 'package:skills_lint/src/markdown_links.dart';
+import 'package:skills_lint/src/models/source_region.dart';
 import 'package:skills_lint/src/skill_links.dart';
 import 'package:test/test.dart';
 
 void main() {
   group('markdownLinksIn', () {
     List<String> targetsIn(String markdown) => [
-      for (final link in markdownLinksIn(markdown)) link.target,
+      for (final MarkdownLink link in markdownLinksIn(markdown)) link.target,
     ];
 
     test('reads titles, spaces, escapes and nested images, not escaped brackets', () {
@@ -25,14 +26,62 @@ void main() {
       );
     });
 
-    test('rejects text that is not an inline link', () {
+    test('rejects text that is not a valid inline or reference link', () {
       expect(
         targetsIn(
-          '[a] (a.md) [b](b c.md) [c](<c\n.md>) [d](d(.md "t") [e]\n\n(e.md) [f][ref]\n'
-          '[ref]: ref.md\n',
+          '[a] (a.md) [b](b c.md) [c](<c\n.md>) [d](d(.md "t") [e]\n\n(e.md) '
+          '[f](<f.md>"no-space") [g][undefined]\n',
         ),
         isEmpty,
       );
+    });
+
+    test('deactivates outer link brackets when an inner link closes', () {
+      expect(
+        targetsIn('Text [outer [inner](inner.md)](outer.md) and ![img [inner](a.md)](pic.png)\n'),
+        ['inner.md', 'a.md', 'pic.png'],
+      );
+    });
+
+    test('resolves full, collapsed and shortcut reference links and images', () {
+      const markdown =
+          'See [the guide][Guide], [API\n  Ref][], [shortcut], and ![logo][img].\n'
+          '\n'
+          '[guide]: <my guide.md> "Guide"\n'
+          '[api ref]:\n'
+          '  docs/api(v2).md\n'
+          '  "API"\n'
+          '[SHORTCUT]: quick.md\n'
+          '[img]: assets/logo.png\n'
+          '[unused]: not_referenced.md\n';
+      expect(targetsIn(markdown), [
+        'my guide.md',
+        'docs/api(v2).md',
+        'quick.md',
+        'assets/logo.png',
+      ]);
+    });
+
+    test('uses the first definition when a reference label is defined twice', () {
+      const markdown =
+          '[ref]: first.md\n'
+          '[REF]: second.md\n'
+          '\n'
+          'See [ref].\n';
+      expect(targetsIn(markdown), ['first.md']);
+    });
+
+    test('does not treat a line with trailing non-title text as a reference definition', () {
+      const markdown = '[Note]: see [guide](guide.md)\n';
+      expect(targetsIn(markdown), ['guide.md']);
+    });
+
+    test('does not treat [foo] in [foo][undefined] as a shortcut link, and scans after it', () {
+      const markdown =
+          '[foo]: foo.md\n'
+          '\n'
+          '[foo][undefined](inline.md)\n';
+      expect(targetsIn(markdown), ['inline.md']);
     });
 
     test('ends a code span, link text and a destination at a blank line', () {
@@ -65,13 +114,23 @@ void main() {
       expect(targetsIn('A ``tick` then [a](a.md)\n'), ['a.md']);
     });
 
-    test('gives offsets into the text after offset', () {
-      const text = 'x [a](<my a.md>)';
-      final MarkdownLink link = markdownLinksIn(text.substring(2), offset: 2).single;
+    test('computes 1-based line and column regions shifted by startLine', () {
+      const markdown = 'See [a](<my a.md>) and\n![logo][img].\n\n[img]: logo.png\n';
+      final List<MarkdownLink> links = markdownLinksIn(markdown, startLine: 5);
       expect(
-        (link.start, text.substring(link.targetStart, link.targetEnd), link.isAngleBracketed),
-        (2, 'my a.md', true),
+        [
+          for (final MarkdownLink l in links)
+            (
+              l.target,
+              l.region.startLine,
+              l.region.startColumn,
+              l.region.endLine,
+              l.region.endColumn,
+            ),
+        ],
+        [('my a.md', 5, 5, 5, 19), ('logo.png', 6, 1, 6, 13)],
       );
+      expect(links.first.region, isA<SourceRegion>());
     });
 
     test('reads a fenced block to the end when it never closes', () {
@@ -80,6 +139,10 @@ void main() {
 
     test('ends a fenced block only at a closing fence as long as the opening one', () {
       expect(targetsIn('````\n```\n[a](a.md)\n````\n[b](b.md)\n'), ['b.md']);
+    });
+
+    test('skips a fenced block inside a blockquote and resumes when the quote ends', () {
+      expect(targetsIn('> ```\n> [a](a.md)\n\n[b](b.md)\n'), ['b.md']);
     });
 
     test('reads a backtick line with a closing backtick as a code span, not a fence', () {
@@ -96,6 +159,41 @@ void main() {
 
     test('reads an indented line after a list ends as code', () {
       expect(targetsIn('- item\n\nText\n\n    [a](a.md)\n'), isEmpty);
+    });
+  });
+
+  group('replaceMarkdownLinkTargets', () {
+    test('rewrites inline and shared reference definitions in source order, wrapping spaces', () {
+      const input =
+          '[top]: /abs/top_link.md "Top"\n'
+          '\n'
+          'See [first][top], [inline](/abs/plain.md "Title"), and [second][top].\n'
+          'Also see [bottom] and [keep](/abs/keep.md).\n'
+          '\n'
+          '[bottom]: /abs/a(b).md\n'
+          '[unused]: /abs/unused.md\n';
+      final String rewritten = replaceMarkdownLinkTargets(input, (String target) {
+        return switch (target) {
+          '/abs/top_link.md' => '../my file.md',
+          '/abs/plain.md' => '../plain.md',
+          '/abs/a(b).md' => '../a(b).md',
+          _ => null,
+        };
+      });
+      expect(
+        rewritten,
+        '[top]: <../my file.md> "Top"\n'
+        '\n'
+        'See [first][top], [inline](../plain.md "Title"), and [second][top].\n'
+        'Also see [bottom] and [keep](/abs/keep.md).\n'
+        '\n'
+        '[bottom]: <../a(b).md>\n'
+        '[unused]: /abs/unused.md\n',
+      );
+      expect(
+        [for (final MarkdownLink link in markdownLinksIn(rewritten)) link.target],
+        ['../my file.md', '../plain.md', '../my file.md', '../a(b).md', '/abs/keep.md'],
+      );
     });
   });
 

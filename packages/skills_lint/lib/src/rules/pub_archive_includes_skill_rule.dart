@@ -99,15 +99,15 @@ class PubArchiveIncludesSkillRule extends SkillRule {
       for (final String file in files) file.toLowerCase(): file,
     };
     // Each link inside the package whose target exists but is not published,
-    // keyed by archive path, with the line of its first link.
-    final missing = <String, int>{};
+    // keyed by archive path, with the region of its first link.
+    final missing = <String, SourceRegion>{};
     // Each link whose target is in the archive under different casing, keyed by
-    // the linked archive path, with the archive path and the line of its first
-    // link.
-    final wrongCase = <String, (String, int)>{};
+    // the linked archive path, with the archive path and the region of its
+    // first link.
+    final wrongCase = <String, (String, SourceRegion)>{};
     // Each link outside the package whose target exists, keyed by the path
-    // relative to the package root, with the line of its first link.
-    final outside = <String, int>{};
+    // relative to the package root, with the region of its first link.
+    final outside = <String, SourceRegion>{};
     for (final MarkdownLink link in bodyLinksOf(context)) {
       final String target = link.target;
       if (isAbsoluteLink(target) || isUrlOrAnchor(target)) {
@@ -119,51 +119,52 @@ class PubArchiveIncludesSkillRule extends SkillRule {
         continue;
       }
       final String linkedFile = _archivePath(packageRoot, linkedPath);
-      final int line = context.offsetToLine(link.start);
       if (!p.isWithin(packageRoot, linkedPath)) {
-        outside.putIfAbsent(linkedFile, () => line);
+        outside.putIfAbsent(linkedFile, () => link.region);
       } else if (!files.contains(linkedFile)) {
         final String? actualFile = filesByLowerCase[linkedFile.toLowerCase()];
         if (actualFile != null) {
-          wrongCase.putIfAbsent(linkedFile, () => (actualFile, line));
+          wrongCase.putIfAbsent(linkedFile, () => (actualFile, link.region));
         } else {
-          missing.putIfAbsent(linkedFile, () => line);
+          missing.putIfAbsent(linkedFile, () => link.region);
         }
       }
     }
     return [
-      for (final MapEntry<String, int> entry in outside.entries)
+      for (final MapEntry<String, SourceRegion> entry in outside.entries)
         _error(
           '${entry.key}, linked from $skillFile, is outside the package, so pub does not '
           'publish it. Move the file into the package, or link to an absolute URL.',
-          region: SourceRegion(startLine: entry.value),
+          region: entry.value,
         ),
-      for (final MapEntry<String, (String, int)> entry in wrongCase.entries)
+      for (final MapEntry<String, (String, SourceRegion)> entry in wrongCase.entries)
         _error(
           '${entry.key}, linked from $skillFile, is ${entry.value.$1} in the package pub '
           'publishes. Match the file name case so the link works on case-sensitive file systems.',
-          region: SourceRegion(startLine: entry.value.$2),
+          region: entry.value.$2,
         ),
       for (final MapEntry<String, List<String>> group in _groupByExcludedDirectory(
         missing.keys,
         skillFile: skillFile,
         files: files,
       ).entries)
-        _missingGroupError(group, skillFile: skillFile, line: missing[group.value.first]!),
+        _missingGroupError(group, skillFile: skillFile, firstRegion: missing[group.value.first]!),
     ];
   }
 
   ValidationError _missingGroupError(
     MapEntry<String, List<String>> group, {
     required String skillFile,
-    required int line,
+    required SourceRegion firstRegion,
   }) {
-    final message = group.value.length == 1 && group.key == group.value.single
+    final bool isSingleFile = group.value.length == 1 && group.key == group.value.single;
+    final message = isSingleFile
         ? '${group.key}, linked from $skillFile, is not in the package pub publishes. '
               '$_howToFix'
         : '${group.key}/ is not in the package pub publishes, so neither are the '
               '${group.value.length} files $skillFile links to in it. $_howToFix';
-    return _error(message, region: SourceRegion(startLine: line));
+    final region = isSingleFile ? firstRegion : SourceRegion(startLine: firstRegion.startLine);
+    return _error(message, region: region);
   }
 
   /// Groups each of [missingFiles] under the highest directory between it and

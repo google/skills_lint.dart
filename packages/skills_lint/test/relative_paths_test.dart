@@ -475,6 +475,16 @@ void main() {
       test('checks a link indented under a list item', () async {
         expect(await missingTargets('1. Step\n\n    [a](step.md)\n'), ['step.md']);
       });
+
+      test('checks full, collapsed and shortcut reference-style links', () async {
+        const body =
+            'See [full][existing], [missing-ref][], and [shortcut-missing].\n'
+            '\n'
+            '[existing]: ok.md\n'
+            '[missing-ref]: gone.md\n'
+            '[shortcut-missing]: <also gone.md>\n';
+        expect(await missingTargets(body, files: ['ok.md']), ['gone.md', 'also gone.md']);
+      });
     });
   });
 

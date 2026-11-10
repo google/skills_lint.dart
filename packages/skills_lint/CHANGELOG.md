@@ -1,18 +1,19 @@
 ## 0.5.3+2-wip
 
+### Breaking changes
+
+- Removed `SkillContext.markdownLinkRegex`.
+
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
-
-### New features
-
-- Deprecated `SkillContext.markdownLinkRegex`, because it matches links in code spans and code blocks and misreads `<...>` destinations and destinations with parentheses. It will be removed in 0.6.0.
+- `check-absolute-paths`, `check-relative-paths`, and `pub-archive-includes-skill` also validate reference-style links (`[text][ref]`, `[ref][]`, and `[ref]`), and `check-absolute-paths --fix` rewrites `[ref]:` definitions in place.
 
 ### Bug fixes
 
 - `check-absolute-paths --fix` writes a link that stays inside the skill when the skill directory or the linked path goes through a symlink. [#142](https://github.com/google/skills_lint.dart/issues/142)
-- `check-absolute-paths`, `check-relative-paths` and `pub-archive-includes-skill` skip link syntax in code spans and in fenced and indented code blocks. They read a destination in `<` and `>`, such as `[a](<my file.md>)`, and a destination with balanced parentheses, such as `[a](a(b).md)`, as a whole.
+- `check-absolute-paths`, `check-relative-paths`, and `pub-archive-includes-skill` ignore link syntax in inline code and code blocks, and parse `<...>` and parenthesized destinations without truncating them. [#106](https://github.com/google/skills_lint.dart/issues/106)
 
 ## 0.5.3+1
 
