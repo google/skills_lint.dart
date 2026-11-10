@@ -640,6 +640,43 @@ skills_lint:
       expect(stderr, contains('Ignore file error: ${malformedFile.path} is not valid JSON'));
     });
 
+    test('writes ignore file errors as SARIF configuration notifications', () async {
+      final malformedFile = File(p.join(tempDir.path, 'malformed.json'));
+      await malformedFile.writeAsString('{ malformed json }');
+      final Directory skillFolder = await Directory(p.join(tempDir.path, 'skill-x')).create();
+      await File(
+        p.join(skillFolder.path, 'SKILL.md'),
+      ).writeAsString('${buildFrontmatter(name: 'skill-x', description: 'Valid skill')}Body');
+
+      final TestProcess process = await startCli([
+        '-s',
+        skillFolder.path,
+        '--ignore-file',
+        'malformed.json',
+        '--format=sarif',
+      ], workingDirectory: tempDir.path);
+
+      final String stderr = await process.stderrStream().join('\n');
+      final String stdout = await process.stdoutStream().join('\n');
+      await process.shouldExit(0);
+      final Map<String, dynamic> invocation = sarifInvocation(stdout);
+      expect(invocation['executionSuccessful'], isTrue, reason: stdout);
+      expect(invocation['toolConfigurationNotifications'], [
+        {
+          'level': 'warning',
+          'message': {'text': contains('malformed.json is not valid JSON')},
+          'locations': [
+            {
+              'physicalLocation': {
+                'artifactLocation': {'uri': 'malformed.json', 'uriBaseId': '%SRCROOT%'},
+              },
+            },
+          ],
+        },
+      ], reason: stdout);
+      expect(stderr, contains('Ignore file error: '));
+    });
+
     test('CLI help displays all registered rules', () async {
       final TestProcess process = await startCli(['--help']);
       await process.shouldExit(0);
@@ -1471,6 +1508,59 @@ skills_lint:
       failsWithFormat('json');
       failsWithFormat('sarif');
 
+      test('writes an empty JSON array with --format=json', () async {
+        final ({String stdout, String stderr}) result = await run([
+          '--format=json',
+          '-d',
+          tempDir.path,
+        ], 1);
+
+        expect(jsonDecode(result.stdout), isEmpty, reason: 'stderr: ${result.stderr}');
+      });
+
+      test('writes the error as a SARIF configuration notification', () async {
+        final ({String stdout, String stderr}) result = await run([
+          '--format=sarif',
+          '-d',
+          tempDir.path,
+        ], 1);
+
+        final Map<String, dynamic> invocation = sarifInvocation(result.stdout);
+        expect(invocation['executionSuccessful'], isFalse, reason: result.stdout);
+        expect(invocation['toolConfigurationNotifications'], [
+          {
+            'level': 'error',
+            'message': {
+              'text': 'unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+            },
+            'locations': [
+              {
+                'physicalLocation': {
+                  'artifactLocation': {'uri': 'skills_lint.yaml', 'uriBaseId': '%SRCROOT%'},
+                  'region': {'startLine': 3, 'startColumn': 5},
+                },
+              },
+            ],
+          },
+        ]);
+        expect(result.stderr, contains('skills_lint did not run.'));
+      });
+
+      test('writes a SARIF warning notification with --allow-misconfigured-keys', () async {
+        final ({String stdout, String stderr}) result = await run([
+          '--allow-misconfigured-keys',
+          '--format=sarif',
+          '-d',
+          tempDir.path,
+        ], 0);
+
+        final Map<String, dynamic> invocation = sarifInvocation(result.stdout);
+        expect(invocation['executionSuccessful'], isTrue, reason: result.stdout);
+        expect(invocation['toolConfigurationNotifications'], [
+          containsPair('level', 'warning'),
+        ], reason: result.stdout);
+      });
+
       test('is a warning with --allow-misconfigured-keys', () async {
         final ({String stdout, String stderr}) result = await run([
           '--allow-misconfigured-keys',
@@ -1486,6 +1576,33 @@ skills_lint:
           ),
         );
         expect('unknown rule'.allMatches(result.stderr), hasLength(1));
+      });
+
+      test('writes a missing --config file as a SARIF error notification', () async {
+        final ({String stdout, String stderr}) result = await run([
+          '--config',
+          'missing.yaml',
+          '--format=sarif',
+          '-d',
+          tempDir.path,
+        ], 1);
+
+        final Map<String, dynamic> invocation = sarifInvocation(result.stdout);
+        expect(invocation['executionSuccessful'], isFalse, reason: result.stdout);
+        expect(invocation['toolConfigurationNotifications'], [
+          {
+            'level': 'error',
+            'message': {'text': 'Configuration file not found'},
+            'locations': [
+              {
+                'physicalLocation': {
+                  'artifactLocation': {'uri': 'missing.yaml', 'uriBaseId': '%SRCROOT%'},
+                },
+              },
+            ],
+          },
+        ]);
+        expect(result.stderr, contains('Configuration file not found'));
       });
 
       test('fails on an unknown rule in the file given to --config', () async {
@@ -1714,4 +1831,14 @@ List<Object?> _baselineSubjects(Directory skillDir) {
   final skills = json[SkillsIgnores.skillsKey] as Map<String, dynamic>;
   final entries = skills[p.basename(skillDir.path)] as List<dynamic>;
   return [for (final entry in entries) (entry as Map<String, dynamic>)[IgnoreEntry.subjectKey]];
+}
+
+/// The only invocation in the SARIF document [stdout], which fails the test
+/// with [stdout] when the document has a different shape.
+Map<String, dynamic> sarifInvocation(String stdout) {
+  final Object? document = jsonDecode(stdout);
+  if (document case {'runs': [{'invocations': [final Map<String, dynamic> invocation]}]}) {
+    return invocation;
+  }
+  fail('Expected one SARIF run with one invocation, got: $stdout');
 }

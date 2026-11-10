@@ -17,6 +17,8 @@ import 'config_problem_report.dart';
 import 'missing_defaults_exception.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
+import 'models/config_notification.dart';
+import 'models/config_problem.dart';
 import 'models/custom_rule_parameters.dart';
 import 'models/output_format.dart';
 import 'models/rule_config.dart';
@@ -24,6 +26,7 @@ import 'models/rule_parameter_type.dart';
 import 'models/skill_rule.dart';
 import 'models/validation_target.dart';
 import 'path_utils.dart';
+import 'reporters/reporters.dart';
 import 'rule_registry.dart';
 import 'validation_session.dart';
 import 'version.dart';
@@ -354,6 +357,9 @@ Future<Configuration?> _loadConfig(
       config = await ConfigParser.loadConfig(path: configPath);
     } on FileSystemException catch (e) {
       _log.severe('Error: ${e.message} (${e.path})');
+      _writeEmptyReport(format, [
+        ConfigNotification(severity: AnalysisSeverity.error, message: e.message, file: e.path),
+      ]);
       return null;
     }
   }
@@ -370,10 +376,21 @@ Future<Configuration?> _loadConfig(
       _log.warning(configProblemReport(configProblemsOf(config), ignored: true));
     } else {
       _log.severe(configProblemReport(configProblemsOf(config), ignored: false));
+      _writeEmptyReport(format, [
+        for (final ConfigProblem problem in configProblemsOf(config))
+          ConfigNotification.fromProblem(problem, severity: AnalysisSeverity.error),
+      ]);
       return null;
     }
   }
   return config;
+}
+
+/// Writes a report in [format] with no results and with
+/// [configNotifications], so that standard output holds a valid document
+/// when skills_lint does not run.
+void _writeEmptyReport(OutputFormat format, List<ConfigNotification> configNotifications) {
+  Reporter.fromFormat(format).onSessionComplete(const [], configNotifications: configNotifications);
 }
 
 /// Validates skills based on the provided configuration.

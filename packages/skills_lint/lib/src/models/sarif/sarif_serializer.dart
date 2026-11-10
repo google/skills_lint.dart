@@ -11,6 +11,7 @@ import '../../path_utils.dart';
 import '../../rule_registry.dart';
 import '../analysis_severity.dart';
 import '../check_type.dart';
+import '../config_notification.dart';
 import '../skill_context.dart';
 import '../skill_rule.dart';
 import '../source_region.dart';
@@ -43,12 +44,18 @@ class SarifSerializer {
   ///
   /// [rootDirectory] specifies the root project directory against which relative artifact
   /// paths and `%SRCROOT%` resolve. If omitted, falls back to the git root or current working directory.
+  ///
+  /// [configNotifications] become the invocation's
+  /// `toolConfigurationNotifications`. The invocation's `executionSuccessful`
+  /// is `false` when any of them is an [AnalysisSeverity.error], since SARIF
+  /// §3.20.22 says such a notification means the run failed.
   static SarifLog toSarifLog(
     List<ValidationResult> results, {
     String? toolVersion,
     List<CheckType>? checkTypes,
     List<SkillRule>? customRules,
     String? rootDirectory,
+    List<ConfigNotification> configNotifications = const [],
   }) {
     final String effectiveRoot = rootDirectory ?? _findGitRoot() ?? Directory.current.path;
     final List<SarifRule> rules = _buildSarifRules(
@@ -73,6 +80,17 @@ class SarifSerializer {
       runs: [
         SarifRun(
           tool: SarifTool(driver: driver),
+          invocations: [
+            SarifInvocation(
+              executionSuccessful: configNotifications.every(
+                (n) => n.severity != AnalysisSeverity.error,
+              ),
+              toolConfigurationNotifications: [
+                for (final ConfigNotification notification in configNotifications)
+                  _buildSarifNotification(notification, effectiveRoot),
+              ],
+            ),
+          ],
           results: sarifResults,
           originalUriBaseIds: {
             _srcRootBaseId: {
@@ -142,7 +160,6 @@ class SarifSerializer {
     Map<String, int> ruleIndexMap,
     String rootDirectory,
   ) {
-    final ({String uri, String? uriBaseId}) resolved = _resolveUri(error, context, rootDirectory);
     final SarifRegion region = _resolveRegion(error);
 
     return SarifResult(
@@ -153,13 +170,36 @@ class SarifSerializer {
       locations: [
         SarifLocation(
           physicalLocation: SarifPhysicalLocation(
-            artifactLocation: SarifArtifactLocation(
-              uri: resolved.uri,
-              uriBaseId: resolved.uriBaseId,
-            ),
+            artifactLocation: _artifactLocation(_resultPath(error, context), rootDirectory),
             region: region,
           ),
         ),
+      ],
+    );
+  }
+
+  static SarifNotification _buildSarifNotification(
+    ConfigNotification notification,
+    String rootDirectory,
+  ) {
+    final String? file = notification.file;
+    return SarifNotification(
+      level: severityToSarifLevel(notification.severity),
+      message: SarifMessage(text: notification.message),
+      locations: [
+        if (file != null)
+          SarifLocation(
+            physicalLocation: SarifPhysicalLocation(
+              artifactLocation: _artifactLocation(file, rootDirectory),
+              region: switch (notification.position) {
+                null => null,
+                (:final int line, :final int column) => SarifRegion(
+                  startLine: line,
+                  startColumn: column,
+                ),
+              },
+            ),
+          ),
       ],
     );
   }
@@ -201,11 +241,8 @@ class SarifSerializer {
     return result.stdout.toString().trim();
   }
 
-  static ({String uri, String? uriBaseId}) _resolveUri(
-    ValidationError error,
-    SkillContext? context,
-    String rootDirectory,
-  ) {
+  /// The path of the file that [error] is about.
+  static String _resultPath(ValidationError error, SkillContext? context) {
     String rawPath;
     if (context != null) {
       final String dirPath = context.directory.path;
@@ -221,15 +258,20 @@ class SarifSerializer {
     } else {
       rawPath = error.file;
     }
+    return rawPath;
+  }
 
-    final String absolutePath = p.normalize(p.absolute(rawPath));
+  /// [path] relative to [rootDirectory] against `%SRCROOT%` when it is
+  /// inside [rootDirectory], and as an absolute file URI otherwise.
+  static SarifArtifactLocation _artifactLocation(String path, String rootDirectory) {
+    final String absolutePath = p.normalize(p.absolute(path));
     final String normalizedRoot = p.normalize(p.absolute(rootDirectory));
 
     if (isAtOrWithin(normalizedRoot, absolutePath)) {
       final String relative = p.relative(absolutePath, from: normalizedRoot);
-      return (uri: p.toUri(relative).toString(), uriBaseId: _srcRootBaseId);
+      return SarifArtifactLocation(uri: p.toUri(relative).toString(), uriBaseId: _srcRootBaseId);
     }
 
-    return (uri: p.toUri(absolutePath).toString(), uriBaseId: null);
+    return SarifArtifactLocation(uri: p.toUri(absolutePath).toString());
   }
 }

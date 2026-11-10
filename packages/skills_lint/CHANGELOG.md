@@ -1,4 +1,4 @@
-## 0.5.3+2-wip
+## 0.5.4-wip
 
 ### Behavior changes
 
@@ -8,6 +8,11 @@
 - Configuration error messages start with the problem, such as `unknown rule "check-relative-path"`. An unknown key, parameter or severity gets a "Did you mean" suggestion when a known name is close.
 - The CLI prints configuration errors under one header per file, such as `skills_lint.yaml has 2 configuration errors:`, and ends with a line that says how many errors to fix and that skills_lint did not run.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
+
+### New features
+
+- `--format=sarif` lists configuration errors and ignore file errors in `runs[].invocations[].toolConfigurationNotifications`, each with a `level`, a `message`, and the file's location, with the line and column when known. Errors that stop skills_lint from running have level `error`; errors it runs without, such as a malformed ignore entry, have level `warning`. Each SARIF run has one `invocations` entry, whose `executionSuccessful` is `false` only when skills_lint did not run.
+- When skills_lint does not run because of a configuration error, `--format=sarif` and `--format=json` still write a valid document to standard output: a SARIF log with the errors and no results, or an empty JSON array. The errors still go to standard error, and the exit code does not change.
 
 ## 0.5.3+1
 
