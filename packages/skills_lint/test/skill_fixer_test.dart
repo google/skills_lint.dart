@@ -34,6 +34,7 @@ import 'package:skills_lint/src/skill_fixer.dart';
 import 'package:skills_lint/src/skill_writer.dart';
 import 'package:skills_lint/src/validator.dart';
 import 'package:skills_lint/src/write_boundary.dart';
+import 'package:skills_lint/src/write_policy.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -134,8 +135,14 @@ void main() {
     bool canRename = true,
   }) async {
     final validator = Validator(ruleConfigs: ruleConfigs, customRules: customRules);
+    // No boundary: these tests are about which fixes run, not where they land.
+    final policy = WritePolicy(
+      boundary: const WriteBoundary.none(),
+      mayFix: validator.fixEnabledFor,
+    );
     return SkillFixer(
       validator: validator,
+      mayFix: policy.mayFix,
       applyIgnores: (_) {},
       onFixFailed: (ruleName, error) => fail('$ruleName fix threw $error'),
     ).fix(await validator.validate(skillDir), canRename: canRename);
@@ -207,6 +214,20 @@ void main() {
     expect(outcome.result.isValid, isTrue);
     expect(outcome.settled, isTrue);
     await expectDiskMatches(outcome, skillDir, ruleConfigs);
+  });
+
+  test('runs only the fixes whose resolved fix setting is true', () async {
+    const Map<String, RuleConfig> ruleConfigs = {
+      ...publishedName,
+      TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.error, fix: false),
+    };
+    final Directory skillDir = await createPackageSkill('foo', body: 'Body   \n');
+
+    final FixOutcome outcome = await predict(skillDir, ruleConfigs);
+
+    expect(outcome.appliedRuleNames, [PublishedSkillNameRule.ruleName]);
+    expect(outcome.content, contains('Body   \n'));
+    expect(outcome.result.errors, [contains('trailing space')]);
   });
 
   test('drops a fix that would turn a warning into an error', () async {

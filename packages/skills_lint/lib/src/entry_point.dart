@@ -675,12 +675,7 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
   }
 
   // 3. Resolve fix overrides from CLI flags (e.g. --no-check-absolute-paths-fix)
-  final fixOverrides = <String, bool>{
-    for (final CheckType check in RuleRegistry.allChecks)
-      if (results.options.contains(check.parameterFlag(ConfigParser.fixKey)) &&
-          results.wasParsed(check.parameterFlag(ConfigParser.fixKey)))
-        check.name: results[check.parameterFlag(ConfigParser.fixKey)] as bool,
-  };
+  final Map<String, bool> fixOverrides = _resolveFixOverrides(results);
 
   // 4. Combine into RuleConfigPatch overrides
   final Set<String> allRuleNames = {
@@ -700,6 +695,18 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
 
   return configs;
 }
+
+/// The `fix` setting of each fixable rule whose `--[no-]<rule>-fix` flag is
+/// in [results].
+Map<String, bool> _resolveFixOverrides(ArgResults results) => {
+  for (final String ruleName in RuleRegistry.fixableRuleNames)
+    if (results.options.contains(_ruleFixFlag(ruleName)) &&
+        results.wasParsed(_ruleFixFlag(ruleName)))
+      ruleName: results[_ruleFixFlag(ruleName)] as bool,
+};
+
+/// The flag that sets the `fix` setting of the rule named [ruleName].
+String _ruleFixFlag(String ruleName) => '$ruleName-${ConfigParser.fixKey}';
 
 Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults results) {
   final checkOverrides = <String, Object?>{};
