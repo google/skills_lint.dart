@@ -27,11 +27,11 @@ const Map<String, ({int matches, String owns})> boundaryFiles =
     <String, ({int matches, String owns})>{
       'lib/src/path_utils.dart': (matches: 5, owns: 'declares the canonicalization helpers'),
       'lib/src/config_parser.dart': (
-        matches: 5,
+        matches: 6,
         owns: 'anchors paths read from a configuration file',
       ),
       'lib/src/entry_point.dart': (
-        matches: 4,
+        matches: 5,
         owns: 'anchors paths supplied by the CLI or an API caller',
       ),
       'lib/src/validation_session.dart': (

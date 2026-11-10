@@ -18,7 +18,14 @@ import 'validator.dart';
 /// warnings, across all enabled rules. Rules don't need to know about each
 /// other: a fix that breaks another rule is dropped and reported.
 class SkillFixer {
-  SkillFixer({required this.validator, required this.applyIgnores, required this.onFixFailed});
+  SkillFixer({
+    required this.validator,
+    required this.applyIgnores,
+    required this.onFixFailed,
+    this.mayFix = _fixEveryRule,
+  });
+
+  static bool _fixEveryRule(String ruleName) => true;
 
   /// The most passes over the fixable rules for one skill.
   ///
@@ -37,6 +44,10 @@ class SkillFixer {
 
   /// Called when a rule's fix throws.
   final void Function(String ruleName, Object error) onFixFailed;
+
+  /// Whether the fix of the rule named `ruleName` may run. A rule it rejects
+  /// is never fixed. Defaults to every rule.
+  final bool Function(String ruleName) mayFix;
 
   /// Fixes the skill that [initial] describes, without writing to disk.
   ///
@@ -57,7 +68,9 @@ class SkillFixer {
     // Each pass either keeps a fix and counts, or settles and ends the loop.
     while (!settled && passes < maxPasses) {
       settled = true;
-      for (final FixableRule rule in validator.rules.whereType<FixableRule>()) {
+      for (final FixableRule rule in validator.rules.whereType<FixableRule>().where(
+        (FixableRule rule) => mayFix(rule.name),
+      )) {
         final Set<String>? ignoredSubjects = _ignoredSubjects(current, rule.name);
         if (ignoredSubjects == null) {
           continue;

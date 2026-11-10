@@ -35,6 +35,7 @@ import 'skills_ignores_storage.dart';
 import 'unknown_rule_names.dart';
 import 'validator.dart';
 import 'write_boundary.dart';
+import 'write_policy.dart';
 
 final _log = Logger('skills_lint');
 
@@ -78,6 +79,8 @@ class ValidationSession {
   /// * [fixApply] is the deprecated flag indicating if fixes should be automatically applied.
   // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
   /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
+  /// * [allowWrite] lists directories from `--allow-write` that every
+  ///   target's writes may also land in.
   /// * [pubArchiveLoader] lists the files pub publishes. Tests pass one with a
   ///   fake process runner.
   /// * [skillWriter] builds the [SkillWriter] that does the `--fix` file I/O.
@@ -98,6 +101,7 @@ class ValidationSession {
     // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
     required this.fixApply,
     this.format = OutputFormat.text,
+    List<String> allowWrite = const [],
     @visibleForTesting PubArchiveLoader? pubArchiveLoader,
     @visibleForTesting SkillWriter Function(Reporter reporter) skillWriter = SkillWriter.new,
   }) : _pubArchiveLoader = pubArchiveLoader ?? PubArchiveLoader(),
@@ -105,6 +109,7 @@ class ValidationSession {
        _reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
        resolvedRuleConfigs = mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
        ignoreFileOverride = _ingestOptionalPath(ignoreFileOverride),
+       _allowWrite = [for (final String path in allowWrite) _ingestPath(path)],
        _normalizedDirectoryConfigs = [
          for (final dc in [...config.directoryConfigs, ...config.individualSkillConfigs])
            (
@@ -164,6 +169,9 @@ class ValidationSession {
   // TODO(reidbaker): Remove deprecated fixApply field on next major version bump.
   final bool fixApply;
   final OutputFormat format;
+
+  /// The anchored directories from `--allow-write`.
+  final List<String> _allowWrite;
   final Reporter _reporter;
   final PubArchiveLoader _pubArchiveLoader;
 
@@ -292,6 +300,8 @@ class ValidationSession {
     final boundary = WriteBoundary.forSkill(
       normalizedSkillPath,
       configDirectory: _configDirectoryOf(declaredBy),
+      configAllowed: declaredBy?.writeAllow ?? const [],
+      allowed: _allowWrite,
     );
     final String ignorePath = _resolveIgnorePath(localIgnoreFile, skillDir, boundary);
     final SkillsIgnores ignores = await _loadIgnores(
@@ -411,6 +421,8 @@ class ValidationSession {
     final boundary = WriteBoundary.forSkillsDirectory(
       normalizedRootPath,
       configDirectory: _configDirectoryOf(declaredBy),
+      configAllowed: declaredBy?.writeAllow ?? const [],
+      allowed: _allowWrite,
     );
 
     for (final entity in entities) {
@@ -1018,7 +1030,8 @@ class ValidationSession {
       return result;
     }
 
-    final SkillFixer fixer = _fixerFor(validator, skillIgnores, skillDir);
+    final policy = WritePolicy(boundary: boundary, mayFix: validator.fixEnabledFor);
+    final SkillFixer fixer = _fixerFor(validator, skillIgnores, skillDir, policy);
     final SkillWriter writer = _skillWriterFor(_reporter);
     final String currentDirectoryName = p.basename(skillDir.path);
 
@@ -1029,7 +1042,7 @@ class ValidationSession {
     // A plan that changes nothing writes nothing, so no boundary applies.
     ApplyResult applied = outcome.content == context.rawContent
         ? Applied(skillDir, renamed: false)
-        : writer.preflight(skillDir, outcome.directoryName, boundary);
+        : writer.preflight(skillDir, outcome.directoryName, policy.boundary);
     if (applied is WriteRefused) {
       // SkillWriter reported why. Nothing is written for this skill, and the
       // run fails, with or without --dry-run.
@@ -1040,13 +1053,23 @@ class ValidationSession {
       outcome = await _planWithoutRename(fixer, result, applied);
     }
     if (fixApply && outcome.content != context.rawContent) {
-      applied = await writer.apply(skillDir, outcome.content, outcome.directoryName, boundary);
+      applied = await writer.apply(
+        skillDir,
+        outcome.content,
+        outcome.directoryName,
+        policy.boundary,
+      );
       if (applied is RenameBlocked) {
         // Only the rename failed, before anything was written.
         outcome = await _planWithoutRename(fixer, result, applied);
         if (outcome.content != context.rawContent) {
           // The new plan keeps the directory name, so this apply only writes.
-          applied = await writer.apply(skillDir, outcome.content, outcome.directoryName, boundary);
+          applied = await writer.apply(
+            skillDir,
+            outcome.content,
+            outcome.directoryName,
+            policy.boundary,
+          );
         }
       }
     }
@@ -1174,11 +1197,17 @@ class ValidationSession {
   }
 
   /// The fixer for the skill in [skillDir], which counts only diagnostics
-  /// that [skillIgnores] don't cover.
-  SkillFixer _fixerFor(Validator validator, List<IgnoreEntry> skillIgnores, Directory skillDir) {
+  /// that [skillIgnores] don't cover, and runs only the fixes [policy] allows.
+  SkillFixer _fixerFor(
+    Validator validator,
+    List<IgnoreEntry> skillIgnores,
+    Directory skillDir,
+    WritePolicy policy,
+  ) {
     final failedRuleNames = <String>{};
     return SkillFixer(
       validator: validator,
+      mayFix: policy.mayFix,
       applyIgnores: (ValidationResult candidate) =>
           _applyIgnores(candidate, skillIgnores, skillDir),
       // A broken fixer throws on every pass and in every plan. Report it

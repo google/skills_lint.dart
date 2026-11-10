@@ -38,6 +38,11 @@ const _quietFlag = 'quiet';
 const _skillsDirectoryFlag = 'skills-directory';
 const _skillOption = 'skill';
 const _ignoreFileOption = 'ignore-file';
+const _allowWriteOption = 'allow-write';
+
+/// The name a rule's `fix` setting has in `skills_lint.yaml` and in its
+/// command-line flag, `--[no-]<rule>-fix`.
+const _fixParameter = ConfigParser.fixKey;
 const _ignoreConfigFlag = 'ignore-config';
 const _generateBaselineFlag = 'generate-baseline';
 const _fixFlag = 'fix';
@@ -196,6 +201,8 @@ Future<void> runApp(List<String> args) async {
       ? results[_ignoreFileOption] as String?
       : null;
 
+  final allowWrite = results[_allowWriteOption] as List<String>;
+
   var success = false;
   try {
     success = await validateSkillsInternal(
@@ -209,6 +216,7 @@ Future<void> runApp(List<String> args) async {
       fix: fix,
       fixApply: fixApply,
       ignoreFileOverride: ignoreFileOverride,
+      allowWrite: allowWrite,
       config: config,
       format: format,
     );
@@ -247,6 +255,12 @@ ArgParser createArgParser(String helpFlag) {
       check.name,
       defaultsTo: check.defaultSeverity != AnalysisSeverity.disabled,
       help: check.help,
+    );
+
+    parser.addFlag(
+      check.parameterFlag(_fixParameter),
+      defaultsTo: RuleConfig.defaultFix,
+      help: "Let --fix change files for rule '${check.name}'.",
     );
 
     // Register namespaced delegated parameters
@@ -289,6 +303,12 @@ ArgParser createArgParser(String helpFlag) {
       help: 'Path to an individual skill directory to validate. Can be specified multiple times.',
     )
     ..addOption(_ignoreFileOption, help: 'Path to a JSON file listing lints to ignore for the run.')
+    ..addMultiOption(
+      _allowWriteOption,
+      help:
+          'A directory that --fix and --generate-baseline may write in, in addition to '
+          'the directories being scanned.',
+    )
     ..addFlag(
       _generateBaselineFlag,
       negatable: false,
@@ -470,6 +490,7 @@ Future<bool> validateSkillsInternal({
   // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
   bool fixApply = false,
   String? ignoreFileOverride,
+  List<String> allowWrite = const [],
   Configuration? config,
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
@@ -496,6 +517,10 @@ Future<bool> validateSkillsInternal({
   );
   final String? canonicalIgnoreFileOverride = canonicalizePathOrNull(
     ignoreFileOverride,
+    baseDirectory: workingDirectory,
+  );
+  final List<String> canonicalAllowWrite = canonicalizePaths(
+    allowWrite,
     baseDirectory: workingDirectory,
   );
 
@@ -527,6 +552,7 @@ Future<bool> validateSkillsInternal({
     fix: fix,
     fixApply: fixApply,
     format: format,
+    allowWrite: canonicalAllowWrite,
   );
   _reportConfigurationWarnings(session, enabled: warnOnParsingErrors);
 
@@ -650,11 +676,24 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
     }
   }
 
-  // 3. Combine into RuleConfigPatch overrides
-  final Set<String> allRuleNames = {...severityOverrides.keys, ...parameterOverrides.keys};
+  // 3. Resolve fix overrides from CLI flags (e.g. --no-check-absolute-paths-fix)
+  final fixOverrides = <String, bool>{
+    for (final CheckType check in RuleRegistry.allChecks)
+      if (results.options.contains(check.parameterFlag(_fixParameter)) &&
+          results.wasParsed(check.parameterFlag(_fixParameter)))
+        check.name: results[check.parameterFlag(_fixParameter)] as bool,
+  };
+
+  // 4. Combine into RuleConfigPatch overrides
+  final Set<String> allRuleNames = {
+    ...severityOverrides.keys,
+    ...parameterOverrides.keys,
+    ...fixOverrides.keys,
+  };
   for (final ruleName in allRuleNames) {
     configs[ruleName] = RuleConfigPatch(
       severity: severityOverrides[ruleName],
+      fix: fixOverrides[ruleName],
       parameters: parameterOverrides.containsKey(ruleName)
           ? CustomRuleParameters(parameterOverrides[ruleName])
           : null,

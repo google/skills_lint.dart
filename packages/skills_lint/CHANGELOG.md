@@ -4,7 +4,12 @@
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
-- `--fix`, `--generate-baseline` and ignore-file creation write only inside the scanned directories, after following symlinks. Any other write is skipped with an `Error:` message, and the run fails. Paths named with `-s`, `-d` or `--ignore-file` are written as before.
+- `--fix`, `--generate-baseline` and ignore-file creation write only inside the scanned directories, after following symlinks. Any other write is skipped with an `Error:` message, and the run fails. `write_allow` and `--allow-write` add directories.
+
+### New features
+
+- `write_allow:` on a `directories` or `individual_skills` entry, and `--allow-write`, add directories that `--fix` and `--generate-baseline` may write in.
+- `fix: true|false` in a rule entry, and `--[no-]<rule-name>-fix`, turn one rule's fix on or off, with the same precedence as severity.
 
 ## 0.5.3+1
 

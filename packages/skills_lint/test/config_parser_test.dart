@@ -318,6 +318,74 @@ skills_lint:
     });
   });
 
+  group('fix and write_allow', () {
+    final String anchor = p.join(p.current, 'project');
+    Configuration parse(String yaml) => ConfigParser.parse(
+      yaml,
+      configSource: ConfigSource.file(p.join(anchor, 'skills_lint.yaml')),
+    );
+
+    const yaml =
+        'skills_lint:\n'
+        '  rules:\n'
+        '    check-absolute-paths: {severity: error, fix: false}\n'
+        '  directories:\n'
+        '    - path: skills\n'
+        '      write_allow: [vendor, vendor/more]\n'
+        '      rules:\n'
+        '        check-absolute-paths: {fix: true}\n';
+
+    test('parses fix as a bool and write_allow as anchored directories', () {
+      final Configuration config = parse(yaml);
+
+      expect(config.parsingErrors, isEmpty);
+      expect(config.ruleConfigs['check-absolute-paths']?.fix, isFalse);
+      expect(config.ruleConfigs['check-absolute-paths']?.parameters, isNull);
+      final LintTargetConfig target = config.directoryConfigs.single;
+      expect(target.ruleConfigs['check-absolute-paths']?.fix, isTrue);
+      expect(target.writeAllow, [p.join(anchor, 'vendor'), p.join(anchor, 'vendor', 'more')]);
+    });
+
+    test('round-trips through toYamlString', () {
+      final Configuration config = parse(yaml);
+      final Configuration reparsed = parse(config.toYamlString());
+
+      expect(reparsed.parsingErrors, isEmpty);
+      expect(reparsed.ruleConfigs['check-absolute-paths']?.fix, isFalse);
+      expect(reparsed.directoryConfigs.single.ruleConfigs['check-absolute-paths']?.fix, isTrue);
+      expect(
+        reparsed.directoryConfigs.single.writeAllow,
+        config.directoryConfigs.single.writeAllow,
+      );
+    });
+
+    for (final (String value, String error) in [
+      ('{fix: 1}', '"fix" for rule "check-absolute-paths" must be true or false'),
+      ('{fix: "no"}', '"fix" for rule "check-absolute-paths" must be true or false'),
+    ]) {
+      test('reports fix: $value', () {
+        final Configuration config = parse(
+          'skills_lint:\n  rules:\n    check-absolute-paths: $value\n',
+        );
+        expect(config.parsingErrors, [contains(error)]);
+      });
+    }
+
+    for (final (String value, String error) in [
+      ('vendor', '"write_allow" for "skills" must be a list of paths'),
+      ('[1]', '"write_allow" for "skills" has "1"'),
+      ('[../elsewhere]', '"write_allow" for "skills" has "../elsewhere"'),
+    ]) {
+      test('reports write_allow: $value', () {
+        final Configuration config = parse(
+          'skills_lint:\n  directories:\n    - path: skills\n      write_allow: $value\n',
+        );
+        expect(config.parsingErrors, [contains(error)]);
+        expect(config.directoryConfigs.single.writeAllow, isEmpty);
+      });
+    }
+  });
+
   group('declarationOf', () {
     late Directory tempDir;
 

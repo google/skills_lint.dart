@@ -18,29 +18,68 @@ import 'path_utils.dart';
 /// so that content in a scanned repository can't reach files outside it.
 @immutable
 final class WriteBoundary {
-  /// A boundary at the absolute path [directory].
-  const WriteBoundary(String this.directory);
+  /// A boundary at the absolute path [directory], widened to the absolute
+  /// directories in [allowed].
+  const WriteBoundary(String this.directory, {this.allowed = const []});
 
   /// No boundary, for a path the user named on the command line or through
   /// the API.
-  const WriteBoundary.none() : directory = null;
+  const WriteBoundary.none() : directory = null, allowed = const [];
 
   /// The boundary for the skills directory at the absolute path [directory]:
   /// [directory] itself.
   ///
-  /// See [WriteBoundary._confined] for [configDirectory].
-  factory WriteBoundary.forSkillsDirectory(String directory, {String? configDirectory}) =>
-      _confined(directory, boundary: directory, configDirectory: configDirectory);
+  /// [allowed] holds directories from `--allow-write`, and [configAllowed]
+  /// those from the target's `write_allow`. See [WriteBoundary._confined] for
+  /// [configDirectory].
+  factory WriteBoundary.forSkillsDirectory(
+    String directory, {
+    String? configDirectory,
+    List<String> configAllowed = const [],
+    List<String> allowed = const [],
+  }) => _confined(
+    directory,
+    boundary: directory,
+    configDirectory: configDirectory,
+    allowed: [...allowed, ..._inside(configDirectory, configAllowed)],
+  );
 
   /// The boundary for the individual skill at the absolute path [skill]: the
   /// directory that holds the skill after symlinks are resolved, so that
   /// `--fix` can rename the skill next to where it is.
   ///
-  /// See [WriteBoundary._confined] for [configDirectory].
-  factory WriteBoundary.forSkill(String skill, {String? configDirectory}) =>
-      _confined(skill, boundary: p.dirname(resolve(skill)), configDirectory: configDirectory);
+  /// See [WriteBoundary.forSkillsDirectory] for the other parameters.
+  factory WriteBoundary.forSkill(
+    String skill, {
+    String? configDirectory,
+    List<String> configAllowed = const [],
+    List<String> allowed = const [],
+  }) => _confined(
+    skill,
+    boundary: p.dirname(resolve(skill)),
+    configDirectory: configDirectory,
+    allowed: [...allowed, ..._inside(configDirectory, configAllowed)],
+  );
 
-  /// A [WriteBoundary] at [boundary] for a scan target at [target].
+  /// The directories in [configAllowed] that are inside [configDirectory]
+  /// after symlinks are resolved.
+  ///
+  /// The parser already requires each to be inside as written. This drops one
+  /// that a symlink leads elsewhere, so `write_allow` in a configuration file
+  /// can't reach outside the file's directory.
+  static List<String> _inside(String? configDirectory, List<String> configAllowed) {
+    if (configDirectory == null) {
+      return configAllowed;
+    }
+    final String realConfigDirectory = resolve(configDirectory);
+    return [
+      for (final String directory in configAllowed)
+        if (isAtOrWithin(realConfigDirectory, resolve(directory))) directory,
+    ];
+  }
+
+  /// A [WriteBoundary] at [boundary], widened to [allowed], for a scan target
+  /// at [target].
   ///
   /// A target declared in a configuration file must also be inside
   /// [configDirectory], the directory the file's paths are relative to. When
@@ -50,21 +89,26 @@ final class WriteBoundary {
     String target, {
     required String boundary,
     required String? configDirectory,
+    required List<String> allowed,
   }) {
     if (configDirectory == null || isAtOrWithin(resolve(configDirectory), resolve(target))) {
-      return WriteBoundary(boundary);
+      return WriteBoundary(boundary, allowed: allowed);
     }
-    return WriteBoundary(configDirectory);
+    return WriteBoundary(configDirectory, allowed: allowed);
   }
 
   /// The absolute directory that writes must stay inside, or `null` for no
   /// boundary.
   final String? directory;
 
+  /// Absolute directories outside [directory] that writes may also land in,
+  /// from `write_allow` and `--allow-write`.
+  final List<String> allowed;
+
   /// What a user does to write outside a boundary on purpose.
   static const String hint =
-      'skills_lint writes only inside the directories it scans. '
-      'To write there anyway, name the path with -s, -d or --ignore-file.';
+      'skills_lint writes only inside the directories it scans. To write there '
+      'anyway, add it to write_allow in skills_lint.yaml, or pass --allow-write.';
 
   /// Why writing or creating [path] is refused, readable as the end of a
   /// sentence, or `null` when [path] is inside the boundary.
@@ -75,7 +119,8 @@ final class WriteBoundary {
     }
     final String realRoot = resolve(root);
     final String realPath = resolve(path);
-    if (p.isWithin(realRoot, realPath)) {
+    if (p.isWithin(realRoot, realPath) ||
+        allowed.any((String directory) => p.isWithin(resolve(directory), realPath))) {
       return null;
     }
     if (p.equals(realPath, p.normalize(path))) {

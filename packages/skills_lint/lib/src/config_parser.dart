@@ -42,9 +42,16 @@ class ConfigParser {
   static const String pathKey = 'path';
   static const String ignoreFileKey = 'ignore_file';
   static const String severityKey = 'severity';
+  static const String fixKey = 'fix';
+  static const String writeAllowKey = 'write_allow';
 
   static const Set<String> _allowedTopLevelKeys = {rulesKey, directoriesKey, individualSkillsKey};
-  static const Set<String> _allowedDirectoryKeys = {pathKey, rulesKey, ignoreFileKey};
+  static const Set<String> _allowedDirectoryKeys = {
+    pathKey,
+    rulesKey,
+    ignoreFileKey,
+    writeAllowKey,
+  };
 
   static final Map<String, AnalysisSeverity> _severityNameMap = AnalysisSeverity.values.asNameMap();
 
@@ -350,6 +357,8 @@ class ConfigParser {
       return RuleConfigPatch(severity: severity);
     }
 
+    final bool? fix = _parseFix(value, ruleName, contextLabel, parsingErrors);
+
     final AnalysisSeverity? severity = _parseSeverity(
       value[severityKey],
       ruleName,
@@ -359,7 +368,7 @@ class ConfigParser {
 
     final parameters = <String, Object?>{
       for (final Object? key in value.keys)
-        if (key.toString() != severityKey) key.toString(): value[key],
+        if (key.toString() != severityKey && key.toString() != fixKey) key.toString(): value[key],
     };
 
     final CustomRuleParameters? customParams = parameters.isNotEmpty
@@ -378,7 +387,7 @@ class ConfigParser {
       }
     }
 
-    return RuleConfigPatch(severity: severity, parameters: customParams);
+    return RuleConfigPatch(severity: severity, parameters: customParams, fix: fix);
   }
 
   /// Iterates a top-level YAML target list (`directories` or `individual_skills`)
@@ -480,6 +489,14 @@ class ConfigParser {
       anchorDirectory,
     );
 
+    final ({List<String> authored, List<String> resolved}) writeAllow = _parseWriteAllowForTarget(
+      dir,
+      path,
+      entryLabelCap,
+      parsingErrors,
+      anchorDirectory,
+    );
+
     final ({String file, int line})? source = sourceFile == null
         ? null
         : (file: sourceFile, line: _lineOf(dir, pathKey));
@@ -489,6 +506,8 @@ class ConfigParser {
       ignoreFile: ignoreFile.resolved,
       authoredPath: path,
       authoredIgnoreFile: ignoreFile.authored,
+      writeAllow: writeAllow.resolved,
+      authoredWriteAllow: writeAllow.authored,
       declaration: TargetDeclaration(
         declaredPath: path,
         anchorDirectory: anchorDirectory,
@@ -526,6 +545,68 @@ class ConfigParser {
       'got "$localRules" (${localRules.runtimeType}). Ignoring local rules.',
     );
     return const <String, RuleConfigPatch>{};
+  }
+
+  /// The `fix` value in the rule map [value] for [ruleName], or `null` when
+  /// it is absent or not a boolean, in which case an error is appended to
+  /// [parsingErrors].
+  static bool? _parseFix(
+    YamlMap value,
+    String ruleName,
+    String contextLabel,
+    List<String> parsingErrors,
+  ) {
+    final Object? fix = value[fixKey];
+    if (fix == null || fix is bool) {
+      return fix as bool?;
+    }
+    parsingErrors.add(
+      '$contextLabel: "$fixKey" for rule "$ruleName" must be true or false; '
+      'got "$fix" (${fix.runtimeType}). Using the inherited value.',
+    );
+    return null;
+  }
+
+  /// Parses the directories under a target entry's `write_allow` key, each
+  /// anchored to [anchorDirectory].
+  ///
+  /// Each must be a string naming [anchorDirectory] or a directory inside it;
+  /// any other entry is left out with an error in [parsingErrors].
+  static ({List<String> authored, List<String> resolved}) _parseWriteAllowForTarget(
+    YamlMap dir,
+    String path,
+    String entryLabelCap,
+    List<String> parsingErrors,
+    String anchorDirectory,
+  ) {
+    final authored = <String>[];
+    final resolved = <String>[];
+    final Object? value = dir[writeAllowKey];
+    if (value == null) {
+      return (authored: authored, resolved: resolved);
+    }
+    if (value is! YamlList) {
+      parsingErrors.add(
+        '$entryLabelCap "$writeAllowKey" for "$path" must be a list of paths; '
+        'got "$value" (${value.runtimeType}). Ignoring it.',
+      );
+      return (authored: authored, resolved: resolved);
+    }
+    for (final Object? entry in value) {
+      final String? anchored = entry is String
+          ? canonicalizePath(entry, baseDirectory: anchorDirectory)
+          : null;
+      if (entry is String && anchored != null && isAtOrWithin(anchorDirectory, anchored)) {
+        authored.add(entry);
+        resolved.add(anchored);
+        continue;
+      }
+      parsingErrors.add(
+        '$entryLabelCap "$writeAllowKey" for "$path" has "$entry", which is not a '
+        'directory inside $anchorDirectory. Ignoring it.',
+      );
+    }
+    return (authored: authored, resolved: resolved);
   }
 
   /// Parses the custom ignore file path under a target entry's `ignore_file` key.
@@ -572,8 +653,10 @@ class LintTargetConfig {
     required this.path,
     this.ruleConfigs = const <String, RuleConfigPatch>{},
     this.ignoreFile,
+    this.writeAllow = const <String>[],
   }) : _authoredPath = null,
        _authoredIgnoreFile = null,
+       _authoredWriteAllow = null,
        _declaration = null;
 
   /// Builds a target that remembers the path text it was declared with.
@@ -585,8 +668,10 @@ class LintTargetConfig {
     required this.ignoreFile,
     required this._authoredPath,
     required this._authoredIgnoreFile,
+    required this.writeAllow,
+    required List<String> authoredWriteAllow,
     required TargetDeclaration this._declaration,
-  });
+  }) : _authoredWriteAllow = authoredWriteAllow;
 
   /// The path to the directory containing skills, or to an individual skill.
   ///
@@ -604,6 +689,13 @@ class LintTargetConfig {
   /// supplied on a target built directly.
   final String? ignoreFile;
 
+  /// Directories outside [path] that `--fix` and `--generate-baseline` may
+  /// also write in for this target.
+  ///
+  /// Absolute on a target [ConfigParser] produced, and inside the directory
+  /// of the configuration file.
+  final List<String> writeAllow;
+
   /// [path] as spelled in the configuration file, or `null` for a target built
   /// by a caller rather than read from a file.
   ///
@@ -616,6 +708,10 @@ class LintTargetConfig {
   /// [ignoreFile] as spelled in the configuration file, or `null` for a target
   /// built by a caller rather than read from a file.
   final String? _authoredIgnoreFile;
+
+  /// [writeAllow] as spelled in the configuration file, or `null` for a
+  /// target built by a caller rather than read from a file.
+  final List<String>? _authoredWriteAllow;
 
   /// Where this target was declared, or `null` for a target built by a caller
   /// rather than read from a configuration. Read with [declarationOf].
@@ -633,6 +729,10 @@ class LintTargetConfig {
     final String? targetIgnoreFile = _authoredIgnoreFile ?? ignoreFile;
     if (targetIgnoreFile != null) {
       map[ConfigParser.ignoreFileKey] = targetIgnoreFile;
+    }
+    final List<String> targetWriteAllow = _authoredWriteAllow ?? writeAllow;
+    if (targetWriteAllow.isNotEmpty) {
+      map[ConfigParser.writeAllowKey] = targetWriteAllow;
     }
     return map;
   }

@@ -240,6 +240,162 @@ void defineCliTests() {
     });
   });
 
+  group('write_allow and --allow-write', () {
+    /// Links `skills/foo` to `vendor/foo`, a skill in [repo] that `--fix`
+    /// renames in its frontmatter, and returns the real `SKILL.md`.
+    File vendoredSkill() {
+      final vendor = Directory(p.join(repo.path, 'vendor'))..createSync();
+      final skills = Directory(p.join(repo.path, 'skills'))..createSync();
+      final skill = Directory(p.join(vendor.path, 'foo'))..createSync();
+      Link(p.join(skills.path, 'foo')).createSync(skill.path);
+      return File(p.join(skill.path, 'SKILL.md'))..writeAsStringSync(_skillNamed('bar'));
+    }
+
+    test('--fix refuses a symlinked skill in another folder of the repository', () async {
+      final File skillMd = vendoredSkill();
+      writeConfig(['- path: skills']);
+
+      final String stderr = await run(['--fix'], exitCode: 1);
+
+      expect(skillMd.readAsStringSync(), _skillNamed('bar'));
+      expect(stderr, contains('write_allow'));
+    });
+
+    test('write_allow lets --fix write a symlinked skill in that folder', () async {
+      final File skillMd = vendoredSkill();
+      writeConfig(['- path: skills', '  write_allow: [vendor]']);
+
+      await run(['--fix'], exitCode: 0);
+
+      expect(skillMd.readAsStringSync(), _skillNamed('foo'));
+      // The fixed skill validates cleanly.
+      await run([], exitCode: 0);
+    });
+
+    test('--allow-write lets --fix write a symlinked skill in that folder', () async {
+      final File skillMd = vendoredSkill();
+
+      await run(['--fix', '-d', 'skills', '--allow-write', 'vendor'], exitCode: 0);
+
+      expect(skillMd.readAsStringSync(), _skillNamed('foo'));
+    });
+
+    test('write_allow does not turn on a fix that fix: false turns off', () async {
+      final File skillMd = vendoredSkill();
+      writeConfig([
+        '- path: skills',
+        '  write_allow: [vendor]',
+        '  rules:',
+        '    invalid-skill-name: {fix: false}',
+      ]);
+
+      await run(['--fix'], exitCode: 1);
+
+      expect(skillMd.readAsStringSync(), _skillNamed('bar'));
+    });
+
+    test('a write_allow directory outside the configuration is a configuration error', () async {
+      vendoredSkill();
+      writeConfig(['- path: skills', '  write_allow: [${_yamlString(outside.path)}]']);
+
+      final String stderr = await run(['--fix'], exitCode: 1);
+
+      expect(stderr, contains('Configuration error'));
+      expect(stderr, contains('"write_allow" for "skills" has "${outside.path}"'));
+    });
+
+    test('write_allow does not reach outside the configuration through a symlink', () async {
+      final skills = Directory(p.join(outside.path, 'skills'))..createSync();
+      final Directory skill = await createDummySkill(
+        skills,
+        name: 'foo',
+        skillContent: _skillNamed('bar'),
+      );
+      Link(p.join(repo.path, 'escape')).createSync(skills.path);
+      final local = Directory(p.join(repo.path, 'skills'))..createSync();
+      Link(p.join(local.path, 'foo')).createSync(skill.path);
+      writeConfig(['- path: skills', '  write_allow: [escape]']);
+
+      await run(['--fix'], exitCode: 1);
+
+      expect(File(p.join(skill.path, 'SKILL.md')).readAsStringSync(), _skillNamed('bar'));
+    });
+  });
+
+  group('fix: in rules', () {
+    /// Creates `skills/foo` in [repo] with a `name` that `--fix` changes, and
+    /// returns its `SKILL.md`.
+    Future<File> mismatchedSkill() async {
+      final Directory skill = await createDummySkill(
+        Directory(p.join(repo.path, 'skills')),
+        name: 'foo',
+        skillContent: _skillNamed('bar'),
+      );
+      return File(p.join(skill.path, 'SKILL.md'));
+    }
+
+    /// Writes a configuration whose global rules set `fix` for the name rule
+    /// to [global], and whose `skills` target sets it to [target].
+    void writeFixConfig({required bool global, bool? target}) {
+      File(p.join(repo.path, 'skills_lint.yaml')).writeAsStringSync(
+        'skills_lint:\n'
+        '  rules:\n'
+        '    invalid-skill-name: {severity: error, fix: $global}\n'
+        '  directories:\n'
+        '    - path: skills\n'
+        '${target == null ? '' : '      rules:\n        invalid-skill-name: {fix: $target}\n'}',
+      );
+    }
+
+    test('fix: false in the global rules keeps --fix from running the fix', () async {
+      final File skillMd = await mismatchedSkill();
+      writeFixConfig(global: false);
+
+      await run(['--fix'], exitCode: 1);
+
+      expect(skillMd.readAsStringSync(), _skillNamed('bar'));
+    });
+
+    test('fix: true on a target overrides fix: false in the global rules', () async {
+      final File skillMd = await mismatchedSkill();
+      writeFixConfig(global: false, target: true);
+
+      await run(['--fix'], exitCode: 0);
+
+      expect(skillMd.readAsStringSync(), _skillNamed('foo'));
+      await run([], exitCode: 0);
+    });
+
+    test('--no-<rule>-fix overrides fix: true on a target', () async {
+      final File skillMd = await mismatchedSkill();
+      writeFixConfig(global: false, target: true);
+
+      await run(['--fix', '--no-invalid-skill-name-fix'], exitCode: 1);
+
+      expect(skillMd.readAsStringSync(), _skillNamed('bar'));
+    });
+
+    test('--<rule>-fix overrides fix: false in the global rules', () async {
+      final File skillMd = await mismatchedSkill();
+      writeFixConfig(global: false);
+
+      await run(['--fix', '--invalid-skill-name-fix'], exitCode: 0);
+
+      expect(skillMd.readAsStringSync(), _skillNamed('foo'));
+    });
+
+    test('a fix value that is not true or false is a configuration error', () async {
+      await mismatchedSkill();
+      File(
+        p.join(repo.path, 'skills_lint.yaml'),
+      ).writeAsStringSync('skills_lint:\n  rules:\n    invalid-skill-name: {fix: maybe}\n');
+
+      final String stderr = await run(['--fix'], exitCode: 1);
+
+      expect(stderr, contains('"fix" for rule "invalid-skill-name" must be true or false'));
+    });
+  });
+
   group('directory names', () {
     test(
       '--fix does not move a skill out of its directory for a name with a YAML escape',
