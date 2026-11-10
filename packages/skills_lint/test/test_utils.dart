@@ -8,10 +8,12 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/analysis_severity.dart';
+import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/suggestions/did_you_mean.dart';
+import 'package:skills_lint/src/validator.dart';
 import 'package:tar/tar.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
@@ -130,6 +132,34 @@ Future<Directory> createDummySkill(
   return skillDir;
 }
 
+/// Writes `<parentDir>/<directoryName ?? name>/SKILL.md` with YAML frontmatter
+/// and [body], then validates that skill directory.
+///
+/// Frontmatter fields come from [name], [description], and optional
+/// [compatibility]; [ruleConfigs] and [customRules] configure [Validator].
+Future<ValidationResult> writeAndValidateSkill(
+  Directory parentDir, {
+  String name = 'test-skill',
+  String? directoryName,
+  String description = 'A test skill',
+  String? compatibility,
+  String body = '',
+  Map<String, RuleConfig>? ruleConfigs,
+  List<SkillRule>? customRules,
+}) async {
+  final String frontmatter = buildFrontmatter(
+    name: name,
+    description: description,
+    compatibility: compatibility,
+  );
+  final Directory skillDir = await createDummySkill(
+    parentDir,
+    name: directoryName ?? name,
+    skillContent: '$frontmatter$body',
+  );
+  return Validator(ruleConfigs: ruleConfigs, customRules: customRules).validate(skillDir);
+}
+
 /// Constructs an in-memory [SkillContext] data object for unit testing [SkillRule]s.
 SkillContext createTestSkillContext({
   required Directory directory,
@@ -229,6 +259,15 @@ Matcher reportsUnknownRule(String name, {String? section, List<String> suggestio
       if (suggestions.isNotEmpty) contains(didYouMean(suggestions)),
       if (suggestions.isEmpty) contains('newer skills_lint'),
     ]);
+
+/// Matches a [ValidationResult] that is valid and has neither [ValidationResult.errors]
+/// nor [ValidationResult.warnings].
+// [ValidationResult.isValid] ignores warnings until
+// https://github.com/google/skills_lint.dart/issues/140 removes warning severity.
+final Matcher hasNoErrorsOrWarnings = isA<ValidationResult>()
+    .having((ValidationResult r) => r.isValid, 'isValid', isTrue)
+    .having((ValidationResult r) => r.errors, 'errors', isEmpty)
+    .having((ValidationResult r) => r.warnings, 'warnings', isEmpty);
 
 /// How severe a configuration problem is in CLI output.
 // TODO(reidbaker-agent): Remove `warning` with the warning severity level.

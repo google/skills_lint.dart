@@ -9,6 +9,10 @@
 - The CLI prints configuration errors under one header per file, such as `skills_lint.yaml has 2 configuration errors:`, and ends with a line that says how many errors to fix and that skills_lint did not run.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
 
+### Bug fixes
+
+- `check-absolute-paths --fix` writes a link that stays inside the skill when the skill directory or the linked path goes through a symlink. [#142](https://github.com/google/skills_lint.dart/issues/142)
+
 ## 0.5.3+1
 
 - Fixed the README's download example, which named a version with no release assets.
