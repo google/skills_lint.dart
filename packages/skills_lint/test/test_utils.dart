@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:skills_lint/src/config_parser.dart' show Configuration;
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
@@ -274,7 +275,12 @@ final Matcher hasNoErrorsOrWarnings = isA<ValidationResult>()
 // https://github.com/google/skills_lint.dart/issues/140
 enum ConfigProblemLevel { error, warning }
 
-/// A located configuration problem in CLI output.
+/// A located configuration problem parsed from CLI stderr output.
+///
+/// Subprocess CLI tests only observe rendered text, not in-process
+/// [Configuration] objects, so [configProblemsIn] parses each indented
+/// `<file>:<line>:<column>  <message>` line into this record so matchers check
+/// structured fields instead of ad-hoc regular expressions.
 typedef ReportedConfigProblem = ({
   ConfigProblemLevel level,
   String file,
@@ -286,8 +292,8 @@ typedef ReportedConfigProblem = ({
 /// The located configuration problems that [output] reports, in order.
 ///
 /// The CLI prints a header that counts the configuration errors or warnings,
-/// then one indented `<file>:<line>:<column>  <message>` line per problem. The header gives the level. Lines without a location are
-/// left out.
+/// then one indented `<file>:<line>:<column>  <message>` line per problem. The
+/// header gives the level. Lines without a location are left out.
 List<ReportedConfigProblem> configProblemsIn(String output) {
   final problems = <ReportedConfigProblem>[];
   ConfigProblemLevel? level;

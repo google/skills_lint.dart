@@ -37,7 +37,14 @@ abstract class Reporter {
       case OutputFormat.json:
         return JsonReporter(out: out, err: err, pretty: pretty);
       case OutputFormat.sarif:
-        return SarifReporter(out: out, err: err, pretty: pretty, toolVersion: toolVersion);
+        return SarifReporter(
+          out: out,
+          err: err,
+          pretty: pretty,
+          quiet: quiet,
+          printWarnings: printWarnings,
+          toolVersion: toolVersion,
+        );
     }
   }
 

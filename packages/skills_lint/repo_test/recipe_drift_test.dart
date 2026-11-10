@@ -135,17 +135,23 @@ void main() {
       );
       expect(
         lintStep['continue-on-error'],
-        isTrue,
-        reason: 'without continue-on-error the job dies before findings are uploaded',
+        isNull,
+        reason: 'the lint step itself fails the job while !cancelled() uploads the SARIF report',
       );
       expect(lintStep['run'] as String, contains('--format=sarif'));
 
+      final YamlMap uploadStep = steps.whereType<YamlMap>().firstWhere(
+        (s) => (s['uses'] as String? ?? '').startsWith('github/codeql-action/upload-sarif@'),
+      );
       expect(
-        steps.whereType<YamlMap>().any(
-          (s) => (s['if'] as String? ?? '').contains("steps.lint.outcome != 'success'"),
-        ),
-        isTrue,
-        reason: 'recipe no longer fails the job when the linter reports violations',
+        uploadStep['if'] as String? ?? '',
+        contains('!cancelled()'),
+        reason: 'without !cancelled() the upload step is skipped when the lint step fails',
+      );
+      expect(
+        uploadStep['if'] as String? ?? '',
+        contains("steps.lint.conclusion != 'skipped'"),
+        reason: 'upload must be skipped when setup failed before lint ran',
       );
     });
 

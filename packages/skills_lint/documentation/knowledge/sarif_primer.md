@@ -37,25 +37,22 @@ All SARIF locations in `skills_lint` use 1-based coordinates in accordance with 
 To ingest SARIF findings into GitHub Code Scanning, give the job `security-events: write` permission and add these steps:
 
 ```yaml
-# skills_lint exits with code 1 when it finds violations. continue-on-error lets
-# the upload step run before the final step fails the job.
+# skills_lint exits with code 1 when it finds violations or configuration
+# errors. Standard output writes the SARIF report, while standard error prints
+# findings and errors to this step's log.
 - name: Run linter and generate SARIF
   id: lint
-  continue-on-error: true
   run: dart run skills_lint --format=sarif > results.sarif
 
-# Skip the upload if the lint step never ran, and on fork pull requests, which
-# cannot be granted security-events: write.
+# !cancelled() uploads the report on both success and failure while respecting
+# workflow cancellation. Skip the upload if setup failed before the lint step
+# ran, and on fork pull requests, which lack security-events: write.
 - name: Upload SARIF to GitHub Code Scanning
   if: ${{ !cancelled() && steps.lint.conclusion != 'skipped' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
-  uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+  uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
   with:
     sarif_file: results.sarif
     category: skills_lint
-
-- name: Fail the job when the linter found violations
-  if: steps.lint.outcome != 'success'
-  run: exit 1
 ```
 
-> Note: Without the last step, `continue-on-error` makes the job pass even when the linter finds violations. This repository's [.github/workflows/code_scanning.yaml](../../../../.github/workflows/code_scanning.yaml) instead lets the lint step fail, uploads with `always()`, and reruns the linter in text format so the failing job's log shows the findings.
+> Note: When the linter finds violations, the lint step fails the job while `!cancelled()` still lets the upload step publish the SARIF report to Code Scanning. This repository runs these steps in [.github/workflows/code_scanning.yaml](../../../../.github/workflows/code_scanning.yaml).

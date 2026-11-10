@@ -1179,7 +1179,12 @@ class ValidationSession {
   /// Emits the formatted validation output (SARIF or JSON) to [sink] (defaults to [stdout]).
   void emitFormattedOutput([StringSink? sink]) {
     if (sink != null) {
-      Reporter.fromFormat(format, out: sink).onSessionComplete(_results, customRules: customRules);
+      Reporter.fromFormat(
+        format,
+        out: sink,
+        quiet: quiet,
+        printWarnings: printWarnings,
+      ).onSessionComplete(_results, customRules: customRules);
     } else {
       _reporter.onSessionComplete(_results, customRules: customRules);
     }

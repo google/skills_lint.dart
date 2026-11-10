@@ -1145,7 +1145,9 @@ Body with trailing space
 
       await process.shouldExit(0);
       final List<String> stdout = await process.stdout.rest.toList();
+      final List<String> stderr = await process.stderr.rest.toList();
       final String output = stdout.join('\n');
+      expect(stderr, isEmpty);
       final jsonMap = jsonDecode(output) as Map<String, dynamic>;
 
       expect(
@@ -1167,30 +1169,36 @@ Body with trailing space
       expect(output, isNot(contains('Skill is valid.')));
     });
 
-    test('--format=sarif exits 1 and emits SARIF findings for invalid skill', () async {
-      final Directory skillDir = await Directory('${tempDir.path}/invalid-skill').create();
-      await File('${skillDir.path}/SKILL.md').writeAsString('No frontmatter here');
+    test(
+      '--format=sarif exits 1 and emits SARIF findings to stdout and summary to stderr',
+      () async {
+        final Directory skillDir = await Directory('${tempDir.path}/invalid-skill').create();
+        await File('${skillDir.path}/SKILL.md').writeAsString('No frontmatter here');
 
-      final TestProcess process = await startCli(['-s', skillDir.path, '--format=sarif']);
+        final TestProcess process = await startCli(['-s', skillDir.path, '--format=sarif']);
 
-      await process.shouldExit(1);
-      final List<String> stdout = await process.stdout.rest.toList();
-      final String output = stdout.join('\n');
-      final jsonMap = jsonDecode(output) as Map<String, dynamic>;
+        final String output = await process.stdoutStream().join('\n');
+        final String stderrOutput = await process.stderrStream().join('\n');
+        await process.shouldExit(1);
+        final jsonMap = jsonDecode(output) as Map<String, dynamic>;
 
-      expect(jsonMap['version'], equals('2.1.0'));
-      final runs = jsonMap['runs'] as List<dynamic>;
-      final run = runs.first as Map<String, dynamic>;
-      final results = run['results'] as List<dynamic>;
-      expect(results, isNotEmpty);
-      final firstResult = results.first as Map<String, dynamic>;
-      expect(firstResult['ruleId'], equals('valid-yaml-metadata'));
-      expect(firstResult['level'], equals('error'));
-      expect(firstResult['locations'], isNotEmpty);
-      expect(output, isNot(contains('Evaluating directory:')));
-      expect(output, isNot(contains('Validating skill:')));
-      expect(output, isNot(contains('Skill is invalid:')));
-    });
+        expect(jsonMap['version'], equals('2.1.0'));
+        final runs = jsonMap['runs'] as List<dynamic>;
+        final run = runs.first as Map<String, dynamic>;
+        final results = run['results'] as List<dynamic>;
+        expect(results, isNotEmpty);
+        final firstResult = results.first as Map<String, dynamic>;
+        expect(firstResult['ruleId'], equals('valid-yaml-metadata'));
+        expect(firstResult['level'], equals('error'));
+        expect(firstResult['locations'], isNotEmpty);
+        expect(output, isNot(contains('Evaluating directory:')));
+        expect(output, isNot(contains('Validating skill:')));
+        expect(output, isNot(contains('Skill is invalid:')));
+        expect(stderrOutput, contains('--- Validating skill: invalid-skill ---'));
+        expect(stderrOutput, contains('Skill is invalid:'));
+        expect(stderrOutput, contains('Missing YAML metadata in SKILL.md'));
+      },
+    );
 
     test('--format=json exits 0 and emits JSON array for valid skill', () async {
       final Directory skillDir = await Directory('${tempDir.path}/valid-skill').create();

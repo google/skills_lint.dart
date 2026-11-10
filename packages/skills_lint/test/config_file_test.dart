@@ -1562,6 +1562,7 @@ skills_lint:
 
     test('list errors in line order, not in the order of config sections', () async {
       final Configuration config = await load('''
+# Top comment so line numbers are not tied to line 1.
 skills_lint:
   directorys: []
   directories:
@@ -1572,16 +1573,18 @@ skills_lint:
     description-too-long: loud
 ''');
 
-      final List<int> lines = [
-        for (final String error in config.parsingErrors) locationOf(error).line,
-      ];
-      expect(lines, [2, 5, 7, 8], reason: config.parsingErrors.join('\n'));
+      // ConfigParser validates top-level keys, rules, and directories in
+      // separate passes, yet parsingErrors must come back in source line order.
       expect(config.parsingErrors.map(textAt), [
         startsWith('directorys'),
         startsWith('ignorefile'),
         startsWith('check-relative-path'),
         startsWith('loud'),
       ], reason: config.parsingErrors.join('\n'));
+      final List<int> lines = [
+        for (final String error in config.parsingErrors) locationOf(error).line,
+      ];
+      expect(lines, [...lines]..sort(), reason: config.parsingErrors.join('\n'));
     });
 
     test('keep errors on one line in the order they were found', () async {

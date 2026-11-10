@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/models/sarif/sarif.dart';
+import 'package:skills_lint/src/reporters/sarif_reporter.dart';
 import 'package:test/test.dart';
 import 'test_utils.dart';
 
@@ -273,6 +274,74 @@ void main() {
         customSarifRule.properties![SarifRule.keyTags],
         equals(['lint', 'quality', 'custom-rule']),
       );
+    });
+
+    test('SarifReporter writes clean SARIF to out and only failing/warned skills to err', () {
+      final cleanContext = SkillContext(
+        directory: Directory('/tmp/clean-skill'),
+        rawContent: 'valid',
+      );
+      final brokenContext = SkillContext(
+        directory: Directory('/tmp/broken-skill'),
+        rawContent: 'invalid',
+      );
+      final warnedContext = SkillContext(
+        directory: Directory('/tmp/warned-skill'),
+        rawContent: 'warned',
+      );
+
+      final results = [
+        ValidationResult(context: cleanContext),
+        ValidationResult(
+          context: brokenContext,
+          validationErrors: [
+            ValidationError(
+              ruleId: 'valid-yaml-metadata',
+              file: 'SKILL.md',
+              message: 'Missing YAML frontmatter',
+              severity: AnalysisSeverity.error,
+            ),
+          ],
+        ),
+        ValidationResult(
+          context: warnedContext,
+          validationErrors: [
+            ValidationError(
+              ruleId: 'check-trailing-whitespace',
+              file: 'SKILL.md',
+              message: 'Line 2 has 1 trailing space(s).',
+              severity: AnalysisSeverity.warning,
+            ),
+          ],
+        ),
+      ];
+
+      final out = StringBuffer();
+      final err = StringBuffer();
+      SarifReporter(out: out, err: err).onSessionComplete(results);
+
+      final Object? decoded = jsonDecode(out.toString());
+      expect(decoded, isA<Map<String, Object?>>());
+      final errText = err.toString();
+      expect(errText, isNot(contains('clean-skill')));
+      expect(errText, contains('--- Validating skill: broken-skill ---'));
+      expect(errText, contains('Missing YAML frontmatter'));
+      expect(errText, contains('--- Validating skill: warned-skill ---'));
+      expect(errText, contains('Line 2 has 1 trailing space(s).'));
+
+      final quietOut = StringBuffer();
+      final quietErr = StringBuffer();
+      SarifReporter(
+        out: quietOut,
+        err: quietErr,
+        quiet: true,
+        printWarnings: false,
+      ).onSessionComplete(results);
+
+      final quietErrText = quietErr.toString();
+      expect(quietErrText, isNot(contains('--- Validating skill:')));
+      expect(quietErrText, isNot(contains('warned-skill')));
+      expect(quietErrText, contains('Missing YAML frontmatter'));
     });
   });
 

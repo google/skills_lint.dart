@@ -167,9 +167,12 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 
   Diagnostics go to standard output in every format, so redirect them to a
   file to capture a report: `skills_lint --format=sarif > skills-lint.sarif`.
-  Operational failures stay on standard error and never corrupt the report.
-  Bugs in skills_lint start with `skills_lint internal error:`. Problems in
-  your files, such as a `--fix` rename that can't happen, start with `Error:`.
+  With `--format=sarif`, any errors and enabled warnings also print to standard
+  error so terminal and CI logs show what failed while standard output stays a
+  clean SARIF document. Operational failures stay on standard error and never
+  corrupt the report. Bugs in skills_lint start with
+  `skills_lint internal error:`. Problems in your files, such as a `--fix`
+  rename that can't happen, start with `Error:`.
 
 ### 2. As a Command Line Tool with a YAML Configuration File
 You can configure the linter using a configuration file (defaulting to `skills_lint.yaml` in the current directory).
@@ -304,33 +307,30 @@ jobs:
       - uses: dart-lang/setup-dart@v1
       - run: dart install skills_lint
 
-      # The linter exits 1 when it finds violations. continue-on-error
-      # lets the upload step run first, so findings reach Code Scanning
-      # instead of disappearing with the failed job.
+      # The linter exits 1 when it finds violations or configuration
+      # errors. Standard output writes the SARIF report, while standard
+      # error prints findings and errors to this step's log.
       - name: Generate SARIF report
         id: lint
-        continue-on-error: true
         run: skills_lint --skills-directory ./.claude/skills --format=sarif > skills-lint.sarif
 
-      # Pull requests from forks cannot write security events, so skip
-      # the upload there rather than failing the job on a permission
-      # error.
+      # !cancelled() uploads the report on both success and failure while
+      # respecting workflow cancellation. Pull requests from forks cannot
+      # write security events, so skip the upload there rather than
+      # failing the job on a permission error.
       - name: Upload SARIF report
         if: ${{ !cancelled() && steps.lint.conclusion != 'skipped' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: skills-lint.sarif
           category: skills_lint
-
-      - name: Fail on lint violations
-        if: steps.lint.outcome != 'success'
-        run: exit 1
 ```
 
 Notes:
 
-- The report goes to standard output, so redirect it to a file.
-  Operational failures go to standard error and never mix into the report.
+- The report goes to standard output, so redirect it to a file. Any errors
+  and enabled warnings also print to standard error for the job log, and
+  operational failures go to standard error without mixing into the report.
   Bugs in skills_lint start with `skills_lint internal error:`, and
   problems in your files start with `Error:`.
 - Result paths are recorded relative to the repository root using the
