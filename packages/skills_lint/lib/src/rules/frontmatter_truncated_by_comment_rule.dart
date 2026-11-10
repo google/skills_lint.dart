@@ -198,9 +198,9 @@ final class _TruncationFinder {
     ));
   }
 
-  /// The first offset after the anchor (`&a`) and tag (`!t`) at the start
-  /// of the scalar span that begins at [offset]. A plain value can't start
-  /// with `&` or `!`.
+  /// The offset of the first character after the anchors (`&a`), tags
+  /// (`!t`) and whitespace at the start of the scalar span that begins at
+  /// [offset]. A plain value can't start with `&` or `!`.
   ///
   /// Stops at [end].
   int _skipProperties(int offset, int end) {

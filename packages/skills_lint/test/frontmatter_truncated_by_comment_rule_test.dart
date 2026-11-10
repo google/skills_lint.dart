@@ -160,6 +160,14 @@ void main() {
         '  internal: true # x',
       ],
       'a comment after a key with a block value': ['description: Fine.', 'metadata: # x', '  a: b'],
+      // Quoting from the tag would pull the comment line into the value.
+      'a value after a tag and a comment line': [
+        'description: Fine.',
+        'metadata:',
+        '  tagged: !!str',
+        '    # note',
+        '    Fix #1 now',
+      ],
     };
     for (final MapEntry(key: name, value: lines) in notReported.entries) {
       test('does not report $name', () async {
