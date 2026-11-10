@@ -40,8 +40,8 @@ governs how changes to these rules ship.
 
 - **Default severity:** warning
 - **Fixable:** yes
-- **What it checks:** Markdown links in `SKILL.md` (inline and
-  reference-style) do not use absolute filesystem paths (POSIX
+- **What it checks:** Markdown links and images in `SKILL.md` (inline
+  and reference-style) do not use absolute filesystem paths (POSIX
   `/foo/bar` or Windows `C:\foo`). Absolute paths break portability
   across machines. Link syntax in code spans and code blocks is
   intentionally skipped.
@@ -50,8 +50,8 @@ governs how changes to these rules ship.
 - **Auto-fix behavior:** if the absolute path resolves to a file that
   exists on disk, the fixer rewrites the link destination (or the
   referenced `[ref]:` definition) to the equivalent POSIX-style
-  relative path from `SKILL.md`, enclosed in `<` and `>` if the path
-  has a space or a parenthesis. If the target does not exist the
+  relative path from `SKILL.md`, enclosed in `<` and `>` when the path
+  contains whitespace or parentheses. If the target does not exist the
   fixer leaves the link untouched. The fixer skips links that an ignore
   entry with a `subject` covers. An ignore entry without a `subject`
   stops the fixer for the whole file.
@@ -63,11 +63,11 @@ governs how changes to these rules ship.
 
 - **Default severity:** disabled
 - **Fixable:** no
-- **What it checks:** Markdown links in `SKILL.md` (inline and
-  reference-style) with relative targets resolve to files or
+- **What it checks:** Markdown links and images in `SKILL.md` (inline
+  and reference-style) with relative targets resolve to files or
   directories that actually exist on disk. Link syntax in code spans
   and code blocks is intentionally skipped.
-  Web URLs, anchors, `mailto:`, `javascript:`, and `data:` links are
+  Empty destinations (`[]()`), web URLs, anchors, `mailto:`, `javascript:`, and `data:` links are
   skipped. Percent escapes are decoded first, as on GitHub, so
   `my%20file.md` resolves to `my file.md` and `a%2Fb.md` to `a/b.md`.
   A link that does not decode to a relative path, such as `x%E9.md`

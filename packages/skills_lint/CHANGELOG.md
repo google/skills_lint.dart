@@ -2,7 +2,7 @@
 
 ### Breaking changes
 
-- Removed `SkillContext.markdownLinkRegex`.
+- Removed `SkillContext.markdownLinkRegex`. Custom rules that matched Markdown links with `markdownLinkRegex` should use `package:markdown` or define their own pattern.
 
 ### Behavior changes
 
@@ -13,7 +13,7 @@
 ### Bug fixes
 
 - `check-absolute-paths --fix` writes a link that stays inside the skill when the skill directory or the linked path goes through a symlink. [#142](https://github.com/google/skills_lint.dart/issues/142)
-- `check-absolute-paths`, `check-relative-paths`, and `pub-archive-includes-skill` ignore link syntax in inline code and code blocks, and parse `<...>` and parenthesized destinations without truncating them. [#106](https://github.com/google/skills_lint.dart/issues/106)
+- `check-absolute-paths`, `check-relative-paths`, and `pub-archive-includes-skill` ignore link syntax in inline code and code blocks, and parse `<...>` and parenthesized destinations in full. [#106](https://github.com/google/skills_lint.dart/issues/106)
 
 ## 0.5.3+1
 

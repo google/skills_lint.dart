@@ -5,8 +5,12 @@
 // Covers the link parsing and destination rewriting shared by
 // check-absolute-paths, check-relative-paths, and pub-archive-includes-skill.
 
+import 'dart:io';
+
+import 'package:skills_lint/src/markdown_block_scanner.dart';
+import 'package:skills_lint/src/markdown_inline_scanner.dart';
 import 'package:skills_lint/src/markdown_links.dart';
-import 'package:skills_lint/src/models/source_region.dart';
+import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/skill_links.dart';
 import 'package:test/test.dart';
 
@@ -16,20 +20,33 @@ void main() {
       for (final MarkdownLink link in markdownLinksIn(markdown)) link.target,
     ];
 
-    test('reads titles, spaces, escapes and nested images, not escaped brackets', () {
-      expect(
-        targetsIn(
-          '[a]( a.md "A (guide)" ) [b](b.md \'B\') [c](c.md (C))\n'
-          '[d](d\\).md) \\[e](e.md) [![f](f.png)](g.md)\n',
-        ),
-        ['a.md', 'b.md', 'c.md', r'd\).md', 'f.png', 'g.md'],
-      );
-    });
+    test(
+      'reads titles, spaces, escapes, Windows paths and nested images, not escaped brackets',
+      () {
+        expect(
+          targetsIn(
+            '[a]( a.md "A (guide)" ) [b](b.md \'B\') [c](c.md (C))\n'
+            '[d](d\\).md) \\[e](e.md) [![f](f.png)](g.md)\n'
+            '[w1](C:\\Users\\dev\\guide.md) [w2](<C:\\Program Files (x86)\\guide.md>)\n',
+          ),
+          [
+            'a.md',
+            'b.md',
+            'c.md',
+            r'd\).md',
+            'f.png',
+            'g.md',
+            r'C:\Users\dev\guide.md',
+            r'C:\Program Files (x86)\guide.md',
+          ],
+        );
+      },
+    );
 
     test('rejects text that is not a valid inline or reference link', () {
       expect(
         targetsIn(
-          '[a] (a.md) [b](b c.md) [c](<c\n.md>) [d](d(.md "t") [e]\n\n(e.md) '
+          '[a] (a.md) [b](b c.md) [b2](b\\ c.md) [c](<c\n.md>) [d](d(.md "t") [e]\n\n(e.md) '
           '[f](<f.md>"no-space") [g][undefined]\n',
         ),
         isEmpty,
@@ -45,19 +62,22 @@ void main() {
 
     test('resolves full, collapsed and shortcut reference links and images', () {
       const markdown =
-          'See [the guide][Guide], [API\n  Ref][], [shortcut], and ![logo][img].\n'
+          'See [the guide][Guide], [API\n  Ref][], [shortcut], [fallback](unclosed, '
+          'and ![logo][img].\n'
           '\n'
           '[guide]: <my guide.md> "Guide"\n'
           '[api ref]:\n'
           '  docs/api(v2).md\n'
           '  "API"\n'
           '[SHORTCUT]: quick.md\n'
+          '[fallback]: fallback.md\n'
           '[img]: assets/logo.png\n'
           '[unused]: not_referenced.md\n';
       expect(targetsIn(markdown), [
         'my guide.md',
         'docs/api(v2).md',
         'quick.md',
+        'fallback.md',
         'assets/logo.png',
       ]);
     });
@@ -106,6 +126,29 @@ void main() {
       );
     });
 
+    test('handles fenced code, indented code and ATX headings on a list item marker line', () {
+      const markdown =
+          '- ```dart\n'
+          '  // [in_fence](ignored.md)\n'
+          '  ```\n'
+          '  [after_fence](real1.md)\n'
+          '-     [in_indented_code](ignored2.md)\n'
+          '- # Heading with `unclosed\n'
+          '  [after_heading](real2.md) `tick`\n';
+      expect(targetsIn(markdown), ['real1.md', 'real2.md']);
+    });
+
+    test('preserves outer list indentation after a nested list ends', () {
+      const markdown =
+          '- Outer step\n'
+          '  - Nested note\n'
+          '\n'
+          '  Outer continuation.\n'
+          '\n'
+          '    [outer_link](outer.md)\n';
+      expect(targetsIn(markdown), ['outer.md']);
+    });
+
     test('ends a paragraph at a blank line with a carriage return', () {
       expect(targetsIn('[a\r\n\r\nb](b.md) `x\r\n \r\n[c](c.md)`\r\n'), ['c.md']);
     });
@@ -130,7 +173,6 @@ void main() {
         ],
         [('my a.md', 5, 5, 5, 19), ('logo.png', 6, 1, 6, 13)],
       );
-      expect(links.first.region, isA<SourceRegion>());
     });
 
     test('reads a fenced block to the end when it never closes', () {
@@ -159,6 +201,29 @@ void main() {
 
     test('reads an indented line after a list ends as code', () {
       expect(targetsIn('- item\n\nText\n\n    [a](a.md)\n'), isEmpty);
+    });
+  });
+
+  group('MarkdownBlockScanner and MarkdownInlineScanner', () {
+    test('separates ATX headings from paragraphs and consumes leading definitions', () {
+      const markdown =
+          '# Heading\n'
+          '[ref]: docs/guide.md "Guide"\n'
+          'See [ref].\n';
+      final (List<MarkdownTextBlock> blocks, List<int> lineStarts) = MarkdownBlockScanner(
+        markdown,
+      ).scan();
+      expect(lineStarts, [0, 10, 39]);
+      expect(blocks.map((MarkdownTextBlock b) => b.allowsDefinitions), [false, true]);
+
+      final definitions = <String, TargetSpan>{};
+      final int inlineStart = consumeReferenceDefinitions(markdown, blocks[1], definitions);
+      expect(definitions.keys, ['ref']);
+      expect(markdown.substring(inlineStart, blocks[1].end), 'See [ref].\n');
+
+      final matches = <LinkMatch>[];
+      MarkdownInlineScanner(markdown, definitions, matches).scanRange(inlineStart, blocks[1].end);
+      expect([for (final LinkMatch m in matches) m.destination.target], ['docs/guide.md']);
     });
   });
 
@@ -197,13 +262,41 @@ void main() {
     });
   });
 
-  test('isUrlOrAnchor accepts schemes and anchors, not relative paths', () {
+  group('bodyLinksOf and replaceBodyLinkTargets', () {
+    test('ignores link syntax inside YAML frontmatter and handles an empty body', () {
+      const frontmatterOnly =
+          '---\n'
+          'name: test-skill\n'
+          'description: See [ignored](/abs/in_frontmatter.md)\n'
+          '---\n';
+      final emptyBodyContext = SkillContext(
+        directory: Directory('test-skill'),
+        rawContent: frontmatterOnly,
+      );
+      expect(bodyLinksOf(emptyBodyContext), isEmpty);
+      expect(replaceBodyLinkTargets(emptyBodyContext, (_) => 'rewritten.md'), frontmatterOnly);
+
+      const withBody = '$frontmatterOnly[real](/abs/in_body.md)\n';
+      final context = SkillContext(directory: Directory('test-skill'), rawContent: withBody);
+      final List<MarkdownLink> links = bodyLinksOf(context);
+      expect(
+        [for (final MarkdownLink l in links) (l.target, l.region.startLine)],
+        [('/abs/in_body.md', 5)],
+      );
+      expect(
+        replaceBodyLinkTargets(context, (_) => 'relative.md'),
+        '$frontmatterOnly[real](relative.md)\n',
+      );
+    });
+  });
+
+  test('isUrlOrAnchor accepts empty self-links, schemes and anchors, not relative paths', () {
     expect(
       {
-        for (final link in ['https://dart.dev', 'mailto:a@b.c', '#steps', 'a.md'])
+        for (final link in ['', 'https://dart.dev', 'mailto:a@b.c', '#steps', 'a.md'])
           link: isUrlOrAnchor(link),
       },
-      {'https://dart.dev': true, 'mailto:a@b.c': true, '#steps': true, 'a.md': false},
+      {'': true, 'https://dart.dev': true, 'mailto:a@b.c': true, '#steps': true, 'a.md': false},
     );
   });
 

@@ -104,7 +104,7 @@ class PubArchiveIncludesSkillRule extends SkillRule {
     // Each link whose target is in the archive under different casing, keyed by
     // the linked archive path, with the archive path and the region of its
     // first link.
-    final wrongCase = <String, (String, SourceRegion)>{};
+    final wrongCase = <String, ({String actualFile, SourceRegion region})>{};
     // Each link outside the package whose target exists, keyed by the path
     // relative to the package root, with the region of its first link.
     final outside = <String, SourceRegion>{};
@@ -124,7 +124,7 @@ class PubArchiveIncludesSkillRule extends SkillRule {
       } else if (!files.contains(linkedFile)) {
         final String? actualFile = filesByLowerCase[linkedFile.toLowerCase()];
         if (actualFile != null) {
-          wrongCase.putIfAbsent(linkedFile, () => (actualFile, link.region));
+          wrongCase.putIfAbsent(linkedFile, () => (actualFile: actualFile, region: link.region));
         } else {
           missing.putIfAbsent(linkedFile, () => link.region);
         }
@@ -137,11 +137,12 @@ class PubArchiveIncludesSkillRule extends SkillRule {
           'publish it. Move the file into the package, or link to an absolute URL.',
           region: entry.value,
         ),
-      for (final MapEntry<String, (String, SourceRegion)> entry in wrongCase.entries)
+      for (final MapEntry<String, ({String actualFile, SourceRegion region})> entry
+          in wrongCase.entries)
         _error(
-          '${entry.key}, linked from $skillFile, is ${entry.value.$1} in the package pub '
+          '${entry.key}, linked from $skillFile, is ${entry.value.actualFile} in the package pub '
           'publishes. Match the file name case so the link works on case-sensitive file systems.',
-          region: entry.value.$2,
+          region: entry.value.region,
         ),
       for (final MapEntry<String, List<String>> group in _groupByExcludedDirectory(
         missing.keys,

@@ -35,9 +35,12 @@ String replaceBodyLinkTargets(SkillContext context, String? Function(String targ
   return '$frontmatter$rewrittenBody';
 }
 
-/// Whether the link target [path] is a URL with a scheme, such as `https:` or
-/// `mailto:`, or an anchor in the current file.
+/// Whether the link target [path] is an empty self-link, a URL with a scheme
+/// (such as `https:` or `mailto:`), or an anchor in the current file.
 bool isUrlOrAnchor(String path) {
+  if (path.isEmpty) {
+    return true;
+  }
   final Uri? uri = Uri.tryParse(path);
   return uri != null && (uri.hasScheme || path.startsWith('#'));
 }

@@ -109,11 +109,12 @@ void main() {
       archive: archiveOf({_skillFile}),
     );
 
-    expect(errors.map((e) => (e.message, e.region?.startLine)), [
+    expect(errors.map((e) => (e.message, e.region?.startLine, e.region?.startColumn)), [
       (
         'skills/$_skillName/references/ is not in the package pub publishes, so neither are '
             'the 12 files $_skillFile links to in it. $_howToFix',
         6,
+        null,
       ),
     ]);
   });
@@ -271,12 +272,26 @@ void main() {
       archive: archiveOf({_skillFile}),
     );
 
-    expect(errors.map((e) => (e.message, e.region?.startLine)), [
-      (
-        '$_referenceFile, linked from $_skillFile, is not in the package pub publishes. '
-            '$_howToFix',
-        5,
+    expect(
+      errors.map(
+        (e) => (
+          e.message,
+          e.region?.startLine,
+          e.region?.startColumn,
+          e.region?.endLine,
+          e.region?.endColumn,
+        ),
       ),
-    ]);
+      [
+        (
+          '$_referenceFile, linked from $_skillFile, is not in the package pub publishes. '
+              '$_howToFix',
+          5,
+          54,
+          5,
+          70,
+        ),
+      ],
+    );
   });
 }
