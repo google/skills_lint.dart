@@ -433,7 +433,7 @@ $rule
 
       final TestProcess process = await run([]);
 
-      await process.shouldExit(1);
+      await process.shouldExit(configErrorExitCode);
       final String stderr = (await process.stderr.rest.toList()).join('\n');
       expect(stderr, contains('Configuration error'));
       expect(stderr, contains('Expected a positive integer'));

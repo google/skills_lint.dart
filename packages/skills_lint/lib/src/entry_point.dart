@@ -86,6 +86,14 @@ For repo-wide config, create skills_lint.yaml with a
 Spec: https://agentskills.io/specification
 Run with --help to see every flag.''';
 
+/// Exit code when the configuration file is missing or has errors, so
+/// `skills_lint` did not check any skill.
+///
+/// Distinct from `1`, which means `skills_lint` ran and found errors. Matches
+/// `EX_CONFIG` from BSD `sysexits.h`, alongside `64` (`EX_USAGE`) for bad
+/// command-line arguments.
+const int configErrorExitCode = 78;
+
 /// Configures the root logger to route log events to stdout/stderr.
 void _setupLogger() {
   Logger.root.level = Level.ALL;
@@ -159,7 +167,7 @@ Future<void> runApp(List<String> args) async {
 
   final Configuration? config = await _loadConfig(results, format: format);
   if (config == null) {
-    exitCode = 1;
+    exitCode = configErrorExitCode;
     return;
   }
 
