@@ -46,6 +46,17 @@ void main() {
       );
     });
 
+    test('ends a code span at the end of a heading, list item or quoted paragraph', () {
+      expect(
+        targetsIn(
+          '# The ` key\n[a](a.md) then `x`\n'
+          '- the ` key\n- [b](b.md) then `x`\n'
+          '> a `\n>\n> [c](c.md) `\n',
+        ),
+        ['a.md', 'b.md', 'c.md'],
+      );
+    });
+
     test('ends a paragraph at a blank line with a carriage return', () {
       expect(targetsIn('[a\r\n\r\nb](b.md) `x\r\n \r\n[c](c.md)`\r\n'), ['c.md']);
     });

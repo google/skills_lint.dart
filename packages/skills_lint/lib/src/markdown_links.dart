@@ -45,6 +45,11 @@ List<MarkdownLink> markdownLinksIn(String markdown, {int offset = 0}) {
 }
 
 final RegExp _fencePattern = RegExp(r'^( *)(`{3,}|~{3,})');
+final RegExp _headingPattern = RegExp(r'^ {0,3}#{1,6}(?:[ \t]|$)');
+
+/// A line with only blockquote markers, which separates paragraphs in a
+/// blockquote.
+final RegExp _emptyQuotePattern = RegExp(r'^[ >]*$');
 final RegExp _listItemPattern = RegExp(r'^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]|$)');
 
 /// Splits Markdown into the runs of lines that hold inline content.
@@ -75,9 +80,15 @@ class _BlockScanner {
       final int lineEnd = newline == -1 ? _markdown.length : newline + 1;
       final String line = _markdown.substring(lineStart, lineEnd).replaceAll('\t', '    ');
       final bool isText = _isTextLine(line);
-      if (!isText && paragraphStart != null) {
+      final bool isHeading = isText && _headingPattern.hasMatch(line);
+      // A list item and a heading each start their own block.
+      final bool startsBlock = isHeading || (isText && _listItemPattern.hasMatch(line));
+      if ((!isText || startsBlock) && paragraphStart != null) {
         ranges.add((paragraphStart, lineStart));
         paragraphStart = null;
+      }
+      if (isHeading) {
+        ranges.add((lineStart, lineEnd));
       } else if (isText) {
         paragraphStart ??= lineStart;
       }
@@ -91,7 +102,7 @@ class _BlockScanner {
 
   /// Whether [line] holds inline content, and not code or blank space.
   bool _isTextLine(String line) {
-    final bool blank = line.trim().isEmpty;
+    final bool blank = _emptyQuotePattern.hasMatch(line.trim());
     final bool isCode = _fence != null ? _continuesFence(line) : _startsCode(line, blank: blank);
     // A blank line inside an indented code block keeps the block open.
     if (!(blank && _inIndentedCode)) {
