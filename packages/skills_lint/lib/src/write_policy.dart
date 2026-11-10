@@ -17,7 +17,10 @@ import 'write_boundary.dart';
 ///   and `--allow-write` widen.
 ///
 /// Widening the boundary never turns a fix on, and `fix` never depends on
-/// paths.
+/// paths. The two checks run at different steps: `SkillFixer` plans only the
+/// fixes [mayFix] allows, and `SkillWriter` writes a plan only when
+/// [boundary] allows every path it touches. So a fix that either one denies
+/// is never written.
 @immutable
 final class WritePolicy {
   const WritePolicy({required this.boundary, required this.mayFix});

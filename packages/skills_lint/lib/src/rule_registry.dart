@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'fixable_rule.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/custom_rule_parameters.dart';
@@ -94,6 +95,13 @@ class RuleRegistry {
       help: 'Check if YAML metadata is valid.',
     ),
   ];
+
+  /// The names of the built-in rules that implement [FixableRule], which are
+  /// the rules `fix:` and `--[no-]<rule>-fix` apply to.
+  static final Set<String> fixableRuleNames = {
+    for (final CheckType check in allChecks)
+      if (createRule(check.name, check.defaultSeverity) is FixableRule) check.name,
+  };
 
   /// Creates a rule instance by name, or returns null if not a class-based rule.
   ///

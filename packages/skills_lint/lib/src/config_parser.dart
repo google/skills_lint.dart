@@ -557,6 +557,10 @@ class ConfigParser {
     List<String> parsingErrors,
   ) {
     final Object? fix = value[fixKey];
+    if (fix != null && !RuleRegistry.fixableRuleNames.contains(ruleName)) {
+      parsingErrors.add('$contextLabel: rule "$ruleName" has no fix, so "$fixKey" does not apply.');
+      return null;
+    }
     if (fix == null || fix is bool) {
       return fix as bool?;
     }
@@ -603,7 +607,7 @@ class ConfigParser {
       }
       parsingErrors.add(
         '$entryLabelCap "$writeAllowKey" for "$path" has "$entry", which is not a '
-        'directory inside $anchorDirectory. Ignoring it.',
+        'path inside the directory of the configuration file. Ignoring it.',
       );
     }
     return (authored: authored, resolved: resolved);
@@ -669,9 +673,9 @@ class LintTargetConfig {
     required this._authoredPath,
     required this._authoredIgnoreFile,
     required this.writeAllow,
-    required List<String> authoredWriteAllow,
+    required List<String> this._authoredWriteAllow,
     required TargetDeclaration this._declaration,
-  }) : _authoredWriteAllow = authoredWriteAllow;
+  });
 
   /// The path to the directory containing skills, or to an individual skill.
   ///
@@ -692,8 +696,9 @@ class LintTargetConfig {
   /// Directories outside [path] that `--fix` and `--generate-baseline` may
   /// also write in for this target.
   ///
-  /// Absolute on a target [ConfigParser] produced, and inside the directory
-  /// of the configuration file.
+  /// On a target [ConfigParser] produced, absolute and inside the directory
+  /// of the configuration file. Whatever the caller supplied on a target built
+  /// directly.
   final List<String> writeAllow;
 
   /// [path] as spelled in the configuration file, or `null` for a target built

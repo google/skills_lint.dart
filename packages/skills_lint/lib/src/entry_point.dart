@@ -39,10 +39,6 @@ const _skillsDirectoryFlag = 'skills-directory';
 const _skillOption = 'skill';
 const _ignoreFileOption = 'ignore-file';
 const _allowWriteOption = 'allow-write';
-
-/// The name a rule's `fix` setting has in `skills_lint.yaml` and in its
-/// command-line flag, `--[no-]<rule>-fix`.
-const _fixParameter = ConfigParser.fixKey;
 const _ignoreConfigFlag = 'ignore-config';
 const _generateBaselineFlag = 'generate-baseline';
 const _fixFlag = 'fix';
@@ -257,11 +253,13 @@ ArgParser createArgParser(String helpFlag) {
       help: check.help,
     );
 
-    parser.addFlag(
-      check.parameterFlag(_fixParameter),
-      defaultsTo: RuleConfig.defaultFix,
-      help: "Let --fix change files for rule '${check.name}'.",
-    );
+    if (RuleRegistry.fixableRuleNames.contains(check.name)) {
+      parser.addFlag(
+        check.parameterFlag(ConfigParser.fixKey),
+        defaultsTo: RuleConfig.defaultFix,
+        help: "Let --fix change files for rule '${check.name}'.",
+      );
+    }
 
     // Register namespaced delegated parameters
     for (final String paramName in check.parameterSchema.keys) {
@@ -679,9 +677,9 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
   // 3. Resolve fix overrides from CLI flags (e.g. --no-check-absolute-paths-fix)
   final fixOverrides = <String, bool>{
     for (final CheckType check in RuleRegistry.allChecks)
-      if (results.options.contains(check.parameterFlag(_fixParameter)) &&
-          results.wasParsed(check.parameterFlag(_fixParameter)))
-        check.name: results[check.parameterFlag(_fixParameter)] as bool,
+      if (results.options.contains(check.parameterFlag(ConfigParser.fixKey)) &&
+          results.wasParsed(check.parameterFlag(ConfigParser.fixKey)))
+        check.name: results[check.parameterFlag(ConfigParser.fixKey)] as bool,
   };
 
   // 4. Combine into RuleConfigPatch overrides

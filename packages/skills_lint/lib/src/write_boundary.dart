@@ -68,13 +68,23 @@ final class WriteBoundary {
   /// that a symlink leads elsewhere, so `write_allow` in a configuration file
   /// can't reach outside the file's directory.
   static List<String> _inside(String? configDirectory, List<String> configAllowed) {
+    final List<String> escaping = escapingConfigDirectory(configDirectory, configAllowed);
+    return [
+      for (final String directory in configAllowed)
+        if (!escaping.contains(directory)) directory,
+    ];
+  }
+
+  /// The directories in [configAllowed] that a symlink leads outside
+  /// [configDirectory], which no boundary includes.
+  static List<String> escapingConfigDirectory(String? configDirectory, List<String> configAllowed) {
     if (configDirectory == null) {
-      return configAllowed;
+      return const [];
     }
     final String realConfigDirectory = resolve(configDirectory);
     return [
       for (final String directory in configAllowed)
-        if (isAtOrWithin(realConfigDirectory, resolve(directory))) directory,
+        if (!isAtOrWithin(realConfigDirectory, resolve(directory))) directory,
     ];
   }
 
@@ -107,8 +117,10 @@ final class WriteBoundary {
 
   /// What a user does to write outside a boundary on purpose.
   static const String hint =
-      'skills_lint writes only inside the directories it scans. To write there '
-      'anyway, add it to write_allow in skills_lint.yaml, or pass --allow-write.';
+      'skills_lint writes only inside the directories it scans. To write to that '
+      'path anyway, name it with -s, -d or --ignore-file, or allow its directory '
+      'with --allow-write, or with write_allow when the directory is inside the '
+      'folder that holds skills_lint.yaml.';
 
   /// Why writing or creating [path] is refused, readable as the end of a
   /// sentence, or `null` when [path] is inside the boundary.
@@ -120,7 +132,7 @@ final class WriteBoundary {
     final String realRoot = resolve(root);
     final String realPath = resolve(path);
     if (p.isWithin(realRoot, realPath) ||
-        allowed.any((String directory) => p.isWithin(resolve(directory), realPath))) {
+        allowed.any((String directory) => isAtOrWithin(resolve(directory), realPath))) {
       return null;
     }
     if (p.equals(realPath, p.normalize(path))) {

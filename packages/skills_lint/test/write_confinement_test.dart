@@ -316,9 +316,27 @@ void defineCliTests() {
       Link(p.join(local.path, 'foo')).createSync(skill.path);
       writeConfig(['- path: skills', '  write_allow: [escape]']);
 
-      await run(['--fix'], exitCode: 1);
+      final String stderr = await run(['--fix'], exitCode: 1);
 
       expect(File(p.join(skill.path, 'SKILL.md')).readAsStringSync(), _skillNamed('bar'));
+      expect(
+        stderr,
+        contains('"write_allow" for "${local.path}" has "${p.join(repo.path, 'escape')}"'),
+      );
+    });
+
+    test('--allow-write lets --generate-baseline write a configured ignore_file there', () async {
+      final String ignoreFile = p.join(outside.path, 'baseline.json');
+      await createDummySkill(
+        Directory(p.join(repo.path, 'skills')),
+        name: 'foo',
+        skillContent: _skillNamed('bar'),
+      );
+      writeConfig(['- path: skills', '  ignore_file: ${_yamlString(ignoreFile)}']);
+
+      await run(['--generate-baseline', '--allow-write', outside.path], exitCode: 0);
+
+      expect(File(ignoreFile).readAsStringSync(), contains('"foo"'));
     });
   });
 
@@ -382,6 +400,17 @@ void defineCliTests() {
       await run(['--fix', '--invalid-skill-name-fix'], exitCode: 0);
 
       expect(skillMd.readAsStringSync(), _skillNamed('foo'));
+    });
+
+    test('fix: on a rule without a fix is a configuration error', () async {
+      await mismatchedSkill();
+      File(
+        p.join(repo.path, 'skills_lint.yaml'),
+      ).writeAsStringSync('skills_lint:\n  rules:\n    path-does-not-exist: {fix: false}\n');
+
+      final String stderr = await run(['--fix'], exitCode: 1);
+
+      expect(stderr, contains('rule "path-does-not-exist" has no fix'));
     });
 
     test('a fix value that is not true or false is a configuration error', () async {

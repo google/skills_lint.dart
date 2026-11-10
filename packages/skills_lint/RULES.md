@@ -26,8 +26,9 @@ All rules are enabled / disabled / escalated the same three ways:
 The "Disable" line under each rule below names the negated CLI flag for
 quick reference.
 
-`--fix` runs the fix of a fixable rule unless `fix: false` is set in its
-`rules:` entry or `--no-<rule-name>-fix` is passed. The README's
+`--fix` runs the fix of a fixable rule unless its resolved `fix` setting is
+`false`. `fix:` in a `rules:` entry and `--[no-]<rule-name>-fix` set it, with
+the same precedence as severity. Only fixable rules accept `fix:`. The README's
 [Controlling what `--fix` writes](README.md#controlling-what---fix-writes)
 section explains how this combines with where a fix may write.
 

@@ -172,6 +172,9 @@ class ValidationSession {
 
   /// The anchored directories from `--allow-write`.
   final List<String> _allowWrite;
+
+  /// The `write_allow` directories [_reportEscapingWriteAllow] has reported.
+  final Set<String> _reportedEscapingWriteAllow = {};
   final Reporter _reporter;
   final PubArchiveLoader _pubArchiveLoader;
 
@@ -297,6 +300,7 @@ class ValidationSession {
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
     final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
 
+    _reportEscapingWriteAllow(declaredBy);
     final boundary = WriteBoundary.forSkill(
       normalizedSkillPath,
       configDirectory: _configDirectoryOf(declaredBy),
@@ -418,6 +422,7 @@ class ValidationSession {
     // and to accumulate ignore usages correctly across all skills.
     final Map<String, SkillsIgnores> loadedIgnoresCache = {};
     var stoppedEarly = false;
+    _reportEscapingWriteAllow(declaredBy);
     final boundary = WriteBoundary.forSkillsDirectory(
       normalizedRootPath,
       configDirectory: _configDirectoryOf(declaredBy),
@@ -734,7 +739,7 @@ class ValidationSession {
     for (final (normalizedPath: _, :normalizedIgnoreFile, :config) in _normalizedDirectoryConfigs) {
       final String? configDirectory = _configDirectoryOf(config);
       if (normalizedIgnoreFile == ignoreFile && configDirectory != null) {
-        return WriteBoundary(configDirectory);
+        return WriteBoundary(configDirectory, allowed: _allowWrite);
       }
     }
     return const WriteBoundary.none();
@@ -742,6 +747,26 @@ class ValidationSession {
 
   /// The directory that the paths of [target] are relative to, when [target]
   /// was read from a configuration file, or `null` otherwise.
+  /// Reports, once each, the `write_allow` directories of [target] that a
+  /// symlink leads outside the directory of its configuration file, which
+  /// [WriteBoundary] leaves out.
+  void _reportEscapingWriteAllow(LintTargetConfig? target) {
+    if (target == null) {
+      return;
+    }
+    for (final String directory in WriteBoundary.escapingConfigDirectory(
+      _configDirectoryOf(target),
+      target.writeAllow,
+    )) {
+      if (_reportedEscapingWriteAllow.add(directory)) {
+        _reporter.onConfigurationWarning(
+          '"${ConfigParser.writeAllowKey}" for "${target.path}" has "$directory", which a '
+          'symlink leads outside the directory of the configuration file. Ignoring it.',
+        );
+      }
+    }
+  }
+
   static String? _configDirectoryOf(LintTargetConfig? target) =>
       target == null ? null : declarationOf(target)?.anchorDirectory;
 
