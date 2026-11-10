@@ -11,18 +11,25 @@ import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
 
-/// Reports unquoted frontmatter values that YAML cuts short at a comment.
+/// Reports unquoted frontmatter values that YAML cuts short at an unintended
+/// comment.
 ///
 /// In an unquoted (plain) YAML value, whitespace followed by `#` starts a
-/// comment, so `description: Fix "#123" now` reads as `Fix "`. The rule
-/// checks every unquoted string value in the frontmatter, at any depth,
-/// except the top-level `name`: a valid name has no whitespace or `#`, so
-/// the text after the `#` is never part of the name. A comment after a value
-/// that YAML reads as a number, boolean or null is taken as deliberate.
+/// comment, so `description: Fix "#123" now` reads as `Fix "`. Deliberate
+/// trailing comments such as `description: Triage bugs. # TODO: reword` are
+/// valid YAML and are left alone. A comment after a plain string value is
+/// reported when either:
+/// - `#` is followed immediately by a character other than a space, tab, `#`,
+///   or line break (`#123`, `#tag`), or
+/// - the value YAML reads before the comment has an unclosed `"`, `` ` ``,
+///   `(`, `[`, or `{`.
 ///
-/// The fix wraps the value and the dropped text in single quotes, so YAML
-/// reads the full text. It can't tell a deliberate comment from lost text,
-/// so a deliberate comment becomes part of the value.
+/// The rule checks every unquoted string value in the frontmatter, at any
+/// depth, except the top-level `name`: a valid name has no whitespace or `#`,
+/// so the text after the `#` is never part of the name.
+///
+/// The fix wraps each reported value and its dropped text in single quotes, so
+/// YAML reads the full text.
 class FrontmatterTruncatedByCommentRule extends SkillRule implements FixableRule {
   FrontmatterTruncatedByCommentRule({this.severity = defaultSeverity});
 
@@ -188,10 +195,14 @@ final class _TruncationFinder {
       return;
     }
     final int droppedEnd = _trimBlanksBefore(_lineEnd(droppedStart));
+    final String dropped = _content.substring(droppedStart, droppedEnd);
+    if (!_isAccidentalTruncation(parsed, dropped)) {
+      return;
+    }
     truncations.add((
       path: path,
       parsed: parsed,
-      dropped: _content.substring(droppedStart, droppedEnd),
+      dropped: dropped,
       valueStart: valueStart,
       droppedStart: droppedStart,
       droppedEnd: droppedEnd,
@@ -246,6 +257,40 @@ final class _TruncationFinder {
     }
     return i;
   }
+}
+
+bool _isAccidentalTruncation(String parsed, String dropped) =>
+    _hasImmediateCommentToken(dropped) || _hasUnclosedDelimiter(parsed);
+
+/// Whether [dropped] (starting with `#`) has a non-blank, non-`#` character
+/// right after `#`, as in `#123` or `#bugs`.
+bool _hasImmediateCommentToken(String dropped) =>
+    dropped.length > 1 && !_isBlank(dropped[1]) && dropped[1] != '#';
+
+/// Whether [parsed] leaves a `"`, `` ` ``, `(`, `[`, or `{` unclosed.
+bool _hasUnclosedDelimiter(String parsed) {
+  var doubleQuotes = 0;
+  var backticks = 0;
+  final stack = <String>[];
+  for (var i = 0; i < parsed.length; i++) {
+    switch (parsed[i]) {
+      case '"':
+        doubleQuotes++;
+      case '`':
+        backticks++;
+      case '(':
+        stack.add(')');
+      case '[':
+        stack.add(']');
+      case '{':
+        stack.add('}');
+      case ')' || ']' || '}':
+        if (stack.isNotEmpty && stack.last == parsed[i]) {
+          stack.removeLast();
+        }
+    }
+  }
+  return doubleQuotes.isOdd || backticks.isOdd || stack.isNotEmpty;
 }
 
 bool _isBlank(String char) => char == ' ' || char == '\t';

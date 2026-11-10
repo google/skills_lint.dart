@@ -173,42 +173,41 @@ governs how changes to these rules ship.
 - **Default severity:** disabled
 - **Fixable:** yes
 - **What it checks:** reports an unquoted (plain) frontmatter string value
-  that loses text to a YAML comment. In a plain value, a space or tab
-  followed by `#` starts a comment, so
+  that loses text to an unintended YAML comment. In a plain value, a space
+  or tab followed by `#` starts a comment, so
   `description: Use when asked "fix #123" or to triage bugs.` reads as
-  `Use when asked "fix`. The YAML is valid, so no other rule notices. The
-  rule checks every string value in the frontmatter: top-level fields
+  `Use when asked "fix`. The YAML is valid, so no other rule notices.
+
+  Deliberate YAML comments such as
+  `description: Triage bugs. # TODO: reword` are left alone. A comment
+  after an unquoted string value is reported only when `#` is followed
+  immediately by a character other than a space, tab, `#`, or line break
+  (`#123`, `#bugs`), or when the value YAML reads before the comment leaves
+  a `"`, `` ` ``, `(`, `[`, or `{` unclosed (`"fix # issue"`).
+
+  The rule checks every string value in the frontmatter: top-level fields
   such as `description:` and `compatibility:`, values under `metadata:`,
   and list items. It skips the top-level `name:`, because a valid name
   has no spaces or `#`, so the text after the `#` is never part of the
-  name.
-
-  Quoted values, block values (`|`, `>`), and a `#` with no space or tab
-  before it, as in `C#` or `owner/repo#1`, are not reported. A comment
-  on its own line is not reported. A comment after a value that YAML reads
-  as a number, boolean or null, such as `internal: true # x`, is taken as
-  deliberate and not reported.
+  name. Quoted values, block values (`|`, `>`), a `#` with no space or tab
+  before it (`C#`, `owner/repo#1`), a comment on its own line, and a
+  comment after a number, boolean, or null (`internal: true # x`) are not
+  reported.
 
   `description-too-long` measures the description that YAML reads, so it
   doesn't count the dropped text. When quoting the full text makes the
   description too long, `--fix` keeps the fix only if it still lowers the
   skill's errors, then warnings.
-
-  YAML can't tell a deliberate comment from lost text, so a deliberate
-  comment after a string value, such as
-  `description: Triage bugs. # TODO reword`, is reported too. Move the
-  comment to its own line.
 - **Diagnostic shape:**
   `"<field>" is cut short at "#": YAML reads "<value YAML reads>" and drops "<text from # to the end of the line>". Quote the value to keep the full text, or move the comment to its own line.`
   The region covers the dropped text. A line break in the value YAML
   reads is shown as `\n`.
-- **Auto-fix behavior:** wraps the value and the dropped text in single
-  quotes, so YAML reads the full text, and doubles any `'` in them. A
+- **Auto-fix behavior:** wraps each reported value and its dropped text in
+  single quotes, so YAML reads the full text, and doubles any `'` in them.
+  Deliberate comments that the rule does not report are left untouched. A
   value that spans several lines is quoted in place and keeps its line
   breaks. In a flow collection (`[...]`, `{...}`) that spans lines, the
-  quotes also take in any `,`, `]` or `}` that the comment hid. The
-  fixer treats the text after the `#` as part of the value, so move a
-  deliberate comment to its own line before running `--fix`.
+  quotes also take in any `,`, `]` or `}` that the comment hid.
   The fixer skips values that an ignore entry with a `subject` covers.
 - **Ignore subject:** the keys from the top of the frontmatter to the
   value, joined with `.`, such as `description` or

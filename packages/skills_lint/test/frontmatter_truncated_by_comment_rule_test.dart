@@ -142,7 +142,41 @@ void main() {
       expect(errors.map((e) => e.subject), ['metadata.short-description', 'metadata.tags']);
     });
 
+    final unclosedDelimiters = <String, List<String>>{
+      'an unclosed double quote before `# `': ['description: Use when asked "fix # issue"'],
+      'an unclosed backtick before `# `': ['description: Run `git # branch` in the repo'],
+      'an unclosed parenthesis before `# `': ['description: Triage bugs (see # note) first'],
+      'an unclosed square bracket before `# `': ['description: Link [see # section] in docs'],
+      'an unclosed curly brace before `# `': ['description: Expand {key # value} placeholders'],
+      'a mismatched closing bracket leaving an opener unclosed': [
+        'description: Check ([item) # note]',
+      ],
+    };
+    for (final MapEntry(key: name, value: lines) in unclosedDelimiters.entries) {
+      test('reports $name even when a space follows #', () async {
+        expect(await _validate(_skillMd(lines)), hasLength(1));
+      });
+    }
+
     final notReported = <String, List<String>>{
+      'a deliberate trailing comment': ['description: Triage bugs. # TODO: reword'],
+      'a deliberate comment with a tab after #': ['description: Triage bugs. #\tTODO'],
+      'a deliberate banner comment starting with ##': [
+        'description: Triage bugs. ## internal note',
+      ],
+      'a bare trailing # with nothing after it': ['description: Triage bugs. #'],
+      'a trailing comment on a compatibility or list value': [
+        'description: Fine.',
+        'compatibility: claude-code # also cursor',
+        'tags:',
+        '  - triage # see docs',
+      ],
+      'a trailing comment after balanced quotes, backticks and brackets': [
+        'description: Triage "bugs" (`cli`) [v1] {ok} (fast). # see docs',
+      ],
+      'a trailing comment after an apostrophe in prose': [
+        "description: Don't triage stale bugs. # see docs",
+      ],
       'a single-quoted value': ["description: 'Fix #123 now'"],
       'a double-quoted value': ['description: "Fix #123 now"'],
       'a literal block value': ['description: |', '  Fix #123 now'],
@@ -157,9 +191,9 @@ void main() {
       'a comment after a non-string value': [
         'description: Fine.',
         'metadata:',
-        '  internal: true # x',
+        '  internal: true #1',
       ],
-      'a comment after a key with a block value': ['description: Fine.', 'metadata: # x', '  a: b'],
+      'a comment after a key with a block value': ['description: Fine.', 'metadata: #1', '  a: b'],
       // Quoting from the tag would pull the comment line into the value.
       'a value after a tag and a comment line': [
         'description: Fine.',
@@ -374,14 +408,21 @@ void main() {
       expect(metadata['alias'], 'Run #3 too');
     });
 
-    test('pulls a deliberate comment into the value', () async {
-      // The rule can't tell a deliberate comment from lost text, so --fix
-      // keeps the text. RULES.md tells authors to move such a comment first.
+    test('quotes a value truncated at `# ` inside unclosed quotes', () async {
       await expectRoundTrip(
-        ['description: Triage bugs. # TODO reword'],
+        ['description: Use when asked "fix # issue" or to triage bugs.'],
         field: 'description',
-        expected: 'Triage bugs. # TODO reword',
+        expected: 'Use when asked "fix # issue" or to triage bugs.',
       );
+    });
+
+    test('leaves a deliberate trailing comment untouched', () async {
+      final String content = _skillMd([
+        'description: Triage bugs. # TODO reword',
+        'compatibility: claude-code # also cursor',
+      ]);
+
+      expect(await _rule.fix(_context(content)), content);
     });
 
     test('leaves findings with an ignored subject unchanged', () async {
@@ -393,7 +434,7 @@ void main() {
     });
 
     test('returns the content unchanged when there is nothing to fix', () async {
-      final String content = _skillMd(["description: 'Fix #1 now'", 'license: MIT # see LICENSE']);
+      final String content = _skillMd(["description: 'Fix #1 now'", 'license: MIT #1']);
       const withoutFrontmatter = 'Fix #1 now\n';
 
       expect(
