@@ -78,11 +78,13 @@ class _BlockScanner {
     while (lineStart < _markdown.length) {
       final int newline = _markdown.indexOf('\n', lineStart);
       final int lineEnd = newline == -1 ? _markdown.length : newline + 1;
-      final String line = _markdown.substring(lineStart, lineEnd).replaceAll('\t', '    ');
+      final String rawLine = _markdown.substring(lineStart, lineEnd);
+      final String line = rawLine.contains('\t') ? rawLine.replaceAll('\t', '    ') : rawLine;
       final bool isText = _isTextLine(line);
-      final bool isHeading = isText && _headingPattern.hasMatch(line);
+      final bool marked = isText && _mayStartBlock(line);
+      final bool isHeading = marked && _headingPattern.hasMatch(line);
       // A list item and a heading each start their own block.
-      final bool startsBlock = isHeading || (isText && _listItemPattern.hasMatch(line));
+      final bool startsBlock = isHeading || (marked && _listItemPattern.hasMatch(line));
       if ((!isText || startsBlock) && paragraphStart != null) {
         ranges.add((paragraphStart, lineStart));
         paragraphStart = null;
@@ -100,9 +102,23 @@ class _BlockScanner {
     return ranges;
   }
 
+  /// Whether the first character of [line] after its indentation can start a
+  /// heading, list item or fence. Most lines can't, which skips the patterns.
+  static bool _mayStartBlock(String line) {
+    var i = 0;
+    while (i < line.length && line.codeUnitAt(i) == _space) {
+      i++;
+    }
+    return i < line.length && _blockMarkers.contains(line.codeUnitAt(i));
+  }
+
+  /// `#`, `-`, `+`, `*`, `` ` ``, `~` and the digits.
+  static final Set<int> _blockMarkers = {...'#-+*`~0123456789'.codeUnits};
+
   /// Whether [line] holds inline content, and not code or blank space.
   bool _isTextLine(String line) {
-    final bool blank = _emptyQuotePattern.hasMatch(line.trim());
+    final String trimmed = line.trim();
+    final bool blank = trimmed.isEmpty || _emptyQuotePattern.hasMatch(trimmed);
     final bool isCode = _fence != null ? _continuesFence(line) : _startsCode(line, blank: blank);
     // A blank line inside an indented code block keeps the block open.
     if (!(blank && _inIndentedCode)) {
@@ -115,7 +131,7 @@ class _BlockScanner {
   /// ends the block and counts as code.
   bool _continuesFence(String line) {
     final String fence = _fence!;
-    final RegExpMatch? close = _fencePattern.firstMatch(line);
+    final RegExpMatch? close = _mayStartBlock(line) ? _fencePattern.firstMatch(line) : null;
     if (close != null &&
         close[2]![0] == fence[0] &&
         close[2]!.length >= fence.length &&
@@ -129,7 +145,9 @@ class _BlockScanner {
   /// or is part of an indented one.
   bool _startsCode(String line, {required bool blank}) {
     final int indent = line.length - line.trimLeft().length;
-    if (_fencePattern.firstMatch(line) case final RegExpMatch open
+    final bool marked = _mayStartBlock(line);
+    final RegExpMatch? fence = marked ? _fencePattern.firstMatch(line) : null;
+    if (fence case final RegExpMatch open
         when (_inList || open[1]!.length <= 3) &&
             !(open[2]![0] == '`' && line.substring(open.end).contains('`'))) {
       _fence = open[2];
@@ -144,7 +162,7 @@ class _BlockScanner {
       return true;
     }
     _inIndentedCode = false;
-    if (_listItemPattern.hasMatch(line)) {
+    if (marked && _listItemPattern.hasMatch(line)) {
       _inList = true;
     } else if (indent == 0 && _previousBlank) {
       _inList = false;
