@@ -10,6 +10,7 @@ import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/disallowed_field_rule.dart';
 import 'package:skills_lint/src/rules/valid_yaml_metadata_rule.dart';
 import 'package:skills_lint/src/validator.dart';
+import 'package:skills_lint/src/yaml_limits.dart';
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
 
@@ -197,4 +198,133 @@ Body''');
       expect(errors.first.region?.startLine, 4);
     });
   });
+
+  group('YAML size limits', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('yaml_limits_test.');
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    Future<ValidationResult> validateFrontmatter(String frontmatter) async {
+      await File('${tempDir.path}/SKILL.md').writeAsString('---\n$frontmatter---\nBody\n');
+      return Validator().validate(tempDir);
+    }
+
+    ValidationError onlyYamlError(ValidationResult result) => result.validationErrors.singleWhere(
+      (ValidationError error) => error.ruleId == ValidYamlMetadataRule.ruleName,
+      orElse: () => fail("No valid-yaml-metadata error in: ${result.validationErrors}"),
+    );
+
+    test('rejects block-style alias expansion before any rule reads the value', () async {
+      // Nine levels of ten aliases each expand to 10^9 values.
+      final ValidationResult result = await validateFrontmatter(billionLaughs(flowStyle: false));
+
+      expect(result.context?.parsedYaml, isNull);
+      expect(
+        onlyYamlError(result).message,
+        contains('more than ${YamlLimits.maxNodes} values once aliases are expanded'),
+      );
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('rejects flow-style alias expansion before any rule reads the value', () async {
+      final ValidationResult result = await validateFrontmatter(billionLaughs(flowStyle: true));
+
+      expect(result.context?.parsedYaml, isNull);
+      expect(onlyYamlError(result).message, contains('once aliases are expanded'));
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('rejects block nesting deeper than the limit', () async {
+      final String deep = [
+        for (var level = 0; level <= YamlLimits.maxDepth; level++) '${'  ' * level}k$level:',
+      ].join('\n');
+      final ValidationResult result = await validateFrontmatter(
+        'name: deep\ndescription: d\n$deep x\n',
+      );
+
+      expect(result.context?.parsedYaml, isNull);
+      expect(
+        onlyYamlError(result).message,
+        contains('nests more than ${YamlLimits.maxDepth} levels deep'),
+      );
+    });
+
+    test('rejects nesting deep enough to overflow the parser stack', () async {
+      // `- - x` is a list inside a list, so this line nests 100,000 levels
+      // in about 200 KB, which overflows the parser's stack.
+      final ValidationResult result = await validateFrontmatter(
+        'name: deep\nitems:\n  ${'- ' * 100000}x\n',
+      );
+
+      expect(onlyYamlError(result).message, contains('levels deep'));
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('rejects flow nesting by counting brackets before parsing', () async {
+      const levels = 200000;
+      final ValidationResult result = await validateFrontmatter(
+        'name: deep\ndescription: ${'[' * levels}${']' * levels}\n',
+      );
+
+      expect(
+        onlyYamlError(result).message,
+        contains('more than the limit of ${YamlLimits.maxFlowCollectionStarts}'),
+      );
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('accepts frontmatter that uses aliases and nesting within the limits', () async {
+      final ValidationResult result = await validateFrontmatter('''
+name: shared
+description: &text A skill that reuses a value.
+metadata:
+  summary: *text
+  levels: [[[[[[[[1]]]]]]]]
+''');
+
+      expect(result.context?.parsedYaml, isNotNull);
+      expect(
+        result.validationErrors.where((e) => e.ruleId == ValidYamlMetadataRule.ruleName),
+        isEmpty,
+      );
+    });
+
+    test('reports a SKILL.md over the size limit without reading it', () async {
+      final file = File('${tempDir.path}/SKILL.md');
+      await file.writeAsString('---\nname: big\ndescription: d\n---\n');
+      // Grow the file without building its contents in memory.
+      final RandomAccessFile handle = await file.open(mode: FileMode.append);
+      await handle.truncate(YamlLimits.maxSkillFileBytes + 1);
+      await handle.close();
+
+      final ValidationResult result = await Validator().validate(tempDir);
+
+      expect(result.context, isNull);
+      expect(
+        result.validationErrors.single.message,
+        'SKILL.md is ${YamlLimits.maxSkillFileBytes + 1} bytes, more than the limit of '
+        '${YamlLimits.maxSkillFileBytes} bytes. skills_lint did not read it.',
+      );
+    });
+  });
+}
+
+/// A frontmatter whose `description` expands to 10^9 values through nine
+/// levels of ten aliases each.
+String billionLaughs({required bool flowStyle}) {
+  const levels = 'abcdefghi';
+  final buffer = StringBuffer('name: demo\n');
+  for (var i = 0; i < levels.length; i++) {
+    final String item = i == 0 ? 'x' : '*${levels[i - 1]}';
+    final items = List<String>.filled(10, item);
+    buffer.writeln(
+      flowStyle
+          ? '${levels[i]}: &${levels[i]} [${items.join(', ')}]'
+          : '${levels[i]}: &${levels[i]}\n${items.map((String it) => '  - $it').join('\n')}',
+    );
+  }
+  buffer.writeln('description: *${levels[levels.length - 1]}');
+  return buffer.toString();
 }

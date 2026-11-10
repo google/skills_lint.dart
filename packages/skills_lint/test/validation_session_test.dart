@@ -19,6 +19,7 @@ import 'package:skills_lint/src/pub_archive_loader.dart';
 import 'package:skills_lint/src/rules/pub_archive_includes_skill_rule.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/validation_session.dart';
+import 'package:skills_lint/src/validator.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -183,6 +184,37 @@ void main() {
       await sarifSession.processIndividualSkill(skillDir.path);
       final String sarifOutput = sarifSession.formatOutput();
       expect(sarifOutput, contains('"version": "2.1.0"'));
+    });
+
+    test('reports a rule that throws as a tool error and checks the other skills', () async {
+      final rootDir = Directory(p.join(tempDir.path, 'skills'))..createSync();
+      for (final name in ['broken-skill', 'good-skill']) {
+        await createDummySkill(
+          rootDir,
+          name: name,
+          skillContent: '${buildFrontmatter(name: name)}\n# Skill\n',
+        );
+      }
+
+      final ValidationSession session = createTestSession(
+        format: OutputFormat.json,
+        customRules: [_ThrowingRule('broken-skill')],
+      );
+      await session.processSkillRoot(rootDir.path);
+
+      expect(session.anyFailed, isTrue);
+      final String output = session.formatOutput();
+      final results = jsonDecode(output) as List<Object?>;
+      final byName = {
+        for (final result in results.cast<Map<String, Object?>>())
+          result[ValidationResult.keySkillName]: result,
+      };
+      expect(byName['good-skill']?[ValidationResult.keyIsValid], isTrue, reason: output);
+      expect(byName['broken-skill']?[ValidationResult.keyIsValid], isFalse, reason: output);
+      expect(
+        jsonEncode(byName['broken-skill']),
+        allOf(contains(Validator.unexpectedError), contains('boom in broken-skill')),
+      );
     });
 
     test('records a failure and continues when the skills root cannot be listed', () async {
@@ -505,4 +537,25 @@ class _NestedFileRule extends SkillRule {
       message: 'Error in a nested file.',
     ),
   ];
+}
+
+/// A rule that throws for the skill named [failingSkill].
+class _ThrowingRule extends SkillRule {
+  _ThrowingRule(this.failingSkill);
+
+  final String failingSkill;
+
+  @override
+  final String name = 'throwing-rule';
+
+  @override
+  final AnalysisSeverity severity = AnalysisSeverity.error;
+
+  @override
+  Future<List<ValidationError>> validate(SkillContext context) async {
+    if (p.basename(context.directory.path) == failingSkill) {
+      throw StateError('boom in $failingSkill');
+    }
+    return const [];
+  }
 }

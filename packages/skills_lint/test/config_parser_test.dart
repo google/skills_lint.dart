@@ -305,6 +305,23 @@ skills_lint:
       expect(config.parsingErrors, isEmpty);
     });
 
+    test('reports alias expansion over the limit as a parsing error', () {
+      final buffer = StringBuffer('a: &a [x, x, x, x, x, x, x, x, x, x]\n');
+      for (final (String level, String previous) in [
+        ('b', 'a'),
+        ('c', 'b'),
+        ('d', 'c'),
+        ('e', 'd'),
+      ]) {
+        buffer.writeln('$level: &$level [${List.filled(10, '*$previous').join(', ')}]');
+      }
+      buffer.writeln('skills_lint:\n  directories: *e');
+
+      final Configuration config = ConfigParser.parse(buffer.toString());
+
+      expect(config.parsingErrors.single, contains('once aliases are expanded'));
+    });
+
     test('captures YAML syntax errors as parsing errors', () async {
       final configFile = File(p.join(tempDir.path, 'invalid_syntax.yaml'));
       await configFile.writeAsString('''
