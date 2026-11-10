@@ -17,6 +17,7 @@ import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../path_utils.dart';
+import '../yaml_limits.dart';
 
 /// Enforces that published package skills follow the naming convention required
 /// by `package:skills`.
@@ -318,7 +319,7 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
 
     final Object? yamlObj;
     try {
-      yamlObj = loadYaml(yamlStr);
+      yamlObj = YamlLimits.load(yamlStr);
     } on YamlException {
       return currentContent;
     }

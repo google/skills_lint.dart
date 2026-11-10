@@ -12,6 +12,7 @@ import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../path_utils.dart';
+import '../yaml_limits.dart';
 
 /// Enforces constraints on the skill name field.
 class NameFormatRule extends SkillRule implements FixableRule {
@@ -191,7 +192,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final Object? yaml;
     try {
-      yaml = loadYaml(frontmatter);
+      yaml = YamlLimits.load(frontmatter);
     } on YamlException {
       // Malformed frontmatter has no name node to rewrite. The validator
       // reports the YAML error, so leave the content unchanged.
@@ -268,7 +269,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
     final Object? yaml;
     try {
-      yaml = loadYaml(match.group(1)!);
+      yaml = YamlLimits.load(match.group(1)!);
     } on YamlException {
       return null;
     }
