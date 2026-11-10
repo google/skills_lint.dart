@@ -4,6 +4,7 @@
 
 import 'package:skills_lint/src/yaml_anchor_scanner.dart';
 import 'package:test/test.dart';
+import 'package:yaml/yaml.dart';
 
 void main() {
   group('YamlAnchorScanner finds', () {
@@ -43,6 +44,9 @@ void main() {
       ('an anchor after a byte order mark', '\uFEFF&a name: x\n', '&a'),
       ('an anchor after a lone carriage return', 'name: x\r&a k: v\r', '&a'),
       ('an anchor after a document marker', '--- &a [x]\n', '&a'),
+      ('a key after an explicit key in a sequence entry', 'l:\n- ? a\n  : b\n  j: &a [1]\n', '&a'),
+      ('a key after a plain explicit key in a sequence entry', 'l:\n- ? a\n  j: &a [1]\n', '&a'),
+      ('a key after nested explicit keys', 'l:\n- ? ? a\n    : b\n  : c\n  j: &a [1]\n', '&a'),
     ]) {
       test(description, () {
         expect(YamlAnchorScanner.firstAnchorOrAlias(yaml)?.token, token);
@@ -82,4 +86,66 @@ void main() {
       });
     }
   });
+
+  test('YamlAnchorScanner finds every alias that package:yaml resolves', () {
+    // Compact `-`, `?` and `:` nesting, then scalars of each style, then keys
+    // at each indentation. Whenever package:yaml loads a document and shares
+    // a node between two places, the document used an alias, so the scanner
+    // must report something.
+    const owners = ['', '- ', '? ', '- ? ', '- - ', 'k: ', '- k: ', '- ? k: ', '? - '];
+    const scalars = ['a', '"a"', "'a'", '|\n', '>-\n', '|2\n', ''];
+    const keys = ['j: &a [1]\n{i}m: *a\n', 'j: &a [1]\n{i}*a : v\n', '? *a\n{i}: v\n'];
+    final missed = <String>[];
+    var aliased = 0;
+    for (final owner in owners) {
+      for (final scalar in scalars) {
+        for (final key in keys) {
+          for (var indent = 0; indent <= 6; indent++) {
+            final String i = ' ' * indent;
+            final String yaml = 'name: x\nl:\n$owner$scalar\n$i${key.replaceAll('{i}', i)}'
+                .replaceFirst('$scalar\n\n', '$scalar\n');
+            if (!_hasSharedNode(yaml)) {
+              continue;
+            }
+            aliased++;
+            if (YamlAnchorScanner.firstAnchorOrAlias(yaml) == null) {
+              missed.add(yaml);
+            }
+          }
+        }
+      }
+    }
+    expect(aliased, greaterThan(100), reason: 'The generator should build many aliased documents.');
+    expect(missed, isEmpty, reason: 'Missed aliases in:\n${missed.join('\n---\n')}');
+  });
+}
+
+/// Whether [yaml] loads and holds one collection node in two places.
+bool _hasSharedNode(String yaml) {
+  final YamlNode root;
+  try {
+    root = loadYamlNode(yaml);
+  } on YamlException {
+    return false;
+  }
+  final seen = Set<YamlNode>.identity();
+  bool visit(YamlNode node) {
+    if (node is YamlScalar) {
+      return false;
+    }
+    if (!seen.add(node)) {
+      return true;
+    }
+    final Iterable<YamlNode> children = switch (node) {
+      YamlMap(:final Map<dynamic, YamlNode> nodes) => [
+        ...nodes.keys.whereType<YamlNode>(),
+        ...nodes.values,
+      ],
+      YamlList(:final List<YamlNode> nodes) => nodes,
+      _ => const [],
+    };
+    return children.any(visit);
+  }
+
+  return visit(root);
 }

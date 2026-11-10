@@ -34,8 +34,8 @@ class YamlAnchorScanner {
   /// Whether the current position is inside plain scalar text.
   bool _inPlain = false;
 
-  /// The indentation of the line that holds a block plain scalar which can
-  /// continue onto more-indented lines.
+  /// The column of the node that owns a block plain scalar, which continues
+  /// onto lines indented past that column.
   int? _plainLineIndent;
 
   /// The column of the node that owns an open block scalar.
@@ -85,7 +85,7 @@ class YamlAnchorScanner {
     _nodeColumn = indent;
     final YamlAnchorToken? found = _scanText(line, start, indent);
     if (_inPlain && _flowDepth == 0 && _plainLineIndent == null) {
-      _plainLineIndent = indent;
+      _plainLineIndent = _nodeColumn;
     }
     return found;
   }
