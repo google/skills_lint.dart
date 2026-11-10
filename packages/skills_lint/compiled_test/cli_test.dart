@@ -22,6 +22,7 @@ import '../test/name_format_fix_test.dart' as name_format_fix;
 import '../test/pub_archive_includes_skill_cli_test.dart' as pub_archive_includes_skill_cli;
 import '../test/relative_paths_test.dart' as relative_paths;
 import '../test/test_utils.dart';
+import '../test/write_confinement_test.dart' as write_confinement;
 
 void main() {
   late Directory outputDir;
@@ -65,5 +66,6 @@ void main() {
     name_format_fix.defineCliTests();
     pub_archive_includes_skill_cli.defineCliTests();
     relative_paths.defineCliTests();
+    write_confinement.main();
   });
 }

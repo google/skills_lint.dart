@@ -414,7 +414,8 @@ Future<Configuration?> _loadConfig(
 ///
 /// Returns a [Future] that resolves to `true` if all skills validated successfully
 /// (or if [generateBaseline] is true), and `false` if any validation failures
-/// were encountered.
+/// were encountered. It is `false` whenever a write was refused because it
+/// would land outside the directories being scanned.
 Future<bool> validateSkills({
   List<String> skillDirPaths = const [],
   List<String> individualSkillPaths = const [],
@@ -454,7 +455,8 @@ Future<bool> validateSkills({
 /// [ValidationSession.reportConfigurationWarnings] reports configuration and
 /// unknown-rule warnings.
 ///
-/// Returns `true` if all validations passed (or if generating a baseline), `false` otherwise.
+/// Returns `true` if all validations passed (or if generating a baseline
+/// without a refused write), `false` otherwise.
 @visibleForTesting
 Future<bool> validateSkillsInternal({
   List<String> skillDirPaths = const [],
@@ -564,7 +566,8 @@ Future<bool> validateSkillsInternal({
   }
 
   if (generateBaseline) {
-    return true;
+    // A baseline run passes even with findings, unless a write was refused.
+    return !session.writeRefused;
   }
   return !session.anyFailed;
 }

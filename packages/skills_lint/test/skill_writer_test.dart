@@ -14,7 +14,11 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/reporters/text_reporter.dart';
 import 'package:skills_lint/src/skill_writer.dart';
+import 'package:skills_lint/src/write_boundary.dart';
 import 'package:test/test.dart';
+
+/// No boundary, for the tests that are not about one.
+const none = WriteBoundary.none();
 
 void main() {
   late Directory root;
@@ -46,7 +50,7 @@ void main() {
   test('writes in place when the name does not change', () async {
     final Directory dir = createSkill('foo');
 
-    final ApplyResult result = await writer.apply(dir, 'after\n', 'foo');
+    final ApplyResult result = await writer.apply(dir, 'after\n', 'foo', none);
 
     expect(result, isA<Applied>().having((r) => r.renamed, 'renamed', isFalse));
     expect(listing(), ['foo']);
@@ -56,8 +60,8 @@ void main() {
   test('renames, then writes into the renamed directory', () async {
     final Directory dir = createSkill('foo');
 
-    expect(writer.preflight(dir, 'bar-foo'), isA<Applied>());
-    final ApplyResult result = await writer.apply(dir, 'after\n', 'bar-foo');
+    expect(writer.preflight(dir, 'bar-foo', none), isA<Applied>());
+    final ApplyResult result = await writer.apply(dir, 'after\n', 'bar-foo', none);
 
     expect(
       result,
@@ -73,8 +77,8 @@ void main() {
     // On a case-insensitive file system, `bar-x` already "exists" as `Bar-x`.
     final Directory dir = createSkill('Bar-x');
 
-    expect(writer.preflight(dir, 'bar-x'), isA<Applied>());
-    final ApplyResult result = await writer.apply(dir, 'after\n', 'bar-x');
+    expect(writer.preflight(dir, 'bar-x', none), isA<Applied>());
+    final ApplyResult result = await writer.apply(dir, 'after\n', 'bar-x', none);
 
     expect(result, isA<Applied>().having((r) => r.renamed, 'renamed', isTrue));
     expect(listing(), ['bar-x']);
@@ -91,8 +95,8 @@ void main() {
         'reason',
         contains('bar-foo already exists'),
       );
-      expect(writer.preflight(dir, 'bar-foo'), blocked);
-      expect(await writer.apply(dir, 'after\n', 'bar-foo'), blocked);
+      expect(writer.preflight(dir, 'bar-foo', none), blocked);
+      expect(await writer.apply(dir, 'after\n', 'bar-foo', none), blocked);
       expect(listing(), ['bar-foo', 'foo']);
       expect(skillMd('foo'), 'before\n');
       expect(err.toString(), contains('bar-foo'));
@@ -110,7 +114,7 @@ void main() {
       }
       final Directory dir = createSkill('foo');
 
-      expect(await writer.apply(dir, 'after\n', 'bar-foo'), isA<RenameBlocked>());
+      expect(await writer.apply(dir, 'after\n', 'bar-foo', none), isA<RenameBlocked>());
       expect(skillMd('foo'), 'before\n');
     });
 
@@ -121,8 +125,8 @@ void main() {
 
       // preflight doesn't try the rename, so it can't see a permission
       // error.
-      expect(writer.preflight(dir, 'bar-foo'), isA<Applied>());
-      final ApplyResult result = await writer.apply(dir, 'after\n', 'bar-foo');
+      expect(writer.preflight(dir, 'bar-foo', none), isA<Applied>());
+      final ApplyResult result = await writer.apply(dir, 'after\n', 'bar-foo', none);
 
       expect(
         result,
@@ -136,13 +140,65 @@ void main() {
     }, skip: Platform.isWindows ? 'uses the POSIX chmod command' : null);
   });
 
+  group('refuses to write outside the boundary and writes nothing', () {
+    late WriteBoundary boundary;
+
+    setUp(() => boundary = WriteBoundary(skills.path));
+
+    for (final String crafted in [
+      '../escaped',
+      p.join('..', 'escaped'),
+      p.join(Directory.systemTemp.path, 'escaped'),
+      '..',
+      'a/b',
+    ]) {
+      test('for the name "$crafted"', () async {
+        final Directory dir = createSkill('foo');
+
+        expect(writer.preflight(dir, crafted, boundary), isA<WriteRefused>());
+        expect(await writer.apply(dir, 'after\n', crafted, boundary), isA<WriteRefused>());
+
+        expect(listing(), ['foo']);
+        expect(skillMd('foo'), 'before\n');
+        expect(Directory(p.join(root.path, 'escaped')).existsSync(), isFalse);
+        expect(err.toString(), contains("'$crafted': the new name is not a single directory name"));
+      });
+    }
+
+    test('for a skill directory that links outside the boundary', () async {
+      final real = Directory(p.join(root.path, 'real'))..createSync();
+      File(p.join(real.path, 'SKILL.md')).writeAsStringSync('before\n');
+      final link = Link(p.join(skills.path, 'foo'))..createSync(real.path);
+
+      final ApplyResult result = await writer.apply(
+        Directory(link.path),
+        'after\n',
+        'foo',
+        boundary,
+      );
+
+      expect(result, isA<WriteRefused>());
+      expect(File(p.join(real.path, 'SKILL.md')).readAsStringSync(), 'before\n');
+      expect(err.toString(), contains("resolves to '${p.join(real.path, 'SKILL.md')}'"));
+    });
+
+    test('accepts a rename inside the boundary', () async {
+      final Directory dir = createSkill('foo');
+
+      expect(writer.preflight(dir, 'bar-foo', boundary), isA<Applied>());
+      expect(await writer.apply(dir, 'after\n', 'bar-foo', boundary), isA<Applied>());
+
+      expect(listing(), ['bar-foo']);
+    });
+  });
+
   test('undoes the rename when the write fails after it', () async {
     final Directory dir = createSkill('foo');
     final file = File(p.join(dir.path, 'SKILL.md'));
     await Process.run('chmod', ['444', file.path]);
     addTearDown(() => Process.run('chmod', ['644', p.join(skills.path, 'foo', 'SKILL.md')]));
 
-    final ApplyResult result = await writer.apply(dir, 'after\n', 'bar-foo');
+    final ApplyResult result = await writer.apply(dir, 'after\n', 'bar-foo', none);
 
     expect(result, isA<WriteFailed>().having((r) => p.basename(r.dir.path), 'dir', 'foo'));
     expect(listing(), ['foo']);
@@ -155,7 +211,7 @@ void main() {
     await Process.run('chmod', ['444', file.path]);
     addTearDown(() => Process.run('chmod', ['644', file.path]));
 
-    final ApplyResult result = await writer.apply(dir, 'after\n', 'foo');
+    final ApplyResult result = await writer.apply(dir, 'after\n', 'foo', none);
 
     expect(result, isA<WriteFailed>().having((r) => r.error, 'error', isA<FileSystemException>()));
     expect(skillMd('foo'), 'before\n');

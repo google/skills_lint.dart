@@ -153,6 +153,8 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `--ignore-config`: Ignore the YAML configuration file entirely.
 - `--ignore-file`: Path to a JSON file listing lints to ignore for the run. Each entry names a `rule_id` and a `file_name`. An optional `subject` limits the entry to the findings about one thing in that file; [`RULES.md`](RULES.md) says which rules set one, and in what format.
 - `--generate-baseline`: Write every current error into `skills_lint_ignore.json` so existing violations are ignored on future runs. Entries it can't read are not carried over, and it prints a message naming the skills they belonged to.
+
+  `--fix`, `--generate-baseline` and the creation of a missing `ignore_file` write only inside the directories being scanned, after following symlinks. A directory or skill named on the command line is scanned as given. A `directories` or `individual_skills` entry in `skills_lint.yaml` must also be inside the directory that holds the file, and so must its `ignore_file`. `--ignore-file` can name any path. A write that would land anywhere else, for example through a symlinked skill directory, is skipped with an `Error:` message, and the run fails. To write there on purpose, name the path with `-s`, `-d` or `--ignore-file`.
 - `--[no-]check-trailing-whitespace`: Enable/disable checking for trailing whitespace. (Disabled by default).
 - `--[no-]pub-archive-includes-skill`: Check that `dart pub publish` includes each skill in `skills/` and the files it links to. (Disabled by default).
 - `--[no-]published-skill-name`: Enable/disable checking that published package skills follow the package naming convention. (Disabled by default).

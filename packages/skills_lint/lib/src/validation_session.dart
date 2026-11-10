@@ -34,6 +34,7 @@ import 'skill_writer.dart';
 import 'skills_ignores_storage.dart';
 import 'unknown_rule_names.dart';
 import 'validator.dart';
+import 'write_boundary.dart';
 
 final _log = Logger('skills_lint');
 
@@ -191,6 +192,13 @@ class ValidationSession {
   bool _fixWriteFailed = false;
   bool _anySkillsValidated = false;
 
+  /// Whether a write or rename was refused because it would land outside a
+  /// [WriteBoundary], which fails the run, `--generate-baseline` included.
+  bool _writeRefused = false;
+
+  /// The [WriteBoundary] for each ignore file path from [_resolveIgnorePath].
+  final Map<String, WriteBoundary> _ignoreBoundaries = {};
+
   /// The problems [_loadIgnores] found in each ignore file that had entries
   /// it could not read.
   ///
@@ -205,7 +213,11 @@ class ValidationSession {
   /// message appears once per file.
   final Set<String> _reportedDroppedEntries = {};
 
-  bool get anyFailed => _anyFailed || _fixWriteFailed;
+  bool get anyFailed => _anyFailed || _fixWriteFailed || _writeRefused;
+
+  /// Whether a write or rename was refused because it would land outside the
+  /// directories this session scans.
+  bool get writeRefused => _writeRefused;
   bool get anySkillsValidated => _anySkillsValidated;
 
   /// Reports that the [kind] of target at [normalizedPath] does not exist,
@@ -274,7 +286,11 @@ class ValidationSession {
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
     final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
 
-    final String ignorePath = _resolveIgnorePath(localIgnoreFile, skillDir);
+    final boundary = WriteBoundary.forSkill(
+      normalizedSkillPath,
+      configDirectory: _configDirectoryOf(declaredBy),
+    );
+    final String ignorePath = _resolveIgnorePath(localIgnoreFile, skillDir, boundary);
     final SkillsIgnores ignores = await _loadIgnores(
       ignorePath,
       isCustomIgnoreFile: localIgnoreFile != null,
@@ -287,10 +303,11 @@ class ValidationSession {
     // Without a configured ignore file, the skill's own ignore file moves
     // with the skill directory when --fix renames it.
     final IgnorePathFor ignorePathFor = localIgnoreFile == null
-        ? (Directory dir) => p.join(dir.path, defaultIgnoreFileName)
+        ? (Directory dir) => _resolveIgnorePath(null, dir, boundary)
         : (Directory _) => ignorePath;
     final ValidationResult finalResult = await _runValidationWorkflow(
       skillDir: skillDir,
+      boundary: boundary,
       validator: validator,
       ignores: ignores,
       ignorePathFor: ignorePathFor,
@@ -388,6 +405,10 @@ class ValidationSession {
     // and to accumulate ignore usages correctly across all skills.
     final Map<String, SkillsIgnores> loadedIgnoresCache = {};
     var stoppedEarly = false;
+    final boundary = WriteBoundary.forSkillsDirectory(
+      normalizedRootPath,
+      configDirectory: _configDirectoryOf(declaredBy),
+    );
 
     for (final entity in entities) {
       if (entity is! Directory || p.basename(entity.path).startsWith('.')) {
@@ -398,6 +419,7 @@ class ValidationSession {
         entity,
         rootDir,
         loadedIgnoresCache,
+        boundary,
       );
       if (!shouldContinue) {
         stoppedEarly = true;
@@ -417,6 +439,7 @@ class ValidationSession {
     Directory entity,
     Directory rootDir,
     Map<String, SkillsIgnores> loadedIgnoresCache,
+    WriteBoundary boundary,
   ) async {
     // [rootDir] is already anchored, so its children are absolute as well.
     final String normalizedSkillPath = p.normalize(entity.path);
@@ -424,11 +447,11 @@ class ValidationSession {
     final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
     final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
 
-    final String ignorePath = _resolveIgnorePath(localIgnoreFile, rootDir);
+    final String ignorePath = _resolveIgnorePath(localIgnoreFile, rootDir, boundary);
     final SkillsIgnores ignores = await _getIgnoresForSkill(
-      localIgnoreFile,
-      rootDir,
+      ignorePath,
       loadedIgnoresCache,
+      isCustomIgnoreFile: localIgnoreFile != null,
     );
 
     _anySkillsValidated = true;
@@ -437,6 +460,7 @@ class ValidationSession {
     final int resultIndex = _results.length;
     final ValidationResult finalResult = await _runValidationWorkflow(
       skillDir: entity,
+      boundary: boundary,
       validator: validator,
       ignores: ignores,
       ignorePathFor: (Directory _) => ignorePath,
@@ -454,19 +478,17 @@ class ValidationSession {
   }
 
   Future<SkillsIgnores> _getIgnoresForSkill(
-    String? localIgnoreFile,
-    Directory rootDir,
-    Map<String, SkillsIgnores> loadedIgnoresCache,
-  ) async {
-    final String ignorePath = _resolveIgnorePath(localIgnoreFile, rootDir);
-
+    String ignorePath,
+    Map<String, SkillsIgnores> loadedIgnoresCache, {
+    required bool isCustomIgnoreFile,
+  }) async {
     if (loadedIgnoresCache.containsKey(ignorePath)) {
       return loadedIgnoresCache[ignorePath]!;
     }
 
     final SkillsIgnores ignores = await _loadIgnores(
       ignorePath,
-      isCustomIgnoreFile: localIgnoreFile != null,
+      isCustomIgnoreFile: isCustomIgnoreFile,
     );
     loadedIgnoresCache[ignorePath] = ignores;
     return ignores;
@@ -664,10 +686,60 @@ class ValidationSession {
   static bool _targetCovers(String targetPath, String skillPath) =>
       isAtOrWithin(targetPath, skillPath);
 
-  String _resolveIgnorePath(String? localIgnoreFile, Directory rootDir) {
+  /// The ignore file for skills in [rootDir], and records the
+  /// [WriteBoundary] that writes to it must stay inside.
+  ///
+  /// The default ignore file in [rootDir] stays inside [targetBoundary], the
+  /// boundary of the scan target. A configured [localIgnoreFile] gets its
+  /// boundary from [_configuredIgnoreBoundary].
+  String _resolveIgnorePath(
+    String? localIgnoreFile,
+    Directory rootDir,
+    WriteBoundary targetBoundary,
+  ) {
     // [localIgnoreFile] arrives anchored from [resolveIgnoreFile] or from
     // [ignoreFileOverride], both of which pass through [_ingestPath].
-    return localIgnoreFile ?? p.join(rootDir.path, defaultIgnoreFileName);
+    final String ignorePath = localIgnoreFile ?? p.join(rootDir.path, defaultIgnoreFileName);
+    _ignoreBoundaries[ignorePath] = localIgnoreFile == null
+        ? targetBoundary
+        : _configuredIgnoreBoundary(localIgnoreFile);
+    return ignorePath;
+  }
+
+  /// The [WriteBoundary] for [ignoreFile], an ignore file that
+  /// [resolveIgnoreFile] chose.
+  ///
+  /// An `ignore_file` from a configuration file stays inside the directory
+  /// its paths are relative to. One the user passed with `--ignore-file`, or
+  /// set on a [LintTargetConfig] built in code, has no boundary.
+  WriteBoundary _configuredIgnoreBoundary(String ignoreFile) {
+    if (ignoreFile == ignoreFileOverride) {
+      return const WriteBoundary.none();
+    }
+    for (final (normalizedPath: _, :normalizedIgnoreFile, :config) in _normalizedDirectoryConfigs) {
+      final String? configDirectory = _configDirectoryOf(config);
+      if (normalizedIgnoreFile == ignoreFile && configDirectory != null) {
+        return WriteBoundary(configDirectory);
+      }
+    }
+    return const WriteBoundary.none();
+  }
+
+  /// The directory that the paths of [target] are relative to, when [target]
+  /// was read from a configuration file, or `null` otherwise.
+  static String? _configDirectoryOf(LintTargetConfig? target) =>
+      target == null ? null : declarationOf(target)?.anchorDirectory;
+
+  /// Reports that skills_lint did not write the ignore file at [ignorePath],
+  /// if its [WriteBoundary] refuses it, and returns whether it did.
+  bool _refuseIgnoreWrite(String ignorePath) {
+    final String? reason = _ignoreBoundaries[ignorePath]?.refusal(ignorePath);
+    if (reason == null) {
+      return false;
+    }
+    _reporter.onWriteRefused(action: "write ignore file '$ignorePath'", reason: reason);
+    _writeRefused = true;
+    return true;
   }
 
   /// Loads the ignore JSON from [ignorePath], returning the parsed [SkillsIgnores].
@@ -695,7 +767,7 @@ class ValidationSession {
 
     // If a custom ignore file was specified but not found, create an empty one
     // so the user can start adding ignores to it.
-    if (isCustomIgnoreFile) {
+    if (isCustomIgnoreFile && !_refuseIgnoreWrite(ignorePath)) {
       _log.warning('File not found generating-baseline');
       try {
         await file.writeAsString(jsonEncode({SkillsIgnores.skillsKey: <String, dynamic>{}}));
@@ -833,6 +905,7 @@ class ValidationSession {
   /// see [_saveBaseline].
   Future<ValidationResult> _runValidationWorkflow({
     required Directory skillDir,
+    required WriteBoundary boundary,
     required Validator validator,
     required SkillsIgnores ignores,
     required IgnorePathFor ignorePathFor,
@@ -849,6 +922,7 @@ class ValidationSession {
 
     final ValidationResult finalResult = await _applyFixesIfNeeded(
       skillDir: skillDir,
+      boundary: boundary,
       result: result,
       validator: validator,
       skillIgnores: skillIgnores,
@@ -913,8 +987,11 @@ class ValidationSession {
     return _pubArchiveLoader.archiveFor(skillDir);
   }
 
+  /// [boundary] is the [WriteBoundary] that the writes and the rename for
+  /// [skillDir] must stay inside.
   Future<ValidationResult> _applyFixesIfNeeded({
     required Directory skillDir,
+    required WriteBoundary boundary,
     required ValidationResult result,
     required Validator validator,
     required List<IgnoreEntry> skillIgnores,
@@ -943,18 +1020,24 @@ class ValidationSession {
     // again under the current name: the fixes that need the rename drop out,
     // and the others still land.
     FixOutcome outcome = await fixer.fix(result);
-    ApplyResult applied = writer.preflight(skillDir, outcome.directoryName);
+    ApplyResult applied = writer.preflight(skillDir, outcome.directoryName, boundary);
+    if (applied is WriteRefused) {
+      // SkillWriter reported why. Nothing is written for this skill, and the
+      // run fails, with or without --dry-run.
+      _writeRefused = true;
+      return result;
+    }
     if (applied is RenameBlocked) {
       outcome = await _planWithoutRename(fixer, result, applied);
     }
     if (fixApply && outcome.content != context.rawContent) {
-      applied = await writer.apply(skillDir, outcome.content, outcome.directoryName);
+      applied = await writer.apply(skillDir, outcome.content, outcome.directoryName, boundary);
       if (applied is RenameBlocked) {
         // Only the rename failed, before anything was written.
         outcome = await _planWithoutRename(fixer, result, applied);
         if (outcome.content != context.rawContent) {
           // The new plan keeps the directory name, so this apply only writes.
-          applied = await writer.apply(skillDir, outcome.content, outcome.directoryName);
+          applied = await writer.apply(skillDir, outcome.content, outcome.directoryName, boundary);
         }
       }
     }
@@ -1009,7 +1092,7 @@ class ValidationSession {
     // failed too.
     final Directory dirAfter = switch (applied) {
       Applied(:final Directory dir) || WriteFailed(:final Directory dir) => dir,
-      RenameBlocked() => skillDir,
+      RenameBlocked() || WriteRefused() => skillDir,
     };
     if (dirAfter.path != skillDir.path) {
       _onSkillRenamed(
@@ -1168,6 +1251,9 @@ class ValidationSession {
         entryCount: problems.length,
         skills: {for (final IgnoreProblem(:skill) in problems) ?skill}.toList()..sort(),
       );
+    }
+    if (_refuseIgnoreWrite(ignorePath)) {
+      return;
     }
     try {
       await SkillsIgnoresStorage().save(ignorePath, ignores);

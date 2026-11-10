@@ -135,6 +135,12 @@ abstract class Reporter {
     err.writeln(FixIoMessages.writeFailed(skillMdPath: skillMdPath, error: error));
   }
 
+  /// Called when skills_lint did not [action] because the write would land
+  /// outside the directories it scans, for the [reason] given.
+  void onWriteRefused({required String action, required String reason}) {
+    err.writeln(FixIoMessages.writeRefused(action: action, reason: reason));
+  }
+
   /// Called when `--fix` renamed the skill directory [fromPath] to [toPath],
   /// then couldn't write `SKILL.md`, and couldn't rename the directory back.
   void onRenamedButNotWritten({
