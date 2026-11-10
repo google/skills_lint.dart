@@ -29,7 +29,10 @@ import 'test_utils.dart';
 /// rewrites.
 String _skillNamed(String name) => buildFrontmatter(name: name);
 
-void main() {
+void main() => defineCliTests();
+
+/// Defines the tests, which `compiled_test/` also runs against the compiled CLI.
+void defineCliTests() {
   late Directory repo;
   late Directory outside;
 
@@ -115,6 +118,37 @@ void main() {
 
       expect(victim.readAsStringSync(), 'precious');
       expect(stderr, refused(ignoreFile));
+    });
+
+    test('--fix passes for a symlinked skill that needs no fixes', () async {
+      final Directory real = await createDummySkill(
+        outside,
+        name: 'evil',
+        skillContent: _skillNamed('evil'),
+      );
+      final skills = Directory(p.join(repo.path, 'skills'))..createSync();
+      Link(p.join(skills.path, 'evil')).createSync(real.path);
+
+      await run(['--fix', '-d', 'skills'], exitCode: 0);
+    });
+
+    test('validation does not create an ignore_file through a link followed by ..', () async {
+      final deep = Directory(p.join(outside.path, 'far', 'deep'))..createSync(recursive: true);
+      Link(p.join(repo.path, 'l')).createSync(deep.path);
+      // `sub` is `outside/far/vdir`, though `l/..` reads as `repo` as text.
+      Link(p.join(repo.path, 'sub')).createSync(p.join('l', '..', 'vdir'));
+      Directory(p.join(outside.path, 'far', 'vdir')).createSync();
+      await createDummySkill(
+        Directory(p.join(repo.path, 'skills')),
+        name: 'foo',
+        skillContent: _skillNamed('foo'),
+      );
+      writeConfig(['- path: skills', '  ignore_file: sub/created.json']);
+
+      await run([], exitCode: 1);
+
+      final String created = p.join(outside.path, 'far', 'vdir', 'created.json');
+      expect(File(created).existsSync(), isFalse, reason: '$created was created');
     });
 
     test('--generate-baseline does not create the target of a dangling symlink', () async {

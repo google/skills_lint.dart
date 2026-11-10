@@ -64,6 +64,18 @@ void main() {
       expect(boundary.refusal(link), contains(p.join(outside.path, 'missing.json')));
     });
 
+    test('resolves a link before the .. that follows it', () {
+      final boundary = WriteBoundary(inside.path);
+      final deep = Directory(p.join(outside.path, 'deep'))..createSync();
+      Link(p.join(inside.path, 'l')).createSync(deep.path);
+
+      // As text, `l/../new.json` is inside; on disk it is `outside/new.json`.
+      expect(
+        boundary.refusal(p.join(inside.path, 'l', '..', 'new.json')),
+        contains(p.join(outside.path, 'new.json')),
+      );
+    });
+
     test('accepts a symlink that stays inside', () {
       final boundary = WriteBoundary(inside.path);
       final target = Directory(p.join(inside.path, 'real'))..createSync();

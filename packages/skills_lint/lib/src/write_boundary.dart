@@ -92,6 +92,8 @@ final class WriteBoundary {
       name != '..' &&
       !p.isAbsolute(name) &&
       p.split(name).length == 1 &&
+      // p.split treats `\` as text on POSIX, where it is a legal file name
+      // character that Windows reads as a separator.
       !name.contains('/') &&
       !name.contains(r'\');
 
@@ -105,36 +107,39 @@ final class WriteBoundary {
   ///
   /// [path] or its last segments may not exist yet, such as a rename target
   /// or an ignore file that is about to be created. Those segments are kept
-  /// as they are, after the deepest part that exists has been resolved.
+  /// as they are. Each segment is resolved before the `..` after it applies,
+  /// as the operating system does.
   @visibleForTesting
-  static String resolve(String path) => _resolve(p.normalize(path), linksLeft: _maxLinks);
+  static String resolve(String path) {
+    int linksLeft = _maxLinks;
+    String walk(String path) {
+      final List<String> segments = p.split(path);
+      // Every prefix of `real` is resolved, so `..` can drop its last segment
+      // as text.
+      String real = segments.first;
+      for (final String segment in segments.skip(1)) {
+        if (segment == '.') {
+          continue;
+        }
+        if (segment == '..') {
+          real = p.dirname(real);
+          continue;
+        }
+        final String next = p.join(real, segment);
+        if (FileSystemEntity.typeSync(next, followLinks: false) != FileSystemEntityType.link) {
+          real = next;
+          continue;
+        }
+        if (--linksLeft < 0) {
+          throw FileSystemException('Too many levels of symbolic links', path);
+        }
+        // Follow the link by hand: resolveSymbolicLinksSync fails on a
+        // dangling link, and writing through one creates its target.
+        real = walk(p.join(real, Link(next).targetSync()));
+      }
+      return real;
+    }
 
-  static String _resolve(String path, {required int linksLeft}) {
-    var existing = path;
-    final missing = <String>[];
-    while (FileSystemEntity.typeSync(existing, followLinks: false) ==
-        FileSystemEntityType.notFound) {
-      final String parent = p.dirname(existing);
-      if (parent == existing) {
-        return path;
-      }
-      missing.insert(0, p.basename(existing));
-      existing = parent;
-    }
-    if (FileSystemEntity.isLinkSync(existing)) {
-      if (linksLeft == 0) {
-        throw FileSystemException('Too many levels of symbolic links', path);
-      }
-      // Follow the link by hand: resolveSymbolicLinksSync fails on a dangling
-      // link, and writing through one creates its target.
-      final String target = Link(existing).targetSync();
-      final String parent = _resolve(p.dirname(existing), linksLeft: linksLeft - 1);
-      return _resolve(
-        p.normalize(p.joinAll([p.join(parent, target), ...missing])),
-        linksLeft: linksLeft - 1,
-      );
-    }
-    final String real = Directory(existing).resolveSymbolicLinksSync();
-    return p.joinAll([real, ...missing]);
+    return walk(p.absolute(path));
   }
 }

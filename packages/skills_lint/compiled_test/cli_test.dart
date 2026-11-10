@@ -66,6 +66,6 @@ void main() {
     name_format_fix.defineCliTests();
     pub_archive_includes_skill_cli.defineCliTests();
     relative_paths.defineCliTests();
-    write_confinement.main();
+    write_confinement.defineCliTests();
   });
 }

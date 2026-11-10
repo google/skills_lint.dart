@@ -197,7 +197,10 @@ class ValidationSession {
   bool _writeRefused = false;
 
   /// The [WriteBoundary] for each ignore file path from [_resolveIgnorePath].
-  final Map<String, WriteBoundary> _ignoreBoundaries = {};
+  ///
+  /// Targets can share an ignore file, so a path keeps every boundary it was
+  /// resolved with, and a write must satisfy all of them.
+  final Map<String, List<WriteBoundary>> _ignoreBoundaries = {};
 
   /// The problems [_loadIgnores] found in each ignore file that had entries
   /// it could not read.
@@ -700,9 +703,9 @@ class ValidationSession {
     // [localIgnoreFile] arrives anchored from [resolveIgnoreFile] or from
     // [ignoreFileOverride], both of which pass through [_ingestPath].
     final String ignorePath = localIgnoreFile ?? p.join(rootDir.path, defaultIgnoreFileName);
-    _ignoreBoundaries[ignorePath] = localIgnoreFile == null
-        ? targetBoundary
-        : _configuredIgnoreBoundary(localIgnoreFile);
+    (_ignoreBoundaries[ignorePath] ??= []).add(
+      localIgnoreFile == null ? targetBoundary : _configuredIgnoreBoundary(localIgnoreFile),
+    );
     return ignorePath;
   }
 
@@ -733,7 +736,10 @@ class ValidationSession {
   /// Reports that skills_lint did not write the ignore file at [ignorePath],
   /// if its [WriteBoundary] refuses it, and returns whether it did.
   bool _refuseIgnoreWrite(String ignorePath) {
-    final String? reason = _ignoreBoundaries[ignorePath]?.refusal(ignorePath);
+    final String? reason = [
+      for (final WriteBoundary boundary in _ignoreBoundaries[ignorePath] ?? const [])
+        ?boundary.refusal(ignorePath),
+    ].firstOrNull;
     if (reason == null) {
       return false;
     }
@@ -1020,7 +1026,10 @@ class ValidationSession {
     // again under the current name: the fixes that need the rename drop out,
     // and the others still land.
     FixOutcome outcome = await fixer.fix(result);
-    ApplyResult applied = writer.preflight(skillDir, outcome.directoryName, boundary);
+    // A plan that changes nothing writes nothing, so no boundary applies.
+    ApplyResult applied = outcome.content == context.rawContent
+        ? Applied(skillDir, renamed: false)
+        : writer.preflight(skillDir, outcome.directoryName, boundary);
     if (applied is WriteRefused) {
       // SkillWriter reported why. Nothing is written for this skill, and the
       // run fails, with or without --dry-run.
