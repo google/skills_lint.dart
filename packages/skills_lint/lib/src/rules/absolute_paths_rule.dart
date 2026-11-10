@@ -5,6 +5,7 @@
 import 'dart:io';
 import 'package:path/path.dart';
 import '../fixable_rule.dart';
+import '../markdown_links.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
@@ -29,22 +30,11 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
   Future<List<ValidationError>> validate(SkillContext context) async {
     final errors = <ValidationError>[];
 
-    // Extract content after YAML frontmatter
-    final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(context.rawContent);
-    final int frontmatterEnd = match != null ? match.end : 0;
-    final String markdownContent = match != null
-        ? context.rawContent.substring(frontmatterEnd)
-        : context.rawContent;
-
-    for (final RegExpMatch linkMatch in SkillContext.markdownLinkRegex.allMatches(
-      markdownContent,
-    )) {
-      final String fullPath = linkMatch.group(1)!;
-      final String path = linkTargetOf(fullPath);
+    for (final MarkdownLink link in bodyLinksOf(context)) {
+      final String path = link.target;
 
       if (isAbsolute(path) || windows.isAbsolute(path)) {
-        final int linkOffsetInFile = frontmatterEnd + linkMatch.start;
-        final int line = context.offsetToLine(linkOffsetInFile);
+        final int line = context.offsetToLine(link.start);
         errors.add(
           _buildAbsolutePathError(
             path: path,
@@ -80,21 +70,12 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
   Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
     final String currentContent = context.rawContent;
 
-    final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(currentContent);
-    final int frontmatterEnd = match != null ? match.end : 0;
-    final String frontmatter = currentContent.substring(0, frontmatterEnd);
-    final String markdownContent = currentContent.substring(frontmatterEnd);
-
-    final String fixedMarkdown = markdownContent.replaceAllMapped(SkillContext.markdownLinkRegex, (
-      match,
-    ) {
-      final String rawTarget = match[1]!;
-      final String trimmed = rawTarget.trim();
-      final List<String> parts = trimmed.split(RegExp(r'\s+'));
-      final String pathOnly = parts.first;
-      final String? titlePart = parts.length > 1 ? trimmed.substring(pathOnly.length) : null;
+    final fixed = StringBuffer();
+    var copiedUpTo = 0;
+    for (final MarkdownLink link in bodyLinksOf(context)) {
+      final String pathOnly = link.target;
       if (ignoredSubjects.contains(pathOnly)) {
-        return match[0]!;
+        continue;
       }
 
       if (isAbsolute(pathOnly) || windows.isAbsolute(pathOnly)) {
@@ -102,18 +83,17 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
         if (file.existsSync()) {
           final String relativePath = relative(pathOnly, from: context.directory.path);
           final String posixRelativePath = relativePath.replaceAll(r'\', '/');
-          final targetWithTitle = titlePart != null
-              ? '$posixRelativePath$titlePart'
-              : posixRelativePath;
-          final String fullMatch = match[0]!;
-          final int targetStart = fullMatch.length - rawTarget.length - 1;
-          return '${fullMatch.substring(0, targetStart)}$targetWithTitle)';
+          // A space or parenthesis ends a destination unless < and > enclose it.
+          final bool needsBrackets =
+              !link.isAngleBracketed && posixRelativePath.contains(RegExp(r'[\s()]'));
+          fixed
+            ..write(currentContent.substring(copiedUpTo, link.targetStart))
+            ..write(needsBrackets ? '<$posixRelativePath>' : posixRelativePath);
+          copiedUpTo = link.targetEnd;
         }
       }
-
-      return match[0]!;
-    });
-
-    return '$frontmatter$fixedMarkdown';
+    }
+    fixed.write(currentContent.substring(copiedUpTo));
+    return fixed.toString();
   }
 }

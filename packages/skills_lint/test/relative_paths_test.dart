@@ -435,6 +435,59 @@ void main() {
         expect(result.errors, [contains('Linked file does not exist: a.md%00b')]);
       });
     });
+
+    group('Markdown syntax', () {
+      Future<List<String>> missingTargets(String body, {List<String> files = const []}) async {
+        final content = '${buildFrontmatter(name: 'test-skill')}$body';
+        final Directory skillDir = await createDummySkill(
+          tempDir,
+          name: 'test-skill',
+          skillContent: content,
+        );
+        for (final name in files) {
+          await File(p.join(skillDir.path, name)).writeAsString('doc');
+        }
+        final List<ValidationError> errors = await RelativePathsRule().validate(
+          SkillContext(directory: skillDir, rawContent: content),
+        );
+        return [for (final error in errors) error.subject!];
+      }
+
+      test('finds the file named by an angle-bracket destination', () async {
+        expect(await missingTargets('[a](<my file.md>)\n', files: ['my file.md']), isEmpty);
+      });
+
+      test('finds the file named by a destination with balanced parentheses', () async {
+        expect(await missingTargets('[a](a(b).md "title")\n', files: ['a(b).md']), isEmpty);
+      });
+
+      test('reports the whole destination of a link to a missing file', () async {
+        expect(await missingTargets('[a](<my file.md>) [b](a(b).md)\n'), ['my file.md', 'a(b).md']);
+      });
+
+      test('ignores link syntax in code spans and code blocks', () async {
+        const body =
+            'Use `[a](span.md)` or ``[b](`double`.md)``.\n'
+            '\n'
+            '```markdown\n'
+            '[c](fenced.md)\n'
+            '```\n'
+            '\n'
+            '~~~~\n'
+            '```\n'
+            '[d](tilde.md)\n'
+            '~~~~\n'
+            '\n'
+            '    [e](indented.md)\n'
+            '\n'
+            '[f](real.md)\n';
+        expect(await missingTargets(body), ['real.md']);
+      });
+
+      test('checks a link indented under a list item', () async {
+        expect(await missingTargets('1. Step\n\n    [a](step.md)\n'), ['step.md']);
+      });
+    });
   });
 
   _defineWithinSkillTests();

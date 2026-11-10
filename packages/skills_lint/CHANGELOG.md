@@ -5,6 +5,11 @@
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
 
+### Bug fixes
+
+- `check-absolute-paths`, `check-relative-paths` and `pub-archive-includes-skill` skip link syntax in code spans and in fenced and indented code blocks. They read a destination in `<` and `>`, such as `[a](<my file.md>)`, and a destination with balanced parentheses, such as `[a](a(b).md)`, as a whole.
+- `SkillContext.markdownLinkRegex` is deprecated, because it matches links in code and misreads those destinations. It will be removed in 0.6.0.
+
 ## 0.5.3+1
 
 - Fixed the README's download example, which named a version with no release assets.

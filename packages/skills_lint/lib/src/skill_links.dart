@@ -4,9 +4,15 @@
 
 import 'package:path/path.dart' as p;
 
-/// The link target in [linkDestination], the text between the parentheses of
-/// a Markdown link, without an optional title such as `"Guide"`.
-String linkTargetOf(String linkDestination) => linkDestination.trim().split(RegExp(r'\s+')).first;
+import 'markdown_links.dart';
+import 'models/skill_context.dart';
+
+/// The links in the Markdown body of [context], after any frontmatter, with
+/// offsets into [SkillContext.rawContent].
+List<MarkdownLink> bodyLinksOf(SkillContext context) {
+  final int bodyStart = SkillContext.skillStartRegex.firstMatch(context.rawContent)?.end ?? 0;
+  return markdownLinksIn(context.rawContent.substring(bodyStart), offset: bodyStart);
+}
 
 /// Whether the link target [path] is a URL with a scheme, such as `https:` or
 /// `mailto:`, or an anchor in this file.

@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart';
 
+import '../markdown_links.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
@@ -52,18 +53,8 @@ class RelativePathsRule extends SkillRule {
     final errors = <ValidationError>[];
 
     // Extract content after YAML frontmatter
-    final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(context.rawContent);
-    final int frontmatterEnd = match != null ? match.end : 0;
-    final String markdownContent = match != null
-        ? context.rawContent.substring(frontmatterEnd)
-        : context.rawContent;
-
-    for (final RegExpMatch linkMatch in SkillContext.markdownLinkRegex.allMatches(
-      markdownContent,
-    )) {
-      final String fullPath = linkMatch.group(1)!;
-      // Markdown links can have a title after the URL, separated by spaces.
-      final String path = linkTargetOf(fullPath);
+    for (final MarkdownLink link in bodyLinksOf(context)) {
+      final String path = link.target;
 
       // Skip absolute paths (handled by AbsolutePathsRule)
       if (isAbsoluteLink(path)) {
@@ -78,7 +69,7 @@ class RelativePathsRule extends SkillRule {
 
       final String skillPath = absolute(normalize(context.directory.path));
       final String resolvedPath = absolute(normalize(join(skillPath, effectivePath)));
-      final int line = context.offsetToLine(frontmatterEnd + linkMatch.start);
+      final int line = context.offsetToLine(link.start);
       if (withinSkill && !isAtOrWithin(skillPath, resolvedPath)) {
         // The link is wrong wherever it points, so skip the existence check
         // and the sibling suggestion below.

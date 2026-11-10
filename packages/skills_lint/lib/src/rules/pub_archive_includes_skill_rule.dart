@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../markdown_links.dart';
 import '../models/analysis_severity.dart';
 import '../models/pub_archive.dart';
 import '../models/skill_context.dart';
@@ -107,11 +108,8 @@ class PubArchiveIncludesSkillRule extends SkillRule {
     // Each link outside the package whose target exists, keyed by the path
     // relative to the package root, with the line of its first link.
     final outside = <String, int>{};
-    final RegExpMatch? frontmatter = SkillContext.skillStartRegex.firstMatch(context.rawContent);
-    final int bodyStart = frontmatter?.end ?? 0;
-    final String body = context.rawContent.substring(bodyStart);
-    for (final RegExpMatch link in SkillContext.markdownLinkRegex.allMatches(body)) {
-      final String target = linkTargetOf(link[1]!);
+    for (final MarkdownLink link in bodyLinksOf(context)) {
+      final String target = link.target;
       if (isAbsoluteLink(target) || isUrlOrAnchor(target)) {
         continue;
       }
@@ -121,7 +119,7 @@ class PubArchiveIncludesSkillRule extends SkillRule {
         continue;
       }
       final String linkedFile = _archivePath(packageRoot, linkedPath);
-      final int line = context.offsetToLine(bodyStart + link.start);
+      final int line = context.offsetToLine(link.start);
       if (!p.isWithin(packageRoot, linkedPath)) {
         outside.putIfAbsent(linkedFile, () => line);
       } else if (!files.contains(linkedFile)) {

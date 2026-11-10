@@ -42,6 +42,11 @@ class SkillContext {
   /// Regex to match inline Markdown links (`[text](target)`). The capture
   /// group is the link target. Rules that inspect SKILL.md link targets
   /// import this rather than re-defining the pattern.
+  ///
+  /// The pattern also matches text in code spans and code blocks, and it
+  /// misreads `<...>` destinations and destinations with parentheses.
+  // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/72
+  @Deprecated('Matches links in code and misreads some destinations. Will be removed in 0.6.0.')
   static final RegExp markdownLinkRegex = RegExp(r'\[.*?\]\((.*?)\)');
 
   final Directory directory;
