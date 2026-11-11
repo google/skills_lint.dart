@@ -167,8 +167,23 @@ void _defineMarkdownLinksTests() {
           'See [Section\n'
           '2. Configuration](config.md) and [item\n'
           '*\n'
-          '](star.md).\n';
-      expect(targetsIn(markdown), ['config.md', 'star.md']);
+          '](star.md).\n'
+          '\n'
+          '1. Press the ` key.\n'
+          '2. See [step2](step2.md) and `x`.\n'
+          '3. ```dart\n'
+          '   // [in_fence](/abs/ignored2.md)\n'
+          '   ```\n'
+          '\n'
+          '> Run `tool\n'
+          'with arg\n'
+          '> end` and do not write `[bad](/abs/ignored3.md)`.\n'
+          '\n'
+          '- Step one\n'
+          'continues lazily here.\n'
+          '\n'
+          '    [in_step_one](step_one.md)\n';
+      expect(targetsIn(markdown), ['config.md', 'star.md', 'step2.md', 'step_one.md']);
     });
 
     test('ends unclosed list fences on dedent and closes empty list items after a blank line', () {

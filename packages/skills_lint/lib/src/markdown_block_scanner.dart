@@ -142,10 +142,9 @@ class MarkdownBlockScanner {
     }
 
     if (_paragraphStart != null && matched < _containers.length) {
-      // Lazy paragraph continuation across unmatched `>` or list-item indents,
-      // unless the unmatched line opens a block that can interrupt a paragraph
-      // inside the matched prefix.
-      _truncateContainers(matched);
+      // Lazy paragraph continuation across unmatched `>` or list-item indents:
+      // keep `_containers` intact when the line continues lazily, or flush the
+      // paragraph and pop unmatched containers when a new block interrupts it.
       final _LineCursor lazyCursor = (
         lineStart: lineStart,
         lineEnd: lineEnd,
@@ -154,10 +153,12 @@ class MarkdownBlockScanner {
         pos: nonSpacePos,
         paragraphStartCandidate: lineStart,
       );
-      if (!_interruptsLazyParagraph(lazyCursor)) {
+      if (!_interruptsLazyParagraph(lazyCursor, unmatchedContainer: _containers[matched])) {
         _markListItemsNonEmpty();
         return;
       }
+      _flushParagraph(lineStart);
+      _truncateContainers(matched);
     } else {
       _truncateContainers(matched);
     }
@@ -284,7 +285,7 @@ class MarkdownBlockScanner {
   /// Whether [line] opens a container or leaf block that interrupts a lazy
   /// paragraph continuation (so `_processLine` should flush the paragraph and
   /// re-parse [line] normally).
-  bool _interruptsLazyParagraph(_LineCursor line) {
+  bool _interruptsLazyParagraph(_LineCursor line, {required ContainerMarker unmatchedContainer}) {
     if (line.column > 3 || line.pos >= line.contentEnd) {
       return false;
     }
@@ -305,6 +306,11 @@ class MarkdownBlockScanner {
     final RegExpMatch? listMatch = _listMarkerToken.firstMatch(rest);
     if (listMatch == null) {
       return false;
+    }
+    if (unmatchedContainer is ListItemContainer) {
+      // A list is already open at this nesting level, so any sibling list
+      // marker (including `2.` or an empty item) advances the list.
+      return true;
     }
     final String? digits = listMatch.group(1);
     if (digits != null && digits != '1') {
