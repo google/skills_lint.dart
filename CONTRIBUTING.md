@@ -174,38 +174,50 @@ We pledge to maintain an open and welcoming environment. For details, see our
 
 ## Rule-stability policy (SemVer)
 
-Lint rules are part of `skills_lint`'s public API. Adopters wire
-the linter into pre-commit hooks and CI gates, so a rule that silently
-flips from "warning" to "error" can break a downstream build with no
-code change of their own. We version rule changes the same way we
-version code changes. The
+Lint rules are part of `skills_lint`'s public API. Adopters run the
+linter in pre-commit hooks and CI gates, so a release can turn their
+build red with no change of their own. The
 [`dart-package-maintenance`](.agents/skills/dart-package-maintenance/SKILL.md)
 skill defines the version numbers for each kind of release. This
-section says which kind of release each rule change needs.
+section says which changes are breaking.
+
+A change is breaking if it is likely to turn a real user's passing CI
+red or to break real code that uses the package. Judge this by
+evidence, not by what could break in theory. Evidence includes:
+
+- the [known downstream consumers](.agents/skills/check-downstream-consumers/resources/known_consumers.md),
+- a run of the linter over real `SKILL.md` files, such as those in
+  [`third_party/skill-repos`](third_party/skill-repos/README.md), and
+- a public code search for the API, flag or config key you change.
+
+A change that reaches no real user is not breaking. Removing a public
+API that nobody calls is not breaking. Neither is making a rule flag a
+pattern that no real skill uses.
+
+- **Major** — breaking changes. Changes to check for this are removing
+  or renaming a rule, raising a rule's default severity
+  (`disabled → warning`, `warning → error`), making a rule match more,
+  changing the format of a rule's ignore subject, and removing or
+  changing public API.
+
+- **Minor** — new rules, changes to what a rule matches that aren't
+  breaking, and other new features. New rules ship with
+  `defaultSeverity: AnalysisSeverity.disabled` unless the evidence
+  shows that enabling them fails no real skill. Speedups that don't
+  change diagnostics also land here. A diagnostic message may add
+  context.
 
 - **Patch** — bug fixes to existing rules, including diagnostic
-  message rewording, internal refactors, and fixes that *narrow* what
-  a rule matches (fewer false positives). The set of error states a
-  passing skill needs to clear does not grow.
+  message rewording, internal refactors, and fixes that make a rule
+  match less (fewer false positives).
 
-- **Minor** — new rules, **shipping with
-  `defaultSeverity: AnalysisSeverity.disabled`** so existing skills
-  keep passing. Adopters opt in by enabling the rule via flag or YAML
-  config. Performance improvements that don't change diagnostics also
-  land here. A rule's diagnostic message may expand to include
-  additional context.
-
-- **Major** — any change that can fail a previously-passing skill:
-  removing a rule (so configs referencing it stop working), upgrading
-  a rule's default severity (`disabled → warning`, `warning → error`),
-  broadening what a rule matches (more true positives = more
-  failures), renaming a rule, or changing the format of a rule's
-  ignore subject (existing ignore entries stop matching). The CHANGELOG
-  calls out the exact rules affected.
+The CHANGELOG describes every change to what a rule reports and to
+public API, breaking or not, and names the rules affected. Say on the
+PR which evidence you checked.
 
 Rationale: adopters should be able to set a caret constraint on
 `skills_lint` in `pubspec.yaml` and trust that a `dart pub upgrade`
-never turns green CI red without their consent. Surprises belong in
+does not turn green CI red without their consent. Surprises belong in
 major releases, and only there.
 
 If you're proposing a change that doesn't fit cleanly into one of the
@@ -220,9 +232,10 @@ Each release in `packages/skills_lint/CHANGELOG.md` groups its entries
 under these `###` headings, in this order. Leave out a heading that has
 no entries.
 
-- `### Breaking changes`: changes that can stop a user's setup from
-  working, such as a higher minimum Dart SDK, a removed rule or API, or a
-  change the policy above puts in a major release.
+- `### Breaking changes`: changes that the policy above finds breaking,
+  such as a higher minimum Dart SDK or a removed rule that real configs
+  use. Put a change that the policy finds not breaking under the heading
+  that fits it best, and still describe it plainly.
 - `### New rules`: rules the release adds.
 - `### Behavior changes`: existing rules, errors and fixes that report
   more, less or differently.

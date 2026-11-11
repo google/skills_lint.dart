@@ -21,9 +21,9 @@ import 'package:test/test.dart';
 /// 2. Every RULES.md entry maps to a registered rule (catches stale
 ///    docs after a rule is removed or renamed).
 /// 3. The documented `Default severity:` value equals the rule's
-///    `CheckType.defaultSeverity` (catches silent severity changes
-///    that should have been a major version bump per
-///    `CONTRIBUTING.md`).
+///    `CheckType.defaultSeverity` (catches silent severity changes,
+///    which the rule-stability policy in `CONTRIBUTING.md` asks
+///    authors to check for breakage).
 /// 4. The documented `Fixable:` value matches whether the rule's class
 ///    actually implements `FixableRule`.
 ///
