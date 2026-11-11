@@ -19,38 +19,63 @@ final RegExp _thematicBreakPattern = RegExp(
   r'^(?:-[ \t]*){3,}$|^(?:\*[ \t]*){3,}$|^(?:_[ \t]*){3,}$',
 );
 final RegExp _setextUnderlinePattern = RegExp(r'^(?:=+|-+)[ \t]*$');
-final RegExp _listMarkerToken = RegExp(r'^(?:[-+*]|\d{1,9}[.)])(?=[ \t]|$)');
+final RegExp _listMarkerToken = RegExp(r'^(?:[-+*]|(\d{1,9})[.)])(?=[ \t]|$)');
+
+/// A BlockQuote (`>`) or ListItem container on [MarkdownBlockScanner]'s active
+/// container stack, ordered from outermost to innermost.
+sealed class ContainerMarker {
+  const ContainerMarker();
+}
+
+/// A CommonMark `>` blockquote container.
+final class QuoteContainer extends ContainerMarker {
+  const QuoteContainer();
+}
+
+/// A CommonMark list item container whose child blocks must be indented by at
+/// least [indent] columns relative to its enclosing container.
+final class ListItemContainer extends ContainerMarker {
+  ListItemContainer(this.indent, {required this.startedEmpty});
+
+  final int indent;
+
+  /// True when the list marker line had no content and no non-blank line has
+  /// been seen inside this item yet (CommonMark §5.2: an item can begin with at
+  /// most one blank line).
+  bool startedEmpty;
+}
 
 /// A contiguous non-code slice of Markdown text (a paragraph or ATX heading).
 class MarkdownTextBlock {
   const MarkdownTextBlock({
     required this.start,
     required this.end,
-    required this.quoteDepth,
-    required this.maxDefinitionIndent,
+    required this.containers,
     required this.allowsDefinitions,
   });
 
   final int start;
   final int end;
-  final int quoteDepth;
-  final int maxDefinitionIndent;
+
+  /// Active outer-to-inner containers enclosing this block, used to peel
+  /// prefixes on continuation lines of multi-line `[ref]:` definitions.
+  final List<ContainerMarker> containers;
+
   final bool allowsDefinitions;
 }
 
 class _OpenFence {
-  const _OpenFence({required this.markerChar, required this.minLength, required this.quoteDepth});
+  const _OpenFence({required this.markerChar, required this.minLength, required this.containers});
 
   final int markerChar;
   final int minLength;
-  final int quoteDepth;
+  final List<ContainerMarker> containers;
 }
 
-typedef _LineContext = ({
+typedef _LineCursor = ({
   int lineStart,
   int lineEnd,
   int contentEnd,
-  int quoteDepth,
   int column,
   int pos,
   int paragraphStartCandidate,
@@ -64,15 +89,11 @@ class MarkdownBlockScanner {
   final String _markdown;
   final List<MarkdownTextBlock> _blocks = [];
   final List<int> _lineStarts = [];
-
-  /// Content-indentation stack of enclosing list items.
-  final List<int> _listIndents = [];
+  final List<ContainerMarker> _containers = [];
 
   _OpenFence? _openFence;
-  bool _afterBlankLine = true;
   int? _paragraphStart;
-  int _paragraphQuoteDepth = 0;
-  int _paragraphMaxDefIndent = 3;
+  List<ContainerMarker> _paragraphContainers = const [];
 
   (List<MarkdownTextBlock>, List<int>) scan() {
     var lineStart = 0;
@@ -87,137 +108,214 @@ class MarkdownBlockScanner {
     return (_blocks, _lineStarts);
   }
 
-  int get _baseIndent => _listIndents.isEmpty ? 0 : _listIndents.last;
-
   void _processLine(int lineStart, int lineEnd) {
     final int contentEnd = stripLineEnding(_markdown, lineStart, lineEnd);
     if (_consumeOpenFenceLine(lineStart, contentEnd)) {
       return;
     }
 
-    final (int quoteDepth, int unquotedStart) = stripQuoteMarkers(_markdown, lineStart, contentEnd);
-    if (_paragraphStart != null && quoteDepth > _paragraphQuoteDepth) {
-      _flushParagraph(lineStart);
-    }
+    final (int matched, int column, int pos) = matchContainers(
+      _markdown,
+      lineStart,
+      contentEnd,
+      _containers,
+    );
+    final (int nonSpaceCol, int nonSpacePos) = leadingIndent(
+      _markdown,
+      pos,
+      contentEnd,
+      startColumn: column,
+    );
+    final isBlankAfterMatched = nonSpacePos == contentEnd;
 
-    final (int indent, int nonSpaceStart) = leadingIndent(_markdown, unquotedStart, contentEnd);
-    if (nonSpaceStart == contentEnd) {
+    if (isBlankAfterMatched) {
       _flushParagraph(lineStart);
-      _afterBlankLine = true;
+      if (!onlyListContainersRemain(_containers, matched)) {
+        _truncateContainers(_firstUnmatchedQuoteIndex(_containers, matched));
+      }
+      if (_containers.isNotEmpty) {
+        if (_containers.last case ListItemContainer(startedEmpty: true)) {
+          _containers.removeLast();
+        }
+      }
       return;
     }
 
-    if (_afterBlankLine) {
-      _popListsDeeperThan(indent);
+    if (_paragraphStart != null && matched < _containers.length) {
+      // Lazy paragraph continuation across unmatched `>` or list-item indents,
+      // unless the unmatched line opens a block that can interrupt a paragraph
+      // inside the matched prefix.
+      _truncateContainers(matched);
+      final _LineCursor lazyCursor = (
+        lineStart: lineStart,
+        lineEnd: lineEnd,
+        contentEnd: contentEnd,
+        column: nonSpaceCol,
+        pos: nonSpacePos,
+        paragraphStartCandidate: lineStart,
+      );
+      if (!_interruptsLazyParagraph(lazyCursor)) {
+        _markListItemsNonEmpty();
+        return;
+      }
+    } else {
+      _truncateContainers(matched);
     }
 
-    final _LineContext? remaining = _peelListMarkers((
+    _markListItemsNonEmpty();
+    final _LineCursor? remaining = _openNewContainers((
       lineStart: lineStart,
       lineEnd: lineEnd,
       contentEnd: contentEnd,
-      quoteDepth: quoteDepth,
-      column: indent,
-      pos: nonSpaceStart,
+      column: nonSpaceCol,
+      pos: nonSpacePos,
       paragraphStartCandidate: lineStart,
     ));
     if (remaining == null) {
       return;
     }
 
-    if (_handleBlockStructure(remaining)) {
+    if (_handleLeafBlock(remaining)) {
       return;
     }
 
     if (_paragraphStart == null) {
       _paragraphStart = remaining.paragraphStartCandidate;
-      _paragraphQuoteDepth = remaining.quoteDepth;
-      _paragraphMaxDefIndent = _baseIndent + 3;
+      _paragraphContainers = List<ContainerMarker>.unmodifiable(_containers);
     }
-    _afterBlankLine = false;
   }
 
-  /// Peels one or more list markers (such as `- ` or `- - `) at the front of
-  /// [line], updating [_listIndents]. Returns `null` when the list item starts
-  /// empty or opens with an indented code block on the marker line.
-  _LineContext? _peelListMarkers(_LineContext line) {
-    var current = line;
-    while (current.pos < current.contentEnd && current.column <= _baseIndent + 3) {
-      if (!_blockMarkerChars.contains(_markdown.codeUnitAt(current.pos))) {
-        break;
-      }
-      final String rest = _markdown.substring(current.pos, current.contentEnd);
-      if (_thematicBreakPattern.hasMatch(rest)) {
-        break;
-      }
-      final RegExpMatch? match = _listMarkerToken.firstMatch(rest);
-      if (match == null) {
-        break;
-      }
-
-      _flushParagraph(current.lineStart);
-      _popListsDeeperThan(current.column);
-
-      final int afterMarker = current.pos + match.end;
-      final int markerEndCol = current.column + match.end;
-      final (int itemCol, int itemPos) = leadingIndent(
-        _markdown,
-        afterMarker,
-        current.contentEnd,
-        startColumn: markerEndCol,
-      );
-      final int spacesAfterMarker = itemCol - markerEndCol;
-      if (itemPos == current.contentEnd || spacesAfterMarker >= 5) {
-        // CommonMark §5.2: an empty item or an item opening with 4+ spaces
-        // past the required post-marker space indents by `markerEndCol + 1`.
-        _listIndents.add(markerEndCol + 1);
-        _afterBlankLine = false;
-        return null;
-      }
-
-      _listIndents.add(itemCol);
-      final (int innerQuotes, int afterQuotes) = stripQuoteMarkers(
-        _markdown,
-        itemPos,
-        current.contentEnd,
-      );
-      if (innerQuotes > 0) {
-        final (int postQuoteIndent, int postQuotePos) = leadingIndent(
-          _markdown,
-          afterQuotes,
-          current.contentEnd,
-        );
-        if (postQuotePos == current.contentEnd) {
-          _afterBlankLine = false;
+  /// Opens any new `>` blockquotes and list-item markers at the front of
+  /// [cursor]. Returns `null` when a newly opened container has no remaining
+  /// inline text on this line (or opens an indented code block on the marker
+  /// line).
+  _LineCursor? _openNewContainers(_LineCursor cursor) {
+    var current = cursor;
+    while (current.pos < current.contentEnd && current.column <= 3) {
+      if (_markdown.codeUnitAt(current.pos) == _greaterThan) {
+        final _LineCursor? next = _openQuoteContainer(current);
+        if (next == null) {
           return null;
         }
-        current = (
-          lineStart: current.lineStart,
-          lineEnd: current.lineEnd,
-          contentEnd: current.contentEnd,
-          quoteDepth: current.quoteDepth + innerQuotes,
-          column: itemCol + postQuoteIndent,
-          pos: postQuotePos,
-          paragraphStartCandidate: postQuotePos,
-        );
-      } else {
-        current = (
-          lineStart: current.lineStart,
-          lineEnd: current.lineEnd,
-          contentEnd: current.contentEnd,
-          quoteDepth: current.quoteDepth,
-          column: itemCol,
-          pos: itemPos,
-          paragraphStartCandidate: itemPos,
-        );
+        current = next;
+        continue;
       }
+      final (bool matchedList, _LineCursor? next) = _tryOpenListItem(current);
+      if (!matchedList) {
+        break;
+      }
+      if (next == null) {
+        return null;
+      }
+      current = next;
     }
     return current;
   }
 
-  void _popListsDeeperThan(int column) {
-    while (_listIndents.isNotEmpty && column < _listIndents.last) {
-      _listIndents.removeLast();
+  _LineCursor? _openQuoteContainer(_LineCursor current) {
+    _flushParagraph(current.lineStart);
+    _containers.add(const QuoteContainer());
+    final int afterGt = _stepPastQuoteMarker(_markdown, current.pos, current.contentEnd);
+    final (int nextCol, int nextPos) = leadingIndent(_markdown, afterGt, current.contentEnd);
+    if (nextPos == current.contentEnd) {
+      return null;
     }
+    return (
+      lineStart: current.lineStart,
+      lineEnd: current.lineEnd,
+      contentEnd: current.contentEnd,
+      column: nextCol,
+      pos: nextPos,
+      paragraphStartCandidate: nextPos,
+    );
+  }
+
+  (bool, _LineCursor?) _tryOpenListItem(_LineCursor current) {
+    if (!_blockMarkerChars.contains(_markdown.codeUnitAt(current.pos))) {
+      return (false, null);
+    }
+    final String rest = _markdown.substring(current.pos, current.contentEnd);
+    if (_thematicBreakPattern.hasMatch(rest)) {
+      return (false, null);
+    }
+    final RegExpMatch? match = _listMarkerToken.firstMatch(rest);
+    if (match == null) {
+      return (false, null);
+    }
+
+    final int afterMarker = current.pos + match.end;
+    final int markerSpanCols = current.column + match.end;
+    final (int postCol, int itemPos) = leadingIndent(
+      _markdown,
+      afterMarker,
+      current.contentEnd,
+      startColumn: markerSpanCols,
+    );
+    final emptyMarkerLine = itemPos == current.contentEnd;
+    final String? orderedDigits = match.group(1);
+    if (_paragraphStart != null &&
+        (emptyMarkerLine || (orderedDigits != null && orderedDigits != '1'))) {
+      // CommonMark §5.2: an empty list item or an ordered list item not
+      // numbered `1` cannot interrupt an open paragraph.
+      return (false, null);
+    }
+
+    _flushParagraph(current.lineStart);
+    final int spacesAfterMarker = postCol - markerSpanCols;
+    if (emptyMarkerLine || spacesAfterMarker >= 5) {
+      _containers.add(ListItemContainer(markerSpanCols + 1, startedEmpty: emptyMarkerLine));
+      return (true, null);
+    }
+
+    _containers.add(ListItemContainer(postCol, startedEmpty: false));
+    return (
+      true,
+      (
+        lineStart: current.lineStart,
+        lineEnd: current.lineEnd,
+        contentEnd: current.contentEnd,
+        column: 0,
+        pos: itemPos,
+        paragraphStartCandidate: itemPos,
+      ),
+    );
+  }
+
+  /// Whether [line] opens a container or leaf block that interrupts a lazy
+  /// paragraph continuation (so `_processLine` should flush the paragraph and
+  /// re-parse [line] normally).
+  bool _interruptsLazyParagraph(_LineCursor line) {
+    if (line.column > 3 || line.pos >= line.contentEnd) {
+      return false;
+    }
+    final int char = _markdown.codeUnitAt(line.pos);
+    if (char == _greaterThan) {
+      return true;
+    }
+    if (!_blockMarkerChars.contains(char)) {
+      return false;
+    }
+    if (_tryOpenFence(_markdown, line.pos, line.contentEnd, const []) != null) {
+      return true;
+    }
+    final String rest = _markdown.substring(line.pos, line.contentEnd);
+    if (_thematicBreakPattern.hasMatch(rest) || _atxHeadingPattern.hasMatch(rest)) {
+      return true;
+    }
+    final RegExpMatch? listMatch = _listMarkerToken.firstMatch(rest);
+    if (listMatch == null) {
+      return false;
+    }
+    final String? digits = listMatch.group(1);
+    if (digits != null && digits != '1') {
+      return false;
+    }
+    final int afterMarker = skipHorizontalSpace(
+      _markdown,
+      line.pos + listMatch.end,
+      line.contentEnd,
+    );
+    return afterMarker < line.contentEnd;
   }
 
   bool _consumeOpenFenceLine(int lineStart, int contentEnd) {
@@ -225,47 +323,57 @@ class MarkdownBlockScanner {
     if (fence == null) {
       return false;
     }
-    final (int quoteDepth, int unquotedStart) = stripQuoteMarkers(
+    final (int matched, int column, int pos) = matchContainers(
       _markdown,
       lineStart,
       contentEnd,
-      maxQuotes: fence.quoteDepth,
+      fence.containers,
     );
-    if (quoteDepth < fence.quoteDepth) {
-      // The blockquote enclosing the fenced code block ended.
+    final (int nonSpaceCol, int nonSpacePos) = leadingIndent(
+      _markdown,
+      pos,
+      contentEnd,
+      startColumn: column,
+    );
+    if (matched < fence.containers.length) {
+      // Blank lines inside a list item keep an unclosed fence open across blank
+      // lines, whereas missing a `>` blockquote marker or dedenting a non-blank
+      // line closes the enclosing container and ends the fence.
+      final bool onlyUnmatchedListsOnBlankLine =
+          nonSpacePos == contentEnd && onlyListContainersRemain(fence.containers, matched);
+      if (onlyUnmatchedListsOnBlankLine) {
+        return true;
+      }
       _openFence = null;
       return false;
     }
-    final (int indent, int nonSpaceStart) = leadingIndent(_markdown, unquotedStart, contentEnd);
-    if (indent <= _baseIndent + 3 && _isClosingFence(_markdown, nonSpaceStart, contentEnd, fence)) {
+    if (nonSpaceCol <= 3 && _isClosingFence(_markdown, nonSpacePos, contentEnd, fence)) {
       _openFence = null;
     }
     return true;
   }
 
-  bool _handleBlockStructure(_LineContext line) {
+  bool _handleLeafBlock(_LineCursor line) {
     final bool startsMarker = _blockMarkerChars.contains(_markdown.codeUnitAt(line.pos));
-    if (line.column <= _baseIndent + 3 && startsMarker) {
+    if (line.column <= 3 && startsMarker) {
       final _OpenFence? opened = _tryOpenFence(
         _markdown,
         line.pos,
         line.contentEnd,
-        line.quoteDepth,
+        List<ContainerMarker>.unmodifiable(_containers),
       );
       if (opened != null) {
         _flushParagraph(line.lineStart);
         _openFence = opened;
-        _afterBlankLine = false;
         return true;
       }
     }
 
-    if (_paragraphStart == null && line.column >= _baseIndent + 4) {
-      _afterBlankLine = false;
+    if (_paragraphStart == null && line.column >= 4) {
       return true;
     }
 
-    if (!startsMarker || line.column > _baseIndent + 3) {
+    if (!startsMarker || line.column > 3) {
       return false;
     }
 
@@ -273,7 +381,6 @@ class MarkdownBlockScanner {
     if ((_paragraphStart != null && _setextUnderlinePattern.hasMatch(rest)) ||
         _thematicBreakPattern.hasMatch(rest)) {
       _flushParagraph(line.lineStart);
-      _afterBlankLine = false;
       return true;
     }
 
@@ -283,16 +390,28 @@ class MarkdownBlockScanner {
         MarkdownTextBlock(
           start: line.pos,
           end: line.lineEnd,
-          quoteDepth: line.quoteDepth,
-          maxDefinitionIndent: 0,
+          containers: List<ContainerMarker>.unmodifiable(_containers),
           allowsDefinitions: false,
         ),
       );
-      _afterBlankLine = false;
       return true;
     }
 
     return false;
+  }
+
+  void _truncateContainers(int keepCount) {
+    if (_containers.length > keepCount) {
+      _containers.removeRange(keepCount, _containers.length);
+    }
+  }
+
+  void _markListItemsNonEmpty() {
+    for (final ContainerMarker marker in _containers) {
+      if (marker case final ListItemContainer item) {
+        item.startedEmpty = false;
+      }
+    }
   }
 
   void _flushParagraph(int end) {
@@ -302,17 +421,111 @@ class MarkdownBlockScanner {
         MarkdownTextBlock(
           start: start,
           end: end,
-          quoteDepth: _paragraphQuoteDepth,
-          maxDefinitionIndent: _paragraphMaxDefIndent,
+          containers: _paragraphContainers,
           allowsDefinitions: true,
         ),
       );
     }
     _paragraphStart = null;
+    _paragraphContainers = const [];
   }
 }
 
-_OpenFence? _tryOpenFence(String text, int start, int end, int quoteDepth) {
+int _firstUnmatchedQuoteIndex(List<ContainerMarker> containers, int fromIndex) {
+  for (var i = fromIndex; i < containers.length; i++) {
+    if (containers[i] is QuoteContainer) {
+      return i;
+    }
+  }
+  return containers.length;
+}
+
+/// Whether every entry in [containers] starting at [fromIndex] is a
+/// [ListItemContainer] (rather than an unmatched [QuoteContainer]).
+bool onlyListContainersRemain(List<ContainerMarker> containers, int fromIndex) {
+  return _firstUnmatchedQuoteIndex(containers, fromIndex) == containers.length;
+}
+
+/// Matches as many outer-to-inner [containers] as [text] satisfies on the line
+/// `[lineStart, contentEnd)`, returning `(matchedCount, remainingColumn, pos)`.
+///
+/// When a tab straddles a list-item indentation boundary (expanding past
+/// `item.indent`), the leftover tab spaces carry forward in `remainingColumn`.
+(int, int, int) matchContainers(
+  String text,
+  int lineStart,
+  int contentEnd,
+  List<ContainerMarker> containers,
+) {
+  var column = 0;
+  var pos = lineStart;
+  for (var idx = 0; idx < containers.length; idx++) {
+    switch (containers[idx]) {
+      case QuoteContainer():
+        final (int indent, int markerPos) = leadingIndent(
+          text,
+          pos,
+          contentEnd,
+          startColumn: column,
+        );
+        if (indent > 3 || markerPos >= contentEnd || text.codeUnitAt(markerPos) != _greaterThan) {
+          return (idx, column, pos);
+        }
+        pos = _stepPastQuoteMarker(text, markerPos, contentEnd);
+        column = 0;
+      case ListItemContainer(:final int indent):
+        final (int finalCol, int nextPos) = _consumeColumns(
+          text,
+          pos,
+          contentEnd,
+          startColumn: column,
+          requiredColumns: indent,
+        );
+        if (finalCol < indent) {
+          return (idx, column, pos);
+        }
+        column = finalCol - indent;
+        pos = nextPos;
+    }
+  }
+  return (containers.length, column, pos);
+}
+
+int _stepPastQuoteMarker(String text, int gtPos, int end) {
+  final int afterGt = gtPos + 1;
+  if (afterGt < end) {
+    final int next = text.codeUnitAt(afterGt);
+    if (next == _space || next == _tab) {
+      return afterGt + 1;
+    }
+  }
+  return afterGt;
+}
+
+(int, int) _consumeColumns(
+  String text,
+  int start,
+  int end, {
+  required int startColumn,
+  required int requiredColumns,
+}) {
+  var column = startColumn;
+  var pos = start;
+  while (column < requiredColumns && pos < end) {
+    final int char = text.codeUnitAt(pos);
+    if (char == _space) {
+      column++;
+    } else if (char == _tab) {
+      column += 4 - (column % 4);
+    } else {
+      break;
+    }
+    pos++;
+  }
+  return (column, pos);
+}
+
+_OpenFence? _tryOpenFence(String text, int start, int end, List<ContainerMarker> containers) {
   final int first = text.codeUnitAt(start);
   if (first != _backtick && first != _tilde) {
     return null;
@@ -325,7 +538,7 @@ _OpenFence? _tryOpenFence(String text, int start, int end, int quoteDepth) {
   if (first == _backtick && text.substring(fenceEnd, end).contains('`')) {
     return null;
   }
-  return _OpenFence(markerChar: first, minLength: length, quoteDepth: quoteDepth);
+  return _OpenFence(markerChar: first, minLength: length, containers: containers);
 }
 
 bool _isClosingFence(String text, int start, int end, _OpenFence fence) {
@@ -357,29 +570,6 @@ bool _isClosingFence(String text, int start, int end, _OpenFence fence) {
     i++;
   }
   return (column, i);
-}
-
-/// Leading CommonMark `>` blockquote marker count in [text] from [start] to
-/// [end] (up to [maxQuotes] when given), paired with the offset after those
-/// markers.
-(int, int) stripQuoteMarkers(String text, int start, int end, {int? maxQuotes}) {
-  var depth = 0;
-  var pos = start;
-  while (maxQuotes == null || depth < maxQuotes) {
-    final (int indent, int markerPos) = leadingIndent(text, pos, end);
-    if (indent > 3 || markerPos >= end || text.codeUnitAt(markerPos) != _greaterThan) {
-      break;
-    }
-    depth++;
-    pos = markerPos + 1;
-    if (pos < end) {
-      final int next = text.codeUnitAt(pos);
-      if (next == _space || next == _tab) {
-        pos++;
-      }
-    }
-  }
-  return (depth, pos);
 }
 
 /// Offset of the end of [text] in `[start, end)` before any trailing `\r\n` or

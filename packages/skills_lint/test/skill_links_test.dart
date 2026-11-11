@@ -144,6 +144,51 @@ void _defineMarkdownLinksTests() {
       expect(targetsIn(markdown), ['real1.md', 'real2.md']);
     });
 
+    test('tracks nested list items and blockquotes in outer-to-inner container order', () {
+      const markdown =
+          '10. > ```markdown\n'
+          '    > [in_quoted_fence](/abs/ignored1.md)\n'
+          '    > ```\n'
+          '\n'
+          '- Outer step\n'
+          '\n'
+          '  > [!NOTE]\n'
+          '  > Important note.\n'
+          '\n'
+          '    [still_in_list](found1.md)\n';
+      expect(targetsIn(markdown), ['found1.md']);
+    });
+
+    test('does not interrupt open paragraphs on empty or non-1 ordered list markers', () {
+      const markdown =
+          'Run `tool --step\n'
+          '2. verify` and do not write `[bad](/abs/ignored.md)`.\n'
+          '\n'
+          'See [Section\n'
+          '2. Configuration](config.md) and [item\n'
+          '*\n'
+          '](star.md).\n';
+      expect(targetsIn(markdown), ['config.md', 'star.md']);
+    });
+
+    test('ends unclosed list fences on dedent and closes empty list items after a blank line', () {
+      const markdown =
+          '- ```dart\n'
+          '  void main() {}\n'
+          '- See [sibling](sibling.md)\n'
+          '\n'
+          '- ```dart\n'
+          '  int x = 1;\n'
+          '```\n'
+          '  [in_top_level_fence](/abs/ignored1.md)\n'
+          '```\n'
+          '\n'
+          '-\n'
+          '\n'
+          '    [in_indented_code](/abs/ignored2.md)\n';
+      expect(targetsIn(markdown), ['sibling.md']);
+    });
+
     test('preserves outer list indentation after a nested list ends', () {
       const markdown =
           '- Outer step\n'

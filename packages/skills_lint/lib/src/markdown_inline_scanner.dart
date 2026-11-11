@@ -50,8 +50,7 @@ int consumeReferenceDefinitions(
       text,
       pos,
       block.end,
-      quoteDepth: block.quoteDepth,
-      maxIndent: block.maxDefinitionIndent,
+      containers: block.containers,
     );
     if (parsed == null) {
       break;
@@ -67,16 +66,9 @@ int consumeReferenceDefinitions(
   String text,
   int start,
   int blockEnd, {
-  required int quoteDepth,
-  required int maxIndent,
+  required List<ContainerMarker> containers,
 }) {
-  final int? labelOpen = _definitionLabelStart(
-    text,
-    start,
-    blockEnd,
-    quoteDepth: quoteDepth,
-    maxIndent: maxIndent,
-  );
+  final int? labelOpen = _definitionLabelStart(text, start, blockEnd, containers: containers);
   if (labelOpen == null) {
     return null;
   }
@@ -95,7 +87,7 @@ int consumeReferenceDefinitions(
     text,
     colonIndex + 1,
     blockEnd,
-    quoteDepth: quoteDepth,
+    containers: containers,
   );
   if (destStart == null || destStart >= blockEnd) {
     return null;
@@ -114,7 +106,7 @@ int consumeReferenceDefinitions(
     return null;
   }
 
-  final int? defEnd = _parseDefinitionTail(text, afterTarget, blockEnd, quoteDepth: quoteDepth);
+  final int? defEnd = _parseDefinitionTail(text, afterTarget, blockEnd, containers: containers);
   if (defEnd == null) {
     return null;
   }
@@ -125,28 +117,33 @@ int? _definitionLabelStart(
   String text,
   int start,
   int blockEnd, {
-  required int quoteDepth,
-  required int maxIndent,
+  required List<ContainerMarker> containers,
 }) {
   final bool atLineStart = start == 0 || text.codeUnitAt(start - 1) == _newline;
   if (!atLineStart) {
     final (int indent, int pos) = leadingIndent(text, start, blockEnd);
     return indent <= 3 && pos < blockEnd && text.codeUnitAt(pos) == _openBracket ? pos : null;
   }
-  final (int quotes, int unquoted) = stripQuoteMarkers(
+  final int lineEnd = _contentEndOfLine(text, start, blockEnd);
+  final (int matched, int column, int afterContainers) = matchContainers(
     text,
     start,
-    blockEnd,
-    maxQuotes: quoteDepth,
+    lineEnd,
+    containers,
   );
-  if (quotes < quoteDepth) {
+  if (!onlyListContainersRemain(containers, matched)) {
     return null;
   }
-  final (int indent, int pos) = leadingIndent(text, unquoted, blockEnd);
-  return indent <= maxIndent && pos < blockEnd && text.codeUnitAt(pos) == _openBracket ? pos : null;
+  final (int indent, int pos) = leadingIndent(text, afterContainers, lineEnd, startColumn: column);
+  return indent <= 3 && pos < lineEnd && text.codeUnitAt(pos) == _openBracket ? pos : null;
 }
 
-int? _parseDefinitionTail(String text, int afterTarget, int blockEnd, {required int quoteDepth}) {
+int? _parseDefinitionTail(
+  String text,
+  int afterTarget,
+  int blockEnd, {
+  required List<ContainerMarker> containers,
+}) {
   final int afterSpaces = skipHorizontalSpace(text, afterTarget, blockEnd);
   if (_isAtLineEnd(text, afterSpaces, blockEnd)) {
     final int destLineEnd = _afterLineEnding(text, afterSpaces, blockEnd);
@@ -154,7 +151,7 @@ int? _parseDefinitionTail(String text, int afterTarget, int blockEnd, {required 
       text,
       destLineEnd,
       blockEnd,
-      quoteDepth: quoteDepth,
+      containers: containers,
     );
     return nextLineTitleEnd ?? destLineEnd;
   }
@@ -164,20 +161,26 @@ int? _parseDefinitionTail(String text, int afterTarget, int blockEnd, {required 
   return _lineEndAfterTitle(text, afterSpaces, blockEnd);
 }
 
-int? _tryTitleOnNextLine(String text, int lineStart, int blockEnd, {required int quoteDepth}) {
+int? _tryTitleOnNextLine(
+  String text,
+  int lineStart,
+  int blockEnd, {
+  required List<ContainerMarker> containers,
+}) {
   if (lineStart >= blockEnd) {
     return null;
   }
-  final (int quotes, int unquoted) = stripQuoteMarkers(
+  final int lineEnd = _contentEndOfLine(text, lineStart, blockEnd);
+  final (int matched, _, int afterContainers) = matchContainers(
     text,
     lineStart,
-    blockEnd,
-    maxQuotes: quoteDepth,
+    lineEnd,
+    containers,
   );
-  if (quotes < quoteDepth) {
+  if (!onlyListContainersRemain(containers, matched)) {
     return null;
   }
-  final int titleStart = skipHorizontalSpace(text, unquoted, blockEnd);
+  final int titleStart = skipHorizontalSpace(text, afterContainers, blockEnd);
   return _lineEndAfterTitle(text, titleStart, blockEnd);
 }
 
@@ -524,7 +527,12 @@ int _skipSpaceAndSingleNewline(String text, int start, int end) {
   return i;
 }
 
-int? _skipDefinitionSpace(String text, int start, int end, {required int quoteDepth}) {
+int? _skipDefinitionSpace(
+  String text,
+  int start,
+  int end, {
+  required List<ContainerMarker> containers,
+}) {
   final int afterHorizontal = skipHorizontalSpace(text, start, end);
   if (!_isAtLineEnd(text, afterHorizontal, end)) {
     return afterHorizontal;
@@ -533,11 +541,23 @@ int? _skipDefinitionSpace(String text, int start, int end, {required int quoteDe
   if (nextLine >= end) {
     return nextLine;
   }
-  final (int quotes, int unquoted) = stripQuoteMarkers(text, nextLine, end, maxQuotes: quoteDepth);
-  if (quotes < quoteDepth) {
+  final int lineEnd = _contentEndOfLine(text, nextLine, end);
+  final (int matched, _, int afterContainers) = matchContainers(
+    text,
+    nextLine,
+    lineEnd,
+    containers,
+  );
+  if (!onlyListContainersRemain(containers, matched)) {
     return null;
   }
-  return skipHorizontalSpace(text, unquoted, end);
+  return skipHorizontalSpace(text, afterContainers, end);
+}
+
+int _contentEndOfLine(String text, int lineStart, int blockEnd) {
+  final int newline = text.indexOf('\n', lineStart);
+  final int rawEnd = newline == -1 || newline >= blockEnd ? blockEnd : newline + 1;
+  return stripLineEnding(text, lineStart, rawEnd);
 }
 
 bool _isAtLineEnd(String text, int pos, int end) {
