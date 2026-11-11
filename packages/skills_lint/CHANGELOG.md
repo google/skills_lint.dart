@@ -1,14 +1,14 @@
-## 0.5.3+2-wip
-
-### Breaking changes
-
-- Removed `SkillContext.markdownLinkRegex`. Custom rules that matched Markdown links with `markdownLinkRegex` should use `package:markdown` or define their own pattern.
+## 0.5.4-wip
 
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
 - `check-absolute-paths`, `check-relative-paths`, and `pub-archive-includes-skill` also validate reference-style links (`[text][ref]`, `[ref][]`, and `[ref]`), and `check-absolute-paths --fix` rewrites `[ref]:` definitions in place.
+
+### New features
+
+- Removed `SkillContext.markdownLinkRegex`.
 
 ### Bug fixes
 
