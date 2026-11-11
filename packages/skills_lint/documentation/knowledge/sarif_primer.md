@@ -38,8 +38,8 @@ To ingest SARIF findings into GitHub Code Scanning, give the job `security-event
 
 ```yaml
 # skills_lint exits with code 1 when it finds violations or configuration
-# errors. Standard output writes the SARIF report, while standard error prints
-# findings and errors to this step's log.
+# errors. Standard output writes the SARIF report when validation runs, while
+# standard error prints findings, warnings, and errors to this step's log.
 - name: Run linter and generate SARIF
   id: lint
   run: dart run skills_lint --format=sarif > results.sarif

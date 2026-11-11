@@ -278,15 +278,15 @@ void main() {
 
     test('SarifReporter writes clean SARIF to out and only failing/warned skills to err', () {
       final cleanContext = SkillContext(
-        directory: Directory('/tmp/clean-skill'),
+        directory: Directory(p.join('tmp', 'clean-skill')),
         rawContent: 'valid',
       );
       final brokenContext = SkillContext(
-        directory: Directory('/tmp/broken-skill'),
+        directory: Directory(p.join('tmp', 'broken-skill')),
         rawContent: 'invalid',
       );
       final warnedContext = SkillContext(
-        directory: Directory('/tmp/warned-skill'),
+        directory: Directory(p.join('tmp', 'warned-skill')),
         rawContent: 'warned',
       );
 
@@ -314,20 +314,47 @@ void main() {
             ),
           ],
         ),
+        // Missing-target results (context == null, ruleId == path-does-not-exist)
+        // are reported when discovered, so onSessionComplete skips them on err.
+        ValidationResult(
+          validationErrors: [
+            ValidationError(
+              ruleId: Validator.pathDoesNotExist,
+              file: p.join('tmp', 'missing-dir'),
+              message: 'Specified root directory does not exist',
+              severity: AnalysisSeverity.error,
+            ),
+          ],
+        ),
+        // Unreadable SKILL.md results also have context == null, and must still
+        // appear in the stderr summary under their parent skill directory name.
+        ValidationResult(
+          validationErrors: [
+            ValidationError(
+              ruleId: Validator.skillFileInaccessible,
+              file: p.join('tmp', 'unreadable-skill', 'SKILL.md'),
+              message: 'Failed to read SKILL.md: Permission denied',
+              severity: AnalysisSeverity.error,
+            ),
+          ],
+        ),
       ];
 
       final out = StringBuffer();
       final err = StringBuffer();
       SarifReporter(out: out, err: err).onSessionComplete(results);
 
-      final Object? decoded = jsonDecode(out.toString());
-      expect(decoded, isA<Map<String, Object?>>());
+      final sarif = SarifLog.fromJson(jsonDecode(out.toString()) as Map<String, Object?>);
+      expect(sarif.runs.single.results, hasLength(4));
       final errText = err.toString();
       expect(errText, isNot(contains('clean-skill')));
+      expect(errText, isNot(contains('missing-dir')));
       expect(errText, contains('--- Validating skill: broken-skill ---'));
       expect(errText, contains('Missing YAML frontmatter'));
       expect(errText, contains('--- Validating skill: warned-skill ---'));
       expect(errText, contains('Line 2 has 1 trailing space(s).'));
+      expect(errText, contains('--- Validating skill: unreadable-skill ---'));
+      expect(errText, contains('Failed to read SKILL.md: Permission denied'));
 
       final quietOut = StringBuffer();
       final quietErr = StringBuffer();
@@ -338,10 +365,33 @@ void main() {
         printWarnings: false,
       ).onSessionComplete(results);
 
+      final quietSarif = SarifLog.fromJson(jsonDecode(quietOut.toString()) as Map<String, Object?>);
+      expect(quietSarif.runs.single.results, hasLength(4));
       final quietErrText = quietErr.toString();
       expect(quietErrText, isNot(contains('--- Validating skill:')));
       expect(quietErrText, isNot(contains('warned-skill')));
       expect(quietErrText, contains('Missing YAML frontmatter'));
+      expect(quietErrText, contains('Failed to read SKILL.md: Permission denied'));
+    });
+
+    test('SarifReporter routes directory and discovery errors to err without touching out', () {
+      final out = StringBuffer();
+      final err = StringBuffer();
+      SarifReporter(out: out, err: err)
+        ..onNoSkillsFound('No skills found.')
+        ..onIndividualSkillHint('Use --skill instead of -d.')
+        ..onDirectoryError(p.join('tmp', 'root'), 'Failed to list children');
+
+      expect(out.toString(), isEmpty);
+      expect(
+        err.toString(),
+        allOf(
+          contains('No skills found.'),
+          contains('Use --skill instead of -d.'),
+          contains('Directory error:'),
+          contains('Failed to list children'),
+        ),
+      );
     });
   });
 

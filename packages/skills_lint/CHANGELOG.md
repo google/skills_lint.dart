@@ -7,7 +7,7 @@
 - A missing target's `Declared as … in <file>:<line>:<column>` text uses the same location format.
 - Configuration error messages start with the problem, such as `unknown rule "check-relative-path"`. An unknown key, parameter or severity gets a "Did you mean" suggestion when a known name is close.
 - The CLI prints configuration errors under one header per file, such as `skills_lint.yaml has 2 configuration errors:`, and ends with a line that says how many errors to fix and that skills_lint did not run.
-- `--format=sarif` prints errors and enabled warnings to standard error in addition to writing the SARIF document to standard output, so terminal and CI logs show violations without a second run.
+- `--format=sarif` (and `OutputFormat.sarif`) prints errors and warnings to standard error in addition to writing the SARIF document to standard output.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
 
 ### Bug fixes

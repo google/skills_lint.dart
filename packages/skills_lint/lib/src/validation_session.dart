@@ -1176,12 +1176,16 @@ class ValidationSession {
     }
   }
 
-  /// Emits the formatted validation output (SARIF or JSON) to [sink] (defaults to [stdout]).
-  void emitFormattedOutput([StringSink? sink]) {
-    if (sink != null) {
+  /// Emits the formatted validation output (SARIF or JSON) to [sink] (defaults
+  /// to [stdout]), and any SARIF violation summary to [err] (defaults to
+  /// [stderr]).
+  void emitFormattedOutput([StringSink? sink, StringSink? err]) {
+    final StringSink? effectiveErr = generateBaseline ? (err ?? StringBuffer()) : err;
+    if (sink != null || effectiveErr != null) {
       Reporter.fromFormat(
         format,
         out: sink,
+        err: effectiveErr,
         quiet: quiet,
         printWarnings: printWarnings,
       ).onSessionComplete(_results, customRules: customRules);

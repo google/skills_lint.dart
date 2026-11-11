@@ -1143,11 +1143,11 @@ Body with trailing space
 
       final TestProcess process = await startCli(['-s', skillDir.path, '--format=sarif']);
 
+      final Future<String> stdoutFuture = process.stdoutStream().join('\n');
+      final Future<String> stderrFuture = process.stderrStream().join('\n');
       await process.shouldExit(0);
-      final List<String> stdout = await process.stdout.rest.toList();
-      final List<String> stderr = await process.stderr.rest.toList();
-      final String output = stdout.join('\n');
-      expect(stderr, isEmpty);
+      final String output = await stdoutFuture;
+      expect(await stderrFuture, isEmpty);
       final jsonMap = jsonDecode(output) as Map<String, dynamic>;
 
       expect(
@@ -1177,9 +1177,11 @@ Body with trailing space
 
         final TestProcess process = await startCli(['-s', skillDir.path, '--format=sarif']);
 
-        final String output = await process.stdoutStream().join('\n');
-        final String stderrOutput = await process.stderrStream().join('\n');
+        final Future<String> stdoutFuture = process.stdoutStream().join('\n');
+        final Future<String> stderrFuture = process.stderrStream().join('\n');
         await process.shouldExit(1);
+        final String output = await stdoutFuture;
+        final String stderrOutput = await stderrFuture;
         final jsonMap = jsonDecode(output) as Map<String, dynamic>;
 
         expect(jsonMap['version'], equals('2.1.0'));
@@ -1194,9 +1196,34 @@ Body with trailing space
         expect(output, isNot(contains('Evaluating directory:')));
         expect(output, isNot(contains('Validating skill:')));
         expect(output, isNot(contains('Skill is invalid:')));
+        expect(stderrOutput, isNot(contains('Evaluating directory:')));
         expect(stderrOutput, contains('--- Validating skill: invalid-skill ---'));
         expect(stderrOutput, contains('Skill is invalid:'));
         expect(stderrOutput, contains('Missing YAML metadata in SKILL.md'));
+      },
+    );
+
+    test(
+      '--format=sarif with --generate-baseline exits 0 and does not print errors to stderr',
+      () async {
+        final Directory skillDir = await Directory('${tempDir.path}/baseline-sarif-skill').create();
+        await File('${skillDir.path}/SKILL.md').writeAsString('No frontmatter here');
+
+        final TestProcess process = await startCli([
+          '-s',
+          skillDir.path,
+          '--format=sarif',
+          '--generate-baseline',
+        ]);
+
+        final Future<String> stdoutFuture = process.stdoutStream().join('\n');
+        final Future<String> stderrFuture = process.stderrStream().join('\n');
+        await process.shouldExit(0);
+        final String output = await stdoutFuture;
+        final String stderrOutput = await stderrFuture;
+
+        expect(jsonDecode(output), isA<Map<String, dynamic>>());
+        expect(stderrOutput, isNot(contains('Skill is invalid:')));
       },
     );
 

@@ -634,9 +634,6 @@ class _ParsingErrors {
     return [for (final int i in order) _recorded[i]];
   }
 
-  /// The text of each of [problems].
-  List<String> get messages => [for (final ConfigProblem problem in problems) problem.text];
-
   /// Records [message] about [node].
   ///
   /// A `null` [node] records [message] without a location. A message without

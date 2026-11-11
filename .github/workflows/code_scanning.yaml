@@ -42,18 +42,16 @@ jobs:
         run: dart pub get
 
       # skills_lint exits with code 1 if lint violations are found or the
-      # configuration has errors. Configuration errors and lint findings print
-      # to standard error in this step's log, while standard output writes the
-      # SARIF report.
+      # configuration has errors. Configuration errors, lint findings, and
+      # warnings print to standard error in this step's log, while standard
+      # output writes the SARIF report when validation runs.
       - name: Generate SARIF report
         id: lint
         run: dart run packages/skills_lint/bin/skills_lint.dart --format=sarif > skills-lint.sarif
 
-      # Upload SARIF findings to GitHub Code Scanning, including after a lint
-      # failure: !cancelled() runs on both success and failure while respecting
-      # workflow cancellation, steps.lint.conclusion != 'skipped' avoids
-      # uploading when setup failed before lint ran, and fork pull requests are
-      # skipped because their read-only token lacks security-events: write.
+      # Upload SARIF findings even after a lint failure, unless the run was
+      # cancelled, setup failed before lint ran, or this is a fork PR without
+      # security-events: write.
       - name: Upload SARIF report to GitHub Code Scanning
         if: ${{ !cancelled() && steps.lint.conclusion != 'skipped' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1

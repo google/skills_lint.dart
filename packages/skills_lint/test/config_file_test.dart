@@ -1467,14 +1467,11 @@ skills_lint:
       // `: ` ends the location.
       final int end = error.indexOf(': ');
       expect(end, greaterThan(0), reason: 'No <file>:<line>:<column> prefix in: $error');
-      final String location = error.substring(0, end);
-      final int columnStart = location.lastIndexOf(':');
-      final int lineStart = location.lastIndexOf(':', columnStart - 1);
-      return (
-        file: location.substring(0, lineStart),
-        line: int.parse(location.substring(lineStart + 1, columnStart)),
-        column: int.parse(location.substring(columnStart + 1)),
+      final ({String file, int line, int column})? parsed = parseConfigLocationText(
+        error.substring(0, end),
       );
+      expect(parsed, isNotNull, reason: 'Invalid <file>:<line>:<column> prefix in: $error');
+      return parsed!;
     }
 
     /// Reads the location of [error] back from disk and returns the text from
@@ -1562,7 +1559,6 @@ skills_lint:
 
     test('list errors in line order, not in the order of config sections', () async {
       final Configuration config = await load('''
-# Top comment so line numbers are not tied to line 1.
 skills_lint:
   directorys: []
   directories:
@@ -1584,7 +1580,9 @@ skills_lint:
       final List<int> lines = [
         for (final String error in config.parsingErrors) locationOf(error).line,
       ];
-      expect(lines, [...lines]..sort(), reason: config.parsingErrors.join('\n'));
+      for (var i = 1; i < lines.length; i++) {
+        expect(lines[i], greaterThan(lines[i - 1]), reason: config.parsingErrors.join('\n'));
+      }
     });
 
     test('keep errors on one line in the order they were found', () async {
