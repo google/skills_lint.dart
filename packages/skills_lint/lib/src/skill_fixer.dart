@@ -18,6 +18,14 @@ import 'validator.dart';
 /// warnings, across all enabled rules. Rules don't need to know about each
 /// other: a fix that breaks another rule is dropped and reported.
 class SkillFixer {
+  /// Creates a fixer for a single skill.
+  ///
+  /// * [validator] validates each candidate fix against the skill's rules.
+  /// * [applyIgnores] marks the diagnostics that the skill's ignore entries
+  ///   cover, so that ignored findings don't count when comparing candidates.
+  /// * [onFixFailed] receives the rule name and error when a rule's fix throws.
+  /// * [mayFix] decides whether the rule named `ruleName` may run its fix.
+  ///   Defaults to allowing every rule.
   SkillFixer({
     required this.validator,
     required this.applyIgnores,

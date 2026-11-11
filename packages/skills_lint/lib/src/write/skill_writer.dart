@@ -6,9 +6,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import 'models/skill_context.dart';
-import 'reporters/fix_io_messages.dart';
-import 'reporters/reporter.dart';
+import '../models/skill_context.dart';
+import '../reporters/fix_io_messages.dart';
+import '../reporters/reporter.dart';
 import 'write_boundary.dart';
 
 /// What happened when [SkillWriter] applied, or checked, a fix plan.
@@ -167,15 +167,16 @@ class SkillWriter {
     return WriteFailed(writeError, dir: original);
   }
 
-  /// Reports and returns a [WriteRefused] when [wantedName] is not a single
-  /// directory name, or when `SKILL.md` or the renamed directory would be
+  /// Reports and returns a [WriteRefused] when [wantedName] cannot be used as
+  /// a directory name, or when `SKILL.md` or the renamed directory would be
   /// outside [boundary] after symlinks are resolved.
   WriteRefused? _checkBoundary(Directory skill, String wantedName, WriteBoundary boundary) {
     final String currentName = p.basename(skill.path);
-    if (!WriteBoundary.isSingleSegment(wantedName)) {
+    final String? badName = WriteBoundary.directoryNameRefusal(wantedName);
+    if (badName != null) {
       return _refused(
         action: "rename skill directory '$currentName' to '$wantedName'",
-        reason: 'the new name is not a single directory name',
+        reason: badName,
       );
     }
     final String skillMdPath = p.join(skill.path, SkillContext.skillFileName);

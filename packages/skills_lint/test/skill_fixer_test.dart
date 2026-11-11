@@ -31,10 +31,10 @@ import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
 import 'package:skills_lint/src/skill_fixer.dart';
-import 'package:skills_lint/src/skill_writer.dart';
 import 'package:skills_lint/src/validator.dart';
-import 'package:skills_lint/src/write_boundary.dart';
-import 'package:skills_lint/src/write_policy.dart';
+import 'package:skills_lint/src/write/skill_writer.dart';
+import 'package:skills_lint/src/write/write_boundary.dart';
+import 'package:skills_lint/src/write/write_policy.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';

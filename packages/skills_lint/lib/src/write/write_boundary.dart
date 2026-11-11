@@ -7,7 +7,8 @@ import 'dart:io';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
-import 'path_utils.dart';
+import '../config_parser.dart';
+import '../path_utils.dart';
 
 /// The directory that skills_lint may write in for one scan target.
 ///
@@ -29,83 +30,76 @@ final class WriteBoundary {
   /// The boundary for the skills directory at the absolute path [directory]:
   /// [directory] itself.
   ///
-  /// [allowed] holds directories from `--allow-write`, and [configAllowed]
-  /// those from the target's `write_allow`. See [WriteBoundary._confined] for
-  /// [configDirectory].
+  /// [declaredBy] is the configuration target that declared [directory], if
+  /// any, and [allowed] holds directories from `--allow-write`.
   factory WriteBoundary.forSkillsDirectory(
     String directory, {
-    String? configDirectory,
-    List<String> configAllowed = const [],
+    LintTargetConfig? declaredBy,
     List<String> allowed = const [],
-  }) => _confined(
-    directory,
-    boundary: directory,
-    configDirectory: configDirectory,
-    allowed: [...allowed, ..._inside(configDirectory, configAllowed)],
-  );
+  }) => _confined(directory, boundary: directory, declaredBy: declaredBy, allowed: allowed);
 
   /// The boundary for the individual skill at the absolute path [skill]: the
   /// directory that holds the skill after symlinks are resolved, so that
   /// `--fix` can rename the skill next to where it is.
   ///
-  /// See [WriteBoundary.forSkillsDirectory] for the other parameters.
+  /// [declaredBy] is the configuration target that declared [skill], if any,
+  /// and [allowed] holds directories from `--allow-write`.
   factory WriteBoundary.forSkill(
     String skill, {
-    String? configDirectory,
-    List<String> configAllowed = const [],
+    LintTargetConfig? declaredBy,
     List<String> allowed = const [],
   }) => _confined(
     skill,
     boundary: p.dirname(resolve(skill)),
-    configDirectory: configDirectory,
-    allowed: [...allowed, ..._inside(configDirectory, configAllowed)],
+    declaredBy: declaredBy,
+    allowed: allowed,
   );
+
+  /// A [WriteBoundary] at [boundary] for a scan target at [target].
+  ///
+  /// A target declared in a configuration file must also be inside the
+  /// directory the file's paths are relative to. When it isn't, the boundary
+  /// is that configuration directory, so every write in the target is refused.
+  static WriteBoundary _confined(
+    String target, {
+    required String boundary,
+    required LintTargetConfig? declaredBy,
+    required List<String> allowed,
+  }) {
+    final String? configDirectory = declaredBy == null
+        ? null
+        : declarationOf(declaredBy)?.anchorDirectory;
+    final List<String> allAllowed = [
+      ...allowed,
+      ..._inside(configDirectory, declaredBy?.writeAllow ?? const []),
+    ];
+    if (configDirectory == null || isAtOrWithin(resolve(configDirectory), resolve(target))) {
+      return WriteBoundary(boundary, allowed: allAllowed);
+    }
+    return WriteBoundary(configDirectory, allowed: allAllowed);
+  }
 
   /// The directories in [configAllowed] that are inside [configDirectory]
   /// after symlinks are resolved.
   ///
-  /// The parser already requires each to be inside as written. This drops one
-  /// that a symlink leads elsewhere, so `write_allow` in a configuration file
-  /// can't reach outside the file's directory.
+  /// [ConfigParser] rejects entries that escape [configDirectory] on parse, and
+  /// this check guards any [LintTargetConfig] whose directory symlinks change
+  /// later.
   static List<String> _inside(String? configDirectory, List<String> configAllowed) {
-    final List<String> escaping = escapingConfigDirectory(configDirectory, configAllowed);
-    return [
-      for (final String directory in configAllowed)
-        if (!escaping.contains(directory)) directory,
-    ];
-  }
-
-  /// The directories in [configAllowed] that a symlink leads outside
-  /// [configDirectory], which no boundary includes.
-  static List<String> escapingConfigDirectory(String? configDirectory, List<String> configAllowed) {
     if (configDirectory == null) {
-      return const [];
+      return configAllowed;
     }
     final String realConfigDirectory = resolve(configDirectory);
     return [
       for (final String directory in configAllowed)
-        if (!isAtOrWithin(realConfigDirectory, resolve(directory))) directory,
+        if (isAtOrWithin(realConfigDirectory, resolve(directory))) directory,
     ];
   }
 
-  /// A [WriteBoundary] at [boundary], widened to [allowed], for a scan target
-  /// at [target].
-  ///
-  /// A target declared in a configuration file must also be inside
-  /// [configDirectory], the directory the file's paths are relative to. When
-  /// it isn't, the boundary is [configDirectory], so every write in the
-  /// target is refused.
-  static WriteBoundary _confined(
-    String target, {
-    required String boundary,
-    required String? configDirectory,
-    required List<String> allowed,
-  }) {
-    if (configDirectory == null || isAtOrWithin(resolve(configDirectory), resolve(target))) {
-      return WriteBoundary(boundary, allowed: allowed);
-    }
-    return WriteBoundary(configDirectory, allowed: allowed);
-  }
+  /// Whether [directory] is at or inside [configDirectory] after symlinks are
+  /// resolved.
+  static bool staysInsideConfigDirectory(String configDirectory, String directory) =>
+      isAtOrWithin(resolve(configDirectory), resolve(directory));
 
   /// The absolute directory that writes must stay inside, or `null` for no
   /// boundary.
@@ -140,18 +134,26 @@ final class WriteBoundary {
     return "it resolves to '$realPath', outside '$realRoot'";
   }
 
-  /// Whether [name] can be used as a directory name next to another one:
-  /// a single path segment that is not `.` or `..`.
-  static bool isSingleSegment(String name) =>
-      name.isNotEmpty &&
-      name != '.' &&
-      name != '..' &&
-      !p.isAbsolute(name) &&
-      p.split(name).length == 1 &&
-      // p.split treats `\` as text on POSIX, where it is a legal file name
-      // character that Windows reads as a separator.
-      !name.contains('/') &&
-      !name.contains(r'\');
+  /// Why [name] cannot be used as a skill directory name, readable as the end
+  /// of a sentence, or `null` when [name] is a valid directory name.
+  static String? directoryNameRefusal(String name) {
+    if (name.isEmpty) {
+      return 'the skill name is empty';
+    }
+    if (name == '.' || name == '..') {
+      return "the skill name '$name' refers to the current or parent directory";
+    }
+    // Check both `/` and `\` on every platform: `p.split` treats `\` as text
+    // on POSIX, where it is a legal file name character that Windows reads as
+    // a path separator.
+    if (name.contains('/') ||
+        name.contains(r'\') ||
+        p.isAbsolute(name) ||
+        p.split(name).length != 1) {
+      return "the skill name '$name' contains a path separator";
+    }
+    return null;
+  }
 
   /// The longest chain of symlinks [resolve] follows.
   ///

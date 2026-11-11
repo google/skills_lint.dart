@@ -12,7 +12,8 @@ library;
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:skills_lint/src/write_boundary.dart';
+import 'package:skills_lint/skills_lint.dart';
+import 'package:skills_lint/src/write/write_boundary.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -28,6 +29,18 @@ void main() {
     inside = Directory(p.join(root.path, 'inside'))..createSync();
     outside = Directory(p.join(root.path, 'outside'))..createSync();
   });
+
+  LintTargetConfig parseDirectoryTarget(String path, {required Directory configDir}) =>
+      ConfigParser.parse(
+        'skills_lint:\n  directories:\n    - path: "${path.replaceAll(r'\', r'\\')}"\n',
+        configSource: ConfigSource.directory(configDir.path),
+      ).directoryConfigs.single;
+
+  LintTargetConfig parseSkillTarget(String path, {required Directory configDir}) =>
+      ConfigParser.parse(
+        'skills_lint:\n  individual_skills:\n    - path: "${path.replaceAll(r'\', r'\\')}"\n',
+        configSource: ConfigSource.directory(configDir.path),
+      ).individualSkillConfigs.single;
 
   group('refusal', () {
     test('accepts a file inside, and one that does not exist yet', () {
@@ -106,14 +119,16 @@ void main() {
 
   group('forSkillsDirectory', () {
     test('is the directory when the configuration directory holds it', () {
-      final boundary = WriteBoundary.forSkillsDirectory(inside.path, configDirectory: root.path);
+      final LintTargetConfig declaredBy = parseDirectoryTarget(inside.path, configDir: root);
+      final boundary = WriteBoundary.forSkillsDirectory(inside.path, declaredBy: declaredBy);
 
       expect(boundary.refusal(p.join(inside.path, 'a', 'SKILL.md')), isNull);
       expect(boundary.refusal(p.join(outside.path, 'a', 'SKILL.md')), isNotNull);
     });
 
     test('refuses every write when the directory is outside the configuration directory', () {
-      final boundary = WriteBoundary.forSkillsDirectory(outside.path, configDirectory: inside.path);
+      final LintTargetConfig declaredBy = parseDirectoryTarget(outside.path, configDir: inside);
+      final boundary = WriteBoundary.forSkillsDirectory(outside.path, declaredBy: declaredBy);
 
       expect(boundary.refusal(p.join(outside.path, 'a', 'SKILL.md')), isNotNull);
     });
@@ -130,18 +145,41 @@ void main() {
 
     test('refuses every write when the skill is outside the configuration directory', () {
       final skill = Directory(p.join(outside.path, 'foo'))..createSync();
-      final boundary = WriteBoundary.forSkill(skill.path, configDirectory: inside.path);
+      final LintTargetConfig declaredBy = parseSkillTarget(skill.path, configDir: inside);
+      final boundary = WriteBoundary.forSkill(skill.path, declaredBy: declaredBy);
 
       expect(boundary.refusal(p.join(skill.path, 'SKILL.md')), isNotNull);
     });
   });
 
-  group('isSingleSegment', () {
-    for (final name in ['foo', 'foo-bar', 'a.b']) {
-      test('accepts "$name"', () => expect(WriteBoundary.isSingleSegment(name), isTrue));
-    }
-    for (final name in ['', '.', '..', '../x', 'a/b', r'a\b', '/tmp/x', r'C:\x']) {
-      test('refuses "$name"', () => expect(WriteBoundary.isSingleSegment(name), isFalse));
-    }
+  group('directoryNameRefusal', () {
+    test('accepts simple skill names', () {
+      expect(WriteBoundary.directoryNameRefusal('foo'), isNull);
+      expect(WriteBoundary.directoryNameRefusal('foo-bar'), isNull);
+      expect(WriteBoundary.directoryNameRefusal('a.b'), isNull);
+    });
+
+    test('refuses an empty name', () {
+      expect(WriteBoundary.directoryNameRefusal(''), 'the skill name is empty');
+    });
+
+    test('refuses "." and ".."', () {
+      expect(
+        WriteBoundary.directoryNameRefusal('.'),
+        "the skill name '.' refers to the current or parent directory",
+      );
+      expect(
+        WriteBoundary.directoryNameRefusal('..'),
+        "the skill name '..' refers to the current or parent directory",
+      );
+    });
+
+    test('refuses names containing path separators or root prefixes', () {
+      expect(WriteBoundary.directoryNameRefusal('../x'), contains('contains a path separator'));
+      expect(WriteBoundary.directoryNameRefusal('a/b'), contains('contains a path separator'));
+      expect(WriteBoundary.directoryNameRefusal(r'a\b'), contains('contains a path separator'));
+      expect(WriteBoundary.directoryNameRefusal('/tmp/x'), contains('contains a path separator'));
+      expect(WriteBoundary.directoryNameRefusal(r'C:\x'), contains('contains a path separator'));
+    });
   });
 }

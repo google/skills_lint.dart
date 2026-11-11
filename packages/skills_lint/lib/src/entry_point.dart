@@ -591,7 +591,7 @@ Future<bool> validateSkillsInternal({
 
   if (generateBaseline) {
     // A baseline run passes even with findings, unless a write was refused.
-    return !session.writeRefused;
+    return !writeRefusedInSession(session);
   }
   return !session.anyFailed;
 }

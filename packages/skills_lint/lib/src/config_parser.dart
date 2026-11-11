@@ -19,6 +19,7 @@ import 'models/target_declaration.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
 import 'unknown_rule_names.dart';
+import 'write/write_boundary.dart';
 
 final Logger _log = Logger('skills_lint');
 
@@ -574,8 +575,9 @@ class ConfigParser {
   /// Parses the directories under a target entry's `write_allow` key, each
   /// anchored to [anchorDirectory].
   ///
-  /// Each must be a string naming [anchorDirectory] or a directory inside it;
-  /// any other entry is left out with an error in [parsingErrors].
+  /// Each must be a string naming [anchorDirectory] or a directory inside it,
+  /// both as written and after symlinks are resolved; any other entry is left
+  /// out with an error in [parsingErrors].
   static ({List<String> authored, List<String> resolved}) _parseWriteAllowForTarget(
     YamlMap dir,
     String path,
@@ -601,6 +603,13 @@ class ConfigParser {
           ? canonicalizePath(entry, baseDirectory: anchorDirectory)
           : null;
       if (entry is String && anchored != null && isAtOrWithin(anchorDirectory, anchored)) {
+        if (!WriteBoundary.staysInsideConfigDirectory(anchorDirectory, anchored)) {
+          parsingErrors.add(
+            '$entryLabelCap "$writeAllowKey" for "$path" has "$entry", which a symlink '
+            'leads outside the directory of the configuration file. Ignoring it.',
+          );
+          continue;
+        }
         authored.add(entry);
         resolved.add(anchored);
         continue;

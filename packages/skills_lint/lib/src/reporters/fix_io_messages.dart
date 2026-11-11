@@ -4,7 +4,7 @@
 
 import 'dart:io';
 
-import '../write_boundary.dart';
+import '../write/write_boundary.dart';
 import 'reporter.dart';
 
 /// Stderr messages for `--fix` file operations that the user's files or

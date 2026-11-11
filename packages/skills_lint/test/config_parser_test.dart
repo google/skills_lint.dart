@@ -359,31 +359,67 @@ skills_lint:
       );
     });
 
-    for (final (String value, String error) in [
-      ('{fix: 1}', '"fix" for rule "check-absolute-paths" must be true or false'),
-      ('{fix: "no"}', '"fix" for rule "check-absolute-paths" must be true or false'),
-    ]) {
-      test('reports fix: $value', () {
-        final Configuration config = parse(
-          'skills_lint:\n  rules:\n    check-absolute-paths: $value\n',
-        );
-        expect(config.parsingErrors, [contains(error)]);
-      });
-    }
+    test('rejects an integer fix value', () {
+      final Configuration config = parse(
+        'skills_lint:\n  rules:\n    check-absolute-paths: {fix: 1}\n',
+      );
+      expect(config.parsingErrors, [
+        contains('"fix" for rule "check-absolute-paths" must be true or false'),
+      ]);
+    });
 
-    for (final (String value, String error) in [
-      ('vendor', '"write_allow" for "skills" must be a list of paths'),
-      ('[1]', '"write_allow" for "skills" has "1"'),
-      ('[../elsewhere]', '"write_allow" for "skills" has "../elsewhere"'),
-    ]) {
-      test('reports write_allow: $value', () {
-        final Configuration config = parse(
-          'skills_lint:\n  directories:\n    - path: skills\n      write_allow: $value\n',
-        );
-        expect(config.parsingErrors, [contains(error)]);
-        expect(config.directoryConfigs.single.writeAllow, isEmpty);
-      });
-    }
+    test('rejects a string fix value', () {
+      final Configuration config = parse(
+        'skills_lint:\n  rules:\n    check-absolute-paths: {fix: "no"}\n',
+      );
+      expect(config.parsingErrors, [
+        contains('"fix" for rule "check-absolute-paths" must be true or false'),
+      ]);
+    });
+
+    test('rejects a non-list write_allow value', () {
+      final Configuration config = parse(
+        'skills_lint:\n  directories:\n    - path: skills\n      write_allow: vendor\n',
+      );
+      expect(config.parsingErrors, [
+        contains('"write_allow" for "skills" must be a list of paths'),
+      ]);
+      expect(config.directoryConfigs.single.writeAllow, isEmpty);
+    });
+
+    test('rejects a non-string write_allow entry', () {
+      final Configuration config = parse(
+        'skills_lint:\n  directories:\n    - path: skills\n      write_allow: [1]\n',
+      );
+      expect(config.parsingErrors, [contains('"write_allow" for "skills" has "1"')]);
+      expect(config.directoryConfigs.single.writeAllow, isEmpty);
+    });
+
+    test('rejects a write_allow entry outside the configuration directory', () {
+      final Configuration config = parse(
+        'skills_lint:\n  directories:\n    - path: skills\n      write_allow: [../elsewhere]\n',
+      );
+      expect(config.parsingErrors, [contains('"write_allow" for "skills" has "../elsewhere"')]);
+      expect(config.directoryConfigs.single.writeAllow, isEmpty);
+    });
+
+    test('rejects a write_allow symlink pointing outside the configuration directory', () {
+      final Directory tempDir = Directory.systemTemp.createTempSync('config_write_allow_symlink.');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final repoDir = Directory(p.join(tempDir.path, 'repo'))..createSync();
+      final outsideDir = Directory(p.join(tempDir.path, 'outside'))..createSync();
+      Link(p.join(repoDir.path, 'escape')).createSync(outsideDir.path);
+
+      final Configuration config = ConfigParser.parse(
+        'skills_lint:\n  directories:\n    - path: skills\n      write_allow: [escape]\n',
+        configSource: ConfigSource.file(p.join(repoDir.path, 'skills_lint.yaml')),
+      );
+
+      expect(config.parsingErrors, [
+        contains('"write_allow" for "skills" has "escape", which a symlink leads outside'),
+      ]);
+      expect(config.directoryConfigs.single.writeAllow, isEmpty);
+    });
   });
 
   group('declarationOf', () {

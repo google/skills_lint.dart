@@ -13,8 +13,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/reporters/text_reporter.dart';
-import 'package:skills_lint/src/skill_writer.dart';
-import 'package:skills_lint/src/write_boundary.dart';
+import 'package:skills_lint/src/write/skill_writer.dart';
+import 'package:skills_lint/src/write/write_boundary.dart';
 import 'package:test/test.dart';
 
 /// No boundary, for the tests that are not about one.
@@ -145,25 +145,40 @@ void main() {
 
     setUp(() => boundary = WriteBoundary(skills.path));
 
-    for (final String crafted in [
-      '../escaped',
-      p.join('..', 'escaped'),
-      p.join(Directory.systemTemp.path, 'escaped'),
-      '..',
-      'a/b',
-    ]) {
-      test('for the name "$crafted"', () async {
-        final Directory dir = createSkill('foo');
+    Future<void> expectRefusedName(String crafted, {required String expectedReason}) async {
+      final Directory dir = createSkill('foo');
 
-        expect(writer.preflight(dir, crafted, boundary), isA<WriteRefused>());
-        expect(await writer.apply(dir, 'after\n', crafted, boundary), isA<WriteRefused>());
+      expect(writer.preflight(dir, crafted, boundary), isA<WriteRefused>());
+      expect(await writer.apply(dir, 'after\n', crafted, boundary), isA<WriteRefused>());
 
-        expect(listing(), ['foo']);
-        expect(skillMd('foo'), 'before\n');
-        expect(Directory(p.join(root.path, 'escaped')).existsSync(), isFalse);
-        expect(err.toString(), contains("'$crafted': the new name is not a single directory name"));
-      });
+      expect(listing(), ['foo']);
+      expect(skillMd('foo'), 'before\n');
+      expect(Directory(p.join(root.path, 'escaped')).existsSync(), isFalse);
+      expect(err.toString(), contains("'$crafted': the skill name '$crafted' $expectedReason"));
     }
+
+    test('for a parent-relative path "../escaped"', () async {
+      await expectRefusedName('../escaped', expectedReason: 'contains a path separator');
+    });
+
+    test('for a platform parent-relative path', () async {
+      await expectRefusedName(p.join('..', 'escaped'), expectedReason: 'contains a path separator');
+    });
+
+    test('for an absolute path', () async {
+      await expectRefusedName(
+        p.join(Directory.systemTemp.path, 'escaped'),
+        expectedReason: 'contains a path separator',
+      );
+    });
+
+    test('for ".."', () async {
+      await expectRefusedName('..', expectedReason: 'refers to the current or parent directory');
+    });
+
+    test('for a nested path "a/b"', () async {
+      await expectRefusedName('a/b', expectedReason: 'contains a path separator');
+    });
 
     test('for a skill directory that links outside the boundary', () async {
       final real = Directory(p.join(root.path, 'real'))..createSync();

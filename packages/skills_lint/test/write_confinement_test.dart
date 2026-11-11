@@ -304,7 +304,7 @@ void defineCliTests() {
       expect(stderr, contains('"write_allow" for "skills" has "${outside.path}"'));
     });
 
-    test('write_allow does not reach outside the configuration through a symlink', () async {
+    test('a write_allow symlink outside the configuration is a configuration error', () async {
       final skills = Directory(p.join(outside.path, 'skills'))..createSync();
       final Directory skill = await createDummySkill(
         skills,
@@ -319,9 +319,10 @@ void defineCliTests() {
       final String stderr = await run(['--fix'], exitCode: 1);
 
       expect(File(p.join(skill.path, 'SKILL.md')).readAsStringSync(), _skillNamed('bar'));
+      expect(stderr, contains('Configuration error'));
       expect(
         stderr,
-        contains('"write_allow" for "${local.path}" has "${p.join(repo.path, 'escape')}"'),
+        contains('"write_allow" for "skills" has "escape", which a symlink leads outside'),
       );
     });
 
