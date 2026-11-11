@@ -322,6 +322,21 @@ skills_lint:
       expect(config.parsingErrors.single, contains('once aliases are expanded'));
     });
 
+    for (final (String description, String yaml) in [
+      ('an alias', 'a: &a [x]\nskills_lint:\n  *a : value\n'),
+      ('an explicit', 'a: &a [x]\nskills_lint:\n  ? *a\n  : value\n'),
+      ('a collection', 'skills_lint:\n  [a, b]: value\n'),
+    ]) {
+      test('reports $description mapping key as a parsing error', () {
+        final Configuration config = ConfigParser.parse(yaml);
+
+        expect(
+          config.parsingErrors.single,
+          contains('Mapping keys must be plain or quoted scalars'),
+        );
+      });
+    }
+
     test('captures YAML syntax errors as parsing errors', () async {
       final configFile = File(p.join(tempDir.path, 'invalid_syntax.yaml'));
       await configFile.writeAsString('''

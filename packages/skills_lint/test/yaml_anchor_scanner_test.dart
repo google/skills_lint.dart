@@ -46,6 +46,16 @@ void main() {
       ('an anchor after a document marker', '--- &a [x]\n', '&a'),
       ('a key after an explicit key in a sequence entry', 'l:\n- ? a\n  : b\n  j: &a [1]\n', '&a'),
       ('a key after a plain explicit key in a sequence entry', 'l:\n- ? a\n  j: &a [1]\n', '&a'),
+      (
+        'an anchor after lines indented with non-breaking spaces',
+        'description: |\n  text\n\u00A0\u00A0shared: &a [1, 2]\n',
+        '&a',
+      ),
+      ('an anchor after a comment that touches a closing quote', 'n: "x"# c: "\n&a k: [1]\n', '&a'),
+      ('an anchor after a comment that touches a flow sequence', 't: [a]# c: [\n&a k: [1]\n', '&a'),
+      ('an anchor after a tag that touches a quote', 'n: !!str" "\n&a k: [1]\n', '&a'),
+      ('an anchor after an unknown directive', '%FOO\n  n: x\n  k: &a [1]\n', '&a'),
+      ('an anchor after a directive that holds a quote', '%FOO: "\n---\nk: &a [1]\n', '&a'),
       ('a key after nested explicit keys', 'l:\n- ? ? a\n    : b\n  : c\n  j: &a [1]\n', '&a'),
     ]) {
       test(description, () {
@@ -80,9 +90,53 @@ void main() {
       ('a block scalar with an indentation indicator', 'a: |2\n    x\n  b: *i\nc: d\n'),
       ('an indented block scalar in a sequence entry', '- k: |2\n      x\n    *i\n- y\n'),
       ('a document with no anchors', 'name: x\ndescription: y\nmetadata:\n  k: [1, 2]\n'),
+      ('a comment that touches a closing quote', 'n: "x"# TODO: *important*\nd: y\n'),
+      ('a tag that touches a block scalar header', 'd: !!str|\n  *bold* text\n'),
+      (
+        'a plain scalar that starts on the line after its key',
+        'd:\n  Lint\n  *.dart and *bold*.\n',
+      ),
+      ('a block scalar that starts on the line after its key', 'd:\n  |\n  *bold* text.\n'),
+      ('a block scalar after a tagged key', '  n: x\n  !!str d: |\n    *bold*\n'),
     ]) {
       test(description, () {
         expect(YamlAnchorScanner.firstAnchorOrAlias(yaml), isNull);
+      });
+    }
+  });
+
+  group('YamlAnchorScanner.firstComplexKey finds', () {
+    for (final (String description, String yaml, String token) in [
+      ('an explicit key', '? a\n: b\n', '?'),
+      ('an explicit key in a flow mapping', '{? a : b}\n', '?'),
+      ('a flow sequence key', '[a, b]: c\n', '['),
+      ('a flow mapping key', '{a: b}: c\n', '{'),
+      ('a flow mapping key inside a flow mapping', 'k: {{a: b}: c}\n', '{'),
+      ('nested flow mapping keys with no anchors', '{{{{a}}}}\n', '{'),
+      ('an anchored flow sequence key', '&k [a]: b\n', '['),
+      ('an alias key', 'a: &a [x]\n*a : b\n', '*'),
+      ('an alias key in a nested mapping', 'a: &a [x]\nk:\n  *a : b\n', '*'),
+      ('an alias key in a flow mapping', 'a: &a [x]\nk: {*a : b}\n', '*'),
+      ('an alias key in a flow sequence pair', 'a: &a [x]\nk: [*a : b]\n', '*'),
+    ]) {
+      test(description, () {
+        expect(YamlAnchorScanner.firstComplexKey(yaml)?.text, token);
+      });
+    }
+  });
+
+  group('YamlAnchorScanner.firstComplexKey ignores', () {
+    for (final (String description, String yaml) in [
+      ('flow collections as values', 'a: [x, {b: c}]\nd: {e: [f]}\n'),
+      ('aliases as values', 'a: &a [x]\nb: *a\nc: [*a, *a]\nd: {e: *a}\n'),
+      ('an alias as a sequence entry', 'a: &a x\nl:\n  - *a\n'),
+      ('a question mark in plain text', 'a: why? because\n'),
+      ('a question mark in quotes', 'a: "? x"\n'),
+      ('brackets inside a plain key', 'a[0]: b\n'),
+      ('a flow mapping with scalar keys', 'a: {b: c, "d": e}\n'),
+    ]) {
+      test(description, () {
+        expect(YamlAnchorScanner.firstComplexKey(yaml), isNull);
       });
     }
   });

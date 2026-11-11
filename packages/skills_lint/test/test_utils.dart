@@ -160,6 +160,15 @@ Future<ValidationResult> writeAndValidateSkill(
   return Validator(ruleConfigs: ruleConfigs, customRules: customRules).validate(skillDir);
 }
 
+/// Writes `SKILL.md` in [skillDir] with [frontmatter] between `---` lines and
+/// a short body, then validates [skillDir] with the default rules.
+///
+/// [frontmatter] must end with a newline.
+Future<ValidationResult> validateFrontmatter(Directory skillDir, String frontmatter) async {
+  await File(p.join(skillDir.path, 'SKILL.md')).writeAsString('---\n$frontmatter---\nBody\n');
+  return Validator().validate(skillDir);
+}
+
 /// Constructs an in-memory [SkillContext] data object for unit testing [SkillRule]s.
 SkillContext createTestSkillContext({
   required Directory directory,

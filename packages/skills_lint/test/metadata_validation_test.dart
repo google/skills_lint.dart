@@ -210,18 +210,14 @@ Body''');
       await tempDir.delete(recursive: true);
     });
 
-    Future<ValidationResult> validateFrontmatter(String frontmatter) async {
-      await File('${tempDir.path}/SKILL.md').writeAsString('---\n$frontmatter---\nBody\n');
-      return Validator().validate(tempDir);
-    }
-
     ValidationError onlyYamlError(ValidationResult result) => result.validationErrors.singleWhere(
       (ValidationError error) => error.ruleId == ValidYamlMetadataRule.ruleName,
       orElse: () => fail('No valid-yaml-metadata error in: ${result.validationErrors}'),
     );
 
-    test('rejects an anchor and names it with its line', () async {
+    test('reports an anchor with its line and column', () async {
       final ValidationResult result = await validateFrontmatter(
+        tempDir,
         'name: shared\ndescription: &text A skill.\nmetadata:\n  summary: *text\n',
       );
 
@@ -238,10 +234,15 @@ Body''');
       );
     });
 
-    test('rejects an alias used as a mapping key before parsing', () async {
+    // Each timeout in this group guards a document that package:yaml takes
+    // minutes or longer to load without the limits, so a regression fails
+    // quickly instead of hanging the test run.
+
+    test('reports an alias used as a mapping key without loading it', () async {
       // Loading this would hash all 10^9 values of the key. The scan of the
       // text rejects it first.
       final ValidationResult result = await validateFrontmatter(
+        tempDir,
         '${_billionLaughs(flowStyle: true).replaceFirst(RegExp(r'description: \*i\n$'), '')}'
         'description: d\n? *i\n: value\n',
       );
@@ -249,8 +250,35 @@ Body''');
       expect(onlyYamlError(result).message, contains('`&a` is a YAML anchor'));
     }, timeout: const Timeout(Duration(seconds: 5)));
 
-    test('rejects alias expansion over the node limit before anything reads the value', () {
-      // Nine levels of ten aliases each expand to 10^9 values.
+    test('reports nested collection keys without loading them', () async {
+      // package:yaml hashes each collection key again at every level of
+      // nesting, so loading these 30 levels takes about 3^30 steps.
+      final ValidationResult result = await validateFrontmatter(
+        tempDir,
+        'name: keys\ndescription: d\nk: ${'{' * 30}a${'}' * 30}\n',
+      );
+
+      expect(
+        onlyYamlError(result).message,
+        contains('Mapping keys must be plain or quoted scalars'),
+      );
+    }, timeout: const Timeout(Duration(seconds: 5)));
+
+    test('reports an explicit key', () async {
+      final ValidationResult result = await validateFrontmatter(
+        tempDir,
+        'name: keys\ndescription: d\n? k\n: value\n',
+      );
+
+      expect(
+        onlyYamlError(result).message,
+        contains('Mapping keys must be plain or quoted scalars'),
+      );
+    });
+
+    test('stops expanding aliases at the node limit', () {
+      // Nine levels of ten aliases each expand to 10^9 values, which take
+      // minutes to walk.
       for (final flowStyle in [false, true]) {
         expect(
           () => YamlLimits.loadYaml(_billionLaughs(flowStyle: flowStyle)),
@@ -265,11 +293,12 @@ Body''');
       }
     }, timeout: const Timeout(Duration(seconds: 20)));
 
-    test('rejects block nesting deeper than the limit', () async {
+    test('reports block nesting deeper than the limit', () async {
       final String deep = [
         for (var level = 0; level <= YamlLimits.maxDepth; level++) '${'  ' * level}k$level:',
       ].join('\n');
       final ValidationResult result = await validateFrontmatter(
+        tempDir,
         'name: deep\ndescription: d\n$deep x\n',
       );
 
@@ -280,19 +309,23 @@ Body''');
       );
     });
 
-    test('rejects nesting deep enough to overflow the parser stack', () async {
+    test('reports nesting deep enough to overflow the parser stack', () async {
       // `- - x` is a list inside a list, so this line nests 100,000 levels
       // in about 200 KB, which overflows the parser's stack.
       final ValidationResult result = await validateFrontmatter(
+        tempDir,
         'name: deep\nitems:\n  ${'- ' * 100000}x\n',
       );
 
       expect(onlyYamlError(result).message, contains('levels deep'));
     }, timeout: const Timeout(Duration(seconds: 20)));
 
-    test('rejects flow nesting by counting brackets before parsing', () async {
+    test('reports too many brackets without parsing', () async {
+      // package:yaml slows down with the square of flow nesting, so parsing
+      // 200,000 levels takes minutes.
       const levels = 200000;
       final ValidationResult result = await validateFrontmatter(
+        tempDir,
         'name: deep\ndescription: ${'[' * levels}${']' * levels}\n',
       );
 
@@ -302,8 +335,8 @@ Body''');
       );
     }, timeout: const Timeout(Duration(seconds: 20)));
 
-    test('accepts frontmatter with nesting and star or ampersand text', () async {
-      final ValidationResult result = await validateFrontmatter('''
+    test('accepts nesting and text with stars and ampersands', () async {
+      final ValidationResult result = await validateFrontmatter(tempDir, '''
 name: shared
 description: Use *bold* text & more. # a comment with *star
 metadata:
@@ -322,6 +355,7 @@ metadata:
 
     test('accepts brackets in text, which count toward the limit but do not nest', () async {
       final ValidationResult result = await validateFrontmatter(
+        tempDir,
         'name: links\ndescription: d\nmetadata:\n  notes: "${'[link](https://example.com) ' * 2000}"\n',
       );
 

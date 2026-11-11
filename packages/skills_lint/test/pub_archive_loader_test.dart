@@ -125,6 +125,21 @@ void main() {
       expect((archive as PubArchiveUnavailable).reason, contains('sets publish_to: none'));
       expect(pub.workingDirectories, isEmpty);
     });
+
+    test('a pubspec.yaml over the YAML size limits', () async {
+      final Directory root = await createPackage(
+        'my_pkg',
+        pubspecExtra: 'nested: ${'[' * 70}${']' * 70}\n',
+      );
+      final pub = FakePub();
+
+      final PubArchive archive = await PubArchiveLoader(
+        runProcess: pub.run,
+      ).archiveFor(skillIn(root, 'my-pkg-a'));
+
+      expect((archive as PubArchiveUnavailable).reason, contains('levels deep'));
+      expect(pub.workingDirectories, isEmpty);
+    });
   });
 
   group('reports', () {
