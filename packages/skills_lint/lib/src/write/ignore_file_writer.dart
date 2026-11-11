@@ -115,9 +115,10 @@ class IgnoreFileWriter {
   /// must stay inside all of their boundaries.
   final Map<String, List<WriteBoundary>> _boundariesByPath = {};
 
-  /// Ignore file paths created during [load] in this session, so a narrower
-  /// boundary recorded later can remove and refuse a file that escaped it.
-  final Set<String> _createdInSession = {};
+  /// Maps each ignore file path initialized during [load] in this session to
+  /// the resolved destination file created on disk, so a narrower boundary
+  /// recorded later removes the created file (never a pre-existing symlink).
+  final Map<String, String> _createdInSession = {};
 
   /// Malformed entries found the first time each ignore file was loaded, so
   /// [saveBaseline] can report what is dropped before replacing the file.
@@ -158,8 +159,9 @@ class IgnoreFileWriter {
     if (target.createWhenMissing && !_refuseWrite(target.path)) {
       _log.warning('File not found generating-baseline');
       try {
+        final String resolvedTarget = WriteBoundary.resolve(target.path);
         await _storage.save(target.path, SkillsIgnores(skills: {}));
-        _createdInSession.add(target.path);
+        _createdInSession[target.path] = resolvedTarget;
       } on FileSystemException {
         // Ignore write errors and return empty ignores.
       }
@@ -175,12 +177,13 @@ class IgnoreFileWriter {
   /// initialized file and records the refusal.
   void recordBoundary(IgnoreFileTarget target) {
     (_boundariesByPath[target.path] ??= []).add(target.boundary);
-    if (_createdInSession.contains(target.path)) {
+    final String? createdFile = _createdInSession[target.path];
+    if (createdFile != null) {
       final String? reason = target.boundary.refusal(target.path);
       if (reason != null) {
         _createdInSession.remove(target.path);
         try {
-          File(target.path).deleteSync();
+          File(createdFile).deleteSync();
         } on FileSystemException {
           // Best-effort cleanup of the file created earlier in this session.
         }

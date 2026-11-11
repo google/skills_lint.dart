@@ -116,6 +116,38 @@ void main() {
         expect(err.toString(), contains("Error: did not write ignore file '$sharedPath'"));
       },
     );
+
+    test(
+      'preserves a pre-existing dangling symlink and deletes the created target when narrowed',
+      () async {
+        final subdir = Directory(p.join(repo.path, 'sub'))..createSync();
+        final siblingDir = Directory(p.join(repo.path, 'other'))..createSync();
+        final String targetFile = p.join(siblingDir.path, 'created.json');
+        final String linkPath = p.join(subdir.path, 'ignore.json');
+        Link(linkPath).createSync(targetFile);
+
+        await writer.load(
+          IgnoreFileTarget.fromConfiguration(
+            linkPath,
+            configDirectory: repo.path,
+            allowWrite: const [],
+          ),
+        );
+        expect(File(targetFile).existsSync(), isTrue);
+
+        writer.recordBoundary(
+          IgnoreFileTarget.fromConfiguration(
+            linkPath,
+            configDirectory: subdir.path,
+            allowWrite: const [],
+          ),
+        );
+
+        expect(File(targetFile).existsSync(), isFalse);
+        expect(FileSystemEntity.typeSync(linkPath, followLinks: false), FileSystemEntityType.link);
+        expect(writer.writeRefused, isTrue);
+      },
+    );
   });
 
   group('saveBaseline', () {

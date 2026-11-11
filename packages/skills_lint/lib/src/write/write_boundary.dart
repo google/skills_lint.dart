@@ -242,7 +242,6 @@ final class WriteBoundary {
   /// or an ignore file that is about to be created. Those segments are kept
   /// as they are. Each segment is resolved before the `..` after it applies,
   /// as the operating system does.
-  @visibleForTesting
   static String resolve(String path) {
     int linksLeft = _maxLinks;
     String walk(String path) {
