@@ -217,11 +217,11 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     // Unquoted, YAML reads some valid names as another type: `123` as a
     // number, `false` as a boolean. Valid names hold only letters, digits and
-    // hyphens, so they never need escaping, and loadYaml parses any of them.
+    // hyphens, so they never need escaping, and YAML parses any of them.
     final String quote = switch (nameNode.style) {
       ScalarStyle.SINGLE_QUOTED => "'",
       ScalarStyle.DOUBLE_QUOTED => '"',
-      _ => loadYaml(directoryName) == directoryName ? '' : '"',
+      _ => YamlLimits.loadYaml(directoryName) == directoryName ? '' : '"',
     };
     final fixedFrontmatter = '$beforeNameNode$quote$directoryName$quote$afterNameNode';
     final int yamlOffset = currentContent.indexOf(frontmatter, match.start);

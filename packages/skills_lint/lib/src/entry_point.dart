@@ -26,6 +26,7 @@ import 'path_utils.dart';
 import 'rule_registry.dart';
 import 'validation_session.dart';
 import 'version.dart';
+import 'yaml_limits.dart';
 
 export 'models/output_format.dart';
 export 'validation_session.dart';
@@ -706,7 +707,7 @@ Object? _parseParameterValue(String paramFlag, Object? rawValue, RuleParameterTy
   );
   final Object? value;
   try {
-    value = loadYaml(rawValue.toString());
+    value = YamlLimits.loadYaml(rawValue.toString());
   } on YamlException {
     throw invalid;
   }

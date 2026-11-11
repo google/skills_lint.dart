@@ -26,20 +26,22 @@ class YamlAnchorScanner {
   /// The first anchor (`&name`) or alias (`*name`) in [yaml], or `null` if it
   /// has none.
   ///
-  /// The returned [YamlAnchorToken.span] is a [SourceSpan] within [yaml], for
+  /// The returned `span` is a [SourceSpan] within [yaml], for
   /// callers such as `YamlLimits.loadFrontmatter` to attach to a
   /// `YamlException`.
   static YamlAnchorToken? firstAnchorOrAlias(String yaml) =>
       YamlAnchorScanner._(yaml)._scan(stopAtAnchors: true);
 
-  /// The [SourceSpan] of the first explicit-key indicator (`?`) or collection
-  /// mapping key (`[...]` or `{...}` used as a key) in [yaml], or `null` if
-  /// every mapping key is an implicit scalar or alias.
+  /// The [SourceSpan] of the first explicit-key indicator (`?`), alias mapping
+  /// key (`*name` used as a key) or collection mapping key (`[...]` or `{...}`
+  /// used as a key) in [yaml], or `null` if every mapping key is an implicit
+  /// scalar.
   ///
   /// `package:yaml` hashes collection mapping keys deeply on every map lookup,
-  /// which takes exponential time when mapping keys nest. Rejecting collection
-  /// keys before parsing bounds key hashing without forbidding flow sequences
-  /// or mappings used as values.
+  /// which takes exponential time when mapping keys nest or an alias key
+  /// refers to a collection built from aliases. Rejecting these keys before
+  /// parsing bounds key hashing without forbidding aliases, flow sequences or
+  /// flow mappings used as values.
   static SourceSpan? firstComplexKey(String yaml) =>
       YamlAnchorScanner._(yaml)._scan(stopAtAnchors: false)?.span;
 
@@ -55,9 +57,10 @@ class YamlAnchorScanner {
   /// Whether the current position is inside a flow collection.
   bool get _inFlow => _flowStack.isNotEmpty;
 
-  /// Start offset in [_yaml] of the flow collection that just closed, kept
-  /// until the next non-closing token so a trailing `:` marks it as a key.
-  int? _closedFlowStartOffset;
+  /// Start offset in [_yaml] of the alias or flow collection that just ended,
+  /// kept until the next non-closing token so a trailing `:` marks it as a
+  /// key.
+  int? _keyCandidateOffset;
 
   /// Whether the current position can start a node.
   bool _atNodeStart = true;
@@ -87,9 +90,7 @@ class YamlAnchorScanner {
   static final RegExp _tagChars = RegExp(r"[0-9A-Za-z_\-;/?:@&=+\$.~*'()%]");
 
   /// A block scalar header with an indentation indicator (`|2`, `|2-`, `|-2`).
-  static final RegExp _indentationIndicator = RegExp(
-    r'^[|>](?:[+-]?([1-9])|([1-9])[+-]?)',
-  );
+  static final RegExp _indentationIndicator = RegExp(r'^[|>](?:[+-]?([1-9])|([1-9])[+-]?)');
 
   /// Line breaks as `package:yaml` reads them (`\r\n`, `\r`, `\n`).
   static final RegExp _lineBreak = RegExp('\r\n|\r|\n');
@@ -145,7 +146,7 @@ class YamlAnchorScanner {
     }
     final int indent = _spaceIndent(line);
     final int firstNonBlank = _firstNonBlank(line);
-    final bool blank = firstNonBlank == line.length;
+    final blank = firstNonBlank == line.length;
     if (_skipsBlockScalarLine(line, indent: indent, blank: blank)) {
       return null;
     }
@@ -166,7 +167,7 @@ class YamlAnchorScanner {
       _atNodeStart = true;
       _inPlain = false;
       _keyStartColumn = null;
-      _closedFlowStartOffset = null;
+      _keyCandidateOffset = null;
     }
     final YamlAnchorToken? found = _scanText(line, start, stopAtAnchors: stopAtAnchors);
     if (_inPlain && !_inFlow && _plainMinIndent == null) {
@@ -189,7 +190,7 @@ class YamlAnchorScanner {
     _blockScalarParentIndent = null;
     _blockScalarIndent = null;
     _keyStartColumn = null;
-    _closedFlowStartOffset = null;
+    _keyCandidateOffset = null;
   }
 
   /// Whether the line belongs to an open block scalar and holds only its text.
@@ -255,7 +256,7 @@ class YamlAnchorScanner {
   }
 
   YamlAnchorToken? _scanText(String line, int lineOffset, {required bool stopAtAnchors}) {
-    var i = _consumeLinePrefix(line);
+    int? i = _consumeLinePrefix(line);
     if (i == null) {
       return null;
     }
@@ -288,7 +289,11 @@ class YamlAnchorScanner {
         }
         continue;
       }
-      final YamlAnchorToken? keyHit = _checkFlowKeyColon(line, i, stopAtAnchors: stopAtAnchors);
+      final YamlAnchorToken? keyHit = _checkKeyCandidateColon(
+        line,
+        i,
+        stopAtAnchors: stopAtAnchors,
+      );
       if (keyHit != null) {
         return keyHit;
       }
@@ -343,13 +348,13 @@ class YamlAnchorScanner {
     return null;
   }
 
-  YamlAnchorToken? _checkFlowKeyColon(String line, int i, {required bool stopAtAnchors}) {
-    final int? flowStart = _closedFlowStartOffset;
+  YamlAnchorToken? _checkKeyCandidateColon(String line, int i, {required bool stopAtAnchors}) {
+    final int? candidate = _keyCandidateOffset;
     if (!stopAtAnchors &&
-        flowStart != null &&
+        candidate != null &&
         line[i] == ':' &&
         (_isIndicator(line, i) || _inFlow && !_inPlain)) {
-      return (token: _yaml[flowStart], span: _spanAt(flowStart, 1));
+      return (token: _yaml[candidate], span: _spanAt(candidate, 1));
     }
     return null;
   }
@@ -360,7 +365,7 @@ class YamlAnchorScanner {
   /// Handles the character at [i] where a node can start, and returns the
   /// index to continue from, or `null` when the rest of the line is skipped.
   int? _startNode(String line, int i, int lineOffset) {
-    final int? afterProperty = _skipNodeProperty(line, i);
+    final int? afterProperty = _skipNodeProperty(line, i, lineOffset);
     if (afterProperty != null) {
       return afterProperty;
     }
@@ -369,11 +374,11 @@ class YamlAnchorScanner {
       _markBlockKeyStart(i);
       _openQuote = char;
       _atNodeStart = false;
-      _closedFlowStartOffset = null;
+      _keyCandidateOffset = null;
       return i + 1;
     }
     if (_takesNodeIndicator(line, i)) {
-      _closedFlowStartOffset = null;
+      _keyCandidateOffset = null;
       return i + 1;
     }
     if (_startsFlowToken(char, i, lineOffset)) {
@@ -386,12 +391,12 @@ class YamlAnchorScanner {
     _markBlockKeyStart(i);
     _atNodeStart = false;
     _inPlain = true;
-    _closedFlowStartOffset = null;
+    _keyCandidateOffset = null;
     return i + 1;
   }
 
   /// Skips a tag (`!`) or anchor/alias (`&`/`*`) at [i], or returns `null`.
-  int? _skipNodeProperty(String line, int i) {
+  int? _skipNodeProperty(String line, int i, int lineOffset) {
     final String char = line[i];
     if (char == '!') {
       _markBlockKeyStart(i);
@@ -401,6 +406,7 @@ class YamlAnchorScanner {
       _markBlockKeyStart(i);
       if (char == '*') {
         _atNodeStart = false;
+        _keyCandidateOffset = lineOffset + i;
       }
       return _endOfToken(line, i);
     }
@@ -436,12 +442,8 @@ class YamlAnchorScanner {
       if (!_inFlow) {
         _keyStartColumn ??= i;
       }
-      _flowStack.add((
-        char == '[' ? _FlowKind.sequence : _FlowKind.mapping,
-        lineOffset + i,
-        false,
-      ));
-      _closedFlowStartOffset = null;
+      _flowStack.add((char == '[' ? _FlowKind.sequence : _FlowKind.mapping, lineOffset + i, false));
+      _keyCandidateOffset = null;
       return true;
     }
     if (!_inFlow) {
@@ -449,13 +451,13 @@ class YamlAnchorScanner {
     }
     if (char == ']' || char == '}') {
       final (_FlowKind _, int startOffset, bool _) = _flowStack.removeLast();
-      _closedFlowStartOffset = startOffset;
+      _keyCandidateOffset = startOffset;
       _atNodeStart = false;
       return true;
     }
     if (char == ',') {
       _setFlowMappingInValue(false);
-      _closedFlowStartOffset = null;
+      _keyCandidateOffset = null;
       return true;
     }
     return false;
@@ -487,19 +489,19 @@ class YamlAnchorScanner {
       _advancePastMappingKey(i);
     } else if (_inFlow && char == ',') {
       _setFlowMappingInValue(false);
-      _closedFlowStartOffset = null;
+      _keyCandidateOffset = null;
       _inPlain = false;
       _atNodeStart = true;
     } else if (_inFlow && (char == ']' || char == '}')) {
       final (_FlowKind _, int startOffset, bool _) = _flowStack.removeLast();
-      _closedFlowStartOffset = startOffset;
+      _keyCandidateOffset = startOffset;
       _inPlain = false;
     } else if (!_inFlow && !_inPlain && (char == '[' || char == '{')) {
       _flowStack.add((char == '[' ? _FlowKind.sequence : _FlowKind.mapping, 0, false));
-      _closedFlowStartOffset = null;
+      _keyCandidateOffset = null;
       _atNodeStart = true;
     } else if (char != ']' && char != '}' && !_inPlain) {
-      _closedFlowStartOffset = null;
+      _keyCandidateOffset = null;
     }
     return i + 1;
   }
@@ -511,7 +513,7 @@ class YamlAnchorScanner {
     } else {
       _setFlowMappingInValue(true);
     }
-    _closedFlowStartOffset = null;
+    _keyCandidateOffset = null;
     _inPlain = false;
     _atNodeStart = true;
   }
@@ -555,7 +557,7 @@ class YamlAnchorScanner {
       final int close = line.indexOf('>', i + 2);
       return close == -1 ? line.length : close + 1;
     }
-    var j = i + 1;
+    int j = i + 1;
     while (j < line.length && _tagChars.hasMatch(line[j])) {
       j++;
     }
@@ -569,7 +571,7 @@ class YamlAnchorScanner {
   }
 
   int _endOfToken(String line, int i) {
-    var j = i + 1;
+    int j = i + 1;
     while (j < line.length && !' \t,[]{}'.contains(line[j])) {
       j++;
     }

@@ -87,7 +87,7 @@ class ConfigParser {
   }) {
     _checkSourceArguments(configSource, sourcePath, baseDirectory);
     try {
-      final Object? yaml = YamlLimits.load(content);
+      final Object? yaml = YamlLimits.loadYaml(content);
       return fromYaml(
         yaml,
         configSource: configSource,

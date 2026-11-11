@@ -253,7 +253,7 @@ Body''');
       // Nine levels of ten aliases each expand to 10^9 values.
       for (final flowStyle in [false, true]) {
         expect(
-          () => YamlLimits.load(_billionLaughs(flowStyle: flowStyle)),
+          () => YamlLimits.loadYaml(_billionLaughs(flowStyle: flowStyle)),
           throwsA(
             isA<YamlException>().having(
               (YamlException e) => e.message,

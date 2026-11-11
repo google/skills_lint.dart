@@ -3,6 +3,7 @@
 ### Breaking changes
 
 - `valid-yaml-metadata` reports YAML anchors (`&name`) and aliases (`*name`) in `SKILL.md` frontmatter when previously they were allowed.
+- `valid-yaml-metadata` reports explicit (`? key`), alias and collection mapping keys in `SKILL.md` frontmatter, and `skills_lint.yaml` fails to load when it uses one. Mapping keys must be plain or quoted scalars.
 
 ### Behavior changes
 

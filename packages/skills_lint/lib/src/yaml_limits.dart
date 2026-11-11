@@ -32,15 +32,11 @@ abstract final class YamlLimits {
   static const int maxDepth = 64;
 
   /// Parses [yaml] like `package:yaml`'s `loadYaml`, and throws a
-  /// [YamlException] if the document exceeds a size limit or uses a collection
-  /// or explicit (`?`) mapping key.
+  /// [YamlException] if the document exceeds a size limit or uses an explicit
+  /// (`?`), alias or collection mapping key.
   ///
-  /// Anchors and aliases used as values are allowed here (for example in
-  /// `skills_lint.yaml`) and bounded to [maxNodes] expanded nodes before
-  /// returning. Because `package:yaml` hashes mapping keys inside
-  /// `loadYamlNode`, an alias used as a mapping key can still expand during
-  /// parsing; call [loadFrontmatter] for untrusted `SKILL.md` frontmatter,
-  /// which rejects all anchors and aliases before parsing.
+  /// Anchors and aliases used as values are allowed, and count toward
+  /// [maxNodes] once expanded.
   static Object? loadYaml(String yaml, {Uri? sourceUrl}) {
     final int flowStarts = '['.allMatches(yaml).length + '{'.allMatches(yaml).length;
     if (flowStarts > maxFlowCollectionStarts) {
@@ -62,8 +58,8 @@ abstract final class YamlLimits {
   /// Parses the frontmatter of a `SKILL.md` like [loadYaml], and also throws a
   /// [YamlException] if it holds a YAML anchor or alias.
   ///
-  /// The anchor scan runs on the text before parsing, because `package:yaml`
-  /// can take exponential time to load an alias used as a mapping key.
+  /// The anchor scan reads the text before parsing it, so the error points at
+  /// the first anchor or alias even when the document has other problems.
   static Object? loadFrontmatter(String yaml) {
     final YamlAnchorToken? found = YamlAnchorScanner.firstAnchorOrAlias(yaml);
     if (found != null) {
@@ -80,8 +76,8 @@ abstract final class YamlLimits {
   static const String _tooDeepMessage = 'The YAML nests more than $maxDepth levels deep.';
 
   static const String _complexKeyMessage =
-      'Mapping keys must be plain or quoted scalars; explicit (`?`) and collection '
-      'mapping keys are not supported.';
+      'Mapping keys must be plain or quoted scalars; explicit (`?`), alias and '
+      'collection mapping keys are not supported.';
 
   static YamlNode _parseNodeQuietly(String yaml, {Uri? sourceUrl}) {
     final YamlWarningCallback previousWarning = yamlWarningCallback;

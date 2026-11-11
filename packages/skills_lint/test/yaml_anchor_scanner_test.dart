@@ -53,9 +53,9 @@ void main() {
       });
     }
 
-    test('the offset of the token', () {
+    test('the span of the token', () {
       const yaml = 'name: x\nb: *item\n';
-      expect(YamlAnchorScanner.firstAnchorOrAlias(yaml)?.offset, yaml.indexOf('*item'));
+      expect(YamlAnchorScanner.firstAnchorOrAlias(yaml)?.span.start.offset, yaml.indexOf('*item'));
     });
   });
 

@@ -10,6 +10,7 @@ import 'package:tar/tar.dart';
 
 import 'models/pub_archive.dart';
 import 'rules/pub_archive_includes_skill_rule.dart';
+import 'yaml_limits.dart';
 
 /// Runs [executable] with [arguments] in [workingDirectory].
 ///
@@ -100,10 +101,11 @@ class PubArchiveLoader {
     final String pubspecPath = p.join(packageRoot, _pubspecFileName);
     final Pubspec pubspec;
     try {
-      pubspec = Pubspec.parse(
-        await File(pubspecPath).readAsString(),
-        sourceUrl: Uri.file(pubspecPath),
-      );
+      final String content = await File(pubspecPath).readAsString();
+      final sourceUrl = Uri.file(pubspecPath);
+      // Pubspec.parse loads YAML without size limits, so check them first.
+      YamlLimits.loadYaml(content, sourceUrl: sourceUrl);
+      pubspec = Pubspec.parse(content, sourceUrl: sourceUrl);
     } on Exception catch (e) {
       // Pubspec.parse throws ParsedYamlException from package:checked_yaml,
       // which is not a direct dependency, so match on Exception.
