@@ -293,20 +293,22 @@ Body''');
     });
 
     test('reports nesting deep enough to overflow the parser stack', () async {
-      // `- - x` is a list inside a list, so this line nests 100,000 levels
-      // in about 200 KB, which overflows the parser's stack.
+      // `- - x` is a list inside a list, so this line nests 20,000 levels
+      // in about 40 KB, under YamlLimits.maxBytes. The parser's stack
+      // overflows at about 5,000 levels.
       final ValidationResult result = await validateFrontmatter(
         tempDir,
-        'name: deep\nitems:\n  ${'- ' * 100000}x\n',
+        'name: deep\nitems:\n  ${'- ' * 20000}x\n',
       );
 
       expect(onlyYamlError(result).message, contains('levels deep'));
     }, timeout: const Timeout(Duration(seconds: 20)));
 
     test('reports too many brackets without parsing', () async {
+      // Twice the bracket limit, in about 40 KB, under YamlLimits.maxBytes.
       // package:yaml slows down with the square of flow nesting, so parsing
-      // 200,000 levels takes minutes.
-      const levels = 200000;
+      // this many levels takes about two seconds.
+      const int levels = 2 * YamlLimits.maxFlowCollectionStarts;
       final ValidationResult result = await validateFrontmatter(
         tempDir,
         'name: deep\ndescription: ${'[' * levels}${']' * levels}\n',
