@@ -2,20 +2,17 @@
 
 ### Breaking changes
 
-- `valid-yaml-metadata` reports YAML anchors (`&name`) and aliases (`*name`) in `SKILL.md` frontmatter. A skill that uses them passed before and fails now. Write the values out in full.
+- `valid-yaml-metadata` reports YAML anchors (`&name`) and aliases (`*name`) in `SKILL.md` frontmatter when previously they were allowed.
 
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
-- `valid-yaml-metadata` reports frontmatter over the new size limits, and `skills_lint.yaml` over them fails to parse. Such YAML used to exhaust memory or overflow the stack and stop the run. See [valid-yaml-metadata](RULES.md#valid-yaml-metadata) for the limits.
+- `valid-yaml-metadata` fails on YAML that previously would exhaust memory or overflow the stack and stop the run. See [valid-yaml-metadata](RULES.md#valid-yaml-metadata) for the limits.
 
 ### Bug fixes
 
-- A rule that throws no longer stops the run. The skill gets an `unexpected-error` result that starts with `skills_lint internal error:`, and the other skills, JSON and SARIF output still follow. The exit code is non-zero.
-
-### Bug fixes
-
+- A rule that throws no longer stops the run. The skill gets an `unexpected-error` result and the other skills, JSON and SARIF output still continue. The exit code is non-zero when an unexpected-error is thrown.
 - `check-absolute-paths --fix` writes a link that stays inside the skill when the skill directory or the linked path goes through a symlink. [#142](https://github.com/google/skills_lint.dart/issues/142)
 
 ## 0.5.3+1

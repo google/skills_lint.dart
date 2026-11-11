@@ -8,13 +8,14 @@ import 'package:yaml/yaml.dart';
 import 'models/skill_context.dart';
 import 'yaml_anchor_scanner.dart';
 
-/// Size limits on the YAML that skills_lint reads.
+/// Size and structure limits on the YAML that skills_lint reads.
 ///
 /// `package:yaml` shares the node behind each alias, so a few hundred bytes
-/// can describe billions of values. Code that walks or prints such a value
-/// runs out of memory, and deep nesting overflows the stack. These limits
-/// stop both before any rule sees the value. Each one is far above what a
-/// real `SKILL.md` or `skills_lint.yaml` uses.
+/// can describe billions of values, and collection mapping keys take
+/// exponential time to hash when nested. Code that walks or prints such a
+/// value runs out of memory, and deep nesting overflows the stack. Every YAML
+/// parse in `lib/` goes through [YamlLimits] so these limits run before any
+/// rule or configuration consumer sees the value.
 abstract final class YamlLimits {
   /// The most `[` and `{` characters a YAML document may hold.
   ///
@@ -30,12 +31,17 @@ abstract final class YamlLimits {
   /// The deepest nesting of collections a parsed document may hold.
   static const int maxDepth = 64;
 
-  /// Parses [yaml] like [loadYaml], and throws a [YamlException] if the
-  /// document is over any of these limits.
+  /// Parses [yaml] like `package:yaml`'s `loadYaml`, and throws a
+  /// [YamlException] if the document exceeds a size limit or uses a collection
+  /// or explicit (`?`) mapping key.
   ///
-  /// The checks run before anything expands an alias, so a document over the
-  /// limits costs about as much to reject as its size in bytes.
-  static Object? load(String yaml) {
+  /// Anchors and aliases used as values are allowed here (for example in
+  /// `skills_lint.yaml`) and bounded to [maxNodes] expanded nodes before
+  /// returning. Because `package:yaml` hashes mapping keys inside
+  /// `loadYamlNode`, an alias used as a mapping key can still expand during
+  /// parsing; call [loadFrontmatter] for untrusted `SKILL.md` frontmatter,
+  /// which rejects all anchors and aliases before parsing.
+  static Object? loadYaml(String yaml, {Uri? sourceUrl}) {
     final int flowStarts = '['.allMatches(yaml).length + '{'.allMatches(yaml).length;
     if (flowStarts > maxFlowCollectionStarts) {
       throw YamlException(
@@ -44,24 +50,20 @@ abstract final class YamlLimits {
         null, // There is no single location to point to.
       );
     }
-    final YamlNode root;
-    try {
-      root = loadYamlNode(yaml);
-    } on StackOverflowError {
-      // Block nesting such as `- - - x` has no cheap bound before parsing,
-      // and the parser recurses once per level. The VM unwinds a stack
-      // overflow cleanly, so treat it as nesting over the limit.
-      throw YamlException(_tooDeepMessage, null);
+    final SourceSpan? complexKey = YamlAnchorScanner.firstComplexKey(yaml);
+    if (complexKey != null) {
+      throw YamlException(_complexKeyMessage, complexKey);
     }
+    final YamlNode root = _parseNodeQuietly(yaml, sourceUrl: sourceUrl);
     _checkSize(root);
     return root.value;
   }
 
-  /// Parses the frontmatter of a `SKILL.md` like [load], and also throws a
+  /// Parses the frontmatter of a `SKILL.md` like [loadYaml], and also throws a
   /// [YamlException] if it holds a YAML anchor or alias.
   ///
-  /// The check runs on the text before parsing, because `package:yaml` can
-  /// take exponential time to load an alias used as a mapping key.
+  /// The anchor scan runs on the text before parsing, because `package:yaml`
+  /// can take exponential time to load an alias used as a mapping key.
   static Object? loadFrontmatter(String yaml) {
     final YamlAnchorToken? found = YamlAnchorScanner.firstAnchorOrAlias(yaml);
     if (found != null) {
@@ -69,13 +71,37 @@ abstract final class YamlLimits {
       throw YamlException(
         '`${found.token}` is a YAML $kind. ${SkillContext.skillFileName} frontmatter '
         "doesn't support anchors (`&`) or aliases (`*`). Write the value out in full, or quote it.",
-        SourceFile.fromString(yaml).span(found.offset, found.offset + found.token.length),
+        found.span,
       );
     }
-    return load(yaml);
+    return loadYaml(yaml);
   }
 
   static const String _tooDeepMessage = 'The YAML nests more than $maxDepth levels deep.';
+
+  static const String _complexKeyMessage =
+      'Mapping keys must be plain or quoted scalars; explicit (`?`) and collection '
+      'mapping keys are not supported.';
+
+  static YamlNode _parseNodeQuietly(String yaml, {Uri? sourceUrl}) {
+    final YamlWarningCallback previousWarning = yamlWarningCallback;
+    // `package:yaml`'s default warning callback calls `print`, which writes
+    // unknown-directive warnings straight to stdout and corrupts `--format=json`
+    // and `--format=sarif` output.
+    yamlWarningCallback = _ignoreYamlWarning;
+    try {
+      return loadYamlNode(yaml, sourceUrl: sourceUrl);
+    } on StackOverflowError {
+      // Block nesting such as `- - - x` has no cheap bound before parsing,
+      // and the parser recurses once per level. The VM unwinds a stack
+      // overflow cleanly, so treat it as nesting over the limit.
+      throw YamlException(_tooDeepMessage, null);
+    } finally {
+      yamlWarningCallback = previousWarning;
+    }
+  }
+
+  static void _ignoreYamlWarning(String _, [SourceSpan? _]) {}
 
   /// Walks [root] with each alias expanded, and stops at the first limit it
   /// passes, so the walk visits at most [maxNodes] nodes.
@@ -93,12 +119,7 @@ abstract final class YamlLimits {
         );
       }
       final Iterable<YamlNode> children = switch (node) {
-        YamlMap(:final Map<dynamic, YamlNode> nodes) => [
-          for (final MapEntry<dynamic, YamlNode> entry in nodes.entries) ...[
-            if (entry.key case final YamlNode key) key,
-            entry.value,
-          ],
-        ],
+        YamlMap(:final Map<dynamic, YamlNode> nodes) => _mapChildren(nodes),
         YamlList(:final List<YamlNode> nodes) => nodes,
         _ => const [],
       };
@@ -108,5 +129,19 @@ abstract final class YamlLimits {
     }
 
     visit(root, 0);
+  }
+
+  static List<YamlNode> _mapChildren(Map<dynamic, YamlNode> nodes) {
+    final children = <YamlNode>[];
+    for (final MapEntry<dynamic, YamlNode> entry in nodes.entries) {
+      if (entry.key case final YamlNode key) {
+        if (key is! YamlScalar) {
+          throw YamlException(_complexKeyMessage, key.span);
+        }
+        children.add(key);
+      }
+      children.add(entry.value);
+    }
+    return children;
   }
 }
