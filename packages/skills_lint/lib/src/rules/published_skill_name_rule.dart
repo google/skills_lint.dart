@@ -246,14 +246,12 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     }
     final Pubspec pubspec;
     try {
-      // Pubspec.parse loads YAML without size limits, so check them first.
-      YamlLimits.loadYaml(content);
-      pubspec = Pubspec.parse(content);
+      pubspec = YamlLimits.loadPubspec(content);
     } on Exception {
-      // Pubspec.parse reports malformed YAML and invalid fields as
-      // ParsedYamlException from package:checked_yaml. That package is not a
-      // direct dependency, so match on Exception, which still lets Errors
-      // from bugs escape.
+      // loadPubspec reports YAML over the limits as YamlException, and
+      // malformed YAML and invalid fields as ParsedYamlException from
+      // package:checked_yaml. That package is not a direct dependency, so
+      // match on Exception, which still lets Errors from bugs escape.
       return null;
     }
     final String name = pubspec.name.trim();

@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// A detector for code that parses YAML with `package:yaml` directly instead
-/// of through `YamlLimits` in `lib/src/yaml_limits.dart`.
+/// A detector for code that parses YAML with `package:yaml` or `Pubspec.parse`
+/// directly instead of through `YamlLimits` in `lib/src/yaml_limits.dart`.
 ///
 /// `package:yaml` shares the node behind each alias, so a few hundred bytes
 /// can describe billions of values, and it hashes collection mapping keys in
@@ -75,6 +75,48 @@ List<ConventionViolation> findRawYamlLoads(Source source) {
   }
   return violations;
 }
+
+/// Reports each call or tear-off of `Pubspec.parse` in [source] when it
+/// imports `package:pubspec_parse`, with or without a prefix.
+///
+/// `Pubspec.parse` loads its YAML with `package:yaml` and no limits.
+List<ConventionViolation> findRawPubspecParses(Source source) {
+  final bool importsPubspecParse = source.unit.directives.whereType<ImportDirective>().any(
+    (directive) => directive.uri.stringValue?.startsWith('package:pubspec_parse/') ?? false,
+  );
+  if (!importsPubspecParse) {
+    return const [];
+  }
+  return [
+    for (final SimpleIdentifier identifier in source.nodes.whereType<SimpleIdentifier>())
+      if (identifier.name == 'parse' && _pubspecMemberOwner(identifier) == 'Pubspec')
+        source.violationAt(
+          identifier.offset,
+          'parses with Pubspec.parse instead of YamlLimits.loadPubspec',
+        ),
+  ];
+}
+
+/// The name of the type that [node] is a member of, when [node] is written
+/// as `Type.member` or `prefix.Type.member`.
+String? _pubspecMemberOwner(SimpleIdentifier node) => switch (node.parent) {
+  MethodInvocation(:final SimpleIdentifier methodName, :final Expression? target)
+      when methodName == node =>
+    _typeName(target),
+  PrefixedIdentifier(:final SimpleIdentifier identifier, :final SimpleIdentifier prefix)
+      when identifier == node =>
+    prefix.name,
+  PropertyAccess(:final SimpleIdentifier propertyName, :final Expression? target)
+      when propertyName == node =>
+    _typeName(target),
+  _ => null,
+};
+
+String? _typeName(Expression? target) => switch (target) {
+  SimpleIdentifier(:final String name) => name,
+  PrefixedIdentifier(:final SimpleIdentifier identifier) => identifier.name,
+  _ => null,
+};
 
 /// How an identifier is written: bare or behind a simple prefix, and
 /// whether it is the name of a call.

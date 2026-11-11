@@ -238,12 +238,12 @@ Body''');
     // minutes or longer to load without the limits, so a regression fails
     // quickly instead of hanging the test run.
 
-    test('reports an alias used as a mapping key without loading it', () async {
+    test('reports the anchor in a document with an alias mapping key without loading it', () async {
       // Loading this would hash all 10^9 values of the key. The scan of the
       // text rejects it first.
       final ValidationResult result = await validateFrontmatter(
         tempDir,
-        '${_billionLaughs(flowStyle: true).replaceFirst(RegExp(r'description: \*i\n$'), '')}'
+        '${billionLaughs(flowStyle: true).replaceFirst(RegExp(r'description: \*i\n$'), '')}'
         'description: d\n? *i\n: value\n',
       );
 
@@ -275,23 +275,6 @@ Body''');
         contains('Mapping keys must be plain or quoted scalars'),
       );
     });
-
-    test('stops expanding aliases at the node limit', () {
-      // Nine levels of ten aliases each expand to 10^9 values, which take
-      // minutes to walk.
-      for (final flowStyle in [false, true]) {
-        expect(
-          () => YamlLimits.loadYaml(_billionLaughs(flowStyle: flowStyle)),
-          throwsA(
-            isA<YamlException>().having(
-              (YamlException e) => e.message,
-              'message',
-              'The YAML holds more than ${YamlLimits.maxNodes} values once aliases are expanded.',
-            ),
-          ),
-        );
-      }
-    }, timeout: const Timeout(Duration(seconds: 20)));
 
     test('reports block nesting deeper than the limit', () async {
       final String deep = [
@@ -362,22 +345,4 @@ metadata:
       expect(result.context?.parsedYaml, isNotNull);
     });
   });
-}
-
-/// A frontmatter whose `description` expands to 10^9 values through nine
-/// levels of ten aliases each.
-String _billionLaughs({required bool flowStyle}) {
-  const levels = 'abcdefghi';
-  final buffer = StringBuffer('name: demo\n');
-  for (var i = 0; i < levels.length; i++) {
-    final item = i == 0 ? 'x' : '*${levels[i - 1]}';
-    final items = List<String>.filled(10, item);
-    buffer.writeln(
-      flowStyle
-          ? '${levels[i]}: &${levels[i]} [${items.join(', ')}]'
-          : '${levels[i]}: &${levels[i]}\n${items.map((String it) => '  - $it').join('\n')}',
-    );
-  }
-  buffer.writeln('description: *${levels[levels.length - 1]}');
-  return buffer.toString();
 }

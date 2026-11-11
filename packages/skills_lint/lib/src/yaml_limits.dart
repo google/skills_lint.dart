@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
@@ -13,9 +14,9 @@ import 'yaml_anchor_scanner.dart';
 /// `package:yaml` shares the node behind each alias, so a few hundred bytes
 /// can describe billions of values, and collection mapping keys take
 /// exponential time to hash when nested. Code that walks or prints such a
-/// value runs out of memory, and deep nesting overflows the stack. Every YAML
-/// parse in `lib/` goes through [YamlLimits] so these limits run before any
-/// rule or configuration consumer sees the value.
+/// value runs out of memory, and deep nesting overflows the stack. `lib/`
+/// reads every YAML document through [YamlLimits], so these limits run before
+/// any rule or configuration consumer sees the value.
 abstract final class YamlLimits {
   /// The most `[` and `{` characters a YAML document may hold.
   ///
@@ -38,7 +39,12 @@ abstract final class YamlLimits {
   /// Anchors and aliases used as values are allowed, and count toward
   /// [maxNodes] once expanded.
   static Object? loadYaml(String yaml, {Uri? sourceUrl}) {
-    final int flowStarts = '['.allMatches(yaml).length + '{'.allMatches(yaml).length;
+    var flowStarts = 0;
+    for (final int unit in yaml.codeUnits) {
+      if (unit == 0x5B || unit == 0x7B) {
+        flowStarts++;
+      }
+    }
     if (flowStarts > maxFlowCollectionStarts) {
       throw YamlException(
         'The YAML has $flowStarts "[" and "{" characters, more than the limit of '
@@ -73,6 +79,16 @@ abstract final class YamlLimits {
     return loadYaml(yaml);
   }
 
+  /// Parses a `pubspec.yaml` like `Pubspec.parse`, after checking it with
+  /// [loadYaml].
+  ///
+  /// Throws a [YamlException] if the document fails [loadYaml], and whatever
+  /// `Pubspec.parse` throws for a pubspec it rejects.
+  static Pubspec loadPubspec(String yaml, {Uri? sourceUrl}) {
+    loadYaml(yaml, sourceUrl: sourceUrl);
+    return Pubspec.parse(yaml, sourceUrl: sourceUrl);
+  }
+
   static const String _tooDeepMessage = 'The YAML nests more than $maxDepth levels deep.';
 
   static const String _complexKeyMessage =
@@ -90,7 +106,7 @@ abstract final class YamlLimits {
     } on StackOverflowError {
       // Block nesting such as `- - - x` has no cheap bound before parsing,
       // and the parser recurses once per level. The VM unwinds a stack
-      // overflow cleanly, so treat it as nesting over the limit.
+      // overflow cleanly, so report it as nesting over the limit.
       throw YamlException(_tooDeepMessage, null);
     } finally {
       yamlWarningCallback = previousWarning;
@@ -100,7 +116,7 @@ abstract final class YamlLimits {
   static void _ignoreYamlWarning(String _, [SourceSpan? _]) {}
 
   /// Walks [root] with each alias expanded, and stops at the first limit it
-  /// passes, so the walk visits at most [maxNodes] nodes.
+  /// passes, so the walk visits at most one node past [maxNodes].
   static void _checkSize(YamlNode root) {
     var nodes = 0;
     void visit(YamlNode node, int depth) {

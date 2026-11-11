@@ -18,21 +18,29 @@ import 'src/yaml_loading.dart';
 /// `bin/` and `lib/` are scanned: tests and the release scripts read YAML
 /// that the repository itself controls.
 void main() {
-  test('no shipped file outside the allowlist parses YAML with package:yaml directly', () {
-    final List<ConventionViolation> violations = [
-      for (final Source source in parseDirectories(shippedDirectories))
-        if (!_allowed.containsKey(source.path)) ...findRawYamlLoads(source),
-    ];
-    expectNoViolations(violations, fix: _fix);
-  });
+  test(
+    'no shipped file outside the allowlist parses YAML with package:yaml or Pubspec.parse directly',
+    () {
+      final List<ConventionViolation> violations = [
+        for (final Source source in parseDirectories(shippedDirectories))
+          if (!_allowed.containsKey(source.path)) ...[
+            ...findRawYamlLoads(source),
+            ...findRawPubspecParses(source),
+          ],
+      ];
+      expectNoViolations(violations, fix: _fix);
+    },
+  );
 }
 
 /// Files that may call `package:yaml`'s loaders, keyed by package-relative
 /// path, each with its reason.
 const Map<String, String> _allowed = {
-  'lib/src/yaml_limits.dart': 'Defines YamlLimits, which wraps loadYamlNode with the limits.',
+  'lib/src/yaml_limits.dart':
+      'Defines YamlLimits, which wraps loadYamlNode and Pubspec.parse with the limits.',
 };
 
 const String _fix =
-    'Parse with YamlLimits.loadYaml from lib/src/yaml_limits.dart, or '
-    'YamlLimits.loadFrontmatter for SKILL.md frontmatter.';
+    'Parse with YamlLimits.loadYaml from lib/src/yaml_limits.dart, '
+    'YamlLimits.loadFrontmatter for SKILL.md frontmatter, or '
+    'YamlLimits.loadPubspec for pubspec.yaml.';

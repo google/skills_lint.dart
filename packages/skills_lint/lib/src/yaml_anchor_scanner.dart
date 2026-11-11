@@ -10,6 +10,10 @@ typedef YamlAnchorToken = ({String token, SourceSpan span});
 
 enum _FlowKind { sequence, mapping }
 
+/// An open flow collection: its kind, the offset of its opening bracket in
+/// the scanned text, and whether a mapping entry is past its `:`.
+typedef _OpenFlow = ({_FlowKind kind, int startOffset, bool inValue});
+
 /// Finds YAML anchors, aliases, and complex mapping keys in YAML text without
 /// parsing it.
 ///
@@ -20,15 +24,13 @@ enum _FlowKind { sequence, mapping }
 /// plain scalar text and comments, so `&`, `*`, `?`, `[` and `{` inside text
 /// such as `Tom & Jerry`, `*bold*`, or `[link](url)` are not reported.
 // TODO(reidbaker-agent): https://github.com/dart-lang/tools/issues/2839
-class YamlAnchorScanner {
+final class YamlAnchorScanner {
   YamlAnchorScanner._(this._yaml);
 
   /// The first anchor (`&name`) or alias (`*name`) in [yaml], or `null` if it
   /// has none.
   ///
-  /// The returned `span` is a [SourceSpan] within [yaml], for
-  /// callers such as `YamlLimits.loadFrontmatter` to attach to a
-  /// `YamlException`.
+  /// The returned `span` covers the token within [yaml].
   static YamlAnchorToken? firstAnchorOrAlias(String yaml) =>
       YamlAnchorScanner._(yaml)._scan(stopAtAnchors: true);
 
@@ -50,9 +52,8 @@ class YamlAnchorScanner {
   /// The open quote character of a quoted scalar that runs onto later lines.
   String? _openQuote;
 
-  /// Open flow collections (`[` and `{`), each recording its kind, opening
-  /// character offset in [_yaml], and whether a mapping entry is after `:`.
-  final List<(_FlowKind kind, int startOffset, bool inValue)> _flowStack = [];
+  /// Open flow collections (`[` and `{`), innermost last.
+  final List<_OpenFlow> _flowStack = [];
 
   /// Whether the current position is inside a flow collection.
   bool get _inFlow => _flowStack.isNotEmpty;
@@ -297,7 +298,7 @@ class YamlAnchorScanner {
       if (keyHit != null) {
         return keyHit;
       }
-      i = _continueScalar(line, i);
+      i = _continueScalar(line, i, lineOffset);
     }
     return null;
   }
@@ -340,8 +341,8 @@ class YamlAnchorScanner {
       }
       if ((char == '[' || char == '{') &&
           _inFlow &&
-          _flowStack.last.$1 == _FlowKind.mapping &&
-          !_flowStack.last.$3) {
+          _flowStack.last.kind == _FlowKind.mapping &&
+          !_flowStack.last.inValue) {
         return (token: char, span: _spanAt(lineOffset + i, 1));
       }
     }
@@ -442,7 +443,7 @@ class YamlAnchorScanner {
       if (!_inFlow) {
         _keyStartColumn ??= i;
       }
-      _flowStack.add((char == '[' ? _FlowKind.sequence : _FlowKind.mapping, lineOffset + i, false));
+      _openFlow(char, lineOffset + i);
       _keyCandidateOffset = null;
       return true;
     }
@@ -450,8 +451,7 @@ class YamlAnchorScanner {
       return false;
     }
     if (char == ']' || char == '}') {
-      final (_FlowKind _, int startOffset, bool _) = _flowStack.removeLast();
-      _keyCandidateOffset = startOffset;
+      _keyCandidateOffset = _flowStack.removeLast().startOffset;
       _atNodeStart = false;
       return true;
     }
@@ -464,10 +464,18 @@ class YamlAnchorScanner {
   }
 
   void _setFlowMappingInValue(bool inValue) {
-    if (_inFlow && _flowStack.last.$1 == _FlowKind.mapping) {
-      final (_FlowKind kind, int startOffset, bool _) = _flowStack.removeLast();
-      _flowStack.add((kind, startOffset, inValue));
+    if (_inFlow && _flowStack.last.kind == _FlowKind.mapping) {
+      final _OpenFlow open = _flowStack.last;
+      _flowStack.last = (kind: open.kind, startOffset: open.startOffset, inValue: inValue);
     }
+  }
+
+  void _openFlow(String bracket, int offset) {
+    _flowStack.add((
+      kind: bracket == '[' ? _FlowKind.sequence : _FlowKind.mapping,
+      startOffset: offset,
+      inValue: false,
+    ));
   }
 
   /// Opens the block scalar whose header starts at [i].
@@ -483,7 +491,7 @@ class YamlAnchorScanner {
 
   /// Handles the character at [i] after a scalar has started, and returns the
   /// index to continue from.
-  int _continueScalar(String line, int i) {
+  int _continueScalar(String line, int i, int lineOffset) {
     final String char = line[i];
     if (char == ':' && (_isIndicator(line, i) || _inFlow && !_inPlain)) {
       _advancePastMappingKey(i);
@@ -493,11 +501,10 @@ class YamlAnchorScanner {
       _inPlain = false;
       _atNodeStart = true;
     } else if (_inFlow && (char == ']' || char == '}')) {
-      final (_FlowKind _, int startOffset, bool _) = _flowStack.removeLast();
-      _keyCandidateOffset = startOffset;
+      _keyCandidateOffset = _flowStack.removeLast().startOffset;
       _inPlain = false;
     } else if (!_inFlow && !_inPlain && (char == '[' || char == '{')) {
-      _flowStack.add((char == '[' ? _FlowKind.sequence : _FlowKind.mapping, 0, false));
+      _openFlow(char, lineOffset + i);
       _keyCandidateOffset = null;
       _atNodeStart = true;
     } else if (char != ']' && char != '}' && !_inPlain) {

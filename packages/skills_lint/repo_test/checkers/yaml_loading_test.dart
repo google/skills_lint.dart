@@ -108,6 +108,47 @@ void run(String text) {
       expect(findRawYamlLoads(source), isEmpty);
     });
   });
+
+  group('findRawPubspecParses', () {
+    test('reports calls and tear-offs of Pubspec.parse, with or without a prefix', () {
+      final source = Source.snippet('''
+import 'package:pubspec_parse/pubspec_parse.dart';
+import 'package:pubspec_parse/pubspec_parse.dart' as pp;
+
+void run(String text, List<String> texts) {
+  Pubspec.parse(text);
+  texts.map(Pubspec.parse);
+  pp.Pubspec.parse(text);
+  texts.map(pp.Pubspec.parse);
+}
+''');
+      final List<ConventionViolation> violations = findRawPubspecParses(source);
+      expect(_lines(violations), [5, 6, 7, 8]);
+      expect(
+        violations.first.problem,
+        'parses with Pubspec.parse instead of YamlLimits.loadPubspec',
+      );
+    });
+
+    test('ignores other parse members and files that do not import pubspec_parse', () {
+      final withImport = Source.snippet('''
+import 'package:pubspec_parse/pubspec_parse.dart';
+
+void run(String text) {
+  YamlLimits.loadPubspec(text);
+  Uri.parse(text);
+  int.parse(text);
+}
+''');
+      final withoutImport = Source.snippet('''
+void run(String text) {
+  Pubspec.parse(text);
+}
+''');
+      expect(findRawPubspecParses(withImport), isEmpty);
+      expect(findRawPubspecParses(withoutImport), isEmpty);
+    });
+  });
 }
 
 List<int> _lines(Iterable<ConventionViolation> violations) => [for (final v in violations) v.line];

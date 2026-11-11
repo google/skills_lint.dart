@@ -277,3 +277,21 @@ final Matcher hasNoErrorsOrWarnings = isA<ValidationResult>()
     .having((ValidationResult r) => r.isValid, 'isValid', isTrue)
     .having((ValidationResult r) => r.errors, 'errors', isEmpty)
     .having((ValidationResult r) => r.warnings, 'warnings', isEmpty);
+
+/// A frontmatter whose `description` expands to 10^9 values through nine
+/// levels of ten aliases each.
+String billionLaughs({required bool flowStyle}) {
+  const levels = 'abcdefghi';
+  final buffer = StringBuffer('name: demo\n');
+  for (var i = 0; i < levels.length; i++) {
+    final item = i == 0 ? 'x' : '*${levels[i - 1]}';
+    final items = List<String>.filled(10, item);
+    buffer.writeln(
+      flowStyle
+          ? '${levels[i]}: &${levels[i]} [${items.join(', ')}]'
+          : '${levels[i]}: &${levels[i]}\n${items.map((String it) => '  - $it').join('\n')}',
+    );
+  }
+  buffer.writeln('description: *${levels[levels.length - 1]}');
+  return buffer.toString();
+}

@@ -125,6 +125,11 @@ void main() {
     }
   });
 
+  test('YamlAnchorScanner.firstComplexKey points at a collection key after a scalar', () {
+    const yaml = 'a: 1\nb: "x" [k]: v\n';
+    expect(YamlAnchorScanner.firstComplexKey(yaml)?.start.offset, yaml.indexOf('['));
+  });
+
   group('YamlAnchorScanner.firstComplexKey ignores', () {
     for (final (String description, String yaml) in [
       ('flow collections as values', 'a: [x, {b: c}]\nd: {e: [f]}\n'),

@@ -101,14 +101,14 @@ class PubArchiveLoader {
     final String pubspecPath = p.join(packageRoot, _pubspecFileName);
     final Pubspec pubspec;
     try {
-      final String content = await File(pubspecPath).readAsString();
-      final sourceUrl = Uri.file(pubspecPath);
-      // Pubspec.parse loads YAML without size limits, so check them first.
-      YamlLimits.loadYaml(content, sourceUrl: sourceUrl);
-      pubspec = Pubspec.parse(content, sourceUrl: sourceUrl);
+      pubspec = YamlLimits.loadPubspec(
+        await File(pubspecPath).readAsString(),
+        sourceUrl: Uri.file(pubspecPath),
+      );
     } on Exception catch (e) {
-      // Pubspec.parse throws ParsedYamlException from package:checked_yaml,
-      // which is not a direct dependency, so match on Exception.
+      // loadPubspec throws YamlException, or ParsedYamlException from
+      // package:checked_yaml, which is not a direct dependency, so match on
+      // Exception.
       return PubArchiveUnavailable('Could not read $pubspecPath: $e');
     }
     if (pubspec.publishTo == _publishToNone) {
