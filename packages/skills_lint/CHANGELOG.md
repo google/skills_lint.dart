@@ -1,15 +1,12 @@
 ## 0.5.3+2-wip
 
-### Breaking changes
-
-- `valid-yaml-metadata` reports YAML anchors (`&name`) and aliases (`*name`) in `SKILL.md` frontmatter when previously they were allowed.
-- `valid-yaml-metadata` reports explicit (`? key`), alias and collection mapping keys in `SKILL.md` frontmatter, and `skills_lint.yaml` fails to load when it uses one. Mapping keys must be plain or quoted scalars.
-
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
 - `valid-yaml-metadata` fails on YAML that previously would exhaust memory or overflow the stack and stop the run. See [valid-yaml-metadata](RULES.md#valid-yaml-metadata) for the limits.
+- `valid-yaml-metadata` reports YAML anchors (`&name`) and aliases (`*name`) in `SKILL.md` frontmatter when previously they were allowed.
+- `valid-yaml-metadata` reports explicit (`? key`), alias and collection mapping keys in `SKILL.md` frontmatter, and `skills_lint.yaml` fails to load when it uses one. Mapping keys must be plain or quoted scalars.
 
 ### Bug fixes
 
