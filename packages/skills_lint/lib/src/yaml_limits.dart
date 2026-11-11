@@ -18,6 +18,17 @@ import 'yaml_anchor_scanner.dart';
 /// reads every YAML document through [YamlLimits], so these limits run before
 /// any rule or configuration consumer sees the value.
 abstract final class YamlLimits {
+  /// The largest YAML document, in UTF-8 bytes, that skills_lint parses.
+  ///
+  /// `package:yaml` builds a node, with its source span, for every value, so
+  /// the memory a parse takes grows with the input. This check runs before
+  /// any parsing or scanning, so a larger document never reaches the parser.
+  ///
+  /// The largest `SKILL.md` frontmatter in a survey of about 1,800 published
+  /// skills was 2,264 bytes, so 64 KiB leaves room for long `metadata` and
+  /// `hooks` blocks.
+  static const int maxBytes = 64 * 1024;
+
   /// The most `[` and `{` characters a YAML document may hold.
   ///
   /// Each flow collection starts with one of them, so this bounds flow
@@ -39,6 +50,101 @@ abstract final class YamlLimits {
   /// Anchors and aliases used as values are allowed, and count toward
   /// [maxNodes] once expanded.
   static Object? loadYaml(String yaml, {Uri? sourceUrl}) {
+    _checkByteSize(yaml);
+    return _loadWithinByteLimit(yaml, sourceUrl: sourceUrl);
+  }
+
+  /// Parses the frontmatter of a `SKILL.md` like [loadYaml], and also throws a
+  /// [YamlException] if it holds a YAML anchor or alias.
+  ///
+  /// The anchor scan reads the text before parsing it, so the error points at
+  /// the first anchor or alias even when the document has other problems.
+  static Object? loadFrontmatter(String yaml) {
+    _checkByteSize(yaml);
+    final YamlAnchorToken? found = YamlAnchorScanner.firstAnchorOrAlias(yaml);
+    if (found != null) {
+      final kind = found.token.startsWith('&') ? 'anchor' : 'alias';
+      throw YamlException(
+        '`${found.token}` is a YAML $kind. ${SkillContext.skillFileName} frontmatter '
+        "doesn't support anchors (`&`) or aliases (`*`). Write the value out in full, or quote it.",
+        found.span,
+      );
+    }
+    return _loadWithinByteLimit(yaml);
+  }
+
+  /// Parses a `pubspec.yaml` like `Pubspec.parse`, after checking it with
+  /// [loadYaml].
+  ///
+  /// Throws a [YamlException] if the document fails [loadYaml], and whatever
+  /// `Pubspec.parse` throws for a pubspec it rejects.
+  static Pubspec loadPubspec(String yaml, {Uri? sourceUrl}) {
+    loadYaml(yaml, sourceUrl: sourceUrl);
+    return Pubspec.parse(yaml, sourceUrl: sourceUrl);
+  }
+
+  /// Throws a [YamlException] if [yaml] is more than [maxBytes] long in UTF-8.
+  ///
+  /// Counts the bytes from the UTF-16 code units without encoding the text,
+  /// so the check allocates nothing however large [yaml] is.
+  static void _checkByteSize(String yaml) {
+    // Each code unit takes at most three UTF-8 bytes, so text of at most a
+    // third of maxBytes code units is within the limit without counting.
+    if (yaml.length * 3 <= maxBytes) {
+      return;
+    }
+    final int bytes = _utf8Length(yaml);
+    if (bytes > maxBytes) {
+      throw YamlException(
+        'The YAML is ${_formatCount(bytes)} bytes, more than the limit of '
+        '${_formatCount(maxBytes)} bytes.',
+        null, // There is no single location to point to.
+      );
+    }
+  }
+
+  /// The number of bytes [text] takes in UTF-8.
+  static int _utf8Length(String text) {
+    var bytes = 0;
+    final int length = text.length;
+    for (var i = 0; i < length; i++) {
+      final int unit = text.codeUnitAt(i);
+      if (unit < 0x80) {
+        bytes += 1;
+      } else if (unit < 0x800) {
+        bytes += 2;
+      } else if (unit >= 0xD800 && unit < 0xDC00 && i + 1 < length) {
+        final int next = text.codeUnitAt(i + 1);
+        if (next >= 0xDC00 && next < 0xE000) {
+          // A surrogate pair is one code point that takes four bytes.
+          bytes += 4;
+          i++;
+        } else {
+          bytes += 3;
+        }
+      } else {
+        // Other BMP code points, and lone surrogates, which UTF-8 encodes
+        // as the three-byte replacement character.
+        bytes += 3;
+      }
+    }
+    return bytes;
+  }
+
+  /// Writes [count] with a comma between each group of three digits.
+  static String _formatCount(int count) {
+    final digits = count.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) {
+        buffer.write(',');
+      }
+      buffer.write(digits[i]);
+    }
+    return buffer.toString();
+  }
+
+  static Object? _loadWithinByteLimit(String yaml, {Uri? sourceUrl}) {
     var flowStarts = 0;
     for (final int unit in yaml.codeUnits) {
       if (unit == 0x5B || unit == 0x7B) {
@@ -59,34 +165,6 @@ abstract final class YamlLimits {
     final YamlNode root = _parseNodeQuietly(yaml, sourceUrl: sourceUrl);
     _checkSize(root);
     return root.value;
-  }
-
-  /// Parses the frontmatter of a `SKILL.md` like [loadYaml], and also throws a
-  /// [YamlException] if it holds a YAML anchor or alias.
-  ///
-  /// The anchor scan reads the text before parsing it, so the error points at
-  /// the first anchor or alias even when the document has other problems.
-  static Object? loadFrontmatter(String yaml) {
-    final YamlAnchorToken? found = YamlAnchorScanner.firstAnchorOrAlias(yaml);
-    if (found != null) {
-      final kind = found.token.startsWith('&') ? 'anchor' : 'alias';
-      throw YamlException(
-        '`${found.token}` is a YAML $kind. ${SkillContext.skillFileName} frontmatter '
-        "doesn't support anchors (`&`) or aliases (`*`). Write the value out in full, or quote it.",
-        found.span,
-      );
-    }
-    return loadYaml(yaml);
-  }
-
-  /// Parses a `pubspec.yaml` like `Pubspec.parse`, after checking it with
-  /// [loadYaml].
-  ///
-  /// Throws a [YamlException] if the document fails [loadYaml], and whatever
-  /// `Pubspec.parse` throws for a pubspec it rejects.
-  static Pubspec loadPubspec(String yaml, {Uri? sourceUrl}) {
-    loadYaml(yaml, sourceUrl: sourceUrl);
-    return Pubspec.parse(yaml, sourceUrl: sourceUrl);
   }
 
   static const String _tooDeepMessage = 'The YAML nests more than $maxDepth levels deep.';

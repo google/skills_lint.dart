@@ -31,6 +31,12 @@ A rule with an "Ignore subject" line names what each finding is about, and
 an entry with that `subject` covers only the findings about it. The format
 of a rule's subject is part of its contract.
 
+A rule that throws while it checks a skill doesn't stop the run. The skill
+gets an `unexpected-error` finding at `error` severity, in the report with
+its other findings. The message starts with `skills_lint internal error:`
+and names the rule. `unexpected-error` isn't a rule, so no flag or
+configuration turns it on or off.
+
 See [`CONTRIBUTING.md`](../../CONTRIBUTING.md#rule-stability-policy-semver) for the SemVer policy that
 governs how changes to these rules ship.
 
@@ -278,10 +284,13 @@ governs how changes to these rules ship.
 - **What it checks:**
   - `SKILL.md` contains a YAML frontmatter block delimited by `---`
     that parses without errors.
-  - The frontmatter stays within the size limits: at most 10,000 values
-    once aliases are expanded, at most 64 levels of nesting, and at most
-    10,000 `[` and `{` characters. Frontmatter over a limit counts as a
-    parse error, and the rules that read the frontmatter skip it.
+  - The frontmatter stays within the size limits: at most 64 KiB
+    (65,536 bytes) of UTF-8 text, at most 10,000 values once aliases
+    are expanded, at most 64 levels of nesting, and at most 10,000 `[` and
+    `{` characters. Frontmatter over a limit counts as a parse error, and
+    the rules that read the frontmatter skip it. The byte limit is checked
+    before the frontmatter is parsed, and also applies to
+    `skills_lint.yaml` and `pubspec.yaml`.
   - Every mapping key is a plain or quoted scalar. Explicit (`? key`),
     alias (`*name: value`) and collection (`[a, b]: value`) mapping keys
     count as a parse error.
