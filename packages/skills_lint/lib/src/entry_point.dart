@@ -420,6 +420,8 @@ Future<Configuration?> _loadConfig(
 /// [quiet] suppresses non-error/warning output.
 /// [generateBaseline] writes current errors to a baseline file instead of reporting them.
 /// [ignoreFileOverride] is an optional path to a baseline file to use.
+/// [allowWrite] lists directories that baseline and configured ignore-file
+/// writes may also land in beyond the scanned directories.
 /// [config] is the loaded configuration. Each entry in its
 /// [Configuration.parsingErrors], and each rule name in a [Configuration]
 /// built in code that names no built-in rule, is printed to standard error as
@@ -445,6 +447,7 @@ Future<bool> validateSkills({
   bool quiet = false,
   bool generateBaseline = false,
   String? ignoreFileOverride,
+  List<String> allowWrite = const [],
   Configuration? config,
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
@@ -458,6 +461,7 @@ Future<bool> validateSkills({
     quiet: quiet,
     generateBaseline: generateBaseline,
     ignoreFileOverride: ignoreFileOverride,
+    allowWrite: allowWrite,
     config: config,
     customRules: customRules,
     format: format,
@@ -696,17 +700,21 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
   return configs;
 }
 
-/// The `fix` setting of each fixable rule whose `--[no-]<rule>-fix` flag is
-/// in [results].
-Map<String, bool> _resolveFixOverrides(ArgResults results) => {
-  for (final String ruleName in RuleRegistry.fixableRuleNames)
-    if (results.options.contains(_ruleFixFlag(ruleName)) &&
-        results.wasParsed(_ruleFixFlag(ruleName)))
-      ruleName: results[_ruleFixFlag(ruleName)] as bool,
-};
-
-/// The flag that sets the `fix` setting of the rule named [ruleName].
-String _ruleFixFlag(String ruleName) => '$ruleName-${ConfigParser.fixKey}';
+/// The `fix` setting of each fixable rule whose `--[no-]<rule>-fix` flag was
+/// passed in [results].
+Map<String, bool> _resolveFixOverrides(ArgResults results) {
+  final overrides = <String, bool>{};
+  for (final CheckType check in RuleRegistry.allChecks) {
+    if (!RuleRegistry.fixableRuleNames.contains(check.name)) {
+      continue;
+    }
+    final String flag = check.parameterFlag(ConfigParser.fixKey);
+    if (results.options.contains(flag) && results.wasParsed(flag)) {
+      overrides[check.name] = results[flag] as bool;
+    }
+  }
+  return overrides;
+}
 
 Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults results) {
   final checkOverrides = <String, Object?>{};

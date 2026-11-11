@@ -34,7 +34,6 @@ import 'package:skills_lint/src/skill_fixer.dart';
 import 'package:skills_lint/src/validator.dart';
 import 'package:skills_lint/src/write/skill_writer.dart';
 import 'package:skills_lint/src/write/write_boundary.dart';
-import 'package:skills_lint/src/write/write_policy.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -135,14 +134,9 @@ void main() {
     bool canRename = true,
   }) async {
     final validator = Validator(ruleConfigs: ruleConfigs, customRules: customRules);
-    // No boundary: these tests are about which fixes run, not where they land.
-    final policy = WritePolicy(
-      boundary: const WriteBoundary.none(),
-      mayFix: validator.fixEnabledFor,
-    );
     return SkillFixer(
       validator: validator,
-      mayFix: policy.mayFix,
+      mayFix: validator.fixEnabledFor,
       applyIgnores: (_) {},
       onFixFailed: (ruleName, error) => fail('$ruleName fix threw $error'),
     ).fix(await validator.validate(skillDir), canRename: canRename);

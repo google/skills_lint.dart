@@ -33,11 +33,11 @@ The extensible framework for authoring and running skill checks.
 - **Auto-Fix Interface:** Rules that support automated remediation define pure transformation operations. Each takes a `SkillContext` and returns the modified `SKILL.md` content without touching the filesystem.
 - **Fix Planning and Writing:** [`SkillFixer`](../../lib/src/skill_fixer.dart) plans the fixes for one skill in memory, keeping a fix only if it lowers the errors, then warnings. [`SkillWriter`](../../lib/src/write/skill_writer.dart) does all `--fix` file I/O: it renames the skill directory, then writes `SKILL.md`, and returns every failure as an `ApplyResult`.
 
-### 5. [Baseline & Suppression Subsystem](../../lib/src/skills_ignores_storage.dart)
-The persistent suppression mechanism enabling incremental adoption and baseline suppression management.
-- **Structured Suppressions:** Stores and matches ignored diagnostics using structured identifiers and file paths rather than brittle free-form string matching.
+### 5. [Baseline & Write Confinement Subsystem](../../lib/src/write/)
+The persistent suppression and confined file-writing subsystem.
+- **Structured Suppressions:** [`SkillsIgnoresStorage`](../../lib/src/write/skills_ignores_storage.dart) stores and matches ignored diagnostics using structured identifiers and file paths rather than brittle free-form string matching.
 - **Lifecycle Tracking:** Records generated baseline entries when requested and tracks active suppression usage during lint runs to report stale or obsolete entries.
-- **Write Confinement:** [`lib/src/write/`](../../lib/src/write/) gates every file mutation (`SkillWriter` and `IgnoreFileWriter`) against the target's `WriteBoundary`.
+- **Write Confinement:** [`WriteBoundary`](../../lib/src/write/write_boundary.dart) gates every file mutation in [`SkillWriter`](../../lib/src/write/skill_writer.dart) and [`IgnoreFileWriter`](../../lib/src/write/ignore_file_writer.dart).
 
 ### 6. [Reporter Subsystem](../../lib/src/reporters/)
 The multi-format output streaming subsystem.

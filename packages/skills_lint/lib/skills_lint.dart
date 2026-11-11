@@ -7,8 +7,9 @@
 // the public API, so its shape can change without a breaking release.
 export 'src/config_parser.dart' hide declarationOf;
 export 'src/config_source.dart';
-// createArgParser lets tests use the CLI's flags. Hiding it keeps it out of
-// the public API.
+// createArgParser lets tests use the CLI's flags, and writeRefusedInSession
+// lets the entrypoint distinguish refused baseline writes from normal findings.
+// Hiding both keeps them out of the public API.
 export 'src/entry_point.dart' hide createArgParser, writeRefusedInSession;
 export 'src/missing_defaults_exception.dart';
 export 'src/models/analysis_severity.dart';

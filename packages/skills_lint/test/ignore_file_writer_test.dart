@@ -87,6 +87,35 @@ void main() {
       expect(File(ignorePath).existsSync(), isTrue);
       expect(writer.writeRefused, isFalse);
     });
+
+    test(
+      'removes and refuses a created shared ignore file when a later target narrows the boundary',
+      () async {
+        final subdir = Directory(p.join(repo.path, 'sub'))..createSync();
+        final String sharedPath = p.join(repo.path, 'shared_ignore.json');
+
+        await writer.load(
+          IgnoreFileTarget.fromConfiguration(
+            sharedPath,
+            configDirectory: repo.path,
+            allowWrite: const [],
+          ),
+        );
+        expect(File(sharedPath).existsSync(), isTrue);
+
+        writer.recordBoundary(
+          IgnoreFileTarget.fromConfiguration(
+            sharedPath,
+            configDirectory: subdir.path,
+            allowWrite: const [],
+          ),
+        );
+
+        expect(File(sharedPath).existsSync(), isFalse);
+        expect(writer.writeRefused, isTrue);
+        expect(err.toString(), contains("Error: did not write ignore file '$sharedPath'"));
+      },
+    );
   });
 
   group('saveBaseline', () {

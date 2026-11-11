@@ -205,6 +205,22 @@ void main() {
 
       expect(listing(), ['bar-foo']);
     });
+
+    test(
+      'writes SKILL.md in place when an existing directory name contains a backslash',
+      () async {
+        const nameWithBackslash = r'foo\bar';
+        final Directory dir = createSkill(nameWithBackslash);
+
+        expect(writer.preflight(dir, nameWithBackslash, boundary), isA<Applied>());
+        expect(await writer.apply(dir, 'after\n', nameWithBackslash, boundary), isA<Applied>());
+
+        expect(skillMd(nameWithBackslash), 'after\n');
+      },
+      // Skipped on Windows: `\` is a path separator on Windows, so a directory
+      // basename cannot contain `\`.
+      testOn: '!windows',
+    );
   });
 
   test('undoes the rename when the write fails after it', () async {

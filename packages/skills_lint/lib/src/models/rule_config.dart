@@ -20,8 +20,7 @@ class RuleConfig {
   final AnalysisSeverity severity;
   final CustomRuleParameters parameters;
 
-  /// Whether `--fix` may run this rule's fix. See `WritePolicy` for how it
-  /// combines with where a fix may write.
+  /// Whether `--fix` may run this rule's fix.
   final bool fix;
 
   /// The value of [fix] when no configuration sets it.
@@ -36,7 +35,8 @@ class RuleConfig {
       ConfigParser.severityKey: severity.name,
       if (fix != defaultFix) ConfigParser.fixKey: fix,
       for (final MapEntry<String, Object?> entry in parameters.params.entries)
-        if (entry.key != ConfigParser.severityKey) entry.key: entry.value,
+        if (entry.key != ConfigParser.severityKey && entry.key != ConfigParser.fixKey)
+          entry.key: entry.value,
     };
   }
 
@@ -58,8 +58,9 @@ class RuleConfigPatch {
   /// the parameter from the base configuration during merging.
   final CustomRuleParameters? parameters;
 
-  /// The overridden [RuleConfig.fix]. If null, the base configuration's value
-  /// is preserved.
+  /// The overridden [RuleConfig.fix] setting.
+  ///
+  /// Is `null` when the base configuration's value should be preserved.
   final bool? fix;
 
   /// Converts this rule configuration patch into its YAML representation (String severity or Map).
@@ -73,7 +74,8 @@ class RuleConfigPatch {
       if (fix != null) ConfigParser.fixKey: fix,
       for (final MapEntry<String, Object?> entry
           in params?.params.entries ?? const <MapEntry<String, Object?>>[])
-        if (entry.key != ConfigParser.severityKey) entry.key: entry.value,
+        if (entry.key != ConfigParser.severityKey && entry.key != ConfigParser.fixKey)
+          entry.key: entry.value,
     };
   }
 

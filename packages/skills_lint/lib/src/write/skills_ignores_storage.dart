@@ -5,8 +5,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'models/ignore_entry.dart';
-import 'models/skills_ignores.dart';
+import '../models/ignore_entry.dart';
+import '../models/skills_ignores.dart';
 
 /// The result of [SkillsIgnoresStorage.load].
 ///

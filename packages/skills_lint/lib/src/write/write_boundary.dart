@@ -7,8 +7,8 @@ import 'dart:io';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
-import '../config_parser.dart';
 import '../path_utils.dart';
+import '../reporters/fix_io_messages.dart';
 
 /// The directory that skills_lint may write in for one scan target.
 ///
@@ -21,93 +21,144 @@ import '../path_utils.dart';
 final class WriteBoundary {
   /// A boundary at the absolute path [directory], widened to the absolute
   /// directories in [allowed].
-  const WriteBoundary(String this.directory, {this.allowed = const []});
+  const WriteBoundary(String this.directory, {this.allowed = const []})
+    : _unresolvableReason = null;
 
   /// No boundary, for a path the user named on the command line or through
   /// the API.
-  const WriteBoundary.none() : directory = null, allowed = const [];
+  const WriteBoundary.none() : directory = null, allowed = const [], _unresolvableReason = null;
+
+  /// A boundary that refuses every write because the scan target or boundary
+  /// itself could not be resolved on disk.
+  const WriteBoundary._unresolvable(String this._unresolvableReason)
+    : directory = null,
+      allowed = const [];
 
   /// The boundary for the skills directory at the absolute path [directory]:
   /// [directory] itself.
   ///
-  /// [declaredBy] is the configuration target that declared [directory], if
-  /// any, and [allowed] holds directories from `--allow-write`.
+  /// [configDirectory] is the directory of the configuration file that declared
+  /// [directory], if any; [configAllowed] holds `write_allow` directories from
+  /// that entry; and [allowed] holds directories from `--allow-write`.
   factory WriteBoundary.forSkillsDirectory(
     String directory, {
-    LintTargetConfig? declaredBy,
+    String? configDirectory,
+    List<String> configAllowed = const [],
     List<String> allowed = const [],
-  }) => _confined(directory, boundary: directory, declaredBy: declaredBy, allowed: allowed);
+  }) => _confined(
+    directory,
+    boundary: directory,
+    configDirectory: configDirectory,
+    configAllowed: configAllowed,
+    allowed: allowed,
+  );
 
   /// The boundary for the individual skill at the absolute path [skill]: the
   /// directory that holds the skill after symlinks are resolved, so that
   /// `--fix` can rename the skill next to where it is.
   ///
-  /// [declaredBy] is the configuration target that declared [skill], if any,
-  /// and [allowed] holds directories from `--allow-write`.
+  /// When [skill] came from a configuration file and its parent directory sits
+  /// outside [configDirectory] (for example `individual_skills: [{path: .}]`),
+  /// the boundary stays at [configDirectory] so writes cannot escape the
+  /// configuration file's directory.
   factory WriteBoundary.forSkill(
     String skill, {
-    LintTargetConfig? declaredBy,
+    String? configDirectory,
+    List<String> configAllowed = const [],
     List<String> allowed = const [],
-  }) => _confined(
-    skill,
-    boundary: p.dirname(resolve(skill)),
-    declaredBy: declaredBy,
-    allowed: allowed,
-  );
+  }) {
+    final String resolvedSkill;
+    try {
+      resolvedSkill = resolve(skill);
+    } on FileSystemException catch (e) {
+      return WriteBoundary._unresolvable(_cannotResolve(skill, e));
+    }
+    return _confined(
+      skill,
+      boundary: p.dirname(resolvedSkill),
+      configDirectory: configDirectory,
+      configAllowed: configAllowed,
+      allowed: allowed,
+    );
+  }
 
   /// A [WriteBoundary] at [boundary] for a scan target at [target].
   ///
-  /// A target declared in a configuration file must also be inside the
-  /// directory the file's paths are relative to. When it isn't, the boundary
-  /// is that configuration directory, so every write in the target is refused.
+  /// Both [target] and [boundary] must stay at or inside [configDirectory] when
+  /// [configDirectory] is set; otherwise the boundary falls back to
+  /// [configDirectory].
   static WriteBoundary _confined(
     String target, {
     required String boundary,
-    required LintTargetConfig? declaredBy,
+    required String? configDirectory,
+    required List<String> configAllowed,
     required List<String> allowed,
   }) {
-    final String? configDirectory = declaredBy == null
-        ? null
-        : declarationOf(declaredBy)?.anchorDirectory;
-    final List<String> allAllowed = [
-      ...allowed,
-      ..._inside(configDirectory, declaredBy?.writeAllow ?? const []),
-    ];
-    if (configDirectory == null || isAtOrWithin(resolve(configDirectory), resolve(target))) {
+    final List<String> allAllowed = [...allowed, ..._inside(configDirectory, configAllowed)];
+    if (configDirectory == null) {
       return WriteBoundary(boundary, allowed: allAllowed);
     }
-    return WriteBoundary(configDirectory, allowed: allAllowed);
+    try {
+      final String realConfigDirectory = resolve(configDirectory);
+      final String realTarget = resolve(target);
+      final String realBoundary = resolve(boundary);
+      if (isAtOrWithin(realConfigDirectory, realTarget) &&
+          isAtOrWithin(realConfigDirectory, realBoundary)) {
+        return WriteBoundary(boundary, allowed: allAllowed);
+      }
+      return WriteBoundary(configDirectory, allowed: allAllowed);
+    } on FileSystemException catch (e) {
+      return WriteBoundary._unresolvable(_cannotResolve(target, e));
+    }
   }
 
   /// The directories in [configAllowed] that are inside [configDirectory]
   /// after symlinks are resolved.
-  ///
-  /// [ConfigParser] rejects entries that escape [configDirectory] on parse, and
-  /// this check guards any [LintTargetConfig] whose directory symlinks change
-  /// later.
   static List<String> _inside(String? configDirectory, List<String> configAllowed) {
     if (configDirectory == null) {
       return configAllowed;
     }
-    final String realConfigDirectory = resolve(configDirectory);
-    return [
-      for (final String directory in configAllowed)
-        if (isAtOrWithin(realConfigDirectory, resolve(directory))) directory,
-    ];
+    final String realConfigDirectory;
+    try {
+      realConfigDirectory = resolve(configDirectory);
+    } on FileSystemException {
+      return const [];
+    }
+    final result = <String>[];
+    for (final directory in configAllowed) {
+      try {
+        if (isAtOrWithin(realConfigDirectory, resolve(directory))) {
+          result.add(directory);
+        }
+      } on FileSystemException {
+        // Skip unresolvable entries such as symlink loops.
+      }
+    }
+    return result;
   }
 
-  /// Whether [directory] is at or inside [configDirectory] after symlinks are
-  /// resolved.
-  static bool staysInsideConfigDirectory(String configDirectory, String directory) =>
-      isAtOrWithin(resolve(configDirectory), resolve(directory));
+  /// Problem description when [directory] is not at or inside [configDirectory]
+  /// after symlinks are resolved, or `null` when it stays inside.
+  static String? configDirectoryEscapeReason(String configDirectory, String directory) {
+    try {
+      if (isAtOrWithin(resolve(configDirectory), resolve(directory))) {
+        return null;
+      }
+      return 'a symlink leads outside the directory of the configuration file';
+    } on FileSystemException catch (e) {
+      return 'could not resolve symlinks (${FixIoMessages.describe(e)})';
+    }
+  }
 
-  /// The absolute directory that writes must stay inside, or `null` for no
-  /// boundary.
+  /// The absolute directory that writes must stay inside, or `null` when
+  /// unbounded or [_unresolvableReason] is set.
   final String? directory;
 
   /// Absolute directories outside [directory] that writes may also land in,
   /// from `write_allow` and `--allow-write`.
   final List<String> allowed;
+
+  final String? _unresolvableReason;
 
   /// What a user does to write outside a boundary on purpose.
   static const String hint =
@@ -118,14 +169,22 @@ final class WriteBoundary {
   /// Why writing or creating [path] is refused, readable as the end of a
   /// sentence, or `null` when [path] is inside the boundary.
   String? refusal(String path) {
+    if (_unresolvableReason != null) {
+      return _unresolvableReason;
+    }
     final String? root = directory;
     if (root == null) {
       return null;
     }
-    final String realRoot = resolve(root);
-    final String realPath = resolve(path);
-    if (p.isWithin(realRoot, realPath) ||
-        allowed.any((String directory) => isAtOrWithin(resolve(directory), realPath))) {
+    final String realRoot;
+    final String realPath;
+    try {
+      realRoot = resolve(root);
+      realPath = resolve(path);
+    } on FileSystemException catch (e) {
+      return _cannotResolve(path, e);
+    }
+    if (p.isWithin(realRoot, realPath) || _isWithinAllowed(realPath)) {
       return null;
     }
     if (p.equals(realPath, p.normalize(path))) {
@@ -133,6 +192,22 @@ final class WriteBoundary {
     }
     return "it resolves to '$realPath', outside '$realRoot'";
   }
+
+  bool _isWithinAllowed(String realPath) {
+    for (final String directory in allowed) {
+      try {
+        if (isAtOrWithin(resolve(directory), realPath)) {
+          return true;
+        }
+      } on FileSystemException {
+        // An unresolvable `--allow-write` directory grants no access.
+      }
+    }
+    return false;
+  }
+
+  static String _cannotResolve(String path, FileSystemException error) =>
+      "could not resolve '$path' (${FixIoMessages.describe(error)})";
 
   /// Why [name] cannot be used as a skill directory name, readable as the end
   /// of a sentence, or `null` when [name] is a valid directory name.

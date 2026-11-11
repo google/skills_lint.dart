@@ -12,7 +12,6 @@ library;
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/write/write_boundary.dart';
 import 'package:test/test.dart';
 
@@ -29,18 +28,6 @@ void main() {
     inside = Directory(p.join(root.path, 'inside'))..createSync();
     outside = Directory(p.join(root.path, 'outside'))..createSync();
   });
-
-  LintTargetConfig parseDirectoryTarget(String path, {required Directory configDir}) =>
-      ConfigParser.parse(
-        'skills_lint:\n  directories:\n    - path: "${path.replaceAll(r'\', r'\\')}"\n',
-        configSource: ConfigSource.directory(configDir.path),
-      ).directoryConfigs.single;
-
-  LintTargetConfig parseSkillTarget(String path, {required Directory configDir}) =>
-      ConfigParser.parse(
-        'skills_lint:\n  individual_skills:\n    - path: "${path.replaceAll(r'\', r'\\')}"\n',
-        configSource: ConfigSource.directory(configDir.path),
-      ).individualSkillConfigs.single;
 
   group('refusal', () {
     test('accepts a file inside, and one that does not exist yet', () {
@@ -75,6 +62,14 @@ void main() {
       Link(link).createSync(p.join(outside.path, 'missing.json'));
 
       expect(boundary.refusal(link), contains(p.join(outside.path, 'missing.json')));
+    });
+
+    test('refuses a symlink loop without throwing', () {
+      final boundary = WriteBoundary(inside.path);
+      final String loop = p.join(inside.path, 'loop');
+      Link(loop).createSync('loop');
+
+      expect(boundary.refusal(p.join(loop, 'SKILL.md')), contains('could not resolve'));
     });
 
     test('resolves a link before the .. that follows it', () {
@@ -119,16 +114,14 @@ void main() {
 
   group('forSkillsDirectory', () {
     test('is the directory when the configuration directory holds it', () {
-      final LintTargetConfig declaredBy = parseDirectoryTarget(inside.path, configDir: root);
-      final boundary = WriteBoundary.forSkillsDirectory(inside.path, declaredBy: declaredBy);
+      final boundary = WriteBoundary.forSkillsDirectory(inside.path, configDirectory: root.path);
 
       expect(boundary.refusal(p.join(inside.path, 'a', 'SKILL.md')), isNull);
       expect(boundary.refusal(p.join(outside.path, 'a', 'SKILL.md')), isNotNull);
     });
 
     test('refuses every write when the directory is outside the configuration directory', () {
-      final LintTargetConfig declaredBy = parseDirectoryTarget(outside.path, configDir: inside);
-      final boundary = WriteBoundary.forSkillsDirectory(outside.path, declaredBy: declaredBy);
+      final boundary = WriteBoundary.forSkillsDirectory(outside.path, configDirectory: inside.path);
 
       expect(boundary.refusal(p.join(outside.path, 'a', 'SKILL.md')), isNotNull);
     });
@@ -145,10 +138,27 @@ void main() {
 
     test('refuses every write when the skill is outside the configuration directory', () {
       final skill = Directory(p.join(outside.path, 'foo'))..createSync();
-      final LintTargetConfig declaredBy = parseSkillTarget(skill.path, configDir: inside);
-      final boundary = WriteBoundary.forSkill(skill.path, declaredBy: declaredBy);
+      final boundary = WriteBoundary.forSkill(skill.path, configDirectory: inside.path);
 
       expect(boundary.refusal(p.join(skill.path, 'SKILL.md')), isNotNull);
+    });
+
+    test(
+      'keeps the boundary at the configuration directory when the skill is the configuration directory itself',
+      () {
+        final boundary = WriteBoundary.forSkill(inside.path, configDirectory: inside.path);
+
+        expect(boundary.refusal(p.join(inside.path, 'SKILL.md')), isNull);
+        expect(boundary.refusal(p.join(outside.path, 'SKILL.md')), isNotNull);
+      },
+    );
+
+    test('refuses writes cleanly when the skill path is a symlink loop', () {
+      final String loop = p.join(inside.path, 'loop');
+      Link(loop).createSync('loop');
+      final boundary = WriteBoundary.forSkill(loop);
+
+      expect(boundary.refusal(p.join(loop, 'SKILL.md')), contains('could not resolve'));
     });
   });
 

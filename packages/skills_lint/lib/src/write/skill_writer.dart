@@ -72,14 +72,15 @@ class SkillWriter {
 
   final Reporter _reporter;
 
-  /// Checks, without writing, whether [skill] can be renamed to [wantedName].
+  /// Checks, without writing, whether [skill] can be written in place and
+  /// renamed to [wantedName] within [boundary].
   ///
   /// It sees a directory that already has the name. It can't see errors that
   /// only the rename itself reveals, such as missing permissions.
   ///
-  /// Like [apply], it reports a blocked rename through `onRenameBlocked`,
-  /// and a refused write through `onWriteRefused`, so callers don't report
-  /// them again.
+  /// Like [apply], it reports a blocked rename through
+  /// [Reporter.onRenameBlocked], and a refused write through
+  /// [Reporter.onWriteRefused], so callers don't report them again.
   ApplyResult preflight(Directory skill, String wantedName, WriteBoundary boundary) {
     final ApplyResult? stopped =
         _checkBoundary(skill, wantedName, boundary) ?? _checkTarget(skill, wantedName);
@@ -167,17 +168,20 @@ class SkillWriter {
     return WriteFailed(writeError, dir: original);
   }
 
-  /// Reports and returns a [WriteRefused] when [wantedName] cannot be used as
-  /// a directory name, or when `SKILL.md` or the renamed directory would be
-  /// outside [boundary] after symlinks are resolved.
+  /// Reports and returns a [WriteRefused] when `SKILL.md` would be outside
+  /// [boundary], or when [wantedName] differs from [skill]'s directory name and
+  /// either cannot be used as a directory name or would land outside
+  /// [boundary].
   WriteRefused? _checkBoundary(Directory skill, String wantedName, WriteBoundary boundary) {
     final String currentName = p.basename(skill.path);
-    final String? badName = WriteBoundary.directoryNameRefusal(wantedName);
-    if (badName != null) {
-      return _refused(
-        action: "rename skill directory '$currentName' to '$wantedName'",
-        reason: badName,
-      );
+    if (wantedName != currentName) {
+      final String? badName = WriteBoundary.directoryNameRefusal(wantedName);
+      if (badName != null) {
+        return _refused(
+          action: "rename skill directory '$currentName' to '$wantedName'",
+          reason: badName,
+        );
+      }
     }
     final String skillMdPath = p.join(skill.path, SkillContext.skillFileName);
     final String? writeRefusal = boundary.refusal(skillMdPath);

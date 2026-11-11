@@ -34,9 +34,13 @@ import 'validator.dart';
 import 'write/ignore_file_writer.dart';
 import 'write/skill_writer.dart';
 import 'write/write_boundary.dart';
-import 'write/write_policy.dart';
 
 export 'write/ignore_file_writer.dart' show defaultIgnoreFileName;
+
+// TODO(reidbaker): Remove deprecated IgnorePathFor typedef in 0.6.0.
+/// The ignore file path for a skill in [skillDir].
+@Deprecated('Unused; will be removed in 0.6.0.')
+typedef IgnorePathFor = String Function(Directory skillDir);
 
 /// The [IgnoreFileTarget] for a skill in the given directory.
 typedef _IgnoreTargetFor = IgnoreFileTarget Function(Directory skillDir);
@@ -274,7 +278,8 @@ class ValidationSession {
     final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
     final boundary = WriteBoundary.forSkill(
       normalizedSkillPath,
-      declaredBy: declaredBy,
+      configDirectory: declaredBy == null ? null : declarationOf(declaredBy)?.anchorDirectory,
+      configAllowed: declaredBy?.writeAllow ?? const [],
       allowed: _allowWrite,
     );
     final IgnoreFileTarget ignoreTarget = _resolveIgnoreTarget(
@@ -390,7 +395,8 @@ class ValidationSession {
     var stoppedEarly = false;
     final boundary = WriteBoundary.forSkillsDirectory(
       normalizedRootPath,
-      declaredBy: declaredBy,
+      configDirectory: declaredBy == null ? null : declarationOf(declaredBy)?.anchorDirectory,
+      configAllowed: declaredBy?.writeAllow ?? const [],
       allowed: _allowWrite,
     );
 
@@ -905,8 +911,6 @@ class ValidationSession {
     return _pubArchiveLoader.archiveFor(skillDir);
   }
 
-  /// [boundary] is the [WriteBoundary] that the writes and the rename for
-  /// [skillDir] must stay inside.
   Future<ValidationResult> _applyFixesIfNeeded({
     required Directory skillDir,
     required WriteBoundary boundary,
@@ -930,8 +934,7 @@ class ValidationSession {
       return result;
     }
 
-    final policy = WritePolicy(boundary: boundary, mayFix: validator.fixEnabledFor);
-    final SkillFixer fixer = _fixerFor(validator, skillIgnores, skillDir, policy);
+    final SkillFixer fixer = _fixerFor(validator, skillIgnores, skillDir);
     final SkillWriter writer = _skillWriterFor(_reporter);
     final String currentDirectoryName = p.basename(skillDir.path);
 
@@ -942,7 +945,7 @@ class ValidationSession {
     // A plan that changes nothing writes nothing, so no boundary applies.
     ApplyResult applied = outcome.content == context.rawContent
         ? Applied(skillDir, renamed: false)
-        : writer.preflight(skillDir, outcome.directoryName, policy.boundary);
+        : writer.preflight(skillDir, outcome.directoryName, boundary);
     if (applied is WriteRefused) {
       // SkillWriter reported why. Nothing is written for this skill, and the
       // run fails, with or without --dry-run.
@@ -953,23 +956,13 @@ class ValidationSession {
       outcome = await _planWithoutRename(fixer, result, applied);
     }
     if (fixApply && outcome.content != context.rawContent) {
-      applied = await writer.apply(
-        skillDir,
-        outcome.content,
-        outcome.directoryName,
-        policy.boundary,
-      );
+      applied = await writer.apply(skillDir, outcome.content, outcome.directoryName, boundary);
       if (applied is RenameBlocked) {
         // Only the rename failed, before anything was written.
         outcome = await _planWithoutRename(fixer, result, applied);
         if (outcome.content != context.rawContent) {
           // The new plan keeps the directory name, so this apply only writes.
-          applied = await writer.apply(
-            skillDir,
-            outcome.content,
-            outcome.directoryName,
-            policy.boundary,
-          );
+          applied = await writer.apply(skillDir, outcome.content, outcome.directoryName, boundary);
         }
       }
     }
@@ -1090,17 +1083,13 @@ class ValidationSession {
   }
 
   /// The fixer for the skill in [skillDir], which counts only diagnostics
-  /// that [skillIgnores] don't cover, and runs only the fixes [policy] allows.
-  SkillFixer _fixerFor(
-    Validator validator,
-    List<IgnoreEntry> skillIgnores,
-    Directory skillDir,
-    WritePolicy policy,
-  ) {
+  /// that [skillIgnores] don't cover, and runs only the fixes enabled in
+  /// [validator].
+  SkillFixer _fixerFor(Validator validator, List<IgnoreEntry> skillIgnores, Directory skillDir) {
     final failedRuleNames = <String>{};
     return SkillFixer(
       validator: validator,
-      mayFix: policy.mayFix,
+      mayFix: validator.fixEnabledFor,
       applyIgnores: (ValidationResult candidate) =>
           _applyIgnores(candidate, skillIgnores, skillDir),
       // A broken fixer throws on every pass and in every plan. Report it

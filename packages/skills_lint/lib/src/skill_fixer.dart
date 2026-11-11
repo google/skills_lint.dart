@@ -53,8 +53,7 @@ class SkillFixer {
   /// Called when a rule's fix throws.
   final void Function(String ruleName, Object error) onFixFailed;
 
-  /// Whether the fix of the rule named `ruleName` may run. A rule it rejects
-  /// is never fixed. Defaults to every rule.
+  /// Whether the fix of the rule named `ruleName` may run.
   final bool Function(String ruleName) mayFix;
 
   /// Fixes the skill that [initial] describes, without writing to disk.
@@ -76,9 +75,10 @@ class SkillFixer {
     // Each pass either keeps a fix and counts, or settles and ends the loop.
     while (!settled && passes < maxPasses) {
       settled = true;
-      for (final FixableRule rule in validator.rules.whereType<FixableRule>().where(
-        (FixableRule rule) => mayFix(rule.name),
-      )) {
+      for (final FixableRule rule in validator.rules.whereType<FixableRule>()) {
+        if (!mayFix(rule.name)) {
+          continue;
+        }
         final Set<String>? ignoredSubjects = _ignoredSubjects(current, rule.name);
         if (ignoredSubjects == null) {
           continue;

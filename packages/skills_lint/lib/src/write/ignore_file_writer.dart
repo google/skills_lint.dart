@@ -2,7 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:logging/logging.dart';
@@ -11,7 +10,7 @@ import 'package:path/path.dart' as p;
 
 import '../models/skills_ignores.dart';
 import '../reporters/reporter.dart';
-import '../skills_ignores_storage.dart';
+import 'skills_ignores_storage.dart';
 import 'write_boundary.dart';
 
 final _log = Logger('skills_lint');
@@ -105,17 +104,20 @@ final class _ExplicitIgnoreFileTarget extends IgnoreFileTarget {
 /// Loads and saves ignore files for one validation session, enforcing each
 /// target's [WriteBoundary] before creating or replacing a file.
 class IgnoreFileWriter {
-  IgnoreFileWriter(this._reporter, {SkillsIgnoresStorage? storage})
-    : _storage = storage ?? SkillsIgnoresStorage();
+  IgnoreFileWriter(this._reporter);
 
   final Reporter _reporter;
-  final SkillsIgnoresStorage _storage;
+  final SkillsIgnoresStorage _storage = SkillsIgnoresStorage();
 
   /// Every [WriteBoundary] recorded for each ignore file path.
   ///
   /// Multiple scan targets can share an ignore file, so writing to that path
   /// must stay inside all of their boundaries.
   final Map<String, List<WriteBoundary>> _boundariesByPath = {};
+
+  /// Ignore file paths created during [load] in this session, so a narrower
+  /// boundary recorded later can remove and refuse a file that escaped it.
+  final Set<String> _createdInSession = {};
 
   /// Malformed entries found the first time each ignore file was loaded, so
   /// [saveBaseline] can report what is dropped before replacing the file.
@@ -156,7 +158,8 @@ class IgnoreFileWriter {
     if (target.createWhenMissing && !_refuseWrite(target.path)) {
       _log.warning('File not found generating-baseline');
       try {
-        await file.writeAsString(jsonEncode({SkillsIgnores.skillsKey: <String, dynamic>{}}));
+        await _storage.save(target.path, SkillsIgnores(skills: {}));
+        _createdInSession.add(target.path);
       } on FileSystemException {
         // Ignore write errors and return empty ignores.
       }
@@ -166,8 +169,25 @@ class IgnoreFileWriter {
   }
 
   /// Records [target]'s boundary against its path without reading the file.
+  ///
+  /// If an earlier target in the same session initialized a missing file at
+  /// [target]'s path and the newly added boundary refuses it, deletes that
+  /// initialized file and records the refusal.
   void recordBoundary(IgnoreFileTarget target) {
     (_boundariesByPath[target.path] ??= []).add(target.boundary);
+    if (_createdInSession.contains(target.path)) {
+      final String? reason = target.boundary.refusal(target.path);
+      if (reason != null) {
+        _createdInSession.remove(target.path);
+        try {
+          File(target.path).deleteSync();
+        } on FileSystemException {
+          // Best-effort cleanup of the file created earlier in this session.
+        }
+        _reporter.onWriteRefused(action: "write ignore file '${target.path}'", reason: reason);
+        _writeRefused = true;
+      }
+    }
   }
 
   /// Moves recorded load problems from [oldIgnorePath] to [newTarget] and
@@ -205,15 +225,14 @@ class IgnoreFileWriter {
   }
 
   bool _refuseWrite(String ignoreFilePath) {
-    final String? reason = [
-      for (final WriteBoundary boundary in _boundariesByPath[ignoreFilePath] ?? const [])
-        ?boundary.refusal(ignoreFilePath),
-    ].firstOrNull;
-    if (reason == null) {
-      return false;
+    for (final WriteBoundary boundary in _boundariesByPath[ignoreFilePath] ?? const []) {
+      final String? reason = boundary.refusal(ignoreFilePath);
+      if (reason != null) {
+        _reporter.onWriteRefused(action: "write ignore file '$ignoreFilePath'", reason: reason);
+        _writeRefused = true;
+        return true;
+      }
     }
-    _reporter.onWriteRefused(action: "write ignore file '$ignoreFilePath'", reason: reason);
-    _writeRefused = true;
-    return true;
+    return false;
   }
 }

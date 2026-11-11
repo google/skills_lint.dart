@@ -134,10 +134,11 @@ void defineCliTests() {
 
     test('validation does not create an ignore_file through a link followed by ..', () async {
       final deep = Directory(p.join(outside.path, 'far', 'deep'))..createSync(recursive: true);
-      Link(p.join(repo.path, 'l')).createSync(deep.path);
-      // `sub` is `outside/far/vdir`, though `l/..` reads as `repo` as text.
-      Link(p.join(repo.path, 'sub')).createSync(p.join('l', '..', 'vdir'));
       Directory(p.join(outside.path, 'far', 'vdir')).createSync();
+      Link(p.join(repo.path, 'l')).createSync(deep.path);
+      // Create `vdir` before `sub` so Windows creates a directory symlink;
+      // `sub` resolves to `outside/far/vdir`, though `l/..` reads as `repo`.
+      Link(p.join(repo.path, 'sub')).createSync(p.join('l', '..', 'vdir'));
       await createDummySkill(
         Directory(p.join(repo.path, 'skills')),
         name: 'foo',
@@ -145,10 +146,11 @@ void defineCliTests() {
       );
       writeConfig(['- path: skills', '  ignore_file: sub/created.json']);
 
-      await run([], exitCode: 1);
+      final String stderr = await run([], exitCode: 1);
 
       final String created = p.join(outside.path, 'far', 'vdir', 'created.json');
       expect(File(created).existsSync(), isFalse, reason: '$created was created');
+      expect(stderr, refused(p.join(repo.path, 'sub', 'created.json')));
     });
 
     test('--generate-baseline does not create the target of a dangling symlink', () async {
@@ -223,6 +225,27 @@ void defineCliTests() {
       expect(File(victim).existsSync(), isFalse, reason: '$victim was created');
       expect(stderr, refused(victim));
     });
+
+    test(
+      'individual_skills: [path: .] does not widen the boundary to the parent of skills_lint.yaml',
+      () async {
+        final victim = File(p.join(outside.path, 'victim.md'))
+          ..writeAsStringSync('${_skillNamed('repo')}Trailing space \n');
+        Link(p.join(repo.path, 'SKILL.md')).createSync(victim.path);
+        File(p.join(repo.path, 'skills_lint.yaml')).writeAsStringSync(
+          'skills_lint:\n'
+          '  individual_skills:\n'
+          '    - path: .\n'
+          '      rules:\n'
+          '        check-trailing-whitespace: error\n',
+        );
+
+        final String stderr = await run(['--fix'], exitCode: 1);
+
+        expect(victim.readAsStringSync(), '${_skillNamed('repo')}Trailing space \n');
+        expect(stderr, refused(p.join(repo.path, 'SKILL.md')));
+      },
+    );
 
     test('--generate-baseline writes an ignore file named with --ignore-file', () async {
       final String ignoreFile = p.join(outside.path, 'baseline.json');
@@ -427,6 +450,8 @@ void defineCliTests() {
   });
 
   group('directory names', () {
+    // End-to-end defense-in-depth check (`test/skill_writer_test.dart` tests
+    // `SkillWriter`'s own `directoryNameRefusal` directly).
     test(
       '--fix does not move a skill out of its directory for a name with a YAML escape',
       () async {

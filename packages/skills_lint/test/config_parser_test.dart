@@ -420,6 +420,22 @@ skills_lint:
       ]);
       expect(config.directoryConfigs.single.writeAllow, isEmpty);
     });
+
+    test('reports a write_allow symlink loop as a parsing error without throwing', () {
+      final Directory tempDir = Directory.systemTemp.createTempSync('config_write_allow_loop.');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      Link(p.join(tempDir.path, 'loop')).createSync('loop');
+
+      final Configuration config = ConfigParser.parse(
+        'skills_lint:\n  directories:\n    - path: skills\n      write_allow: [loop]\n',
+        configSource: ConfigSource.file(p.join(tempDir.path, 'skills_lint.yaml')),
+      );
+
+      expect(config.parsingErrors, [
+        contains('"write_allow" for "skills" has "loop", which could not resolve symlinks'),
+      ]);
+      expect(config.directoryConfigs.single.writeAllow, isEmpty);
+    });
   });
 
   group('declarationOf', () {

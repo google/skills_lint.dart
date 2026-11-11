@@ -236,17 +236,8 @@ class ConfigParser {
       return const Configuration();
     }
 
-    try {
-      final String content = await configFile.readAsString();
-      return parse(content, configSource: ConfigSource.file(resolvedPath));
-    } catch (e) {
-      if (e is FileSystemException) {
-        rethrow;
-      }
-      final message = 'Failed to parse $resolvedPath: $e';
-      _log.severe(message);
-      return Configuration(parsingErrors: <String>[message]);
-    }
+    final String content = await configFile.readAsString();
+    return parse(content, configSource: ConfigSource.file(resolvedPath));
   }
 
   /// Validates that all keys at the top level of the `skills_lint` configuration map are recognized.
@@ -548,9 +539,10 @@ class ConfigParser {
     return const <String, RuleConfigPatch>{};
   }
 
-  /// The `fix` value in the rule map [value] for [ruleName], or `null` when
-  /// it is absent or not a boolean, in which case an error is appended to
-  /// [parsingErrors].
+  /// The `fix` value in the rule map [value] for [ruleName].
+  ///
+  /// Is `null` when `fix` is absent, not a boolean, or set on a rule without a
+  /// fix; the invalid cases append an error to [parsingErrors].
   static bool? _parseFix(
     YamlMap value,
     String ruleName,
@@ -603,10 +595,14 @@ class ConfigParser {
           ? canonicalizePath(entry, baseDirectory: anchorDirectory)
           : null;
       if (entry is String && anchored != null && isAtOrWithin(anchorDirectory, anchored)) {
-        if (!WriteBoundary.staysInsideConfigDirectory(anchorDirectory, anchored)) {
+        final String? escapeReason = WriteBoundary.configDirectoryEscapeReason(
+          anchorDirectory,
+          anchored,
+        );
+        if (escapeReason != null) {
           parsingErrors.add(
-            '$entryLabelCap "$writeAllowKey" for "$path" has "$entry", which a symlink '
-            'leads outside the directory of the configuration file. Ignoring it.',
+            '$entryLabelCap "$writeAllowKey" for "$path" has "$entry", which $escapeReason. '
+            'Ignoring it.',
           );
           continue;
         }
