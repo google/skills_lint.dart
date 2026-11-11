@@ -132,6 +132,9 @@ The codebase applies the [SOLID principles](https://en.wikipedia.org/wiki/SOLID)
 9. **Single Source of Truth**  
    Each decision has one owner. The component that owns a default value, schema key or set of allowed values defines it once, and every other component references that definition instead of repeating the literal. A value defined in two places drifts silently when only one of them changes.
 
+10. **Bounded YAML Ingestion at the Boundary**  
+    Every YAML document the tool reads, whether `SKILL.md` frontmatter, a configuration file, a `pubspec.yaml` or a CLI value, passes through [`YamlLimits`](../../lib/src/yaml_limits.dart) before any parser builds a value from it. Code never calls `package:yaml` directly, and a library that parses YAML itself, such as `Pubspec.parse`, runs only after `YamlLimits.loadYaml` has accepted the same text. `package:yaml` shares the node behind each alias and hashes collection mapping keys, so a few hundred bytes of input can expand to billions of values or take exponential time to hash. `YamlLimits` bounds the flow-collection count before parsing, rejects explicit, alias and collection mapping keys, and walks the parsed tree with aliases expanded against node-count and depth limits, so a document that passes is safe to walk, print and compare. `YamlLimits.loadFrontmatter` also rejects anchors and aliases in `SKILL.md` frontmatter. Only [`yaml_limits.dart`](../../lib/src/yaml_limits.dart) may call `package:yaml`'s loaders, so code beneath the parse can assume every YAML value it holds is bounded. [`repo_test/yaml_load_convention_test.dart`](../../repo_test/yaml_load_convention_test.dart) fails when any other file in `bin/` or `lib/` calls or tears off a `package:yaml` loader.
+
 ---
 
 ## 🚫 Rejected Architectural Anti-Patterns
