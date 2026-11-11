@@ -20,12 +20,11 @@ import 'yaml_anchor_scanner.dart';
 abstract final class YamlLimits {
   /// The largest YAML document, in UTF-8 bytes, that skills_lint parses.
   ///
-  /// `package:yaml` builds a node, with its source span, for every value, so
-  /// the memory a parse takes grows with the input. This check runs before
-  /// any parsing or scanning, so a larger document never reaches the parser.
-  ///
-  /// The largest `SKILL.md` frontmatter in a survey of about 1,800 published
-  /// skills was 2,264 bytes, so 64 KiB leaves room for long `metadata` and
+  /// `package:yaml` builds the whole node tree before [maxNodes] and
+  /// [maxDepth] are checked, so the memory a parse takes grows with the size
+  /// of the input. This limit rejects a larger document before any scan or
+  /// parse, so that memory stays bounded. Real `SKILL.md` frontmatter is a
+  /// few kilobytes at most, so 64 KiB leaves room for long `metadata` and
   /// `hooks` blocks.
   static const int maxBytes = 64 * 1024;
 

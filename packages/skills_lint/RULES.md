@@ -288,9 +288,11 @@ governs how changes to these rules ship.
     (65,536 bytes) of UTF-8 text, at most 10,000 values once aliases
     are expanded, at most 64 levels of nesting, and at most 10,000 `[` and
     `{` characters. Frontmatter over a limit counts as a parse error, and
-    the rules that read the frontmatter skip it. The byte limit is checked
-    before the frontmatter is parsed, and also applies to
-    `skills_lint.yaml` and `pubspec.yaml`.
+    the rules that read the frontmatter skip it. The YAML parser builds the
+    whole document in memory before the value and nesting limits run, so
+    its memory grows with the size of the input. The byte limit rejects
+    larger input before parsing, so that memory stays bounded. It also
+    applies to `skills_lint.yaml` and `pubspec.yaml`.
   - Every mapping key is a plain or quoted scalar. Explicit (`? key`),
     alias (`*name: value`) and collection (`[a, b]: value`) mapping keys
     count as a parse error.

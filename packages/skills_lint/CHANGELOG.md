@@ -5,7 +5,7 @@
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
 - `valid-yaml-metadata` fails on YAML that previously would exhaust memory or overflow the stack and stop the run. See [valid-yaml-metadata](RULES.md#valid-yaml-metadata) for the limits.
-- `valid-yaml-metadata` reports `SKILL.md` frontmatter larger than 64 KiB (65,536 bytes) without parsing it, and `skills_lint.yaml` or a `pubspec.yaml` larger than that fails to load. See [valid-yaml-metadata](RULES.md#valid-yaml-metadata).
+- YAML over 64 KiB is rejected before parsing, so a huge file can't exhaust memory: `valid-yaml-metadata` reports such `SKILL.md` frontmatter, and such a `skills_lint.yaml` or `pubspec.yaml` fails to load. See [valid-yaml-metadata](RULES.md#valid-yaml-metadata).
 - `valid-yaml-metadata` reports YAML anchors (`&name`) and aliases (`*name`) in `SKILL.md` frontmatter when previously they were allowed.
 - `valid-yaml-metadata` reports explicit (`? key`), alias and collection mapping keys in `SKILL.md` frontmatter, and `skills_lint.yaml` fails to load when it uses one. Mapping keys must be plain or quoted scalars.
 
