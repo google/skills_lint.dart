@@ -8,6 +8,7 @@
 - YAML over 64 KiB is rejected before parsing, so a huge file can't exhaust memory: `valid-yaml-metadata` reports such `SKILL.md` frontmatter, and such a `skills_lint.yaml` or `pubspec.yaml` fails to load. See [valid-yaml-metadata](RULES.md#valid-yaml-metadata).
 - `valid-yaml-metadata` reports YAML anchors (`&name`) and aliases (`*name`) in `SKILL.md` frontmatter when previously they were allowed.
 - `valid-yaml-metadata` reports explicit (`? key`), alias and collection mapping keys in `SKILL.md` frontmatter, and `skills_lint.yaml` fails to load when it uses one. Mapping keys must be plain or quoted scalars.
+- The CLI exits with code `78` when the configuration has errors or the file given to `--config` does not exist, and `skills_lint` did not check any skill. It used to exit with `1`, the code for skills that have errors.
 
 ### Bug fixes
 
