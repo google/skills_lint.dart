@@ -2,7 +2,7 @@
 
 ### New rules
 
-- Added the `skill-name-prefix` rule, disabled by default. It reports a skill whose `name` isn't `<value>` and doesn't start with `<value>-`, where `<value>` is the rule's `value` parameter. `--fix` renames the skill. [#231](https://github.com/google/skills_lint.dart/issues/231)
+- Added the `skill-naming` rule, disabled by default, for naming conventions a project chooses: a name `prefix`, which `--fix` adds, and a `max-length` stricter than the spec's 64 characters. [#231](https://github.com/google/skills_lint.dart/issues/231)
 
 ### Behavior changes
 
