@@ -4,6 +4,7 @@
 
 import 'dart:io';
 
+import 'package:io/io.dart' show ExitCode;
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/models/check_type.dart';
@@ -436,7 +437,7 @@ skills_lint:
         stderr.join('\n'),
         contains('Configuration error: Unrecognized top-level key "invalid-key"'),
       );
-      await process.shouldExit(1);
+      await process.shouldExit(ExitCode.config.code);
     });
 
     test('bad path: type emits parsing error and lets later entries through', () async {
@@ -465,7 +466,7 @@ skills_lint:
       expect(stderrStr, contains('Configuration error: Directory entry "path" must be a string'));
       // Without the fix, the unchecked cast would throw inside the
       // top-level try/catch and 'good-skill' would never run.
-      await process.shouldExit(1); // exits 1 due to parsing error
+      await process.shouldExit(ExitCode.config.code); // configuration error
     });
 
     test('fails on invalid directory key in config by default', () async {
@@ -494,7 +495,7 @@ skills_lint:
         stderr.join('\n'),
         contains('Configuration error: Unrecognized key "invalid-dir-key"'),
       );
-      await process.shouldExit(1);
+      await process.shouldExit(ExitCode.config.code);
     });
 
     test('fails on unrecognized parameter key in YAML rule definition by default', () async {
@@ -526,7 +527,7 @@ skills_lint:
           'Configuration error: Global rules: Unrecognized parameter "invalid-parameter-key" for rule "path-does-not-exist".',
         ),
       );
-      await process.shouldExit(1);
+      await process.shouldExit(ExitCode.config.code);
     });
 
     test('fails on invalid parameter value type in YAML rule definition by default', () async {
@@ -558,7 +559,7 @@ skills_lint:
           'Configuration error: Global rules: Invalid value/type for parameter "exclude" in rule "path-does-not-exist". Expected RegExp (valid regular expression string), got "123".',
         ),
       );
-      await process.shouldExit(1);
+      await process.shouldExit(ExitCode.config.code);
     });
 
     test(
@@ -620,27 +621,30 @@ description: A test skill
       await process.shouldExit(0);
     });
 
-    test('exits with 1 and prints error message if --config points to non-existent file', () async {
-      await Directory('${tempDir.path}/test-skill').create();
-      await File('${tempDir.path}/test-skill/SKILL.md').writeAsString('''
+    test(
+      'exits with the configuration error code and prints a message if --config points to a missing file',
+      () async {
+        await Directory('${tempDir.path}/test-skill').create();
+        await File('${tempDir.path}/test-skill/SKILL.md').writeAsString('''
 ---
 name: test-skill
 description: A test skill
 ---
 Body''');
 
-      final TestProcess process = await startCli([
-        '-s',
-        'test-skill',
-        '--config',
-        'non_existent_config.yaml',
-      ], workingDirectory: tempDir.path);
+        final TestProcess process = await startCli([
+          '-s',
+          'test-skill',
+          '--config',
+          'non_existent_config.yaml',
+        ], workingDirectory: tempDir.path);
 
-      final List<String> stderr = await process.stderr.rest.toList();
-      expect(stderr.join('\n'), contains('Configuration file not found'));
-      expect(stderr.join('\n'), contains('non_existent_config.yaml'));
-      await process.shouldExit(1);
-    });
+        final List<String> stderr = await process.stderr.rest.toList();
+        expect(stderr.join('\n'), contains('Configuration file not found'));
+        expect(stderr.join('\n'), contains('non_existent_config.yaml'));
+        await process.shouldExit(ExitCode.config.code);
+      },
+    );
 
     test('ignores config when both --config and --ignore-config are passed', () async {
       final Directory skillDir = await Directory('${tempDir.path}/TEST-SKILL').create();
@@ -699,7 +703,7 @@ skills_lint:
           'Configuration error: Unrecognized key "invalid-ind-key" in individual skill entry for "test-skill".',
         ),
       );
-      await process.shouldExit(1);
+      await process.shouldExit(ExitCode.config.code);
     });
 
     test(
@@ -962,7 +966,7 @@ skills_lint:
           'Configuration error: Global rules: Invalid value/type for parameter "exclude" in rule "path-does-not-exist"',
         ),
       );
-      await process.shouldExit(1);
+      await process.shouldExit(ExitCode.config.code);
     });
 
     test(
@@ -997,7 +1001,7 @@ skills_lint:
           ),
         );
         expect(stderr.join('\n'), contains('Expected RegExp (valid regular expression string)'));
-        await process.shouldExit(1);
+        await process.shouldExit(ExitCode.config.code);
       },
     );
 

@@ -19,6 +19,7 @@ library;
 
 import 'dart:io';
 
+import 'package:io/io.dart' show ExitCode;
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
@@ -321,7 +322,7 @@ void defineCliTests() {
       vendoredSkill();
       writeConfig(['- path: skills', '  write_allow: [${_yamlString(outside.path)}]']);
 
-      final String stderr = await run(['--fix'], exitCode: 1);
+      final String stderr = await run(['--fix'], exitCode: ExitCode.config.code);
 
       expect(stderr, contains('Configuration error'));
       expect(stderr, contains('"write_allow" for "skills" has "${outside.path}"'));
@@ -339,7 +340,7 @@ void defineCliTests() {
       Link(p.join(local.path, 'foo')).createSync(skill.path);
       writeConfig(['- path: skills', '  write_allow: [escape]']);
 
-      final String stderr = await run(['--fix'], exitCode: 1);
+      final String stderr = await run(['--fix'], exitCode: ExitCode.config.code);
 
       expect(File(p.join(skill.path, 'SKILL.md')).readAsStringSync(), _skillNamed('bar'));
       expect(stderr, contains('Configuration error'));
@@ -432,7 +433,7 @@ void defineCliTests() {
         p.join(repo.path, 'skills_lint.yaml'),
       ).writeAsStringSync('skills_lint:\n  rules:\n    path-does-not-exist: {fix: false}\n');
 
-      final String stderr = await run(['--fix'], exitCode: 1);
+      final String stderr = await run(['--fix'], exitCode: ExitCode.config.code);
 
       expect(stderr, contains('rule "path-does-not-exist" has no fix'));
     });
@@ -443,7 +444,7 @@ void defineCliTests() {
         p.join(repo.path, 'skills_lint.yaml'),
       ).writeAsStringSync('skills_lint:\n  rules:\n    invalid-skill-name: {fix: maybe}\n');
 
-      final String stderr = await run(['--fix'], exitCode: 1);
+      final String stderr = await run(['--fix'], exitCode: ExitCode.config.code);
 
       expect(stderr, contains('"fix" for rule "invalid-skill-name" must be true or false'));
     });

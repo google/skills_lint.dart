@@ -175,6 +175,14 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
   Bugs in skills_lint start with `skills_lint internal error:`. Problems in
   your files, such as a `--fix` rename that can't happen, start with `Error:`.
 
+### Exit codes
+
+- `0`: every skill passed.
+- `1`: `skills_lint` ran and found at least one error.
+- `64`: the command line is invalid, such as an unknown flag.
+- `78`: the configuration has errors, or the file passed to `--config` does
+  not exist, so `skills_lint` did not check any skill.
+
 ### 2. As a Command Line Tool with a YAML Configuration File
 You can configure the linter using a configuration file (defaulting to `skills_lint.yaml` in the current directory).
 
@@ -329,9 +337,9 @@ jobs:
       - uses: dart-lang/setup-dart@v1
       - run: dart install skills_lint
 
-      # The linter exits 1 when it finds violations. continue-on-error
-      # lets the upload step run first, so findings reach Code Scanning
-      # instead of disappearing with the failed job.
+      # The linter exits non-zero (1 for findings, 78 for configuration
+      # errors). continue-on-error lets the upload step run first, so findings
+      # reach Code Scanning instead of disappearing with the failed job.
       - name: Generate SARIF report
         id: lint
         continue-on-error: true
