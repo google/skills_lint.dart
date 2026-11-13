@@ -2,7 +2,7 @@
 
 ### New rules
 
-- Added the `skill-naming` rule, disabled by default, for naming conventions a project chooses: a name `prefix`, which `--fix` adds, and a `max-length` stricter than the spec's 64 characters. [#231](https://github.com/google/skills_lint.dart/issues/231)
+- Added the `skill-naming` rule, disabled by default, for naming conventions a project chooses: a name `prefix`, which `--fix` adds, and a `max-length` for names, up to the spec's 64 characters. [#231](https://github.com/google/skills_lint.dart/issues/231)
 
 ### Behavior changes
 
