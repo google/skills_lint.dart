@@ -305,6 +305,38 @@ skills_lint:
       expect(config.parsingErrors, isEmpty);
     });
 
+    test('reports alias expansion over the limit as a parsing error', () {
+      final buffer = StringBuffer('a: &a [x, x, x, x, x, x, x, x, x, x]\n');
+      for (final (String level, String previous) in [
+        ('b', 'a'),
+        ('c', 'b'),
+        ('d', 'c'),
+        ('e', 'd'),
+      ]) {
+        buffer.writeln('$level: &$level [${List.filled(10, '*$previous').join(', ')}]');
+      }
+      buffer.writeln('skills_lint:\n  directories: *e');
+
+      final Configuration config = ConfigParser.parse(buffer.toString());
+
+      expect(config.parsingErrors.single, contains('once aliases are expanded'));
+    });
+
+    for (final (String description, String yaml) in [
+      ('an alias', 'a: &a [x]\nskills_lint:\n  *a : value\n'),
+      ('an explicit', 'a: &a [x]\nskills_lint:\n  ? *a\n  : value\n'),
+      ('a collection', 'skills_lint:\n  [a, b]: value\n'),
+    ]) {
+      test('reports $description mapping key as a parsing error', () {
+        final Configuration config = ConfigParser.parse(yaml);
+
+        expect(
+          config.parsingErrors.single,
+          contains('Mapping keys must be plain or quoted scalars'),
+        );
+      });
+    }
+
     test('captures YAML syntax errors as parsing errors', () async {
       final configFile = File(p.join(tempDir.path, 'invalid_syntax.yaml'));
       await configFile.writeAsString('''

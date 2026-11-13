@@ -128,6 +128,24 @@ void main() {
       expect(errors.first.message, contains('package "outer_pkg"'));
     });
 
+    test('skips a pubspec.yaml over the YAML size limits and keeps searching ancestors', () async {
+      final pkgDir = Directory(p.join(tempDir.path, 'outer_pkg'))..createSync(recursive: true);
+      File(p.join(pkgDir.path, 'pubspec.yaml')).writeAsStringSync('name: outer_pkg\n');
+      final innerDir = Directory(p.join(pkgDir.path, 'inner'))..createSync(recursive: true);
+      File(
+        p.join(innerDir.path, 'pubspec.yaml'),
+      ).writeAsStringSync('name: inner_pkg\nnested: ${tooDeepFlowList()}\n');
+      final skillDir = Directory(p.join(innerDir.path, 'skills', 'setup'))
+        ..createSync(recursive: true);
+
+      final rule = PublishedSkillNameRule(severity: AnalysisSeverity.error);
+      final SkillContext context = createTestSkillContext(directory: skillDir);
+
+      final List<ValidationError> errors = await rule.validate(context);
+      expect(errors, hasLength(1));
+      expect(errors.first.message, contains('package "outer_pkg"'));
+    });
+
     test(
       'explicit package_name parameter takes precedence over autodiscovered pubspec.yaml',
       () async {

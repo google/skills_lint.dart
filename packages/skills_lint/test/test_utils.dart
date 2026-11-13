@@ -14,6 +14,7 @@ import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/suggestions/did_you_mean.dart';
 import 'package:skills_lint/src/validator.dart';
+import 'package:skills_lint/src/yaml_limits.dart';
 import 'package:tar/tar.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
@@ -160,6 +161,15 @@ Future<ValidationResult> writeAndValidateSkill(
   return Validator(ruleConfigs: ruleConfigs, customRules: customRules).validate(skillDir);
 }
 
+/// Writes `SKILL.md` in [skillDir] with [frontmatter] between `---` lines and
+/// a short body, then validates [skillDir] with the default rules.
+///
+/// [frontmatter] must end with a newline.
+Future<ValidationResult> validateFrontmatter(Directory skillDir, String frontmatter) async {
+  await File(p.join(skillDir.path, 'SKILL.md')).writeAsString('---\n$frontmatter---\nBody\n');
+  return Validator().validate(skillDir);
+}
+
 /// Constructs an in-memory [SkillContext] data object for unit testing [SkillRule]s.
 SkillContext createTestSkillContext({
   required Directory directory,
@@ -268,3 +278,28 @@ final Matcher hasNoErrorsOrWarnings = isA<ValidationResult>()
     .having((ValidationResult r) => r.isValid, 'isValid', isTrue)
     .having((ValidationResult r) => r.errors, 'errors', isEmpty)
     .having((ValidationResult r) => r.warnings, 'warnings', isEmpty);
+
+/// A flow list nested one level deeper than [YamlLimits.maxDepth] allows
+/// under a mapping key.
+String tooDeepFlowList() {
+  const int levels = YamlLimits.maxDepth + 1;
+  return '${'[' * levels}${']' * levels}';
+}
+
+/// A frontmatter whose `description` expands to 10^9 values through nine
+/// levels of ten aliases each.
+String billionLaughs({required bool flowStyle}) {
+  const levels = 'abcdefghi';
+  final buffer = StringBuffer('name: demo\n');
+  for (var i = 0; i < levels.length; i++) {
+    final item = i == 0 ? 'x' : '*${levels[i - 1]}';
+    final items = List<String>.filled(10, item);
+    buffer.writeln(
+      flowStyle
+          ? '${levels[i]}: &${levels[i]} [${items.join(', ')}]'
+          : '${levels[i]}: &${levels[i]}\n${items.map((String it) => '  - $it').join('\n')}',
+    );
+  }
+  buffer.writeln('description: *${levels[levels.length - 1]}');
+  return buffer.toString();
+}

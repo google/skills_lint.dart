@@ -17,8 +17,10 @@ import 'models/skill_context.dart';
 import 'models/skill_rule.dart';
 import 'models/validation_error.dart';
 import 'models/validation_result.dart';
+import 'reporters/tool_error_messages.dart';
 import 'rule_registry.dart';
 import 'rules/path_does_not_exist_rule.dart';
+import 'yaml_limits.dart';
 
 // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
 export 'models/validation_result.dart';
@@ -140,7 +142,23 @@ class Validator {
     final validationErrors = <ValidationError>[];
 
     for (final rule in rules) {
-      final List<ValidationError> errors = await rule.validate(context);
+      final List<ValidationError> errors;
+      try {
+        errors = await rule.validate(context);
+      } on Object catch (error, stackTrace) {
+        _log.severe('Rule "${rule.name}" threw: $error\n$stackTrace');
+        // One failing rule must not abort the run: report it with this skill
+        // and keep going, so other skills and machine-readable output survive.
+        validationErrors.add(
+          ValidationError(
+            ruleId: unexpectedError,
+            file: p.join(context.directory.path, SkillContext.skillFileName),
+            message: ToolErrorMessages.ruleFailedMessage(ruleName: rule.name, error: error),
+            severity: AnalysisSeverity.error,
+          ),
+        );
+        continue;
+      }
       _checkSeverityWarnings(rule, errors);
       validationErrors.addAll(errors);
     }
@@ -196,7 +214,7 @@ class Validator {
         yamlParsingError = 'Missing YAML metadata in ${SkillContext.skillFileName}';
       } else {
         final String yamlStr = match.group(1)!;
-        final Object? doc = loadYaml(yamlStr);
+        final Object? doc = YamlLimits.loadFrontmatter(yamlStr);
         if (doc is YamlMap) {
           parsedYaml = doc;
         } else {

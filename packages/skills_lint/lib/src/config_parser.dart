@@ -19,6 +19,7 @@ import 'models/target_declaration.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
 import 'unknown_rule_names.dart';
+import 'yaml_limits.dart';
 
 final Logger _log = Logger('skills_lint');
 
@@ -86,7 +87,7 @@ class ConfigParser {
   }) {
     _checkSourceArguments(configSource, sourcePath, baseDirectory);
     try {
-      final Object? yaml = loadYaml(content);
+      final Object? yaml = YamlLimits.loadYaml(content);
       return fromYaml(
         yaml,
         configSource: configSource,

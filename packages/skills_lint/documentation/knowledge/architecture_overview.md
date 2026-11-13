@@ -132,6 +132,9 @@ The codebase applies the [SOLID principles](https://en.wikipedia.org/wiki/SOLID)
 9. **Single Source of Truth**  
    Each decision has one owner. The component that owns a default value, schema key or set of allowed values defines it once, and every other component references that definition instead of repeating the literal. A value defined in two places drifts silently when only one of them changes.
 
+10. **Bounded YAML Ingestion at the Boundary**  
+    Every YAML document the tool reads goes through [`YamlLimits`](../../lib/src/yaml_limits.dart), which rejects input that is too large, too deeply nested, expands too far through aliases or uses complex mapping keys, before code beneath it walks the value. [`repo_test/yaml_load_convention_test.dart`](../../repo_test/yaml_load_convention_test.dart) fails when any other file in `bin/` or `lib/` calls a `package:yaml` loader or `Pubspec.parse`.
+
 ---
 
 ## 🚫 Rejected Architectural Anti-Patterns

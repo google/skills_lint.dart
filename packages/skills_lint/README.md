@@ -167,7 +167,11 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 
   Diagnostics go to standard output in every format, so redirect them to a
   file to capture a report: `skills_lint --format=sarif > skills-lint.sarif`.
-  Operational failures stay on standard error and never corrupt the report.
+  A rule that crashes on one skill is reported as an `unexpected-error`
+  finding for that skill, in the report like any other finding. Failures of
+  the whole run, such as a configuration file that can't be loaded or an
+  unknown command-line option, go to standard error and never corrupt the
+  report.
   Bugs in skills_lint start with `skills_lint internal error:`. Problems in
   your files, such as a `--fix` rename that can't happen, start with `Error:`.
 
@@ -338,7 +342,10 @@ jobs:
 Notes:
 
 - The report goes to standard output, so redirect it to a file.
-  Operational failures go to standard error and never mix into the report.
+  A rule that crashes on one skill is reported as an `unexpected-error`
+  finding for that skill. Failures of the whole run, such as a
+  configuration file that can't be loaded or an unknown command-line option,
+  go to standard error and never mix into the report.
   Bugs in skills_lint start with `skills_lint internal error:`, and
   problems in your files start with `Error:`.
 - Result paths are recorded relative to the repository root using the

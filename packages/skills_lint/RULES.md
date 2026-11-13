@@ -31,6 +31,12 @@ A rule with an "Ignore subject" line names what each finding is about, and
 an entry with that `subject` covers only the findings about it. The format
 of a rule's subject is part of its contract.
 
+A rule that throws while it checks a skill doesn't stop the run. The skill
+gets an `unexpected-error` finding at `error` severity, in the report with
+its other findings. The message starts with `skills_lint internal error:`
+and names the rule. `unexpected-error` does not have a flag or
+configuration that turns it on or off.
+
 See [`CONTRIBUTING.md`](../../CONTRIBUTING.md#rule-stability-policy-semver) for the SemVer policy that
 governs how changes to these rules ship.
 
@@ -278,6 +284,20 @@ governs how changes to these rules ship.
 - **What it checks:**
   - `SKILL.md` contains a YAML frontmatter block delimited by `---`
     that parses without errors.
+  - The frontmatter stays within the limits in
+    [`YamlLimits`](lib/src/yaml_limits.dart): `maxBytes` bytes of UTF-8,
+    checked before parsing so memory stays bounded; `maxNodes` values with
+    aliases expanded; `maxDepth` levels of nesting; and
+    `maxFlowCollectionStarts` `[` and `{` characters.
+  - Every mapping key is a plain or quoted scalar. Explicit (`? key`),
+    alias (`*name: value`) and collection (`[a, b]: value`) keys fail.
+  - The frontmatter has no YAML anchors (`&name`) or aliases (`*name`). A
+    scan before parsing skips quoted text, block scalars, plain text such
+    as `*bold*`, and comments. Quote values that start with `*` or `&`,
+    such as `"*Important*"`.
+  - Frontmatter that fails one of the three checks above counts as a parse
+    error, and the rules that read the frontmatter skip it. The limits and
+    mapping key check also apply to `skills_lint.yaml` and `pubspec.yaml`.
   - Required fields `name` and `description` are both present.
   - If `compatibility:` is present, it is at most 500 characters.
 - **Diagnostic shape:**

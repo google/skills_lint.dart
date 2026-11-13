@@ -12,6 +12,7 @@ import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../path_utils.dart';
+import '../yaml_limits.dart';
 
 /// Enforces constraints on the skill name field.
 class NameFormatRule extends SkillRule implements FixableRule {
@@ -191,7 +192,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     final Object? yaml;
     try {
-      yaml = loadYaml(frontmatter);
+      yaml = YamlLimits.loadFrontmatter(frontmatter);
     } on YamlException {
       // Malformed frontmatter has no name node to rewrite. The validator
       // reports the YAML error, so leave the content unchanged.
@@ -216,11 +217,11 @@ class NameFormatRule extends SkillRule implements FixableRule {
 
     // Unquoted, YAML reads some valid names as another type: `123` as a
     // number, `false` as a boolean. Valid names hold only letters, digits and
-    // hyphens, so they never need escaping, and loadYaml parses any of them.
+    // hyphens, so they never need escaping, and YAML parses any of them.
     final String quote = switch (nameNode.style) {
       ScalarStyle.SINGLE_QUOTED => "'",
       ScalarStyle.DOUBLE_QUOTED => '"',
-      _ => loadYaml(directoryName) == directoryName ? '' : '"',
+      _ => YamlLimits.loadYaml(directoryName) == directoryName ? '' : '"',
     };
     final fixedFrontmatter = '$beforeNameNode$quote$directoryName$quote$afterNameNode';
     final int yamlOffset = currentContent.indexOf(frontmatter, match.start);
@@ -268,7 +269,7 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
     final Object? yaml;
     try {
-      yaml = loadYaml(match.group(1)!);
+      yaml = YamlLimits.loadFrontmatter(match.group(1)!);
     } on YamlException {
       return null;
     }

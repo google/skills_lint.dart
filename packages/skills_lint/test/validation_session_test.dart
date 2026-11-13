@@ -16,9 +16,13 @@ import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/skills_ignores.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/pub_archive_loader.dart';
+import 'package:skills_lint/src/reporters/reporter.dart';
 import 'package:skills_lint/src/rules/pub_archive_includes_skill_rule.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
+import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
 import 'package:skills_lint/src/validation_session.dart';
+import 'package:skills_lint/src/validator.dart';
+import 'package:skills_lint/src/yaml_limits.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -183,6 +187,73 @@ void main() {
       await sarifSession.processIndividualSkill(skillDir.path);
       final String sarifOutput = sarifSession.formatOutput();
       expect(sarifOutput, contains('"version": "2.1.0"'));
+    });
+
+    test('reports a rule that throws as a tool error and checks the other skills', () async {
+      final rootDir = Directory(p.join(tempDir.path, 'skills'))..createSync();
+      await createDummySkill(
+        rootDir,
+        name: 'broken-skill',
+        skillContent: '${buildFrontmatter(name: 'broken-skill')}\n# Skill\n',
+      );
+      await createDummySkill(
+        rootDir,
+        name: 'good-skill',
+        skillContent: '${buildFrontmatter(name: 'good-skill')}\n# Skill\n',
+      );
+
+      final ValidationSession session = createTestSession(
+        format: OutputFormat.json,
+        customRules: [_ThrowingRule('broken-skill')],
+      );
+      await session.processSkillRoot(rootDir.path);
+
+      expect(session.anyFailed, isTrue);
+      final String output = session.formatOutput();
+      final List<Map<String, Object?>> results = (jsonDecode(output) as List<Object?>)
+          .cast<Map<String, Object?>>();
+      Map<String, Object?> resultFor(String skillName) =>
+          results.singleWhere((result) => result[ValidationResult.keySkillName] == skillName);
+      expect(resultFor('good-skill')[ValidationResult.keyIsValid], isTrue, reason: output);
+      expect(resultFor('broken-skill')[ValidationResult.keyIsValid], isFalse, reason: output);
+      expect(
+        jsonEncode(resultFor('broken-skill')),
+        allOf(
+          contains(Validator.unexpectedError),
+          contains(Reporter.toolErrorPrefix),
+          contains('boom in broken-skill'),
+        ),
+      );
+    });
+
+    test('--fix reports frontmatter nested too deeply and checks the other skills', () async {
+      final rootDir = Directory(p.join(tempDir.path, 'skills'))..createSync();
+      // The trailing spaces give --fix a change to plan, so the fixer reads
+      // the frontmatter again.
+      await createDummySkill(
+        rootDir,
+        name: 'deep-skill',
+        skillContent:
+            '---\nname: deep-skill\ndescription: d\nmetadata:\n  ${'- ' * 20000}x\n---\nBody   \n',
+      );
+      await createDummySkill(
+        rootDir,
+        name: 'good-skill',
+        skillContent: '${buildFrontmatter(name: 'good-skill')}\n# Skill\n',
+      );
+
+      final ValidationSession session = createTestSession(
+        format: OutputFormat.json,
+        fix: true,
+        resolvedRuleConfigs: {
+          TrailingWhitespaceRule.ruleName: const RuleConfigPatch(severity: AnalysisSeverity.error),
+        },
+      );
+      await session.processSkillRoot(rootDir.path);
+
+      final String output = session.formatOutput();
+      expect(output, contains('nests more than ${YamlLimits.maxDepth} levels deep'));
+      expect(output, contains('"skillName": "good-skill"'));
     });
 
     test('records a failure and continues when the skills root cannot be listed', () async {
@@ -505,4 +576,25 @@ class _NestedFileRule extends SkillRule {
       message: 'Error in a nested file.',
     ),
   ];
+}
+
+/// A rule that throws for the skill named [failingSkill].
+class _ThrowingRule extends SkillRule {
+  _ThrowingRule(this.failingSkill);
+
+  final String failingSkill;
+
+  @override
+  final String name = 'throwing-rule';
+
+  @override
+  final AnalysisSeverity severity = AnalysisSeverity.error;
+
+  @override
+  Future<List<ValidationError>> validate(SkillContext context) async {
+    if (p.basename(context.directory.path) == failingSkill) {
+      throw StateError('boom in $failingSkill');
+    }
+    return const [];
+  }
 }

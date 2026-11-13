@@ -10,6 +10,7 @@ import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/disallowed_field_rule.dart';
 import 'package:skills_lint/src/rules/valid_yaml_metadata_rule.dart';
 import 'package:skills_lint/src/validator.dart';
+import 'package:skills_lint/src/yaml_limits.dart';
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
 
@@ -195,6 +196,155 @@ Body''');
       expect(errors, hasLength(1));
       expect(errors.first.ruleId, 'disallowed-field');
       expect(errors.first.region?.startLine, 4);
+    });
+  });
+
+  group('YAML size limits', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('yaml_limits_test.');
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    ValidationError onlyYamlError(ValidationResult result) => result.validationErrors.singleWhere(
+      (ValidationError error) => error.ruleId == ValidYamlMetadataRule.ruleName,
+      orElse: () => fail('No valid-yaml-metadata error in: ${result.validationErrors}'),
+    );
+
+    test('reports an anchor with its line and column', () async {
+      final ValidationResult result = await validateFrontmatter(
+        tempDir,
+        'name: shared\ndescription: &text A skill.\nmetadata:\n  summary: *text\n',
+      );
+
+      expect(result.context?.parsedYaml, isNull);
+      expect(
+        onlyYamlError(result).message,
+        allOf(
+          contains('line 2, column 14'),
+          contains(
+            "`&text` is a YAML anchor. SKILL.md frontmatter doesn't support anchors (`&`) or "
+            'aliases (`*`). Write the value out in full, or quote it.',
+          ),
+        ),
+      );
+    });
+
+    // Each timeout in this group guards a document that package:yaml takes
+    // minutes or longer to load without the limits, so a regression fails
+    // quickly instead of hanging the test run.
+
+    test('reports the anchor in a document with an alias mapping key without loading it', () async {
+      // Loading this would hash all 10^9 values of the key. The scan of the
+      // text rejects it first.
+      final ValidationResult result = await validateFrontmatter(
+        tempDir,
+        '${billionLaughs(flowStyle: true).replaceFirst(RegExp(r'description: \*i\n$'), '')}'
+        'description: d\n? *i\n: value\n',
+      );
+
+      expect(onlyYamlError(result).message, contains('`&a` is a YAML anchor'));
+    }, timeout: const Timeout(Duration(seconds: 5)));
+
+    test('reports nested collection keys without loading them', () async {
+      // package:yaml hashes each collection key again at every level of
+      // nesting, so loading these 30 levels takes about 3^30 steps.
+      final ValidationResult result = await validateFrontmatter(
+        tempDir,
+        'name: keys\ndescription: d\nk: ${'{' * 30}a${'}' * 30}\n',
+      );
+
+      expect(
+        onlyYamlError(result).message,
+        contains('Mapping keys must be plain or quoted scalars'),
+      );
+    }, timeout: const Timeout(Duration(seconds: 5)));
+
+    test('reports an explicit key', () async {
+      final ValidationResult result = await validateFrontmatter(
+        tempDir,
+        'name: keys\ndescription: d\n? k\n: value\n',
+      );
+
+      expect(
+        onlyYamlError(result).message,
+        contains('Mapping keys must be plain or quoted scalars'),
+      );
+    });
+
+    test('reports block nesting deeper than the limit', () async {
+      final String deep = [
+        for (var level = 0; level <= YamlLimits.maxDepth; level++) '${'  ' * level}k$level:',
+      ].join('\n');
+      final ValidationResult result = await validateFrontmatter(
+        tempDir,
+        'name: deep\ndescription: d\n$deep x\n',
+      );
+
+      expect(result.context?.parsedYaml, isNull);
+      expect(
+        onlyYamlError(result).message,
+        contains('nests more than ${YamlLimits.maxDepth} levels deep'),
+      );
+    });
+
+    test('reports nesting deep enough to overflow the parser stack', () async {
+      // `- - x` is a list inside a list, so this line nests 20,000 levels
+      // in about 40 KB, under YamlLimits.maxBytes. The parser's stack
+      // overflows at about 5,000 levels.
+      final ValidationResult result = await validateFrontmatter(
+        tempDir,
+        'name: deep\nitems:\n  ${'- ' * 20000}x\n',
+      );
+
+      expect(onlyYamlError(result).message, contains('levels deep'));
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('reports too many brackets without parsing', () async {
+      // Twice the bracket limit, in about 40 KB, under YamlLimits.maxBytes.
+      // package:yaml slows down with the square of flow nesting, so parsing
+      // this many levels takes about two seconds.
+      const int levels = 2 * YamlLimits.maxFlowCollectionStarts;
+      final ValidationResult result = await validateFrontmatter(
+        tempDir,
+        'name: deep\ndescription: ${'[' * levels}${']' * levels}\n',
+      );
+
+      expect(
+        onlyYamlError(result).message,
+        contains('more than the limit of ${YamlLimits.maxFlowCollectionStarts}'),
+      );
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('accepts nesting and text with stars and ampersands', () async {
+      final ValidationResult result = await validateFrontmatter(tempDir, '''
+name: shared
+description: Use *bold* text & more. # a comment with *star
+metadata:
+  url: "https://example.com/?a=1&b=2"
+  notes: |
+    *bold* and &amp;
+  levels: [[[[[[[[1]]]]]]]]
+''');
+
+      expect(result.context?.parsedYaml, isNotNull);
+      expect(
+        result.validationErrors.where((e) => e.ruleId == ValidYamlMetadataRule.ruleName),
+        isEmpty,
+      );
+    });
+
+    test('accepts brackets in text, which count toward the limit but do not nest', () async {
+      final ValidationResult result = await validateFrontmatter(
+        tempDir,
+        'name: links\ndescription: d\nmetadata:\n  notes: "${'[link](https://example.com) ' * 2000}"\n',
+      );
+
+      expect(result.context?.parsedYaml, isNotNull);
     });
   });
 }
