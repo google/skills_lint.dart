@@ -42,7 +42,7 @@ const _ignoreConfigFlag = 'ignore-config';
 const _generateBaselineFlag = 'generate-baseline';
 const _fixFlag = 'fix';
 const _dryRunFlag = 'dry-run';
-// TODO(reidbaker): Remove deprecated --fix-apply CLI flag on next major version bump.
+// TODO(reidbaker): Remove deprecated --fix-apply CLI flag on next major version bump. https://github.com/google/skills_lint.dart/issues/73
 const _fixApplyFlag = 'fix-apply';
 const _allowMisconfiguredKeysFlag = 'allow-misconfigured-keys';
 const _configOption = 'config';
@@ -465,7 +465,7 @@ Future<bool> validateSkillsInternal({
   bool quiet = false,
   bool generateBaseline = false,
   bool fix = false,
-  // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
+  // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump. https://github.com/google/skills_lint.dart/issues/73
   bool fixApply = false,
   String? ignoreFileOverride,
   Configuration? config,

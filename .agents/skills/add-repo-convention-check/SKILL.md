@@ -41,7 +41,7 @@ Keep one list per reason. For example, [test_coverage_convention_test.dart](../.
 
 - **Trivial**: may grow, and only with a reason on each entry.
 - **Covered elsewhere**: each entry names the test that covers it.
-- **Should be fixed**: shrink-only. Each entry has `TODO(<owner>): <issue URL>`, and the test fails once an entry passes the check, so the entry gets removed.
+- **Should be fixed**: shrink-only. Each entry has a `TODO` that follows [Deferred Work](../../../packages/skills_lint/documentation/knowledge/style_guide.md#deferred-work), and the test fails once an entry passes the check, so the entry gets removed.
 
 ## Pull request
 

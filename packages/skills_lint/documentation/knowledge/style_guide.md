@@ -227,6 +227,12 @@ Future<List<File>> findMissingHeaders(Iterable<File> files);
 
 ---
 
+## Deferred Work
+
+A `TODO` links the issue that tracks it: `// TODO(owner): https://github.com/google/skills_lint.dart/issues/<n>`. The owner is the account that agreed to defer the work. Don't defer work the reviewer hasn't agreed to defer; ask in the pull request. [todo_convention_test.dart](../../repo_test/todo_convention_test.dart) checks the link.
+
+---
+
 ## Tests
 
 Tests give confidence that the code keeps working through refactors and added features, and that customers don't break. A failing test is often read only in CI logs, from an OS the author didn't run.
