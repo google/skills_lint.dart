@@ -144,7 +144,7 @@ void defineCliTests() {
     ];
     expect({
       for (final skillErrors in errors)
-        for (final error in skillErrors) error['ruleId']! as String,
+        for (final error in skillErrors) error[ValidationError.keyRuleId]! as String,
     }, _registeredRules);
     expect(errors.where((skillErrors) => skillErrors.length > 1), isNotEmpty);
     expect(
@@ -155,15 +155,20 @@ void defineCliTests() {
     for (final Map<String, Object?> error in errors.expand((e) => e)) {
       final ruleId = error[ValidationError.keyRuleId]! as String;
       if (_rulesWithoutRegion.containsKey(ruleId)) {
-        continue;
+        expect(
+          error[ValidationError.keyRegion],
+          isNull,
+          reason: '$ruleId reports a region. Remove it from _rulesWithoutRegion.',
+        );
+      } else {
+        expect(
+          error[ValidationError.keyRegion],
+          isNotNull,
+          reason:
+              '$ruleId reports no region, so JSON and SARIF cannot point at a line. '
+              'Pass `region:` to ValidationError.',
+        );
       }
-      expect(
-        error[ValidationError.keyRegion],
-        isNotNull,
-        reason:
-            '$ruleId reports no region, so JSON and SARIF cannot point at a line. '
-            'Pass `region:` to ValidationError.',
-      );
     }
   });
 }

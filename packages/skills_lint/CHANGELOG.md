@@ -4,7 +4,7 @@
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
-- `pub-archive-includes-skill` reports an unpublished `SKILL.md` on line 1, so `--format json` includes a `region` for it.
+- `pub-archive-includes-skill` reports an unpublished `SKILL.md` on line 1, so `--format json` includes a `region` for it. It used to report it with no `region`.
 
 ### Bug fixes
 
