@@ -5,6 +5,7 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:io/io.dart' show ExitCode;
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/entry_point.dart';
@@ -433,7 +434,7 @@ $rule
 
       final TestProcess process = await run([]);
 
-      await process.shouldExit(configErrorExitCode);
+      await process.shouldExit(ExitCode.config.code);
       final String stderr = (await process.stderr.rest.toList()).join('\n');
       expect(stderr, contains('Configuration error'));
       expect(stderr, contains('Expected a positive integer'));

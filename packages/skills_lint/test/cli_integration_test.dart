@@ -5,6 +5,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:io/io.dart' show ExitCode;
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/entry_point.dart';
@@ -1453,7 +1454,7 @@ skills_lint:
             '--format=$format',
             '-d',
             tempDir.path,
-          ], configErrorExitCode);
+          ], ExitCode.config.code);
 
           expect(
             result.stderr,
@@ -1492,7 +1493,7 @@ skills_lint:
           'lint.yaml',
           '-d',
           tempDir.path,
-        ], configErrorExitCode);
+        ], ExitCode.config.code);
 
         expect(
           result.stderr,
@@ -1509,7 +1510,7 @@ skills_lint:
         valid-yaml-metadat: error
 ''');
 
-        final ({String stdout, String stderr}) result = await run([], configErrorExitCode);
+        final ({String stdout, String stderr}) result = await run([], ExitCode.config.code);
 
         expect(
           result.stderr,
@@ -1528,11 +1529,11 @@ skills_lint:
           ignorePath,
           '-d',
           tempDir.path,
-        ], configErrorExitCode);
+        ], ExitCode.config.code);
         expect(File(ignorePath).existsSync(), isFalse);
 
         File(ignorePath).writeAsStringSync('{"skills": {}}');
-        await run(['--ignore-file', ignorePath, '-d', tempDir.path], configErrorExitCode);
+        await run(['--ignore-file', ignorePath, '-d', tempDir.path], ExitCode.config.code);
       });
     });
 
