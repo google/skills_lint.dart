@@ -63,18 +63,19 @@ void main() {
     expect(errors, isEmpty);
   });
 
-  test('reports a skill whose SKILL.md is not published', () async {
+  test('reports a skill whose SKILL.md is not published, on line 1', () async {
     final List<ValidationError> errors = await validate(
       directory: skillDir,
       body: 'See [the guide](references/guide.md).\n',
       archive: archiveOf({_referenceFile}),
     );
 
-    expect(errors.map((e) => (e.ruleId, e.message)), [
+    expect(errors.map((e) => (e.ruleId, e.message, e.region?.startLine)), [
       (
         PubArchiveIncludesSkillRule.ruleName,
         '$_skillFile is not in the package pub publishes, so the published package has no '
             '$_skillName skill. $_howToFix',
+        1,
       ),
     ]);
   });

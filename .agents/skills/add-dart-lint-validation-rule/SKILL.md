@@ -19,6 +19,7 @@ Add a built-in validation rule to `skills_lint`, expose the rule as a CLI flag, 
 - Name rule parameters in kebab-case without starting with a word from `ruleName`, because the CLI flag is `--<rule>-<param>` ([`rule_parameter_naming_test.dart`](../../../packages/skills_lint/repo_test/rule_parameter_naming_test.dart)).
 - Document any frontmatter structure the rule expects (for example, keys under `metadata`) in the rule class dartdoc.
 - Read YAML frontmatter from `context.parsedYaml` and map nodes to source spans with `context.yamlNodeToRegion`.
+- Give every finding a `region` ([`SourceRegion`](../../../packages/skills_lint/lib/src/models/source_region.dart)), so text, JSON and SARIF output all point at the line. Leave it out only when there is no line to point at, and list the rule in `_rulesWithoutRegion` in [`test/benchmark/fixture_test.dart`](../../../packages/skills_lint/test/benchmark/fixture_test.dart) with the reason.
 - Cite [`SpecificationUrls`](../../../packages/skills_lint/lib/src/specification_urls.dart) only when the rule enforces the official Agent Skills specification.
 - Implement [`FixableRule`](../../../packages/skills_lint/lib/src/fixable_rule.dart) when the rule supports `--fix`. Return `rawContent` unchanged when there is nothing to fix, make the fix idempotent, and make it lower the rule's own diagnostics. `--fix` drops a fix that doesn't lower the skill's errors or warnings.
 
@@ -35,6 +36,7 @@ Add a built-in validation rule to `skills_lint`, expose the rule as a CLI flag, 
 - Use `Directory.systemTemp.createTemp` (cleaned up in `tearDown`) when testing filesystem rules (see [`path_does_not_exist_rule_test.dart`](../../../packages/skills_lint/test/rules/path_does_not_exist_rule_test.dart)), or [`createTestSkillContext`](../../../packages/skills_lint/test/test_utils.dart) when testing frontmatter or content rules with an in-memory `SkillContext` so `parsedYaml` is populated.
 - Test that each rule parameter changes what the rule reports. [`rule_settings_supply_test.dart`](../../../packages/skills_lint/test/rule_settings_supply_test.dart) automatically tests config-file, CLI, and Dart API supply and precedence for every registered rule and parameter in `RuleConfig`; if a rule reads a setting from anywhere other than its `RuleConfig`, test each way that setting can be supplied.
 - For CLI tests, use `startCli` from [`test/test_utils.dart`](../../../packages/skills_lint/test/test_utils.dart) and wire `defineCliTests()` into [`compiled_test/cli_test.dart`](../../../packages/skills_lint/compiled_test/cli_test.dart) ([`cli_test_wiring_convention_test.dart`](../../../packages/skills_lint/repo_test/cli_test_wiring_convention_test.dart)).
+- Run the rule on a failing skill with `--format=text`, `--format=json` and `--format=sarif`, and read all three before you write `RULES.md`.
 
 ## 4. Documentation and Verification
 

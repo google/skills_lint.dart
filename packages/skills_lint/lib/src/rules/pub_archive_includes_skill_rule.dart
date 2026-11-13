@@ -88,6 +88,7 @@ class PubArchiveIncludesSkillRule extends SkillRule {
         _error(
           '$skillFile is not in the package pub publishes, so the published package has no '
           '$skillName skill. $_howToFix',
+          region: SourceRegion.wholeFile,
         ),
       ];
     }

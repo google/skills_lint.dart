@@ -6,7 +6,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rule_registry.dart';
+import 'package:skills_lint/src/rules/path_does_not_exist_rule.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 
@@ -16,6 +18,12 @@ import '../test_utils.dart';
 
 final Set<String> _registeredRules = {for (final check in RuleRegistry.allChecks) check.name};
 
+/// Rules whose findings have no line to point at, with the reason.
+const Map<String, String> _rulesWithoutRegion = {
+  PathDoesNotExistRule.ruleName:
+      'The finding is about a missing directory or SKILL.md, so there is no file to point into.',
+};
+
 void main() {
   final List<SampleSkill> samples = readSampleSkills();
   final SampleSkill small = samples.firstWhere((t) => t.name == 'format-dart-code');
@@ -24,6 +32,10 @@ void main() {
     expect(violations.keys.toSet(), _registeredRules);
     expect({for (final rules in plantedViolations) ...rules}, _registeredRules);
     expect(plantedViolations.where((rules) => rules.length > 1), isNotEmpty);
+  });
+
+  test('exempts only registered rules from reporting a region', () {
+    expect(_registeredRules, containsAll(_rulesWithoutRegion.keys));
   });
 
   test('reads the sample skills', () {
@@ -140,5 +152,18 @@ void defineCliTests() {
       hasLength(plantedViolations.length),
       reason: 'Only the skills with planted violations report, so the sample skills are valid.',
     );
+    for (final Map<String, Object?> error in errors.expand((e) => e)) {
+      final ruleId = error[ValidationError.keyRuleId]! as String;
+      if (_rulesWithoutRegion.containsKey(ruleId)) {
+        continue;
+      }
+      expect(
+        error[ValidationError.keyRegion],
+        isNotNull,
+        reason:
+            '$ruleId reports no region, so JSON and SARIF cannot point at a line. '
+            'Pass `region:` to ValidationError.',
+      );
+    }
   });
 }
