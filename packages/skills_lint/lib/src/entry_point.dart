@@ -8,6 +8,7 @@ library;
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:io/io.dart' show ExitCode;
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
@@ -153,13 +154,15 @@ Future<void> runApp(List<String> args) async {
     // values, and FormatException from resolveRuleConfigsFromCli for invalid
     // rule parameter values.
     _printUsage(parser, e.toString());
-    exitCode = 64; // Bad usage
+    exitCode = ExitCode.usage.code;
     return;
   }
 
   final Configuration? config = await _loadConfig(results, format: format);
   if (config == null) {
-    exitCode = 1;
+    // Errors in a skill exit with 1. Configuration errors exit with 78, so
+    // callers can tell the two apart.
+    exitCode = ExitCode.config.code;
     return;
   }
 
@@ -178,7 +181,7 @@ Future<void> runApp(List<String> args) async {
   final fixApplyAlias = results[_fixApplyFlag] as bool;
 
   if (_hasInvalidFixFormatCombination(results, format, parser, formatStr)) {
-    exitCode = 64;
+    exitCode = ExitCode.usage.code;
     return;
   }
 
@@ -223,7 +226,7 @@ Future<void> runApp(List<String> args) async {
     } else {
       stdout.writeln(firstRunGuideMsg);
     }
-    exitCode = 64;
+    exitCode = ExitCode.usage.code;
   }
 }
 
