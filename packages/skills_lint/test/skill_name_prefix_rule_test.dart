@@ -70,6 +70,21 @@ void main() {
       expect(errors.single.message, contains('Suggested name: "myproject-myprojectx"'));
     });
 
+    test('reports a name that has the prefix in uppercase', () async {
+      final List<ValidationError> errors = await validateName('MyProject-x', prefix: 'myproject');
+
+      expect(errors.single.message, contains('Suggested name: "myproject-x"'));
+    });
+
+    test('reports at the configured severity', () async {
+      final rule = SkillNamePrefixRule(severity: AnalysisSeverity.warning, prefix: 'myproject');
+      final List<ValidationError> errors = await rule.validate(
+        createTestSkillContext(directory: Directory(p.join(tempDir.path, 'my-foobar'))),
+      );
+
+      expect(errors.single.severity, AnalysisSeverity.warning);
+    });
+
     for (final String? prefix in [null, '']) {
       test('reports each skill when the prefix is ${prefix == null ? 'unset' : 'empty'}', () async {
         final List<ValidationError> errors = await validateName('my-foobar', prefix: prefix);
