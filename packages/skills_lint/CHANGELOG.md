@@ -1,14 +1,20 @@
-## 0.5.3+2-wip
+## 0.5.4-wip
+
+### Breaking changes
+
+- Removed `SkillContext.markdownLinkRegex`.
 
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
+- `check-absolute-paths`, `check-relative-paths`, and `pub-archive-includes-skill` also validate reference-style links (`[text][ref]`, `[ref][]`, and `[ref]`), and `check-absolute-paths --fix` rewrites `[ref]:` definitions in place.
 - The CLI exits with code `78` when the configuration has errors or the file given to `--config` does not exist, and `skills_lint` did not check any skill. It used to exit with `1`, the code for skills that have errors.
 
 ### Bug fixes
 
 - `check-absolute-paths --fix` writes a link that stays inside the skill when the skill directory or the linked path goes through a symlink. [#142](https://github.com/google/skills_lint.dart/issues/142)
+- `check-absolute-paths`, `check-relative-paths`, and `pub-archive-includes-skill` ignore link syntax in inline code and fenced code blocks, and parse `<...>` and parenthesized destinations in full. [#106](https://github.com/google/skills_lint.dart/issues/106)
 
 ## 0.5.3+1
 

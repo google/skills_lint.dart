@@ -39,11 +39,6 @@ class SkillContext {
     dotAll: true,
   );
 
-  /// Regex to match inline Markdown links (`[text](target)`). The capture
-  /// group is the link target. Rules that inspect SKILL.md link targets
-  /// import this rather than re-defining the pattern.
-  static final RegExp markdownLinkRegex = RegExp(r'\[.*?\]\((.*?)\)');
-
   final Directory directory;
 
   /// The name the skill directory has, or will have once a planned rename

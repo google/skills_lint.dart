@@ -5,11 +5,13 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:skills_lint/src/markdown_links.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/absolute_paths_rule.dart';
+import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/skill_links.dart';
 import 'package:skills_lint/src/validator.dart';
 import 'package:test/test.dart';
@@ -76,18 +78,13 @@ Future<String> _validateAndResolveSingleLink(Directory skillDir, String fixedCon
   final validator = Validator(
     ruleConfigs: {AbsolutePathsRule.ruleName: const RuleConfig(severity: AnalysisSeverity.error)},
   );
-  final ValidationResult result = await validator.validateProposedContent(
-    SkillContext(directory: skillDir, rawContent: fixedContent),
-    fixedContent,
-  );
+  final context = SkillContext(directory: skillDir, rawContent: fixedContent);
+  final ValidationResult result = await validator.validateProposedContent(context, fixedContent);
   expect(result, hasNoErrorsOrWarnings, reason: reason);
 
-  final RegExpMatch? fmMatch = SkillContext.skillStartRegex.firstMatch(fixedContent);
-  final String body = fmMatch != null ? fixedContent.substring(fmMatch.end) : fixedContent;
-  final List<RegExpMatch> links = SkillContext.markdownLinkRegex.allMatches(body).toList();
+  final List<MarkdownLink> links = bodyLinksOf(context);
   expect(links, hasLength(1), reason: reason);
-  final String linkPath = linkTargetOf(links.single.group(1)!);
-  return p.normalize(p.join(skillDir.path, linkPath));
+  return p.normalize(p.join(skillDir.path, links.single.target));
 }
 
 /// Validates [fixedContent] in [skillDir] and asserts that its single link
@@ -109,6 +106,92 @@ Future<void> _expectFixedInSkillLink(
 }
 
 void main() {
+  group('Markdown syntax', () {
+    test('ignores absolute paths in code spans and fenced code blocks', () async {
+      await withTempDir((tempDir) async {
+        final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
+        final String target = (await File(p.join(tempDir.path, 'target.md')).create()).path;
+        final content =
+            '${buildFrontmatter(name: 'test-skill')}'
+            'Write `[a]($target)`.\n'
+            '\n'
+            '```\n'
+            '[b]($target)\n'
+            '```\n';
+        final context = SkillContext(directory: skillDir, rawContent: content);
+
+        expect(await AbsolutePathsRule().validate(context), isEmpty);
+        expect(await AbsolutePathsRule().fix(context), content);
+      });
+    });
+
+    test('reports and fixes angle-bracket and parenthesized destinations', () async {
+      await withTempDir((tempDir) async {
+        final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
+        final String spaced = (await File(p.join(tempDir.path, 'my file.md')).create()).path;
+        final String parens = (await File(p.join(tempDir.path, 'a(b).md')).create()).path;
+        final String logo = (await File(p.join(tempDir.path, 'logo.png')).create()).path;
+        final String frontmatter = buildFrontmatter(name: 'test-skill');
+        final content =
+            '$frontmatter[a](<$spaced> "t") [b]($parens)\n'
+            '[![logo]($logo)]($parens)\n';
+        final rule = AbsolutePathsRule();
+
+        final List<ValidationError> errors = await rule.validate(
+          SkillContext(directory: skillDir, rawContent: content),
+        );
+        final String fixed = await rule.fix(SkillContext(directory: skillDir, rawContent: content));
+
+        expect(errors.map((e) => e.subject), [spaced, parens, logo, parens]);
+        expect(
+          fixed,
+          '$frontmatter[a](<../my file.md> "t") [b](<../a(b).md>)\n'
+          '[![logo](../logo.png)](<../a(b).md>)\n',
+        );
+        final fixedContext = SkillContext(directory: skillDir, rawContent: fixed);
+        expect(await rule.validate(fixedContext), isEmpty);
+        expect(await rule.fix(fixedContext), fixed);
+        expect(await RelativePathsRule().validate(fixedContext), isEmpty);
+      });
+    });
+
+    test(
+      'reports and fixes reference-style links sharing a definition, respecting ignoredSubjects',
+      () async {
+        await withTempDir((tempDir) async {
+          final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
+          final String guide = (await File(p.join(tempDir.path, 'my guide.md')).create()).path;
+          final String kept = (await File(p.join(tempDir.path, 'kept.md')).create()).path;
+          final String frontmatter = buildFrontmatter(name: 'test-skill');
+          final content =
+              '${frontmatter}See [first][guide], [guide][], and [kept].\n'
+              '\n'
+              '[guide]: <$guide> "Guide"\n'
+              '[kept]: $kept\n';
+          final rule = AbsolutePathsRule();
+          final context = SkillContext(directory: skillDir, rawContent: content);
+
+          final List<ValidationError> errors = await rule.validate(context);
+          expect(errors.map((e) => e.subject), [guide, guide, kept]);
+
+          final String fixed = await rule.fix(context, ignoredSubjects: {kept});
+          expect(
+            fixed,
+            '${frontmatter}See [first][guide], [guide][], and [kept].\n'
+            '\n'
+            '[guide]: <../my guide.md> "Guide"\n'
+            '[kept]: $kept\n',
+          );
+          final fixedContext = SkillContext(directory: skillDir, rawContent: fixed);
+          final List<ValidationError> remaining = await rule.validate(fixedContext);
+          expect(remaining.map((e) => e.subject), [kept]);
+          expect(await rule.fix(fixedContext, ignoredSubjects: {kept}), fixed);
+          expect(await RelativePathsRule().validate(fixedContext), isEmpty);
+        });
+      },
+    );
+  });
+
   group('Absolute Paths Validation', () {
     late Directory tempDir;
 

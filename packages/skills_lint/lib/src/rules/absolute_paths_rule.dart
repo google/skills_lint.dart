@@ -8,6 +8,7 @@ import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
 import '../fixable_rule.dart';
+import '../markdown_links.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
@@ -32,28 +33,11 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
   Future<List<ValidationError>> validate(SkillContext context) async {
     final errors = <ValidationError>[];
 
-    // Extract content after YAML frontmatter
-    final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(context.rawContent);
-    final int frontmatterEnd = match != null ? match.end : 0;
-    final String markdownContent = match != null
-        ? context.rawContent.substring(frontmatterEnd)
-        : context.rawContent;
-
-    for (final RegExpMatch linkMatch in SkillContext.markdownLinkRegex.allMatches(
-      markdownContent,
-    )) {
-      final String fullPath = linkMatch.group(1)!;
-      final String path = linkTargetOf(fullPath);
+    for (final MarkdownLink link in bodyLinksOf(context)) {
+      final String path = link.target;
 
       if (isAbsoluteLink(path)) {
-        final int linkOffsetInFile = frontmatterEnd + linkMatch.start;
-        final int line = context.offsetToLine(linkOffsetInFile);
-        errors.add(
-          _buildAbsolutePathError(
-            path: path,
-            region: SourceRegion(startLine: line),
-          ),
-        );
+        errors.add(_buildAbsolutePathError(path: path, region: link.region));
       }
     }
 
@@ -81,49 +65,23 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
 
   @override
   Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
-    final String currentContent = context.rawContent;
-
-    final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(currentContent);
-    final int frontmatterEnd = match != null ? match.end : 0;
-    final String frontmatter = currentContent.substring(0, frontmatterEnd);
-    final String markdownContent = currentContent.substring(frontmatterEnd);
-
     final SkillPathPair skillLocation = (
       logical: context.directory.path,
       physical: _physicalPath(context.directory),
     );
-    final String fixedMarkdown = markdownContent.replaceAllMapped(SkillContext.markdownLinkRegex, (
-      match,
-    ) {
-      final String rawTarget = match[1]!;
-      final String trimmed = rawTarget.trim();
-      final List<String> parts = trimmed.split(RegExp(r'\s+'));
-      final String pathOnly = parts.first;
-      final String? titlePart = parts.length > 1 ? trimmed.substring(pathOnly.length) : null;
-      if (ignoredSubjects.contains(pathOnly)) {
-        return match[0]!;
+    return replaceBodyLinkTargets(context, (String target) {
+      if (ignoredSubjects.contains(target) || !isAbsoluteLink(target)) {
+        return null;
       }
-
-      if (isAbsoluteLink(pathOnly)) {
-        final file = File(pathOnly);
-        if (file.existsSync()) {
-          final String posixRelativePath = relativeSkillLink(
-            skillDirectory: skillLocation,
-            targetFile: (logical: pathOnly, physical: _physicalPath(file)),
-          );
-          final targetWithTitle = titlePart != null
-              ? '$posixRelativePath$titlePart'
-              : posixRelativePath;
-          final String fullMatch = match[0]!;
-          final int targetStart = fullMatch.length - rawTarget.length - 1;
-          return '${fullMatch.substring(0, targetStart)}$targetWithTitle)';
-        }
+      final file = File(target);
+      if (!file.existsSync()) {
+        return null;
       }
-
-      return match[0]!;
+      return relativeSkillLink(
+        skillDirectory: skillLocation,
+        targetFile: (logical: target, physical: _physicalPath(file)),
+      );
     });
-
-    return '$frontmatter$fixedMarkdown';
   }
 
   /// Forward-slash relative link text to write into `SKILL.md` for [targetFile].

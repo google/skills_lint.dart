@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart';
 
+import '../markdown_links.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
@@ -51,19 +52,8 @@ class RelativePathsRule extends SkillRule {
   Future<List<ValidationError>> validate(SkillContext context) async {
     final errors = <ValidationError>[];
 
-    // Extract content after YAML frontmatter
-    final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(context.rawContent);
-    final int frontmatterEnd = match != null ? match.end : 0;
-    final String markdownContent = match != null
-        ? context.rawContent.substring(frontmatterEnd)
-        : context.rawContent;
-
-    for (final RegExpMatch linkMatch in SkillContext.markdownLinkRegex.allMatches(
-      markdownContent,
-    )) {
-      final String fullPath = linkMatch.group(1)!;
-      // Markdown links can have a title after the URL, separated by spaces.
-      final String path = linkTargetOf(fullPath);
+    for (final MarkdownLink link in bodyLinksOf(context)) {
+      final String path = link.target;
 
       // Skip absolute paths (handled by AbsolutePathsRule)
       if (isAbsoluteLink(path)) {
@@ -78,11 +68,10 @@ class RelativePathsRule extends SkillRule {
 
       final String skillPath = absolute(normalize(context.directory.path));
       final String resolvedPath = absolute(normalize(join(skillPath, effectivePath)));
-      final int line = context.offsetToLine(frontmatterEnd + linkMatch.start);
       if (withinSkill && !isAtOrWithin(skillPath, resolvedPath)) {
         // The link is wrong wherever it points, so skip the existence check
         // and the sibling suggestion below.
-        errors.add(_outsideSkillError(path: path, resolvedPath: resolvedPath, line: line));
+        errors.add(_outsideSkillError(path: path, resolvedPath: resolvedPath, region: link.region));
         continue;
       }
       if (FileSystemEntity.typeSync(resolvedPath) == FileSystemEntityType.notFound) {
@@ -111,7 +100,7 @@ class RelativePathsRule extends SkillRule {
                 '- Check for typos in `$path`.\n'
                 '- Ensure the target file exists relative to this skill directory (`$skillDirName/`).'
                 '$suggestionMarkdown',
-            region: SourceRegion(startLine: line),
+            region: link.region,
           ),
         );
       }
@@ -120,12 +109,12 @@ class RelativePathsRule extends SkillRule {
     return errors;
   }
 
-  /// Reports that the link target [path], found on [line], resolves to
+  /// Reports that the link target [path], at [region], resolves to
   /// [resolvedPath], outside the skill directory.
   ValidationError _outsideSkillError({
     required String path,
     required String resolvedPath,
-    required int line,
+    required SourceRegion region,
   }) {
     return ValidationError(
       ruleId: name,
@@ -143,7 +132,7 @@ class RelativePathsRule extends SkillRule {
           '**How to fix:**\n'
           '- Link to an absolute URL, such as the file on GitHub or pub.dev.\n'
           '- Or copy the content into the skill directory and link to the copy.',
-      region: SourceRegion(startLine: line),
+      region: region,
     );
   }
 }

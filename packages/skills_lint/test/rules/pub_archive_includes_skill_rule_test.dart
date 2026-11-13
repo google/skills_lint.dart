@@ -109,11 +109,12 @@ void main() {
       archive: archiveOf({_skillFile}),
     );
 
-    expect(errors.map((e) => (e.message, e.region?.startLine)), [
+    expect(errors.map((e) => (e.message, e.region?.startLine, e.region?.startColumn)), [
       (
         'skills/$_skillName/references/ is not in the package pub publishes, so neither are '
             'the 12 files $_skillFile links to in it. $_howToFix',
         6,
+        1,
       ),
     ]);
   });
@@ -259,5 +260,38 @@ void main() {
     );
 
     expect(errors.single.message, contains('needs the list of files pub publishes'));
+  });
+
+  test('checks reference-style links and skips link syntax in code', () async {
+    final List<ValidationError> errors = await validate(
+      directory: skillDir,
+      body:
+          'Use `[example](references/guide.md)` in code, or see [the guide][ref].\n'
+          '\n'
+          '[ref]: references/guide.md\n',
+      archive: archiveOf({_skillFile}),
+    );
+
+    expect(
+      errors.map(
+        (e) => (
+          e.message,
+          e.region?.startLine,
+          e.region?.startColumn,
+          e.region?.endLine,
+          e.region?.endColumn,
+        ),
+      ),
+      [
+        (
+          '$_referenceFile, linked from $_skillFile, is not in the package pub publishes. '
+              '$_howToFix',
+          5,
+          54,
+          5,
+          70,
+        ),
+      ],
+    );
   });
 }

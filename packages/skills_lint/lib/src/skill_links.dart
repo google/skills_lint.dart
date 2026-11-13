@@ -4,13 +4,43 @@
 
 import 'package:path/path.dart' as p;
 
-/// The link target in [linkDestination], the text between the parentheses of
-/// a Markdown link, without an optional title such as `"Guide"`.
-String linkTargetOf(String linkDestination) => linkDestination.trim().split(RegExp(r'\s+')).first;
+import 'markdown_links.dart';
+import 'models/skill_context.dart';
 
-/// Whether the link target [path] is a URL with a scheme, such as `https:` or
-/// `mailto:`, or an anchor in this file.
+/// Links and images in the Markdown body of [context], after any YAML
+/// frontmatter, with 1-based regions in [SkillContext.rawContent].
+List<MarkdownLink> bodyLinksOf(SkillContext context) {
+  final String rawContent = context.rawContent;
+  final int bodyStart = SkillContext.skillStartRegex.firstMatch(rawContent)?.end ?? 0;
+  if (bodyStart >= rawContent.length) {
+    return const [];
+  }
+  return markdownLinksIn(
+    rawContent.substring(bodyStart),
+    startLine: context.offsetToLine(bodyStart),
+  );
+}
+
+/// Rewrites referenced link destinations in the Markdown body of [context]
+/// wherever [rewrite] returns a non-null replacement, preserving any YAML
+/// frontmatter untouched.
+String replaceBodyLinkTargets(SkillContext context, String? Function(String target) rewrite) {
+  final String rawContent = context.rawContent;
+  final int bodyStart = SkillContext.skillStartRegex.firstMatch(rawContent)?.end ?? 0;
+  if (bodyStart >= rawContent.length) {
+    return rawContent;
+  }
+  final String frontmatter = rawContent.substring(0, bodyStart);
+  final String rewrittenBody = replaceMarkdownLinkTargets(rawContent.substring(bodyStart), rewrite);
+  return '$frontmatter$rewrittenBody';
+}
+
+/// Whether the link target [path] is an empty self-link, a URL with a scheme
+/// (such as `https:` or `mailto:`), or an anchor in the current file.
 bool isUrlOrAnchor(String path) {
+  if (path.isEmpty) {
+    return true;
+  }
   final Uri? uri = Uri.tryParse(path);
   return uri != null && (uri.hasScheme || path.startsWith('#'));
 }
@@ -18,7 +48,7 @@ bool isUrlOrAnchor(String path) {
 /// Whether the link target [path] is an absolute path on any platform.
 bool isAbsoluteLink(String path) => p.isAbsolute(path) || p.windows.isAbsolute(path);
 
-/// The file path that the link target [path] points to, with percent escapes
+/// File path that the link target [path] points to, with percent escapes
 /// decoded.
 ///
 /// A [path] that is not a valid URI, whose escapes are not valid UTF-8, such

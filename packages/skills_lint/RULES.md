@@ -40,14 +40,18 @@ governs how changes to these rules ship.
 
 - **Default severity:** warning
 - **Fixable:** yes
-- **What it checks:** inline Markdown links in `SKILL.md` do not use
-  absolute filesystem paths (POSIX `/foo/bar` or Windows `C:\foo`).
-  Absolute paths break portability across machines.
+- **What it checks:** Markdown links and images in `SKILL.md` (inline
+  and reference-style) do not use absolute filesystem paths (POSIX
+  `/foo/bar` or Windows `C:\foo`). Absolute paths break portability
+  across machines. Link syntax in code spans and fenced code blocks
+  is intentionally skipped.
 - **Diagnostic shape:**
   `Absolute filepath found in link: <path>. Skills must use paths relative to SKILL.md so they remain portable across machines.`
 - **Auto-fix behavior:** if the absolute path resolves to a file that
-  exists on disk, the fixer rewrites it to the equivalent POSIX-style
-  relative path from `SKILL.md`. If the target does not exist the
+  exists on disk, the fixer rewrites the link destination (or the
+  referenced `[ref]:` definition) to the equivalent POSIX-style
+  relative path from `SKILL.md`, enclosed in `<` and `>` when the path
+  contains whitespace or parentheses. If the target does not exist the
   fixer leaves the link untouched. The fixer skips links that an ignore
   entry with a `subject` covers. An ignore entry without a `subject`
   stops the fixer for the whole file.
@@ -59,10 +63,11 @@ governs how changes to these rules ship.
 
 - **Default severity:** disabled
 - **Fixable:** no
-- **What it checks:** inline Markdown links in `SKILL.md` with
-  relative targets resolve to files or directories that actually exist
-  on disk.
-  Web URLs, anchors, `mailto:`, `javascript:`, and `data:` links are
+- **What it checks:** Markdown links and images in `SKILL.md` (inline
+  and reference-style) with relative targets resolve to files or
+  directories that actually exist on disk. Link syntax in code spans
+  and fenced code blocks is intentionally skipped.
+  Empty destinations (`[]()`), web URLs, anchors, `mailto:`, `javascript:`, and `data:` links are
   skipped. Percent escapes are decoded first, as on GitHub, so
   `my%20file.md` resolves to `my file.md` and `a%2Fb.md` to `a/b.md`.
   A link that does not decode to a relative path, such as `x%E9.md`
@@ -229,7 +234,8 @@ governs how changes to these rules ship.
   with a `pubspec.yaml`. Skills outside its `skills/` directory pass without
   running `pub`. Links to files that don't
   exist pass too, even when `check-relative-paths` is disabled; enable
-  `check-relative-paths` to report them.
+  `check-relative-paths` to report them. Link syntax in code spans and
+  fenced code blocks is intentionally skipped.
 - **How it works:** runs
   `dart pub publish --skip-validation --to-archive=<temp file>` once per
   package and reads the file names from the archive. Needs `dart` on
