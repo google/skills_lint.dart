@@ -56,8 +56,7 @@ void main() {
       expect(error.severity, AnalysisSeverity.error);
       expect(
         error.message,
-        'Skill "my-foobar" does not start with the prefix "myproject". '
-        'Skill names must be "myproject" or start with "myproject-". '
+        'Skill "my-foobar" must be "myproject" or start with "myproject-". '
         'Suggested name: "myproject-my-foobar".\n'
         'Fix by re-running your validation command with `--fix`.',
       );

@@ -6,11 +6,13 @@ import 'package:yaml/yaml.dart';
 
 import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
+import '../models/parameter_constraint.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../name_prefix.dart';
+import 'name_format_rule.dart';
 
 /// Enforces that a skill's `name` starts with a configured prefix.
 ///
@@ -24,6 +26,13 @@ class SkillNamePrefixRule extends SkillRule implements FixableRule {
 
   /// The rule parameter that sets [prefix].
   static const String prefixParameter = 'value';
+
+  /// Restricts [prefixParameter] to valid skill names, so that a name can
+  /// start with it.
+  static const prefixConstraint = ParameterConstraint(
+    description: 'a valid skill name',
+    accepts: _isValidSkillName,
+  );
 
   @override
   String get name => ruleName;
@@ -98,13 +107,11 @@ class SkillNamePrefixRule extends SkillRule implements FixableRule {
       severity: severity,
       file: SkillContext.skillFileName,
       message:
-          'Skill "$skillName" does not start with the prefix "$prefix". '
-          'Skill names must be "$prefix" or start with "$prefix-". '
+          'Skill "$skillName" must be "$prefix" or start with "$prefix-". '
           'Suggested name: "$suggestedName".\n'
           'Fix by re-running your validation command with `--fix`.',
       markdownMessage:
-          '**Skill name does not start with the prefix `$prefix`.**\n\n'
-          'Skill names must be `$prefix` or start with `$prefix-`.\n\n'
+          '**Skill name must be `$prefix` or start with `$prefix-`.**\n\n'
           '* **Current:** `$skillName`\n'
           '* **Suggested:** `$suggestedName`\n\n'
           '**How to fix:**\n'
@@ -130,3 +137,5 @@ class SkillNamePrefixRule extends SkillRule implements FixableRule {
     );
   }
 }
+
+bool _isValidSkillName(Object value) => value is String && NameFormatRule.isValidSkillName(value);

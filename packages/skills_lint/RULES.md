@@ -287,12 +287,12 @@ governs how changes to these rules ship.
             value: myproject
   ```
 - **Diagnostic shape:**
-  `Skill "<name>" does not start with the prefix "<prefix>". Skill names must be "<prefix>" or start with "<prefix>-". Suggested name: "<suggestion>".`
+  `Skill "<name>" must be "<prefix>" or start with "<prefix>-". Suggested name: "<suggestion>".`
   `Fix by re-running your validation command with --fix.`
   With the rule enabled and no prefix set, each skill reports:
   `The skill-name-prefix rule has no prefix to check. Set its value parameter in skills_lint.yaml or pass --skill-name-prefix-value, or disable the rule.`
 - **Parameters:**
-  - `value` (string): the prefix every skill name must start with.
+  - `value` (string): the prefix every skill name must start with. Must be a valid skill name.
 - **Auto-fix behavior:** updates the frontmatter `name:` in `SKILL.md` to the suggested name and aligns the parent directory name on disk when run via `--fix`. When the directory can't be renamed, for example because the name is taken, `--fix` skips this fix.
 - **Disable:** `--no-skill-name-prefix` (also the default state).
 
