@@ -26,7 +26,7 @@ Before stating that a task is complete, you MUST execute and pass the following 
 10. **No Silent Deletions**: Diff the branch against its merge base. Name every removed comment, docstring, test, or eval assertion in the PR description, with the reason. Restore any removal you did not intend.
 11. **Citations**: Open every URL the change adds. Each URL must resolve and support the claim it is attached to. Cite the Agent Skills specification only for rules the specification states.
 12. **Comments**: Comments describe what the code does. A comment may warn against a change someone is likely to make by accident. Don't describe work that wasn't done, or code or behavior this PR removes, even as a warning; see [Temporal Words](../../../packages/skills_lint/documentation/knowledge/style_guide.md#temporal-words).
-13. **Doc scope**: Dartdoc states what callers rely on, not what a particular caller does.
+13. **Doc scope**: Follow [Prose](../../../packages/skills_lint/documentation/knowledge/style_guide.md#prose). Dartdoc states what callers rely on, not which code calls the member.
 14. **API surface**: If the change adds or alters anything users or callers see, fill in the API surface section of the [PR description](../contributor-pr-description/SKILL.md).
 
 ## 🚦 Output Formatting
@@ -44,4 +44,4 @@ Examples:
 - `[x] Changelog: (N/A) Not necessary since we're updating internal eval fixtures.`
 - `[x] Temporal: no added words.`
 - `[x] Comments: new comments describe only what the code does.`
-- `[x] Doc scope: dartdoc states only what callers rely on.`
+- `[x] Doc scope: added docs, comments and test names follow Prose.`
