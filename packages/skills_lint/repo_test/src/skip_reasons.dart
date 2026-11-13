@@ -2,21 +2,20 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Detectors for `skip:`, `testOn:` and `timeout:` arguments that don't say
-/// why a test is skipped or needs a different timeout.
+/// Detectors for `skip:`, `testOn:`, `timeout:` and `@Timeout` that don't
+/// say why a test is skipped or needs a different timeout.
 ///
 /// A skipped test is a gap in coverage. With the reason next to it, a reader
 /// can tell a platform limit from a bug that someone should fix, and can
 /// check whether the reason still holds. A timeout changes how long a test
-/// may run before it fails. Its reason lets a reader tell a slow step from a
-/// hang that someone should fix.
+/// may run before it fails. The timeout's reason lets a reader tell a slow
+/// step from a hang that someone should fix.
 ///
 /// Change these rules if `package:test` gains a way to attach a reason to
-/// `testOn:`, or if a reason needs a form that they reject.
+/// `testOn:` or `Timeout`, or if a reason needs a form that they reject.
 library;
 
 import 'package:analyzer/dart/ast/ast.dart';
-import 'package:analyzer/dart/ast/token.dart';
 
 import 'models/convention_violation.dart';
 import 'models/source.dart';
@@ -56,47 +55,37 @@ List<ConventionViolation> findTestOnWithoutComment(Source source) {
   return violations;
 }
 
-/// Reports each `timeout:` argument in [source] that has no comment inside
-/// the same argument list, and each `@Timeout` annotation that has no comment
-/// on the line directly above it.
-List<ConventionViolation> findTimeoutsWithoutComment(Source source) {
-  final List<ConventionViolation> violations = [];
-  for (final NamedArgument argument in _namedArguments(source, 'timeout')) {
-    final AstNode arguments = argument.parent!;
-    final bool commented = source.comments.any(
-      (comment) => comment.offset > arguments.offset && comment.end < arguments.end,
-    );
-    if (!commented) {
-      violations.add(
-        source.violationAt(argument.offset, '${argument.toSource()} has no comment saying why'),
-      );
-    }
-  }
-  for (final Annotation annotation in source.nodes.whereType<Annotation>()) {
-    if (_namesTimeout(annotation) && !_hasCommentDirectlyAbove(source, annotation)) {
-      violations.add(
-        source.violationAt(annotation.offset, '${annotation.toSource()} has no comment saying why'),
-      );
-    }
-  }
-  return violations;
-}
+/// Reports each `timeout:` argument and `@Timeout` annotation in [source]
+/// that has no comment on the line directly above it or at the end of its
+/// last line.
+///
+/// `// ignore:` and `// ignore_for_file:` comments don't count as a reason.
+List<ConventionViolation> findTimeoutsWithoutComment(Source source) => [
+  for (final AstNode node in [
+    ..._namedArguments(source, 'timeout'),
+    ...source.nodes.whereType<Annotation>().where(_namesTimeout),
+  ])
+    if (!_hasAdjacentComment(source, node))
+      source.violationAt(node.offset, '${node.toSource()} has no comment saying why'),
+];
 
 /// Whether [annotation] is `@Timeout`, `@Timeout.factor`, or either one
 /// behind an import prefix.
 bool _namesTimeout(Annotation annotation) => annotation.name.name.split('.').contains('Timeout');
 
-/// Whether the last comment before [node] ends on the line directly above it.
-bool _hasCommentDirectlyAbove(Source source, AstNode node) {
-  Token? comment = node.beginToken.precedingComments;
-  if (comment == null) {
-    return false;
-  }
-  while (comment!.next != null) {
-    comment = comment.next;
-  }
-  final String gap = source.content.substring(comment.end, node.offset);
-  return '\n'.allMatches(gap).length == 1;
+/// Whether a comment ends on the line directly above [node] with no code
+/// between them, or starts after [node] on the last line of [node].
+bool _hasAdjacentComment(Source source, AstNode node) {
+  final int first = source.lineOf(node.offset);
+  final int last = source.lineOf(node.end);
+  final int codeBefore = node.beginToken.previous?.end ?? 0;
+  return source.comments
+      .where((comment) => !comment.lexeme.startsWith(RegExp(r'//\s*ignore')))
+      .any(
+        (comment) => comment.end <= node.offset
+            ? comment.offset >= codeBefore && source.lineOf(comment.end) == first - 1
+            : comment.offset >= node.end && source.lineOf(comment.offset) == last,
+      );
 }
 
 /// The named arguments called [name] in any argument list of [source].

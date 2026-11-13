@@ -106,6 +106,7 @@ const String _testOnFix =
     'removes permissions with the POSIX chmod command, which Windows does not provide.`';
 
 const String _timeoutFix =
-    'Add a comment inside the call, or on the line above an `@Timeout` annotation, '
-    'that says why the default timeout does not fit this test. For example: '
+    'Add a comment on the line above the `timeout:` argument or `@Timeout` annotation, '
+    'or at the end of its line, that says why the default timeout does not fit this '
+    'test. For example: '
     '`// Compiles the CLI with dart compile exe, which takes over 30 seconds on CI.`';

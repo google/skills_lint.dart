@@ -36,8 +36,11 @@ class Source {
         comment,
   ];
 
+  /// The 1-based line number of [offset].
+  int lineOf(int offset) => _parsed.lineInfo.getLocation(offset).lineNumber;
+
   ConventionViolation violationAt(int offset, String problem) =>
-      ConventionViolation(path, _parsed.lineInfo.getLocation(offset).lineNumber, problem);
+      ConventionViolation(path, lineOf(offset), problem);
 }
 
 /// Collects every node of a syntax tree in source order.
