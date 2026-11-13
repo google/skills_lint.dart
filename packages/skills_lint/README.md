@@ -153,13 +153,9 @@ If no directory is specified, it automatically checks `.claude/skills` and `.age
 - `--ignore-config`: Ignore the YAML configuration file entirely.
 - `--ignore-file`: Path to a JSON file listing lints to ignore for the run. Each entry names a `rule_id` and a `file_name`. An optional `subject` limits the entry to the findings about one thing in that file; [`RULES.md`](RULES.md) says which rules set one, and in what format.
 - `--generate-baseline`: Write every current error into `skills_lint_ignore.json` so existing violations are ignored on future runs. Entries it can't read are not carried over, and it prints a message naming the skills they belonged to.
-
-  `--fix`, `--generate-baseline` and the creation of a missing `ignore_file` write only inside the directories being scanned. Targets named on the command line may write inside the directories they scan, and `--ignore-file` can write to any path. For a `directories` or `individual_skills` entry in `skills_lint.yaml`, writes (including creating a missing `ignore_file`) must also stay inside the directory that holds `skills_lint.yaml`. A write that would land anywhere else, for example through a symlinked skill directory, is skipped with an `Error:` message, and the run fails. To write there on purpose, see [Controlling what `--fix` writes](#controlling-what---fix-writes).
 - `--[no-]check-trailing-whitespace`: Enable/disable checking for trailing whitespace. (Disabled by default).
 - `--[no-]pub-archive-includes-skill`: Check that `dart pub publish` includes each skill in `skills/` and the files it links to. (Disabled by default).
 - `--[no-]published-skill-name`: Enable/disable checking that published package skills follow the package naming convention. (Disabled by default).
-- `--allow-write`: A directory that `--fix` and `--generate-baseline` may also write in. Repeat it for more directories. See [Controlling what `--fix` writes](#controlling-what---fix-writes).
-- `--[no-]<rule-name>-fix`: Let `--fix` run, or keep it from running, the fix of one fixable rule, for example `--no-check-absolute-paths-fix`.
 - `--fix`: Write fixes for failing lints to disk, then print the diagnostics that remain. The exit code reflects the diagnostics left after fixing. A fix is kept only if it lowers the skill's errors, then warnings. Fixes repeat until they stop helping, up to 10 passes, so one run is usually enough. When a fix renames a skill directory and the rename can't happen, for example because the target exists, the fixes that need the rename are skipped with the reason, and the other fixes still land.
 - `--dry-run`: When combined with `--fix`, prints the proposed diff and the resulting diagnostics without writing. It checks each skill on its own, so it doesn't show links in other skills that a rename would break. `--fix` checks every skill again after a rename and reports them. A failure that only writing reveals, such as a missing permission, can make `--fix` skip a fix that `--dry-run` showed, or leave the skill unfixed: when `SKILL.md` can't be written, `--fix` writes none of that skill's fixes, reports the error, and fails the run.
 - `--fix-apply`: *Deprecated* alias for `--fix`. Prints a deprecation notice on use.
@@ -195,8 +191,7 @@ skills_lint:
     check-relative-paths: error
     check-absolute-paths: error
   directories:
-    - path: ".agents/skills"
-      ignore_file: ".agents/skills/ignore.json"
+    - path: "~/.agents/skills"
     - path: "skills"
       rules:
         check-relative-paths:
@@ -214,6 +209,8 @@ Then you can simply run:
 dart run skills_lint
 ```
 
+`skills_lint` reads `~/.agents/skills` but doesn't write there, because the path comes from `skills_lint.yaml` and is outside the repository. To let `--fix` or `--generate-baseline` write there, pass `--allow-write ~/.agents/skills`.
+
 A rule name that matches no built-in rule is a configuration error. Custom
 rules can't be configured in `skills_lint.yaml`.
 
@@ -222,7 +219,7 @@ rules can't be configured in `skills_lint.yaml`.
 Two settings decide what `--fix` writes. A fix is written only when both allow it, and a denial from either one wins:
 
 - **`fix:` in a rule entry** turns one fixable rule's fix on or off. On a rule without a fix, it is a configuration error. The default is `true`. It follows the same precedence as severity: `--[no-]<rule-name>-fix`, then the target's `rules:`, then the global `rules:`. It doesn't depend on paths.
-- **The write boundary** is the directories a write may land in. It holds the directory being scanned, or for an individual skill, the skill's parent directory. `write_allow:` on a `directories` or `individual_skills` entry adds directories to that entry's boundary. Each must be inside the directory that holds `skills_lint.yaml`; a path outside that directory, including one reached through a symlink, is a configuration error. `--allow-write` adds directories for every target in the run, including the targets named on the command line, and for a configured `ignore_file`. Neither one turns a fix on.
+- **The write boundary** is the directories a write may land in. A write outside it is skipped with an `Error:` message, and the run fails. The boundary holds the directory being scanned, or for an individual skill, the skill's parent directory. `write_allow:` on a `directories` or `individual_skills` entry adds directories to that entry's boundary. Each must be inside the directory that holds `skills_lint.yaml`; a path outside that directory, including one reached through a symlink, is a configuration error. `--allow-write` adds directories for every target in the run, including the targets named on the command line, and for a configured `ignore_file`. Neither one turns a fix on.
 
 ```yaml
 skills_lint:
