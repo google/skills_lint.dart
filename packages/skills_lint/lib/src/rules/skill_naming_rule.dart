@@ -138,10 +138,23 @@ class SkillNamingRule extends SkillRule implements FixableRule {
     required String suggestedName,
     required SourceRegion? region,
   }) {
-    final fixLine = _fitsMaxLength(suggestedName)
-        ? 'Fix by re-running your validation command with `--fix`.'
-        : '`--fix` skips this rename, because "$suggestedName" is longer than '
-              'the $maxLengthParameter of $maxLength.';
+    if (!_fitsMaxLength(suggestedName)) {
+      final byHand =
+          'Rename it by hand to at most $maxLength characters. `--fix` skips this rename, '
+          'because "$suggestedName" is longer than the $maxLengthParameter.';
+      return ValidationError(
+        ruleId: name,
+        severity: severity,
+        file: SkillContext.skillFileName,
+        message: 'Skill "$skillName" must be "$prefix" or start with "$prefix-". $byHand',
+        markdownMessage:
+            '**Skill name must be `$prefix` or start with `$prefix-`.**\n\n'
+            '* **Current:** `$skillName`\n\n'
+            '**How to fix:**\n'
+            '$byHand',
+        region: region,
+      );
+    }
     return ValidationError(
       ruleId: name,
       severity: severity,
@@ -149,7 +162,7 @@ class SkillNamingRule extends SkillRule implements FixableRule {
       message:
           'Skill "$skillName" must be "$prefix" or start with "$prefix-". '
           'Suggested name: "$suggestedName".\n'
-          '$fixLine',
+          'Fix by re-running your validation command with `--fix`.',
       markdownMessage:
           '**Skill name must be `$prefix` or start with `$prefix-`.**\n\n'
           '* **Current:** `$skillName`\n'
@@ -158,7 +171,7 @@ class SkillNamingRule extends SkillRule implements FixableRule {
           '```yaml\n'
           'name: $suggestedName\n'
           '```\n'
-          '*($fixLine)*',
+          '*(Or re-run validation with `--fix` to apply automatically).*',
       region: region,
     );
   }
@@ -188,10 +201,11 @@ class SkillNamingRule extends SkillRule implements FixableRule {
   /// Renames the skill to start with [prefix].
   ///
   /// Leaves the skill unchanged when no prefix is set, or when the suggested
-  /// name is longer than [maxLength]. Doesn't shorten names that are too
-  /// long, because the shorter name is the author's choice.
+  /// name is longer than [maxLength].
   @override
   Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
+    // Names longer than maxLength aren't shortened: the shorter name is the
+    // author's choice.
     final String? prefix = _prefixOrNull;
     if (prefix == null) {
       return context.rawContent;

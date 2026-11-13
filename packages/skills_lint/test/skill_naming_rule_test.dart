@@ -91,11 +91,11 @@ void main() {
 
         expect(
           errors.single.message,
-          endsWith(
-            '`--fix` skips this rename, because "myproject-my-foobar" is longer than '
-            'the max-length of 15.',
-          ),
+          'Skill "my-foobar" must be "myproject" or start with "myproject-". '
+          'Rename it by hand to at most 15 characters. `--fix` skips this rename, '
+          'because "myproject-my-foobar" is longer than the max-length.',
         );
+        expect(errors.single.markdownMessage, isNot(contains('name: myproject-my-foobar')));
       });
     });
 
@@ -230,8 +230,8 @@ void main() {
       });
 
       test('leaves the skill unchanged when no prefix is set', () async {
-        final rule = SkillNamingRule(severity: AnalysisSeverity.error);
-        final String content = buildFrontmatter(name: 'my-foobar');
+        final rule = SkillNamingRule(severity: AnalysisSeverity.error, maxLength: 8);
+        final String content = buildFrontmatter(name: 'my-long-skill');
 
         expect(await rule.fix(SkillContext(directory: tempDir, rawContent: content)), content);
       });

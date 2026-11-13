@@ -293,14 +293,15 @@ governs how changes to these rules ship.
   ```
 - **Diagnostic shape:**
   - `Skill "<name>" must be "<prefix>" or start with "<prefix>-". Suggested name: "<suggestion>".`
-    `Fix by re-running your validation command with --fix.` When the suggestion is longer than `max-length`, the second line says that `--fix` skips the rename.
+    `Fix by re-running your validation command with --fix.`
+    When the suggestion is longer than `max-length`, the message says to rename the skill by hand instead, and that `--fix` skips the rename.
   - `Skill "<name>" is <N> characters; the max-length is <max-length>. Shorten the name: field in SKILL.md.`
   - With the rule enabled and neither parameter set, each skill reports:
     `The skill-naming rule has no convention to check. Set its prefix or max-length parameter in skills_lint.yaml or pass --skill-naming-prefix or --skill-naming-max-length, or disable the rule.`
 - **Parameters:**
   - `prefix` (string): the prefix every skill name must start with. Must be a valid skill name.
   - `max-length` (integer): the most characters a skill name can have, from 1 to 64.
-- **Auto-fix behavior:** for `prefix`, updates the frontmatter `name:` in `SKILL.md` to the suggested name and aligns the parent directory name on disk when run via `--fix`. It skips the rename when the suggested name is longer than `max-length`, or when the directory can't be renamed, for example because the name is taken. It doesn't shorten names, because the shorter name is the author's choice.
+- **Auto-fix behavior:** for `prefix`, updates the frontmatter `name:` in `SKILL.md` to the suggested name and aligns the parent directory name on disk when run via `--fix`. `--fix` skips the rename when the suggested name is longer than `max-length`, or when the directory can't be renamed, for example because the name is taken.
 - **Disable:** `--no-skill-naming` (also the default state).
 
 ## valid-yaml-metadata
