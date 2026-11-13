@@ -76,8 +76,7 @@ class ConfigParser {
   /// Without [configSource], callers can supply both deprecated [sourcePath] and
   /// [baseDirectory]: [baseDirectory] sets the anchor and [sourcePath] labels diagnostics.
   /// Throws [ArgumentError] if [configSource] is combined with either deprecated argument.
-  // TODO(Vaishnavi220506): Remove sourcePath and baseDirectory in 0.6.0.
-  // https://github.com/google/skills_lint.dart/issues/71
+  // TODO(Vaishnavi220506): Remove sourcePath and baseDirectory in 0.6.0. https://github.com/google/skills_lint.dart/issues/71
   static Configuration parse(
     String content, {
     ConfigSource? configSource,
