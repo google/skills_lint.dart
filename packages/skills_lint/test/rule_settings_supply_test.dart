@@ -42,8 +42,9 @@ enum Layer {
 /// One rule's settings as supplied through one [Layer].
 ///
 /// For [Layer.cli], a non-null `severity` passes `--<rule>` when it is
-/// [AnalysisSeverity.error] and `--no-<rule>` otherwise.
-typedef Setting = ({AnalysisSeverity? severity, Map<String, Object?> parameters});
+/// [AnalysisSeverity.error] and `--no-<rule>` otherwise, and a non-null `fix`
+/// passes `--<rule>-fix` or `--no-<rule>-fix`.
+typedef Setting = ({AnalysisSeverity? severity, bool? fix, Map<String, Object?> parameters});
 
 /// Two distinct values for each parameter type: the first for a lower
 /// [Layer], the second for a higher one.
@@ -81,6 +82,9 @@ void main() {
   for (final CheckType check in RuleRegistry.allChecks) {
     group('${check.name} settings', () {
       _defineSeverityTests(check);
+      if (RuleRegistry.fixableRuleNames.contains(check.name)) {
+        _defineFixTests(check);
+      }
       for (final MapEntry<String, RuleParameterType> param in check.parameterSchema.entries) {
         _defineParameterTests(check, param.key, _values[param.value]!);
       }
@@ -96,7 +100,7 @@ void _defineSeverityTests(CheckType check) {
       final AnalysisSeverity severity = _severityFor(layer, other: check.defaultSeverity);
 
       final RuleConfig resolved = _resolve(check, {
-        layer: (severity: severity, parameters: const {}),
+        layer: (severity: severity, fix: null, parameters: const {}),
       });
 
       expect(resolved.severity, severity);
@@ -112,11 +116,47 @@ void _defineSeverityTests(CheckType check) {
       final AnalysisSeverity higherSeverity = _severityFor(higher, other: lowerSeverity);
 
       final RuleConfig resolved = _resolve(check, {
-        lower: (severity: lowerSeverity, parameters: const {}),
-        higher: (severity: higherSeverity, parameters: const {}),
+        lower: (severity: lowerSeverity, fix: null, parameters: const {}),
+        higher: (severity: higherSeverity, fix: null, parameters: const {}),
       });
 
       expect(resolved.severity, higherSeverity);
+    });
+  }
+}
+
+void _defineFixTests(CheckType check) {
+  for (final Layer layer in Layer.values) {
+    test('fix from ${layer.name} applies', () {
+      final RuleConfig resolved = _resolve(check, {
+        layer: (severity: null, fix: false, parameters: const {}),
+      });
+
+      expect(resolved.fix, isFalse);
+    });
+  }
+
+  for (final (Layer lower, Layer higher) in _precedencePairs) {
+    test('fix from ${higher.name} overrides ${lower.name}', () {
+      final RuleConfig resolved = _resolve(check, {
+        lower: (severity: null, fix: false, parameters: const {}),
+        higher: (severity: null, fix: true, parameters: const {}),
+      });
+
+      expect(resolved.fix, isTrue);
+    });
+
+    test('fix from ${lower.name} survives a severity from ${higher.name}', () {
+      final RuleConfig resolved = _resolve(check, {
+        lower: (severity: null, fix: false, parameters: const {}),
+        higher: (
+          severity: _severityFor(higher, other: check.defaultSeverity),
+          fix: null,
+          parameters: const {},
+        ),
+      });
+
+      expect(resolved.fix, isFalse);
     });
   }
 }
@@ -127,7 +167,7 @@ void _defineParameterTests(CheckType check, String name, List<Object> values) {
   for (final Layer layer in Layer.values) {
     test('$name from ${layer.name} applies', () {
       final RuleConfig resolved = _resolve(check, {
-        layer: (severity: null, parameters: {name: values[1]}),
+        layer: (severity: null, fix: null, parameters: {name: values[1]}),
       });
 
       expect(resolved.parameters[name], values[1]);
@@ -137,8 +177,8 @@ void _defineParameterTests(CheckType check, String name, List<Object> values) {
   for (final (Layer lower, Layer higher) in _precedencePairs) {
     test('$name from ${higher.name} overrides ${lower.name}', () {
       final RuleConfig resolved = _resolve(check, {
-        lower: (severity: null, parameters: {name: values[0]}),
-        higher: (severity: null, parameters: {name: values[1]}),
+        lower: (severity: null, fix: null, parameters: {name: values[0]}),
+        higher: (severity: null, fix: null, parameters: {name: values[1]}),
       });
 
       expect(resolved.parameters[name], values[1]);
@@ -146,9 +186,10 @@ void _defineParameterTests(CheckType check, String name, List<Object> values) {
 
     test('$name from ${lower.name} survives a severity from ${higher.name}', () {
       final RuleConfig resolved = _resolve(check, {
-        lower: (severity: null, parameters: {name: values[0]}),
+        lower: (severity: null, fix: null, parameters: {name: values[0]}),
         higher: (
           severity: _severityFor(higher, other: check.defaultSeverity),
+          fix: null,
           parameters: const {},
         ),
       });
@@ -202,6 +243,7 @@ Map<String, RuleConfigPatch> _patches(CheckType check, Setting? setting) => {
   if (setting != null)
     check.name: RuleConfigPatch(
       severity: setting.severity,
+      fix: setting.fix,
       parameters: setting.parameters.isEmpty ? null : CustomRuleParameters(setting.parameters),
     ),
 };
@@ -240,6 +282,14 @@ List<String> _cliArgs(CheckType check, Setting? setting) {
       args.add('--${check.name}');
     case _:
       args.add('--no-${check.name}');
+  }
+  switch (setting?.fix) {
+    case null:
+      break;
+    case true:
+      args.add('--${check.parameterFlag(ConfigParser.fixKey)}');
+    case false:
+      args.add('--no-${check.parameterFlag(ConfigParser.fixKey)}');
   }
   for (final MapEntry<String, Object?> parameter in setting?.parameters.entries ?? const []) {
     final flag = '--${check.parameterFlag(parameter.key)}';

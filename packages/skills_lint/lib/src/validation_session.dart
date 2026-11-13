@@ -5,7 +5,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
@@ -30,21 +29,21 @@ import 'reporters/reporters.dart';
 import 'rule_registry.dart';
 import 'rules/pub_archive_includes_skill_rule.dart';
 import 'skill_fixer.dart';
-import 'skill_writer.dart';
-import 'skills_ignores_storage.dart';
 import 'unknown_rule_names.dart';
 import 'validator.dart';
+import 'write/ignore_file_writer.dart';
+import 'write/skill_writer.dart';
+import 'write/write_boundary.dart';
 
-final _log = Logger('skills_lint');
+export 'write/ignore_file_writer.dart' show defaultIgnoreFileName;
 
-/// Default filename for the per-run ignore baseline file.
-///
-/// Referenced both by production code (the `--generate-baseline` help text in
-/// the CLI) and by tests, so this is intentionally not `@visibleForTesting`.
-const defaultIgnoreFileName = 'skills_lint_ignore.json';
-
-/// The ignore file for a skill in the given directory.
+// TODO(reidbaker): Remove deprecated IgnorePathFor typedef in 0.6.0.
+/// The ignore file path for a skill in [skillDir].
+@Deprecated('Unused; will be removed in 0.6.0.')
 typedef IgnorePathFor = String Function(Directory skillDir);
+
+/// The [IgnoreFileTarget] for a skill in the given directory.
+typedef _IgnoreTargetFor = IgnoreFileTarget Function(Directory skillDir);
 
 /// Per-invocation state and orchestration for skill validation.
 ///
@@ -77,6 +76,8 @@ class ValidationSession {
   /// * [fixApply] is the deprecated flag indicating if fixes should be automatically applied.
   // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
   /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
+  /// * [allowWrite] lists directories from `--allow-write` that every
+  ///   target's writes may also land in.
   /// * [pubArchiveLoader] lists the files pub publishes. Tests pass one with a
   ///   fake process runner.
   /// * [skillWriter] builds the [SkillWriter] that does the `--fix` file I/O.
@@ -97,13 +98,14 @@ class ValidationSession {
     // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
     required this.fixApply,
     this.format = OutputFormat.text,
+    List<String> allowWrite = const [],
     @visibleForTesting PubArchiveLoader? pubArchiveLoader,
     @visibleForTesting SkillWriter Function(Reporter reporter) skillWriter = SkillWriter.new,
   }) : _pubArchiveLoader = pubArchiveLoader ?? PubArchiveLoader(),
        _skillWriterFor = skillWriter,
-       _reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings),
        resolvedRuleConfigs = mergeDeprecatedRules(resolvedRules, resolvedRuleConfigs),
        ignoreFileOverride = _ingestOptionalPath(ignoreFileOverride),
+       _allowWrite = [for (final String path in allowWrite) _ingestPath(path)],
        _normalizedDirectoryConfigs = [
          for (final dc in [...config.directoryConfigs, ...config.individualSkillConfigs])
            (
@@ -111,7 +113,11 @@ class ValidationSession {
              normalizedIgnoreFile: _ingestOptionalPath(dc.ignoreFile),
              config: dc,
            ),
-       ];
+       ] {
+    final reporter = Reporter.fromFormat(format, quiet: quiet, printWarnings: printWarnings);
+    _reporter = reporter;
+    _ignoreWriter = IgnoreFileWriter(reporter);
+  }
 
   /// Anchors an externally supplied [rawPath] to the working directory.
   ///
@@ -163,7 +169,12 @@ class ValidationSession {
   // TODO(reidbaker): Remove deprecated fixApply field on next major version bump.
   final bool fixApply;
   final OutputFormat format;
-  final Reporter _reporter;
+
+  /// The anchored directories from `--allow-write`.
+  final List<String> _allowWrite;
+
+  late final Reporter _reporter;
+  late final IgnoreFileWriter _ignoreWriter;
   final PubArchiveLoader _pubArchiveLoader;
 
   final SkillWriter Function(Reporter reporter) _skillWriterFor;
@@ -191,21 +202,14 @@ class ValidationSession {
   bool _fixWriteFailed = false;
   bool _anySkillsValidated = false;
 
-  /// The problems [_loadIgnores] found in each ignore file that had entries
-  /// it could not read.
-  ///
-  /// [_saveBaseline] says what it drops before it replaces one of these
-  /// files, since the new file lacks the entries that could not be read.
-  ///
-  /// Keyed by the path string from [_resolveIgnorePath]. Each caller passes
-  /// [_loadIgnores] and [_saveBaseline] the same string for a file.
-  final Map<String, List<IgnoreProblem>> _ignoreFilesWithErrors = {};
+  /// Whether `--fix` refused a write or rename because it would land outside a
+  /// [WriteBoundary].
+  bool _fixWriteRefused = false;
 
-  /// Ignore files whose dropped entries [_saveBaseline] has reported, so the
-  /// message appears once per file.
-  final Set<String> _reportedDroppedEntries = {};
+  bool get _writeRefused => _fixWriteRefused || _ignoreWriter.writeRefused;
 
-  bool get anyFailed => _anyFailed || _fixWriteFailed;
+  bool get anyFailed => _anyFailed || _fixWriteFailed || _writeRefused;
+
   bool get anySkillsValidated => _anySkillsValidated;
 
   /// Reports that the [kind] of target at [normalizedPath] does not exist,
@@ -271,41 +275,42 @@ class ValidationSession {
     }
 
     final Map<String, RuleConfig> resolvedConfigs = resolveRuleConfigsForPath(normalizedSkillPath);
-    final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
     final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
-
-    final String ignorePath = _resolveIgnorePath(localIgnoreFile, skillDir);
-    final SkillsIgnores ignores = await _loadIgnores(
-      ignorePath,
-      isCustomIgnoreFile: localIgnoreFile != null,
+    final boundary = WriteBoundary.forSkill(
+      normalizedSkillPath,
+      configDirectory: declaredBy == null ? null : declarationOf(declaredBy)?.anchorDirectory,
+      configAllowed: declaredBy?.writeAllow ?? const [],
+      allowed: _allowWrite,
     );
+    final IgnoreFileTarget ignoreTarget = _resolveIgnoreTarget(
+      normalizedSkillPath,
+      defaultDirectory: skillDir,
+      targetBoundary: boundary,
+    );
+    final SkillsIgnores ignores = await _ignoreWriter.load(ignoreTarget);
 
     _anySkillsValidated = true;
     // The workflow adds no results, so this skill's result lands at
     // [resultIndex] when it is added below.
     final int resultIndex = _results.length;
-    // Without a configured ignore file, the skill's own ignore file moves
-    // with the skill directory when --fix renames it.
-    final IgnorePathFor ignorePathFor = localIgnoreFile == null
-        ? (Directory dir) => p.join(dir.path, defaultIgnoreFileName)
-        : (Directory _) => ignorePath;
     final ValidationResult finalResult = await _runValidationWorkflow(
       skillDir: skillDir,
+      boundary: boundary,
       validator: validator,
       ignores: ignores,
-      ignorePathFor: ignorePathFor,
+      ignoreTargetFor: ignoreTarget.afterSkillRename,
       resultIndex: resultIndex,
     );
     _results.add(finalResult);
 
     final Directory effectiveSkillDir = finalResult.context?.directory ?? skillDir;
     final String effectiveSkillName = p.basename(effectiveSkillDir.path);
-    final String effectiveIgnorePath = ignorePathFor(effectiveSkillDir);
+    final String effectiveIgnorePath = ignoreTarget.afterSkillRename(effectiveSkillDir).path;
     if (generateBaseline) {
-      await _saveBaseline(effectiveIgnorePath, ignores);
+      await _ignoreWriter.saveBaseline(effectiveIgnorePath, ignores);
     } else {
       if (_renamedIgnorePaths.remove(effectiveIgnorePath)) {
-        await _saveBaseline(effectiveIgnorePath, ignores);
+        await _ignoreWriter.saveBaseline(effectiveIgnorePath, ignores);
       }
       final String fullPath = p.absolute(effectiveSkillDir.path);
       for (final IgnoreEntry ignore in ignores.skills[effectiveSkillName] ?? const []) {
@@ -388,6 +393,12 @@ class ValidationSession {
     // and to accumulate ignore usages correctly across all skills.
     final Map<String, SkillsIgnores> loadedIgnoresCache = {};
     var stoppedEarly = false;
+    final boundary = WriteBoundary.forSkillsDirectory(
+      normalizedRootPath,
+      configDirectory: declaredBy == null ? null : declarationOf(declaredBy)?.anchorDirectory,
+      configAllowed: declaredBy?.writeAllow ?? const [],
+      allowed: _allowWrite,
+    );
 
     for (final entity in entities) {
       if (entity is! Directory || p.basename(entity.path).startsWith('.')) {
@@ -398,6 +409,7 @@ class ValidationSession {
         entity,
         rootDir,
         loadedIgnoresCache,
+        boundary,
       );
       if (!shouldContinue) {
         stoppedEarly = true;
@@ -417,19 +429,18 @@ class ValidationSession {
     Directory entity,
     Directory rootDir,
     Map<String, SkillsIgnores> loadedIgnoresCache,
+    WriteBoundary boundary,
   ) async {
     // [rootDir] is already anchored, so its children are absolute as well.
     final String normalizedSkillPath = p.normalize(entity.path);
     final Map<String, RuleConfig> resolvedConfigs = resolveRuleConfigsForPath(normalizedSkillPath);
-    final String? localIgnoreFile = resolveIgnoreFile(normalizedSkillPath);
     final validator = Validator(ruleConfigs: resolvedConfigs, customRules: customRules);
-
-    final String ignorePath = _resolveIgnorePath(localIgnoreFile, rootDir);
-    final SkillsIgnores ignores = await _getIgnoresForSkill(
-      localIgnoreFile,
-      rootDir,
-      loadedIgnoresCache,
+    final IgnoreFileTarget ignoreTarget = _resolveIgnoreTarget(
+      normalizedSkillPath,
+      defaultDirectory: rootDir,
+      targetBoundary: boundary,
     );
+    final SkillsIgnores ignores = await _getIgnoresForSkill(ignoreTarget, loadedIgnoresCache);
 
     _anySkillsValidated = true;
     // The workflow adds no results, so this skill's result lands at
@@ -437,9 +448,10 @@ class ValidationSession {
     final int resultIndex = _results.length;
     final ValidationResult finalResult = await _runValidationWorkflow(
       skillDir: entity,
+      boundary: boundary,
       validator: validator,
       ignores: ignores,
-      ignorePathFor: (Directory _) => ignorePath,
+      ignoreTargetFor: (Directory _) => ignoreTarget,
       resultIndex: resultIndex,
     );
     _results.add(finalResult);
@@ -454,21 +466,17 @@ class ValidationSession {
   }
 
   Future<SkillsIgnores> _getIgnoresForSkill(
-    String? localIgnoreFile,
-    Directory rootDir,
+    IgnoreFileTarget target,
     Map<String, SkillsIgnores> loadedIgnoresCache,
   ) async {
-    final String ignorePath = _resolveIgnorePath(localIgnoreFile, rootDir);
-
-    if (loadedIgnoresCache.containsKey(ignorePath)) {
-      return loadedIgnoresCache[ignorePath]!;
+    final SkillsIgnores? cached = loadedIgnoresCache[target.path];
+    if (cached != null) {
+      _ignoreWriter.recordBoundary(target);
+      return cached;
     }
 
-    final SkillsIgnores ignores = await _loadIgnores(
-      ignorePath,
-      isCustomIgnoreFile: localIgnoreFile != null,
-    );
-    loadedIgnoresCache[ignorePath] = ignores;
+    final SkillsIgnores ignores = await _ignoreWriter.load(target);
+    loadedIgnoresCache[target.path] = ignores;
     return ignores;
   }
 
@@ -478,17 +486,17 @@ class ValidationSession {
     required bool stoppedEarly,
   }) async {
     for (final MapEntry<String, SkillsIgnores> entry in loadedIgnoresCache.entries) {
-      final String ignorePath = entry.key;
+      final String ignoreFilePath = entry.key;
       final SkillsIgnores ignores = entry.value;
 
       if (generateBaseline) {
-        await _saveBaseline(ignorePath, ignores);
+        await _ignoreWriter.saveBaseline(ignoreFilePath, ignores);
         continue;
       }
       // A rename moved this file's keys, so it is saved even after a
       // fast-fail stop.
-      if (_renamedIgnorePaths.remove(ignorePath)) {
-        await _saveBaseline(ignorePath, ignores);
+      if (_renamedIgnorePaths.remove(ignoreFilePath)) {
+        await _ignoreWriter.saveBaseline(ignoreFilePath, ignores);
       }
       // After a fast-fail stop, unused entries may belong to skills this run
       // did not validate, so they are not known to be stale.
@@ -646,15 +654,7 @@ class ValidationSession {
     if (ignoreFileOverride != null) {
       return ignoreFileOverride;
     }
-    String? resolvedIgnoreFile;
-    for (final ({String normalizedPath, String? normalizedIgnoreFile, LintTargetConfig config})
-        entry
-        in _normalizedDirectoryConfigs) {
-      if (_targetCovers(entry.normalizedPath, normalizedPath)) {
-        resolvedIgnoreFile = entry.normalizedIgnoreFile ?? resolvedIgnoreFile;
-      }
-    }
-    return resolvedIgnoreFile;
+    return _matchingIgnoreConfig(normalizedPath)?.ignoreFilePath;
   }
 
   /// Whether a configuration target at [targetPath] applies to [skillPath].
@@ -664,47 +664,43 @@ class ValidationSession {
   static bool _targetCovers(String targetPath, String skillPath) =>
       isAtOrWithin(targetPath, skillPath);
 
-  String _resolveIgnorePath(String? localIgnoreFile, Directory rootDir) {
-    // [localIgnoreFile] arrives anchored from [resolveIgnoreFile] or from
-    // [ignoreFileOverride], both of which pass through [_ingestPath].
-    return localIgnoreFile ?? p.join(rootDir.path, defaultIgnoreFileName);
+  /// The last configuration target covering [normalizedSkillPath] that sets an
+  /// `ignore_file`, paired with its anchored path, or `null` if none does.
+  ({String ignoreFilePath, LintTargetConfig config})? _matchingIgnoreConfig(
+    String normalizedSkillPath,
+  ) {
+    ({String ignoreFilePath, LintTargetConfig config})? matched;
+    for (final (:normalizedPath, :normalizedIgnoreFile, :config) in _normalizedDirectoryConfigs) {
+      if (_targetCovers(normalizedPath, normalizedSkillPath) && normalizedIgnoreFile != null) {
+        matched = (ignoreFilePath: normalizedIgnoreFile, config: config);
+      }
+    }
+    return matched;
   }
 
-  /// Loads the ignore JSON from [ignorePath], returning the parsed [SkillsIgnores].
-  ///
-  /// If [isCustomIgnoreFile] is true and the file does not exist, generates an
-  /// empty baseline file on disk.
-  ///
-  /// Reports each entry that could not be read the first time it loads a
-  /// given file. The report does not mark the session failed.
-  Future<SkillsIgnores> _loadIgnores(String ignorePath, {required bool isCustomIgnoreFile}) async {
-    final file = File(ignorePath);
-
-    if (file.existsSync()) {
-      final IgnoresLoad loaded = await SkillsIgnoresStorage().load(ignorePath);
-      // TODO(reidbaker-agent): https://github.com/google/skills_lint.dart/issues/183
-      // Make an ignore file with errors fail the run in 0.6.0.
-      if (loaded.problems.isNotEmpty && !_ignoreFilesWithErrors.containsKey(ignorePath)) {
-        _ignoreFilesWithErrors[ignorePath] = loaded.problems;
-        for (final IgnoreProblem problem in loaded.problems) {
-          _reporter.onIgnoreFileError(problem.message);
-        }
-      }
-      return loaded.ignores;
+  /// Resolves the [IgnoreFileTarget] for [normalizedSkillPath], falling back to
+  /// `skills_lint_ignore.json` in [defaultDirectory] when neither
+  /// [ignoreFileOverride] nor a matching configuration entry specifies one.
+  IgnoreFileTarget _resolveIgnoreTarget(
+    String normalizedSkillPath, {
+    required Directory defaultDirectory,
+    required WriteBoundary targetBoundary,
+  }) {
+    final String? overridePath = ignoreFileOverride;
+    if (overridePath != null) {
+      return IgnoreFileTarget.fromOverride(overridePath);
     }
-
-    // If a custom ignore file was specified but not found, create an empty one
-    // so the user can start adding ignores to it.
-    if (isCustomIgnoreFile) {
-      _log.warning('File not found generating-baseline');
-      try {
-        await file.writeAsString(jsonEncode({SkillsIgnores.skillsKey: <String, dynamic>{}}));
-      } on FileSystemException {
-        // Ignore write errors, we will just return empty ignores.
-      }
+    final ({String ignoreFilePath, LintTargetConfig config})? configured = _matchingIgnoreConfig(
+      normalizedSkillPath,
+    );
+    if (configured != null) {
+      return IgnoreFileTarget.fromConfiguration(
+        configured.ignoreFilePath,
+        configDirectory: declarationOf(configured.config)?.anchorDirectory,
+        allowWrite: _allowWrite,
+      );
     }
-
-    return SkillsIgnores(skills: {});
+    return IgnoreFileTarget.defaultIn(defaultDirectory, targetBoundary: targetBoundary);
   }
 
   /// Marks the errors in [result] that [ignores] covers.
@@ -830,12 +826,13 @@ class ValidationSession {
   /// [generateBaseline] is set) updates [ignores] in memory with any new
   /// baseline entries for this skill. The caller is responsible for
   /// persisting [ignores] to disk once after all skills are processed —
-  /// see [_saveBaseline].
+  /// see [IgnoreFileWriter.saveBaseline].
   Future<ValidationResult> _runValidationWorkflow({
     required Directory skillDir,
+    required WriteBoundary boundary,
     required Validator validator,
     required SkillsIgnores ignores,
-    required IgnorePathFor ignorePathFor,
+    required _IgnoreTargetFor ignoreTargetFor,
     required int resultIndex,
   }) async {
     final String skillName = p.basename(skillDir.path);
@@ -849,16 +846,17 @@ class ValidationSession {
 
     final ValidationResult finalResult = await _applyFixesIfNeeded(
       skillDir: skillDir,
+      boundary: boundary,
       result: result,
       validator: validator,
       skillIgnores: skillIgnores,
       ignores: ignores,
-      ignorePathFor: ignorePathFor,
+      ignoreTargetFor: ignoreTargetFor,
     );
 
     final Directory effectiveSkillDir = finalResult.context?.directory ?? skillDir;
     final String effectiveName = p.basename(effectiveSkillDir.path);
-    final String effectiveIgnorePath = ignorePathFor(effectiveSkillDir);
+    final String effectiveIgnorePath = ignoreTargetFor(effectiveSkillDir).path;
     _validatedSkills.add(
       _ValidatedSkill(
         resultIndex: resultIndex,
@@ -915,11 +913,12 @@ class ValidationSession {
 
   Future<ValidationResult> _applyFixesIfNeeded({
     required Directory skillDir,
+    required WriteBoundary boundary,
     required ValidationResult result,
     required Validator validator,
     required List<IgnoreEntry> skillIgnores,
     required SkillsIgnores ignores,
-    required IgnorePathFor ignorePathFor,
+    required _IgnoreTargetFor ignoreTargetFor,
   }) async {
     if (!fix && !fixApply) {
       return result;
@@ -943,18 +942,27 @@ class ValidationSession {
     // again under the current name: the fixes that need the rename drop out,
     // and the others still land.
     FixOutcome outcome = await fixer.fix(result);
-    ApplyResult applied = writer.preflight(skillDir, outcome.directoryName);
+    // A plan that changes nothing writes nothing, so no boundary applies.
+    ApplyResult applied = outcome.content == context.rawContent
+        ? Applied(skillDir, renamed: false)
+        : writer.preflight(skillDir, outcome.directoryName, boundary);
+    if (applied is WriteRefused) {
+      // SkillWriter reported why. Nothing is written for this skill, and the
+      // run fails, with or without --dry-run.
+      _fixWriteRefused = true;
+      return result;
+    }
     if (applied is RenameBlocked) {
       outcome = await _planWithoutRename(fixer, result, applied);
     }
     if (fixApply && outcome.content != context.rawContent) {
-      applied = await writer.apply(skillDir, outcome.content, outcome.directoryName);
+      applied = await writer.apply(skillDir, outcome.content, outcome.directoryName, boundary);
       if (applied is RenameBlocked) {
         // Only the rename failed, before anything was written.
         outcome = await _planWithoutRename(fixer, result, applied);
         if (outcome.content != context.rawContent) {
           // The new plan keeps the directory name, so this apply only writes.
-          applied = await writer.apply(skillDir, outcome.content, outcome.directoryName);
+          applied = await writer.apply(skillDir, outcome.content, outcome.directoryName, boundary);
         }
       }
     }
@@ -988,7 +996,7 @@ class ValidationSession {
       validator: validator,
       ignores: ignores,
       skillIgnores: skillIgnores,
-      ignorePathFor: ignorePathFor,
+      ignoreTargetFor: ignoreTargetFor,
     );
   }
 
@@ -1002,22 +1010,22 @@ class ValidationSession {
     required Validator validator,
     required SkillsIgnores ignores,
     required List<IgnoreEntry> skillIgnores,
-    required IgnorePathFor ignorePathFor,
+    required _IgnoreTargetFor ignoreTargetFor,
   }) async {
     final String currentDirectoryName = p.basename(skillDir.path);
     // A failed write leaves the skill renamed only if undoing the rename
     // failed too.
     final Directory dirAfter = switch (applied) {
       Applied(:final Directory dir) || WriteFailed(:final Directory dir) => dir,
-      RenameBlocked() => skillDir,
+      RenameBlocked() || WriteRefused() => skillDir,
     };
     if (dirAfter.path != skillDir.path) {
       _onSkillRenamed(
         oldName: currentDirectoryName,
         renamedDir: dirAfter,
         ignores: ignores,
-        oldIgnorePath: ignorePathFor(skillDir),
-        ignorePath: ignorePathFor(dirAfter),
+        oldIgnorePath: ignoreTargetFor(skillDir).path,
+        newIgnoreTarget: ignoreTargetFor(dirAfter),
       );
     }
     if (applied is Applied) {
@@ -1056,37 +1064,32 @@ class ValidationSession {
   /// [renamedDir].
   ///
   /// Moves the skill's ignore entries in [ignores] to the new name, marks the
-  /// ignore file at [ignorePath] to be saved, drops the cached archive, which
-  /// lists files by path, and asks for every skill to be checked again.
-  ///
-  /// The ignore file was at [oldIgnorePath] before the rename. When it moved
-  /// with the skill, its load problems move to [ignorePath], so that
-  /// [_saveBaseline] still says which entries it can't carry over.
+  /// ignore file at [newIgnoreTarget] to be saved, drops the cached archive,
+  /// which lists files by path, and asks for every skill to be checked again.
   void _onSkillRenamed({
     required String oldName,
     required Directory renamedDir,
     required SkillsIgnores ignores,
     required String oldIgnorePath,
-    required String ignorePath,
+    required IgnoreFileTarget newIgnoreTarget,
   }) {
     _anySkillRenamed = true;
     _pubArchiveLoader.clear();
-    final List<IgnoreProblem>? problems = _ignoreFilesWithErrors.remove(oldIgnorePath);
-    if (problems != null) {
-      _ignoreFilesWithErrors[ignorePath] = problems;
-    }
+    _ignoreWriter.moveRenamedIgnoreFile(oldIgnorePath: oldIgnorePath, newTarget: newIgnoreTarget);
     if (ignores.renameSkill(oldName, p.basename(renamedDir.path)) &&
-        File(ignorePath).existsSync()) {
-      _renamedIgnorePaths.add(ignorePath);
+        File(newIgnoreTarget.path).existsSync()) {
+      _renamedIgnorePaths.add(newIgnoreTarget.path);
     }
   }
 
   /// The fixer for the skill in [skillDir], which counts only diagnostics
-  /// that [skillIgnores] don't cover.
+  /// that [skillIgnores] don't cover, and runs only the fixes enabled in
+  /// [validator].
   SkillFixer _fixerFor(Validator validator, List<IgnoreEntry> skillIgnores, Directory skillDir) {
     final failedRuleNames = <String>{};
     return SkillFixer(
       validator: validator,
+      mayFix: validator.fixEnabledFor,
       applyIgnores: (ValidationResult candidate) =>
           _applyIgnores(candidate, skillIgnores, skillDir),
       // A broken fixer throws on every pass and in every plan. Report it
@@ -1118,7 +1121,7 @@ class ValidationSession {
 
   /// Mutates [ignores] in place to add baseline entries for any non-ignored
   /// errors in [result] under the [skillName] key. Pure in-memory operation
-  /// — pair with [_saveBaseline] to persist changes.
+  /// — pair with [IgnoreFileWriter.saveBaseline] to persist changes.
   void _updateBaselineForSkill(
     SkillsIgnores ignores,
     ValidationResult result,
@@ -1151,30 +1154,6 @@ class ValidationSession {
   /// Whether [a] and [b] suppress the same findings.
   static bool _coverSameFindings(IgnoreEntry a, IgnoreEntry b) =>
       a.ruleId == b.ruleId && a.fileName == b.fileName && a.subject == b.subject;
-
-  /// Writes [ignores] to [ignorePath]. Write failures are logged at warning
-  /// level and otherwise swallowed so a single I/O error does not abort the
-  /// rest of the run.
-  ///
-  /// Before replacing an ignore file that had entries [_loadIgnores] could
-  /// not read, reports that those entries are not carried over, since
-  /// [ignores] lacks them. Writes the file regardless, so that regenerating a
-  /// baseline always works.
-  Future<void> _saveBaseline(String ignorePath, SkillsIgnores ignores) async {
-    final List<IgnoreProblem>? problems = _ignoreFilesWithErrors[ignorePath];
-    if (problems != null && _reportedDroppedEntries.add(ignorePath)) {
-      _reporter.onIgnoreEntriesDropped(
-        ignorePath,
-        entryCount: problems.length,
-        skills: {for (final IgnoreProblem(:skill) in problems) ?skill}.toList()..sort(),
-      );
-    }
-    try {
-      await SkillsIgnoresStorage().save(ignorePath, ignores);
-    } on FileSystemException catch (e) {
-      _reporter.onBaselineFailed(ignorePath, e);
-    }
-  }
 
   /// Emits the formatted validation output (SARIF or JSON) to [sink] (defaults to [stdout]).
   void emitFormattedOutput([StringSink? sink]) {
@@ -1291,7 +1270,7 @@ class ValidationSession {
     _anyFailed = _results.any((ValidationResult result) => !result.isValid);
 
     for (final MapEntry<String, SkillsIgnores> saveEntry in baselinesToSave.entries) {
-      await _saveBaseline(saveEntry.key, saveEntry.value);
+      await _ignoreWriter.saveBaseline(saveEntry.key, saveEntry.value);
     }
   }
 
@@ -1310,6 +1289,13 @@ class ValidationSession {
     return true;
   }
 }
+
+/// Whether [session] refused a write or rename because it fell outside a
+/// [WriteBoundary].
+///
+/// Internal to skills_lint: `package:skills_lint/skills_lint.dart` hides this
+/// function.
+bool writeRefusedInSession(ValidationSession session) => session._writeRefused;
 
 class _ValidatedSkill {
   const _ValidatedSkill({

@@ -31,8 +31,9 @@ import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
 import 'package:skills_lint/src/skill_fixer.dart';
-import 'package:skills_lint/src/skill_writer.dart';
 import 'package:skills_lint/src/validator.dart';
+import 'package:skills_lint/src/write/skill_writer.dart';
+import 'package:skills_lint/src/write/write_boundary.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -90,7 +91,12 @@ class _RenamesThenFailsWriter extends SkillWriter {
   _RenamesThenFailsWriter(super.reporter);
 
   @override
-  Future<ApplyResult> apply(Directory skill, String content, String wantedName) async {
+  Future<ApplyResult> apply(
+    Directory skill,
+    String content,
+    String wantedName,
+    WriteBoundary boundary,
+  ) async {
     final Directory renamed = await skill.rename(p.join(skill.parent.path, wantedName));
     return WriteFailed(const FileSystemException('Cannot open file'), dir: renamed);
   }
@@ -130,6 +136,7 @@ void main() {
     final validator = Validator(ruleConfigs: ruleConfigs, customRules: customRules);
     return SkillFixer(
       validator: validator,
+      mayFix: validator.fixEnabledFor,
       applyIgnores: (_) {},
       onFixFailed: (ruleName, error) => fail('$ruleName fix threw $error'),
     ).fix(await validator.validate(skillDir), canRename: canRename);
@@ -201,6 +208,20 @@ void main() {
     expect(outcome.result.isValid, isTrue);
     expect(outcome.settled, isTrue);
     await expectDiskMatches(outcome, skillDir, ruleConfigs);
+  });
+
+  test('runs only the fixes whose resolved fix setting is true', () async {
+    const Map<String, RuleConfig> ruleConfigs = {
+      ...publishedName,
+      TrailingWhitespaceRule.ruleName: RuleConfig(severity: AnalysisSeverity.error, fix: false),
+    };
+    final Directory skillDir = await createPackageSkill('foo', body: 'Body   \n');
+
+    final FixOutcome outcome = await predict(skillDir, ruleConfigs);
+
+    expect(outcome.appliedRuleNames, [PublishedSkillNameRule.ruleName]);
+    expect(outcome.content, contains('Body   \n'));
+    expect(outcome.result.errors, [contains('trailing space')]);
   });
 
   test('drops a fix that would turn a warning into an error', () async {

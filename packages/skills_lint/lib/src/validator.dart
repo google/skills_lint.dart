@@ -79,6 +79,10 @@ class Validator {
   /// Returns the rules used by this validator.
   List<SkillRule> get rules => _rules;
 
+  /// Whether the configuration lets `--fix` run the fix of the rule named
+  /// [ruleName].
+  bool fixEnabledFor(String ruleName) => _ruleConfigs[ruleName]?.fix ?? RuleConfig.defaultFix;
+
   AnalysisSeverity _getSeverity(String name, AnalysisSeverity defaultSeverity) {
     return _ruleConfigs[name]?.severity ?? defaultSeverity;
   }

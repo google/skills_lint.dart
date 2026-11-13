@@ -6,9 +6,10 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import 'models/skill_context.dart';
-import 'reporters/fix_io_messages.dart';
-import 'reporters/reporter.dart';
+import '../models/skill_context.dart';
+import '../reporters/fix_io_messages.dart';
+import '../reporters/reporter.dart';
+import 'write_boundary.dart';
 
 /// What happened when [SkillWriter] applied, or checked, a fix plan.
 sealed class ApplyResult {}
@@ -52,6 +53,15 @@ final class WriteFailed extends ApplyResult {
   final Directory dir;
 }
 
+/// The plan would write or rename outside the scan target's
+/// [WriteBoundary]. Nothing was written.
+final class WriteRefused extends ApplyResult {
+  WriteRefused({required this.reason});
+
+  /// Why the write was refused, readable as the end of a sentence.
+  final String reason;
+}
+
 /// Does all of the file I/O for `--fix`: renames a skill directory, then
 /// writes its `SKILL.md`.
 ///
@@ -62,17 +72,20 @@ class SkillWriter {
 
   final Reporter _reporter;
 
-  /// Checks, without writing, whether [skill] can be renamed to [wantedName].
+  /// Checks, without writing, whether [skill] can be written in place and
+  /// renamed to [wantedName] within [boundary].
   ///
   /// It sees a directory that already has the name. It can't see errors that
   /// only the rename itself reveals, such as missing permissions.
   ///
-  /// Like [apply], it reports a blocked rename through `onRenameBlocked`, so
-  /// callers don't report it again.
-  ApplyResult preflight(Directory skill, String wantedName) {
-    final RenameBlocked? blocked = _checkTarget(skill, wantedName);
-    if (blocked != null) {
-      return blocked;
+  /// Like [apply], it reports a blocked rename through
+  /// [Reporter.onRenameBlocked], and a refused write through
+  /// [Reporter.onWriteRefused], so callers don't report them again.
+  ApplyResult preflight(Directory skill, String wantedName, WriteBoundary boundary) {
+    final ApplyResult? stopped =
+        _checkBoundary(skill, wantedName, boundary) ?? _checkTarget(skill, wantedName);
+    if (stopped != null) {
+      return stopped;
     }
     return Applied(
       Directory(p.join(p.dirname(skill.path), wantedName)),
@@ -83,13 +96,20 @@ class SkillWriter {
   /// Renames [skill] to [wantedName], then writes [content] to its
   /// `SKILL.md`.
   ///
-  /// When the rename is blocked, nothing is written. When the write fails
-  /// after a rename, the rename is undone if it can be.
-  Future<ApplyResult> apply(Directory skill, String content, String wantedName) async {
+  /// When the rename is blocked, or would write outside [boundary], nothing
+  /// is written. When the write fails after a rename, the rename is undone if
+  /// it can be.
+  Future<ApplyResult> apply(
+    Directory skill,
+    String content,
+    String wantedName,
+    WriteBoundary boundary,
+  ) async {
     final String currentName = p.basename(skill.path);
-    final RenameBlocked? blocked = _checkTarget(skill, wantedName);
-    if (blocked != null) {
-      return blocked;
+    final ApplyResult? stopped =
+        _checkBoundary(skill, wantedName, boundary) ?? _checkTarget(skill, wantedName);
+    if (stopped != null) {
+      return stopped;
     }
 
     var dir = skill;
@@ -146,6 +166,44 @@ class SkillWriter {
       error: writeError,
     );
     return WriteFailed(writeError, dir: original);
+  }
+
+  /// Reports and returns a [WriteRefused] when `SKILL.md` would be outside
+  /// [boundary], or when [wantedName] differs from [skill]'s directory name and
+  /// either cannot be used as a directory name or would land outside
+  /// [boundary].
+  WriteRefused? _checkBoundary(Directory skill, String wantedName, WriteBoundary boundary) {
+    final String currentName = p.basename(skill.path);
+    if (wantedName != currentName) {
+      final String? badName = WriteBoundary.directoryNameRefusal(wantedName);
+      if (badName != null) {
+        return _refused(
+          action: "rename skill directory '$currentName' to '$wantedName'",
+          reason: badName,
+        );
+      }
+    }
+    final String skillMdPath = p.join(skill.path, SkillContext.skillFileName);
+    final String? writeRefusal = boundary.refusal(skillMdPath);
+    if (writeRefusal != null) {
+      return _refused(action: "write '$skillMdPath'", reason: writeRefusal);
+    }
+    if (wantedName == currentName) {
+      return null;
+    }
+    final String renamedPath = p.join(p.dirname(skill.path), wantedName);
+    final String? renameRefusal = boundary.refusal(renamedPath);
+    if (renameRefusal != null) {
+      return _refused(action: "rename '${skill.path}' to '$renamedPath'", reason: renameRefusal);
+    }
+    return null;
+  }
+
+  /// Reports that skills_lint did not [action] because of [reason], and
+  /// returns the matching [WriteRefused].
+  WriteRefused _refused({required String action, required String reason}) {
+    _reporter.onWriteRefused(action: action, reason: reason);
+    return WriteRefused(reason: reason);
   }
 
   /// Reports and returns a [RenameBlocked] when a directory other than
