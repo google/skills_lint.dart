@@ -60,6 +60,13 @@ void main() {
       ];
       expectNoViolations(violations, fix: _testOnFix);
     });
+
+    test('every timeout: in a test directory has a comment that says why', () {
+      final List<ConventionViolation> violations = [
+        for (final Source source in under(testDirectories)) ...findTimeoutsWithoutComment(source),
+      ];
+      expectNoViolations(violations, fix: _timeoutFix);
+    });
   });
 }
 
@@ -97,3 +104,9 @@ const String _testOnFix =
     'Add a comment inside the test call that names the excluded platform and says '
     'why the test cannot run there. For example: `// Skipped on Windows: the test '
     'removes permissions with the POSIX chmod command, which Windows does not provide.`';
+
+const String _timeoutFix =
+    'Add a comment on the line above the `timeout:` argument or `@Timeout` annotation, '
+    'or at the end of its line, that says why the default timeout does not fit this '
+    'test. For example: '
+    '`// Compiles the CLI with dart compile exe, which takes over 30 seconds on CI.`';

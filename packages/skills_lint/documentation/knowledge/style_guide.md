@@ -245,7 +245,7 @@ Tests give confidence that the code keeps working through refactors and added fe
 
 - Don't write tautological tests or change detectors. A test that restates the code, or breaks on every change, gives no confidence.
 - A failing test's output must be enough to debug from CI logs alone. Name the input, the expected value and the actual value.
-- Every `skip:` or `testOn:` gives the reason at that spot.
+- Every `skip:`, `testOn:`, `timeout:` or `@Timeout` gives the reason at that spot.
 - "Hard to test" is not a reason to skip unit tests for pure logic. Pure logic is the cheapest code to test.
 - Confirm that each test for a bug fix or a rule fails without the change, and fails for the expected reason.
 - A test of an auto-fix, a YAML editor, or a baseline or config generator feeds the output back through the parser or the validator. It asserts that the target violation is gone and that no other diagnostic appears.

@@ -36,8 +36,12 @@ class Source {
         comment,
   ];
 
+  /// The line that contains character [offset] of [content]. [offset] counts
+  /// from 0 and the returned line counts from 1.
+  int lineOf(int offset) => _parsed.lineInfo.getLocation(offset).lineNumber;
+
   ConventionViolation violationAt(int offset, String problem) =>
-      ConventionViolation(path, _parsed.lineInfo.getLocation(offset).lineNumber, problem);
+      ConventionViolation(path, lineOf(offset), problem);
 }
 
 /// Collects every node of a syntax tree in source order.

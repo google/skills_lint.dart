@@ -97,6 +97,83 @@ void main() {
       expect(_lines(findTestOnWithoutComment(source)), [3, 6]);
     });
   });
+
+  group('findTimeoutsWithoutComment', () {
+    test('accepts a comment above the timeout: argument or at the end of its line', () {
+      final source = Source.snippet('''
+void main() {
+  test(
+    'a',
+    () {},
+    // Compiles the CLI, which takes over 30 seconds on CI.
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+  group('b', () {}, timeout: const Timeout.factor(2)); // Each test starts a subprocess.
+}
+''');
+      expect(findTimeoutsWithoutComment(source), isEmpty);
+    });
+
+    test('reports a timeout: argument whose only comment is in the test body', () {
+      final source = Source.snippet('''
+void main() {
+  test('a', () {
+    // Arrange.
+    expect(1, 1);
+  }, timeout: const Timeout(Duration(minutes: 2)));
+  test('b', () {
+    // Arrange.
+  }, timeout: const Timeout.factor(2));
+}
+''');
+      final List<ConventionViolation> violations = findTimeoutsWithoutComment(source);
+      expect(_lines(violations), [5, 8]);
+      expect(
+        violations.first.problem,
+        'timeout: const Timeout(Duration(minutes: 2)) has no comment saying why',
+      );
+    });
+
+    test('accepts an @Timeout annotation with a comment above it or at the end of its line', () {
+      final source = Source.snippet('''
+// Copyright header.
+
+// Every test in this file compiles the CLI, which takes over 30 seconds on CI.
+@Timeout(Duration(minutes: 2))
+library;
+
+@test.Timeout.factor(2) // Starts a subprocess.
+void main() {}
+''');
+      expect(findTimeoutsWithoutComment(source), isEmpty);
+    });
+
+    test('reports an @Timeout annotation after a blank line or an ignore comment', () {
+      final source = Source.snippet('''
+// Copyright header.
+
+@Timeout.factor(2)
+library;
+
+// ignore: unused_element
+@Timeout.factor(2)
+void main() {}
+''');
+      final List<ConventionViolation> violations = findTimeoutsWithoutComment(source);
+      expect(_lines(violations), [3, 7]);
+      expect(violations.first.problem, '@Timeout.factor(2) has no comment saying why');
+    });
+
+    test('ignores a .timeout() method call and other annotations', () {
+      final source = Source.snippet('''
+@TestOn('vm')
+library;
+
+Future<void> run(Future<void> work) => work.timeout(const Duration(seconds: 1));
+''');
+      expect(findTimeoutsWithoutComment(source), isEmpty);
+    });
+  });
 }
 
 List<int> _lines(Iterable<ConventionViolation> violations) => [for (final v in violations) v.line];
