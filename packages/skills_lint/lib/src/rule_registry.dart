@@ -89,6 +89,9 @@ class RuleRegistry {
       defaultSeverity: SkillNamePrefixRule.defaultSeverity,
       help: 'Check if skill name starts with a configured prefix.',
       parameterSchema: {SkillNamePrefixRule.prefixParameter: RuleParameterType.string},
+      parameterConstraints: {
+        SkillNamePrefixRule.prefixParameter: SkillNamePrefixRule.prefixConstraint,
+      },
     ),
     const CheckType(
       name: TrailingWhitespaceRule.ruleName,
