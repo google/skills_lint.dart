@@ -64,6 +64,18 @@ The conversation or review that produced a change is not part of that history. D
 
 ---
 
+## Prose
+
+These rules cover doc comments, comments, docs, CHANGELOG entries, test names and [messages](#messages-people-read).
+
+- Write for one reader. A doc comment is for callers; see Document Contracts & Nullability under [Effective Dart Compliance](#-effective-dart-compliance). Notes for maintainers, such as how it works or why this approach, go in `//` comments inside the body.
+- Say what the code does. Don't describe what it does not do, unless the reader would expect it to.
+- Cut every sentence the reader can do without. If a reviewer could ask "does the reader need this?", delete it.
+- Repeat the noun. "It", "this" and "which" make the reader search for what you mean.
+- Name a test for the behavior a user would describe ("reports an anchor"), not for how the assertion works.
+
+---
+
 ## Naming
 
 Name things for what they are, not for what they are not. A name that describes what is missing only makes sense next to the thing it excludes.
