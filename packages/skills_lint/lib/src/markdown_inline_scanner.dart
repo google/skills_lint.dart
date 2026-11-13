@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'markdown_block_scanner.dart';
-
 const int _tab = 0x09;
 const int _newline = 0x0A;
 const int _carriageReturn = 0x0D;
@@ -35,69 +33,29 @@ typedef TargetSpan = ({int targetStart, int targetEnd, String target, bool isAng
 /// A resolved link or image span paired with its [TargetSpan].
 typedef LinkMatch = ({int spanStart, int spanEnd, TargetSpan destination});
 
-/// Consumes leading CommonMark link reference definitions (`[ref]: target`) in
-/// [text] at the start of [block], recording the first definition for each
-/// normalized label in [definitions] and returning the offset where paragraph
-/// inline content begins.
-int consumeReferenceDefinitions(
-  String text,
-  MarkdownTextBlock block,
-  Map<String, TargetSpan> definitions,
-) {
-  int pos = block.start;
-  while (pos < block.end) {
-    final (String label, TargetSpan target, int nextPos)? parsed = _parseDefinition(
-      text,
-      pos,
-      block.end,
-      containers: block.containers,
-    );
-    if (parsed == null) {
-      break;
-    }
-    final (String label, TargetSpan target, int nextPos) = parsed;
-    definitions.putIfAbsent(label, () => target);
-    pos = nextPos;
-  }
-  return pos;
-}
-
-(String, TargetSpan, int)? _parseDefinition(
-  String text,
-  int start,
-  int blockEnd, {
-  required List<ContainerMarker> containers,
-}) {
-  final int? labelOpen = _definitionLabelStart(text, start, blockEnd, containers: containers);
-  if (labelOpen == null) {
-    return null;
-  }
-
-  final (String rawLabel, int labelClose)? parsedLabel = _parseLinkLabel(text, labelOpen, blockEnd);
+/// Parses the link reference definition (`[label]: target "title"`) that
+/// starts at [lineStart], the start of a line, within `[lineStart, end)`.
+///
+/// Returns the normalized label, the target, and the offset after the
+/// definition, or `null` when the line holds no definition. The target and
+/// title can each start on the next line.
+(String, TargetSpan, int)? parseDefinition(String text, int lineStart, int end) {
+  final int labelOpen = skipHorizontalSpace(text, lineStart, end);
+  final (String rawLabel, int labelClose)? parsedLabel = _parseLinkLabel(text, labelOpen, end);
   if (parsedLabel == null) {
     return null;
   }
   final (String rawLabel, int labelClose) = parsedLabel;
   final int colonIndex = labelClose + 1;
-  if (colonIndex >= blockEnd || text.codeUnitAt(colonIndex) != _colon) {
+  if (colonIndex >= end || text.codeUnitAt(colonIndex) != _colon) {
     return null;
   }
 
-  final int? destStart = _skipDefinitionSpace(
-    text,
-    colonIndex + 1,
-    blockEnd,
-    containers: containers,
-  );
-  if (destStart == null || destStart >= blockEnd) {
+  final int destStart = _skipSpaceAndSingleNewline(text, colonIndex + 1, end);
+  if (_isAtLineEnd(text, destStart, end)) {
     return null;
   }
-
-  final (TargetSpan target, int afterTarget)? parsedTarget = _parseTarget(
-    text,
-    destStart,
-    blockEnd,
-  );
+  final (TargetSpan target, int afterTarget)? parsedTarget = _parseTarget(text, destStart, end);
   if (parsedTarget == null) {
     return null;
   }
@@ -106,82 +64,19 @@ int consumeReferenceDefinitions(
     return null;
   }
 
-  final int? defEnd = _parseDefinitionTail(text, afterTarget, blockEnd, containers: containers);
-  if (defEnd == null) {
-    return null;
+  final int afterSpaces = skipHorizontalSpace(text, afterTarget, end);
+  final int? definitionEnd;
+  if (_isAtLineEnd(text, afterSpaces, end)) {
+    // A title on the next line is optional.
+    final int nextLine = _afterLineEnding(text, afterSpaces, end);
+    definitionEnd =
+        _lineEndAfterTitle(text, skipHorizontalSpace(text, nextLine, end), end) ?? nextLine;
+  } else if (afterSpaces == afterTarget) {
+    definitionEnd = null;
+  } else {
+    definitionEnd = _lineEndAfterTitle(text, afterSpaces, end);
   }
-  return (_normalizeLinkLabel(rawLabel), target, defEnd);
-}
-
-int? _definitionLabelStart(
-  String text,
-  int start,
-  int blockEnd, {
-  required List<ContainerMarker> containers,
-}) {
-  final bool atLineStart = start == 0 || text.codeUnitAt(start - 1) == _newline;
-  if (!atLineStart) {
-    final (int indent, int pos) = leadingIndent(text, start, blockEnd);
-    return indent <= 3 && pos < blockEnd && text.codeUnitAt(pos) == _openBracket ? pos : null;
-  }
-  final int lineEnd = _contentEndOfLine(text, start, blockEnd);
-  final (int matched, int column, int afterContainers) = matchContainers(
-    text,
-    start,
-    lineEnd,
-    containers,
-  );
-  if (!onlyListContainersRemain(containers, matched)) {
-    return null;
-  }
-  final (int indent, int pos) = leadingIndent(text, afterContainers, lineEnd, startColumn: column);
-  return indent <= 3 && pos < lineEnd && text.codeUnitAt(pos) == _openBracket ? pos : null;
-}
-
-int? _parseDefinitionTail(
-  String text,
-  int afterTarget,
-  int blockEnd, {
-  required List<ContainerMarker> containers,
-}) {
-  final int afterSpaces = skipHorizontalSpace(text, afterTarget, blockEnd);
-  if (_isAtLineEnd(text, afterSpaces, blockEnd)) {
-    final int destLineEnd = _afterLineEnding(text, afterSpaces, blockEnd);
-    final int? nextLineTitleEnd = _tryTitleOnNextLine(
-      text,
-      destLineEnd,
-      blockEnd,
-      containers: containers,
-    );
-    return nextLineTitleEnd ?? destLineEnd;
-  }
-  if (afterSpaces == afterTarget) {
-    return null;
-  }
-  return _lineEndAfterTitle(text, afterSpaces, blockEnd);
-}
-
-int? _tryTitleOnNextLine(
-  String text,
-  int lineStart,
-  int blockEnd, {
-  required List<ContainerMarker> containers,
-}) {
-  if (lineStart >= blockEnd) {
-    return null;
-  }
-  final int lineEnd = _contentEndOfLine(text, lineStart, blockEnd);
-  final (int matched, _, int afterContainers) = matchContainers(
-    text,
-    lineStart,
-    lineEnd,
-    containers,
-  );
-  if (!onlyListContainersRemain(containers, matched)) {
-    return null;
-  }
-  final int titleStart = skipHorizontalSpace(text, afterContainers, blockEnd);
-  return _lineEndAfterTitle(text, titleStart, blockEnd);
+  return definitionEnd == null ? null : (_normalizeLinkLabel(rawLabel), target, definitionEnd);
 }
 
 int? _lineEndAfterTitle(String text, int titleStart, int blockEnd) {
@@ -493,7 +388,7 @@ String _normalizeLinkLabel(String rawLabel) => rawLabel
     .replaceAll('ß', 'ss');
 
 int _afterCodeSpan(String text, int start, int end) {
-  final int openEnd = runEnd(text, start, end, _backtick);
+  final int openEnd = _runEnd(text, start, end, _backtick);
   final int length = openEnd - start;
   var i = openEnd;
   while (i < end) {
@@ -501,7 +396,7 @@ int _afterCodeSpan(String text, int start, int end) {
     if (close == -1 || close >= end) {
       break;
     }
-    final int closeEnd = runEnd(text, close, end, _backtick);
+    final int closeEnd = _runEnd(text, close, end, _backtick);
     if (closeEnd - close == length) {
       return closeEnd;
     }
@@ -525,39 +420,6 @@ int _skipSpaceAndSingleNewline(String text, int start, int end) {
     i++;
   }
   return i;
-}
-
-int? _skipDefinitionSpace(
-  String text,
-  int start,
-  int end, {
-  required List<ContainerMarker> containers,
-}) {
-  final int afterHorizontal = skipHorizontalSpace(text, start, end);
-  if (!_isAtLineEnd(text, afterHorizontal, end)) {
-    return afterHorizontal;
-  }
-  final int nextLine = _afterLineEnding(text, afterHorizontal, end);
-  if (nextLine >= end) {
-    return nextLine;
-  }
-  final int lineEnd = _contentEndOfLine(text, nextLine, end);
-  final (int matched, _, int afterContainers) = matchContainers(
-    text,
-    nextLine,
-    lineEnd,
-    containers,
-  );
-  if (!onlyListContainersRemain(containers, matched)) {
-    return null;
-  }
-  return skipHorizontalSpace(text, afterContainers, end);
-}
-
-int _contentEndOfLine(String text, int lineStart, int blockEnd) {
-  final int newline = text.indexOf('\n', lineStart);
-  final int rawEnd = newline == -1 || newline >= blockEnd ? blockEnd : newline + 1;
-  return stripLineEnding(text, lineStart, rawEnd);
 }
 
 bool _isAtLineEnd(String text, int pos, int end) {
@@ -593,3 +455,27 @@ bool _isAsciiPunctuation(int char) =>
     (char >= _colon && char <= 0x40) ||
     (char >= _openBracket && char <= _backtick) ||
     (char >= 0x7B && char <= _tilde);
+
+/// Offset in [text] after the contiguous run of [char] starting at [start]
+/// within `[start, end)`.
+int _runEnd(String text, int start, int end, int char) {
+  var i = start;
+  while (i < end && text.codeUnitAt(i) == char) {
+    i++;
+  }
+  return i;
+}
+
+/// Offset in [text] after spaces and tabs starting at [start] within
+/// `[start, end)`.
+int skipHorizontalSpace(String text, int start, int end) {
+  var i = start;
+  while (i < end) {
+    final int char = text.codeUnitAt(i);
+    if (char != _space && char != _tab) {
+      break;
+    }
+    i++;
+  }
+  return i;
+}

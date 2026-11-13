@@ -149,22 +149,20 @@ class PubArchiveIncludesSkillRule extends SkillRule {
         skillFile: skillFile,
         files: files,
       ).entries)
-        _missingGroupError(group, skillFile: skillFile, firstRegion: missing[group.value.first]!),
+        _missingGroupError(group, skillFile: skillFile, region: missing[group.value.first]!),
     ];
   }
 
   ValidationError _missingGroupError(
     MapEntry<String, List<String>> group, {
     required String skillFile,
-    required SourceRegion firstRegion,
+    required SourceRegion region,
   }) {
-    final bool isSingleFile = group.value.length == 1 && group.key == group.value.single;
-    final message = isSingleFile
+    final message = group.value.length == 1 && group.key == group.value.single
         ? '${group.key}, linked from $skillFile, is not in the package pub publishes. '
               '$_howToFix'
         : '${group.key}/ is not in the package pub publishes, so neither are the '
               '${group.value.length} files $skillFile links to in it. $_howToFix';
-    final region = isSingleFile ? firstRegion : SourceRegion(startLine: firstRegion.startLine);
     return _error(message, region: region);
   }
 

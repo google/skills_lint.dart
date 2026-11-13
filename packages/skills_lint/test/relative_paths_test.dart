@@ -453,7 +453,7 @@ void main() {
         expect(await missingTargets('[a](<my file.md>) [b](a(b).md)\n'), ['my file.md', 'a(b).md']);
       });
 
-      test('ignores link syntax in code spans and code blocks', () async {
+      test('ignores link syntax in code spans and fenced code blocks', () async {
         const body =
             'Use `[a](span.md)` or ``[b](`double`.md)``.\n'
             '\n'
@@ -465,8 +465,6 @@ void main() {
             '```\n'
             '[d](tilde.md)\n'
             '~~~~\n'
-            '\n'
-            '    [e](indented.md)\n'
             '\n'
             '[f](real.md)\n';
         expect(await missingTargets(body), ['real.md']);

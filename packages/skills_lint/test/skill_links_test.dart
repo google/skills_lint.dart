@@ -102,6 +102,10 @@ void _defineMarkdownLinksTests() {
       expect(targetsIn(markdown), ['guide.md']);
     });
 
+    test('reads a definition-like line after paragraph text as text', () {
+      expect(targetsIn('See [ref].\n[ref]: a.md\n'), isEmpty);
+    });
+
     test('does not treat [foo] in [foo][undefined] as a shortcut link, and scans after it', () {
       const markdown =
           '[foo]: foo.md\n'
@@ -132,13 +136,12 @@ void _defineMarkdownLinksTests() {
       );
     });
 
-    test('handles fenced code, indented code and ATX headings on a list item marker line', () {
+    test('handles fenced code and ATX headings on a list item marker line', () {
       const markdown =
           '- ```dart\n'
           '  // [in_fence](ignored.md)\n'
           '  ```\n'
           '  [after_fence](real1.md)\n'
-          '-     [in_indented_code](ignored2.md)\n'
           '- # Heading with `unclosed\n'
           '  [after_heading](real2.md) `tick`\n';
       expect(targetsIn(markdown), ['real1.md', 'real2.md']);
@@ -186,7 +189,7 @@ void _defineMarkdownLinksTests() {
       expect(targetsIn(markdown), ['config.md', 'star.md', 'step2.md', 'step_one.md']);
     });
 
-    test('ends unclosed list fences on dedent and closes empty list items after a blank line', () {
+    test('ends an unclosed fence when its list item ends', () {
       const markdown =
           '- ```dart\n'
           '  void main() {}\n'
@@ -196,11 +199,7 @@ void _defineMarkdownLinksTests() {
           '  int x = 1;\n'
           '```\n'
           '  [in_top_level_fence](/abs/ignored1.md)\n'
-          '```\n'
-          '\n'
-          '-\n'
-          '\n'
-          '    [in_indented_code](/abs/ignored2.md)\n';
+          '```\n';
       expect(targetsIn(markdown), ['sibling.md']);
     });
 
@@ -257,41 +256,43 @@ void _defineMarkdownLinksTests() {
       expect(targetsIn('```a``` [a](a.md)\n'), ['a.md']);
     });
 
-    test('ends an indented code block at a line with less indentation', () {
-      expect(targetsIn('    [a](a.md)\n\n    [b](b.md)\n[c](c.md)\n'), ['c.md']);
+    test('reads indented lines as text, not as indented code blocks', () {
+      expect(targetsIn('    [a](a.md)\n\n    [b](b.md)\n[c](c.md)\n'), ['a.md', 'b.md', 'c.md']);
     });
 
     test('reads an indented line that continues a paragraph as text', () {
       expect(targetsIn('Text\n    [a](a.md)\n'), ['a.md']);
     });
-
-    test('reads an indented line after a list ends as code', () {
-      expect(targetsIn('- item\n\nText\n\n    [a](a.md)\n'), isEmpty);
-    });
   });
 }
 
 void _defineScannerPipelineTests() {
-  group('MarkdownBlockScanner and MarkdownInlineScanner', () {
-    test('separates ATX headings from paragraphs and consumes leading definitions', () {
+  group('scanMarkdownBlocks and parseDefinition', () {
+    test('splits headings, list items and paragraphs, and blanks code and markers', () {
       const markdown =
           '# Heading\n'
-          '[ref]: docs/guide.md "Guide"\n'
-          'See [ref].\n';
-      final (List<MarkdownTextBlock> blocks, List<int> lineStarts) = MarkdownBlockScanner(
-        markdown,
-      ).scan();
-      expect(lineStarts, [0, 10, 39]);
-      expect(blocks.map((MarkdownTextBlock b) => b.allowsDefinitions), [false, true]);
+          '- item\n'
+          '> quote\n'
+          '```\n'
+          '[a](a.md)\n'
+          '```\n'
+          '[ref]: docs/guide.md "Guide"\n';
+      final MarkdownBlocks scanned = scanMarkdownBlocks(markdown);
+      expect(scanned.lineStarts, [0, 10, 17, 25, 29, 39, 43]);
+      expect(scanned.text.length, markdown.length);
+      expect(
+        [for (final (int start, int end) in scanned.blocks) scanned.text.substring(start, end)],
+        ['# Heading\n', '  item\n  quote\n', '[ref]: docs/guide.md "Guide"\n'],
+      );
 
-      final definitions = <String, TargetSpan>{};
-      final int inlineStart = consumeReferenceDefinitions(markdown, blocks[1], definitions);
-      expect(definitions.keys, ['ref']);
-      expect(markdown.substring(inlineStart, blocks[1].end), 'See [ref].\n');
-
-      final matches = <LinkMatch>[];
-      MarkdownInlineScanner(markdown, definitions, matches).scanRange(inlineStart, blocks[1].end);
-      expect([for (final LinkMatch m in matches) m.destination.target], ['docs/guide.md']);
+      final (String, TargetSpan, int)? definition = parseDefinition(
+        scanned.text,
+        43,
+        markdown.length,
+      );
+      expect(definition?.$1, 'ref');
+      expect(definition?.$2.target, 'docs/guide.md');
+      expect(definition?.$3, markdown.length);
     });
   });
 }

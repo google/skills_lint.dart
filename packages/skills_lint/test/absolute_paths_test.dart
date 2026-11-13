@@ -107,7 +107,7 @@ Future<void> _expectFixedInSkillLink(
 
 void main() {
   group('Markdown syntax', () {
-    test('ignores absolute paths in code spans and code blocks', () async {
+    test('ignores absolute paths in code spans and fenced code blocks', () async {
       await withTempDir((tempDir) async {
         final Directory skillDir = await Directory(p.join(tempDir.path, 'test-skill')).create();
         final String target = (await File(p.join(tempDir.path, 'target.md')).create()).path;

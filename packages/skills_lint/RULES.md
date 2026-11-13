@@ -43,8 +43,8 @@ governs how changes to these rules ship.
 - **What it checks:** Markdown links and images in `SKILL.md` (inline
   and reference-style) do not use absolute filesystem paths (POSIX
   `/foo/bar` or Windows `C:\foo`). Absolute paths break portability
-  across machines. Link syntax in code spans and code blocks is
-  intentionally skipped.
+  across machines. Link syntax in code spans and fenced code blocks
+  is intentionally skipped.
 - **Diagnostic shape:**
   `Absolute filepath found in link: <path>. Skills must use paths relative to SKILL.md so they remain portable across machines.`
 - **Auto-fix behavior:** if the absolute path resolves to a file that
@@ -66,7 +66,7 @@ governs how changes to these rules ship.
 - **What it checks:** Markdown links and images in `SKILL.md` (inline
   and reference-style) with relative targets resolve to files or
   directories that actually exist on disk. Link syntax in code spans
-  and code blocks is intentionally skipped.
+  and fenced code blocks is intentionally skipped.
   Empty destinations (`[]()`), web URLs, anchors, `mailto:`, `javascript:`, and `data:` links are
   skipped. Percent escapes are decoded first, as on GitHub, so
   `my%20file.md` resolves to `my file.md` and `a%2Fb.md` to `a/b.md`.
@@ -235,7 +235,7 @@ governs how changes to these rules ship.
   running `pub`. Links to files that don't
   exist pass too, even when `check-relative-paths` is disabled; enable
   `check-relative-paths` to report them. Link syntax in code spans and
-  code blocks is intentionally skipped.
+  fenced code blocks is intentionally skipped.
 - **How it works:** runs
   `dart pub publish --skip-validation --to-archive=<temp file>` once per
   package and reads the file names from the archive. Needs `dart` on

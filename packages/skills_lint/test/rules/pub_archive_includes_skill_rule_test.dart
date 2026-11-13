@@ -114,7 +114,7 @@ void main() {
         'skills/$_skillName/references/ is not in the package pub publishes, so neither are '
             'the 12 files $_skillFile links to in it. $_howToFix',
         6,
-        null,
+        1,
       ),
     ]);
   });

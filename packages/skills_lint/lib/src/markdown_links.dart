@@ -38,9 +38,9 @@ class MarkdownLink {
 
 /// Links and images resolved from [markdown], in document order.
 ///
-/// Follows CommonMark for path validation: skips code spans and fenced or
-/// indented code blocks (because CommonMark treats code as literal text and
-/// skills include illustrative or intentionally invalid link examples in code),
+/// Follows CommonMark for path validation: skips code spans and fenced code
+/// blocks (because CommonMark treats code as literal text and skills include
+/// illustrative or intentionally invalid link examples in code),
 /// reads `<...>` and parenthesized inline destinations, and resolves full
 /// (`[text][ref]`), collapsed (`[ref][]`), and shortcut (`[ref]`) reference
 /// links against `[ref]:` definitions.
@@ -108,27 +108,36 @@ String replaceMarkdownLinkTargets(String markdown, String? Function(String targe
 }
 
 (List<LinkMatch>, _LineIndex) _scanMarkdown(String markdown) {
-  final (List<MarkdownTextBlock> blocks, List<int> lineStarts) = MarkdownBlockScanner(
-    markdown,
-  ).scan();
+  final MarkdownBlocks scanned = scanMarkdownBlocks(markdown);
+  final String text = scanned.text;
   final definitions = <String, TargetSpan>{};
   final inlineRanges = <(int, int)>[];
-
-  for (final block in blocks) {
-    final int inlineStart = block.allowsDefinitions
-        ? consumeReferenceDefinitions(markdown, block, definitions)
-        : block.start;
-    if (inlineStart < block.end) {
-      inlineRanges.add((inlineStart, block.end));
+  for (final (int blockStart, int blockEnd) in scanned.blocks) {
+    // Definitions open a block, before its inline text (CommonMark §4.7).
+    var inlineStart = blockStart;
+    while (true) {
+      if (parseDefinition(text, inlineStart, blockEnd) case (
+        final String label,
+        final TargetSpan target,
+        final int definitionEnd,
+      )) {
+        definitions.putIfAbsent(label, () => target);
+        inlineStart = definitionEnd;
+      } else {
+        break;
+      }
+    }
+    if (inlineStart < blockEnd) {
+      inlineRanges.add((inlineStart, blockEnd));
     }
   }
 
   final matches = <LinkMatch>[];
-  final scanner = MarkdownInlineScanner(markdown, definitions, matches);
+  final scanner = MarkdownInlineScanner(text, definitions, matches);
   for (final (int start, int end) in inlineRanges) {
     scanner.scanRange(start, end);
   }
-  return (matches, _LineIndex(lineStarts));
+  return (matches, _LineIndex(scanned.lineStarts));
 }
 
 class _LineIndex {
