@@ -271,30 +271,37 @@ governs how changes to these rules ship.
   `within-skill: true` for the same directory.
 - **Disable:** `--no-published-skill-name` (also the default state).
 
-## skill-name-prefix
+## skill-naming
 
 - **Default severity:** disabled
-- **Fixable:** yes
-- **What it checks:** the frontmatter `name:` equals the configured prefix or starts with the prefix followed by a hyphen. For prefix `myproject`, `myproject` and `myproject-setup` pass and `my-foobar` fails. Set the prefix for each directory in `skills_lint.yaml`:
+- **Fixable:** yes, for `prefix`
+- **What it checks:** [`invalid-skill-name`](#invalid-skill-name) enforces what the Agent Skills spec requires; `skill-naming` enforces conventions a project chooses. It checks the frontmatter `name:` against each parameter that is set:
+  - `prefix`: the name equals the prefix or starts with the prefix followed by a hyphen. For prefix `myproject`, `myproject` and `myproject-setup` pass and `my-foobar` fails.
+  - `max-length`: the name has at most this many characters.
+
+  Set the parameters for each directory in `skills_lint.yaml`:
 
   ```yaml
   skills_lint:
     directories:
       - path: "skills"
         rules:
-          skill-name-prefix:
+          skill-naming:
             severity: error
-            value: myproject
+            prefix: myproject
+            max-length: 40
   ```
 - **Diagnostic shape:**
-  `Skill "<name>" must be "<prefix>" or start with "<prefix>-". Suggested name: "<suggestion>".`
-  `Fix by re-running your validation command with --fix.`
-  With the rule enabled and no prefix set, each skill reports:
-  `The skill-name-prefix rule has no prefix to check. Set its value parameter in skills_lint.yaml or pass --skill-name-prefix-value, or disable the rule.`
+  - `Skill "<name>" must be "<prefix>" or start with "<prefix>-". Suggested name: "<suggestion>".`
+    `Fix by re-running your validation command with --fix.` When the suggestion is longer than `max-length`, the second line says that `--fix` skips the rename.
+  - `Skill "<name>" is <N> characters; the max-length is <max-length>. Shorten the name: field in SKILL.md.`
+  - With the rule enabled and neither parameter set, each skill reports:
+    `The skill-naming rule has no convention to check. Set its prefix or max-length parameter in skills_lint.yaml or pass --skill-naming-prefix or --skill-naming-max-length, or disable the rule.`
 - **Parameters:**
-  - `value` (string): the prefix every skill name must start with. Must be a valid skill name.
-- **Auto-fix behavior:** updates the frontmatter `name:` in `SKILL.md` to the suggested name and aligns the parent directory name on disk when run via `--fix`. When the directory can't be renamed, for example because the name is taken, `--fix` skips this fix.
-- **Disable:** `--no-skill-name-prefix` (also the default state).
+  - `prefix` (string): the prefix every skill name must start with. Must be a valid skill name.
+  - `max-length` (integer): the most characters a skill name can have, from 1 to 64.
+- **Auto-fix behavior:** for `prefix`, updates the frontmatter `name:` in `SKILL.md` to the suggested name and aligns the parent directory name on disk when run via `--fix`. It skips the rename when the suggested name is longer than `max-length`, or when the directory can't be renamed, for example because the name is taken. It doesn't shorten names, because the shorter name is the author's choice.
+- **Disable:** `--no-skill-naming` (also the default state).
 
 ## valid-yaml-metadata
 

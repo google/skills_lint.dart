@@ -26,7 +26,7 @@ import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rule_registry.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
-import 'package:skills_lint/src/rules/skill_name_prefix_rule.dart';
+import 'package:skills_lint/src/rules/skill_naming_rule.dart';
 import 'package:skills_lint/src/skill_fixer.dart';
 import 'package:skills_lint/src/validator.dart';
 import 'package:test/test.dart';
@@ -46,9 +46,7 @@ typedef _CorpusFixture = ({
 /// Parameters that a rule needs before it checks anything, keyed by rule
 /// name. The corpus is written to a package named `pkg`.
 final Map<String, CustomRuleParameters> _requiredParameters = {
-  SkillNamePrefixRule.ruleName: CustomRuleParameters(const {
-    SkillNamePrefixRule.prefixParameter: 'pkg',
-  }),
+  SkillNamingRule.ruleName: CustomRuleParameters(const {SkillNamingRule.prefixParameter: 'pkg'}),
 };
 
 final List<SkillRule> _fixableRules = [
