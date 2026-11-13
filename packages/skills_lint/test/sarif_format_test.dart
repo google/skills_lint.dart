@@ -8,8 +8,10 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/skills_lint.dart';
 import 'package:skills_lint/src/models/sarif/sarif.dart';
+import 'package:skills_lint/src/reporters/json_reporter.dart';
 import 'package:skills_lint/src/reporters/sarif_reporter.dart';
 import 'package:test/test.dart';
+
 import 'test_utils.dart';
 
 void main() {
@@ -392,6 +394,18 @@ void main() {
           contains('Failed to list children'),
         ),
       );
+    });
+
+    test('JsonReporter writes nothing for directory and discovery errors', () {
+      final out = StringBuffer();
+      final err = StringBuffer();
+      JsonReporter(out: out, err: err)
+        ..onNoSkillsFound('No skills found.')
+        ..onIndividualSkillHint('Use --skill instead of -d.')
+        ..onDirectoryError(p.join('tmp', 'root'), 'Failed to list children');
+
+      expect(out.toString(), isEmpty);
+      expect(err.toString(), isEmpty);
     });
   });
 

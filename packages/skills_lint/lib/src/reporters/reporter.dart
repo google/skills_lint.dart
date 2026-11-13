@@ -169,20 +169,13 @@ abstract class Reporter {
   }) {}
 
   /// Called when no skills were found across specified directories.
-  void onNoSkillsFound(String message) {
-    err.writeln(message);
-  }
+  void onNoSkillsFound(String message) {}
 
   /// Called when a single skill folder was passed to `-d`.
-  void onIndividualSkillHint(String message) {
-    err.writeln(message);
-  }
+  void onIndividualSkillHint(String message) {}
 
   /// Called when a directory listing or structural failure occurs.
-  void onDirectoryError(String directoryPath, String message) {
-    err.writeln('  ${TextReporter.directoryErrorMsg}');
-    err.writeln('    - $message');
-  }
+  void onDirectoryError(String directoryPath, String message) {}
 
   /// Called for each part of an ignore file that could not be read, such as an
   /// entry with no `file_name`. [problem] names the file and, when

@@ -41,10 +41,6 @@ jobs:
         working-directory: packages/skills_lint
         run: dart pub get
 
-      # skills_lint exits with code 1 if lint violations are found or the
-      # configuration has errors. Configuration errors, lint findings, and
-      # warnings print to standard error in this step's log, while standard
-      # output writes the SARIF report when validation runs.
       - name: Generate SARIF report
         id: lint
         run: dart run packages/skills_lint/bin/skills_lint.dart --format=sarif > skills-lint.sarif

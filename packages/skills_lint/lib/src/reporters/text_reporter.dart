@@ -41,6 +41,12 @@ class TextReporter extends Reporter {
   }
 
   @override
+  void onDirectoryError(String directoryPath, String message) {
+    err.writeln('  $directoryErrorMsg');
+    err.writeln('    - $message');
+  }
+
+  @override
   void onSkillEvaluating(String skillName) {
     if (!quiet) {
       out.writeln('--- Validating skill: $skillName ---');
@@ -165,6 +171,16 @@ class TextReporter extends Reporter {
       "Stale ignore entry found for rule '$ruleId'$subjectClause in skill "
       "'$skillName' at '$fullPath'. Consider removing it.",
     );
+  }
+
+  @override
+  void onNoSkillsFound(String message) {
+    err.writeln(message);
+  }
+
+  @override
+  void onIndividualSkillHint(String message) {
+    err.writeln(message);
   }
 
   @override

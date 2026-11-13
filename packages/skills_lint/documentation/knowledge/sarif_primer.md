@@ -34,25 +34,4 @@ All SARIF locations in `skills_lint` use 1-based coordinates in accordance with 
 
 ## GitHub Code Scanning Integration
 
-To ingest SARIF findings into GitHub Code Scanning, give the job `security-events: write` permission and add these steps:
-
-```yaml
-# skills_lint exits non-zero (1 for findings, 78 for configuration errors).
-# Standard output writes the SARIF report when validation runs, while standard
-# error prints findings, warnings, and errors to this step's log.
-- name: Run linter and generate SARIF
-  id: lint
-  run: dart run skills_lint --format=sarif > results.sarif
-
-# !cancelled() uploads the report on both success and failure while respecting
-# workflow cancellation. Skip the upload if setup failed before the lint step
-# ran, and on fork pull requests, which lack security-events: write.
-- name: Upload SARIF to GitHub Code Scanning
-  if: ${{ !cancelled() && steps.lint.conclusion != 'skipped' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
-  uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
-  with:
-    sarif_file: results.sarif
-    category: skills_lint
-```
-
-> Note: When the linter finds violations, the lint step fails the job while `!cancelled()` still lets the upload step publish the SARIF report to Code Scanning. This repository runs these steps in [.github/workflows/code_scanning.yaml](../../../../.github/workflows/code_scanning.yaml).
+To upload SARIF findings to GitHub Code Scanning, follow the [GitHub Code Scanning recipe](../../README.md#recipe-github-code-scanning-sarif) in the README. This repository runs the same steps in [.github/workflows/code_scanning.yaml](../../../../.github/workflows/code_scanning.yaml).

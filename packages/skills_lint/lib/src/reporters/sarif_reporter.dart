@@ -37,6 +37,24 @@ class SarifReporter extends Reporter {
   final bool printWarnings;
   final String? toolVersion;
 
+  /// Formats human-readable messages for [err] the way `--format=text` does.
+  late final TextReporter _errReporter = TextReporter(
+    out: err,
+    err: err,
+    quiet: quiet,
+    printWarnings: printWarnings,
+  );
+
+  @override
+  void onNoSkillsFound(String message) => _errReporter.onNoSkillsFound(message);
+
+  @override
+  void onIndividualSkillHint(String message) => _errReporter.onIndividualSkillHint(message);
+
+  @override
+  void onDirectoryError(String directoryPath, String message) =>
+      _errReporter.onDirectoryError(directoryPath, message);
+
   @override
   void onSessionComplete(List<ValidationResult> results, {List<SkillRule> customRules = const []}) {
     final SarifLog sarif = SarifSerializer.toSarifLog(
@@ -59,12 +77,6 @@ class SarifReporter extends Reporter {
   /// ([Validator.skillFileInaccessible]) also have a `null` context, so their
   /// skill name is derived from the parent directory of the `SKILL.md` path.
   void _writeFindingsSummary(List<ValidationResult> results) {
-    final textReporter = TextReporter(
-      out: err,
-      err: err,
-      quiet: quiet,
-      printWarnings: printWarnings,
-    );
     for (final result in results) {
       final String? skillName = _skillNameForSummary(result);
       if (skillName == null) {
@@ -74,7 +86,7 @@ class SarifReporter extends Reporter {
       if (result.isValid && !hasReportedWarnings) {
         continue;
       }
-      textReporter
+      _errReporter
         ..onSkillEvaluating(skillName)
         ..onSkillValidationComplete(result);
     }
