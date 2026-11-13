@@ -151,6 +151,32 @@ governs how changes to these rules ship.
   refuses to silently truncate the author's prose.
 - **Disable:** `--no-description-too-long`.
 
+## description-yaml-comment
+
+- **Default severity:** disabled
+- **Fixable:** no
+- **What it checks:** the YAML frontmatter `description:` is not an
+  unquoted (plain) scalar in which whitespace followed by `#` starts a
+  YAML comment. In a plain scalar, YAML ends the value at the comment,
+  so `description: Use when asked "fix #123"` parses as
+  `Use when asked "fix` and an agent never sees the rest.
+  `owner/repo#123` and `C#` have no whitespace before the `#` and pass.
+  Quoted and block scalars pass, because a `#` inside them is text.
+- **Diagnostic shape:**
+  `Description field is cut short by a YAML comment. In an unquoted
+  value, " #" starts a comment, so the description ends at |HERE|
+  (line <L>, column <C>). Quote the value (description: "...") or use a
+  block scalar (description: >-). Cutoff:
+  ...<40 chars before>|HERE|<40 chars after>...`
+  `<L>` and `<C>` are the 1-based line and column of the `#` in
+  `SKILL.md`. The `|HERE|` marker sits where the parsed description
+  ends; the text after it is what YAML drops.
+- **Auto-fix behavior:** none. The fix is editorial; whether to quote
+  the value or move the `#` is the author's call.
+- **Ignore subject:** the dropped text, from the `#` to the end of the
+  line.
+- **Disable:** `--no-description-yaml-comment` (also the default state).
+
 ## disallowed-field
 
 - **Default severity:** disabled

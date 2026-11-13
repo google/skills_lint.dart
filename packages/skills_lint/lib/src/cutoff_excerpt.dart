@@ -6,10 +6,10 @@
 // also show a |HERE| cutoff excerpt so the author can see exactly
 // where the value went over.
 //
-// Used by both DescriptionLengthRule and the compatibility-length
-// check in ValidYamlMetadataRule. Keep the message shape consistent
-// across rules so downstream tooling that parses lint output doesn't
-// have to learn two formats.
+// Used by DescriptionLengthRule, the compatibility-length check in
+// ValidYamlMetadataRule, and DescriptionYamlCommentRule. Keep the message
+// shape consistent across rules so downstream tooling that parses lint
+// output doesn't have to learn two formats.
 
 import 'length_limit.dart';
 
@@ -27,7 +27,7 @@ String buildLengthDiagnostic({
   required LengthLimit limit,
   String? docUrl,
 }) {
-  final String excerpt = _buildCutoffExcerpt(value, limit.maxLength);
+  final String excerpt = buildCutoffExcerpt(value, limit.maxLength);
   final docsClause = limit.isBelowSpec || docUrl == null ? '' : ' (see $docUrl)';
   final String maximumClause = switch (limit) {
     LengthLimit(isAboveSpec: true) =>
@@ -52,7 +52,7 @@ String buildLengthMarkdownDiagnostic({
 }) {
   final int maxLength = limit.maxLength;
   final int overCount = value.length - maxLength;
-  final String excerpt = _buildCutoffExcerpt(value, maxLength);
+  final String excerpt = buildCutoffExcerpt(value, maxLength);
   final String boldExcerpt = excerpt.replaceAll('|HERE|', '**|HERE|**');
   final docsClause = limit.isBelowSpec || docUrl == null
       ? ''
@@ -74,11 +74,17 @@ String buildLengthMarkdownDiagnostic({
       '$docsClause';
 }
 
-String _buildCutoffExcerpt(String value, int maxLength) {
-  final int start = (maxLength - _excerptContextChars).clamp(0, value.length);
-  final int end = (maxLength + _excerptContextChars).clamp(0, value.length);
-  final String before = value.substring(start, maxLength);
-  final String after = value.substring(maxLength, end);
+/// Builds an excerpt of [value] around [cutoff], a 0-based offset, with a
+/// `|HERE|` marker at the cutoff and up to 40 characters of context on
+/// either side.
+///
+/// A `...` on either end stands for the text left out. Newlines in the
+/// excerpt are written as `\n`, so the excerpt stays on one line.
+String buildCutoffExcerpt(String value, int cutoff) {
+  final int start = (cutoff - _excerptContextChars).clamp(0, value.length);
+  final int end = (cutoff + _excerptContextChars).clamp(0, value.length);
+  final String before = value.substring(start, cutoff);
+  final String after = value.substring(cutoff, end);
   final leadingEllipsis = start > 0 ? '...' : '';
   final trailingEllipsis = end < value.length ? '...' : '';
   final String escapedBefore = _escapeForOneLine(before);

@@ -10,6 +10,7 @@ import 'models/rule_parameter_type.dart';
 import 'models/skill_rule.dart';
 import 'rules/absolute_paths_rule.dart';
 import 'rules/description_length_rule.dart';
+import 'rules/description_yaml_comment_rule.dart';
 import 'rules/disallowed_field_rule.dart';
 import 'rules/name_format_rule.dart';
 import 'rules/path_does_not_exist_rule.dart';
@@ -47,6 +48,11 @@ class RuleRegistry {
       parameterConstraints: {
         DescriptionLengthRule.maxLengthParameter: DescriptionLengthRule.maxLengthConstraint,
       },
+    ),
+    const CheckType(
+      name: DescriptionYamlCommentRule.ruleName,
+      defaultSeverity: DescriptionYamlCommentRule.defaultSeverity,
+      help: 'Check if a YAML comment cuts an unquoted description short.',
     ),
     const CheckType(
       name: DisallowedFieldRule.ruleName,
@@ -124,6 +130,8 @@ class RuleRegistry {
               parameters?.getInt(DescriptionLengthRule.maxLengthParameter) ??
               DescriptionLengthRule.maxDescriptionLength,
         );
+      case DescriptionYamlCommentRule.ruleName:
+        return DescriptionYamlCommentRule(severity: severity);
       case DisallowedFieldRule.ruleName:
         return DisallowedFieldRule(severity: severity);
       case PreventSkillsShPublishingRule.ruleName:
