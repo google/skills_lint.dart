@@ -10,8 +10,8 @@ import 'src/package_directories.dart';
 import 'src/source_conventions.dart';
 import 'src/todos.dart';
 
-/// Every deferred-work comment in the repository's Dart code links the
-/// google/skills_lint.dart issue that tracks the work.
+/// Every deferred-work comment in the repository's Dart code links the issue
+/// that tracks the work.
 ///
 /// Without an issue, deferred work has no place to be discussed, scheduled
 /// or closed, and the comment outlives the reason for it. The
@@ -21,7 +21,7 @@ import 'src/todos.dart';
 /// Change this check if the repository moves its issue tracker away from
 /// GitHub.
 void main() {
-  test('every TODO in the repository links a google/skills_lint.dart issue', () {
+  test('every TODO in the repository links an issue', () {
     final List<ConventionViolation> violations = [
       for (final Source source in parseDirectories(dartSourceDirectories))
         ...findTodosWithoutIssue(source),
@@ -32,6 +32,6 @@ void main() {
 
 const String _fix =
     'File an issue, or do the work in this pull request. Write the TODO as '
-    '`// TODO(owner): https://github.com/google/skills_lint.dart/issues/<n>`, with the '
-    'link on the same line. See Deferred Work in '
+    '`// TODO(owner): #<n>`, with the issue on the same line. For an issue in '
+    'another repository, write its full URL. See Deferred Work in '
     'documentation/knowledge/style_guide.md.';

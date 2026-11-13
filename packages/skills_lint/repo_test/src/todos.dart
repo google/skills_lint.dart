@@ -15,8 +15,10 @@ import 'models/source.dart';
 /// but doesn't have the owner and an issue link on the same line.
 ///
 /// A line passes when it has the marker, an owner in parentheses, a colon,
-/// and then a `https://github.com/google/skills_lint.dart/issues/<n>` URL.
-/// The detector doesn't check who the owner is, or that the issue exists.
+/// and then either `#<n>`, an issue in this repository, or a
+/// `https://github.com/<owner>/<repo>/issues/<n>` URL, an issue in any
+/// repository. The detector doesn't check who the owner is, or that the issue
+/// exists.
 List<ConventionViolation> findTodosWithoutIssue(Source source) => [
   for (final Token comment in source.comments)
     if (comment.lexeme.contains('TODO') && !_linkedTodo.hasMatch(comment.lexeme))
@@ -24,5 +26,5 @@ List<ConventionViolation> findTodosWithoutIssue(Source source) => [
 ];
 
 final RegExp _linkedTodo = RegExp(
-  r'TODO\([\w-]+\): .*https://github\.com/google/skills_lint\.dart/issues/\d+',
+  r'TODO\([\w-]+\): .*(?:\B#\d+\b|https://github\.com/[\w.-]+/[\w.-]+/issues/\d+)',
 );
