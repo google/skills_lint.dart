@@ -26,6 +26,7 @@ import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rule_registry.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
+import 'package:skills_lint/src/rules/skill_name_prefix_rule.dart';
 import 'package:skills_lint/src/skill_fixer.dart';
 import 'package:skills_lint/src/validator.dart';
 import 'package:test/test.dart';
@@ -42,10 +43,18 @@ typedef _CorpusFixture = ({
   String Function(String rootPath) buildContent,
 });
 
+/// Parameters that a rule needs before it checks anything, keyed by rule
+/// name. The corpus is written to a package named `pkg`.
+final Map<String, CustomRuleParameters> _requiredParameters = {
+  SkillNamePrefixRule.ruleName: CustomRuleParameters(const {
+    SkillNamePrefixRule.prefixParameter: 'pkg',
+  }),
+};
+
 final List<SkillRule> _fixableRules = [
   for (final CheckType check in RuleRegistry.allChecks)
-    if (RuleRegistry.createRule(check.name, AnalysisSeverity.error) case final SkillRule rule
-        when rule is FixableRule)
+    if (RuleRegistry.createRule(check.name, AnalysisSeverity.error, _requiredParameters[check.name])
+        case final SkillRule rule when rule is FixableRule)
       rule,
 ];
 
@@ -62,7 +71,10 @@ final List<_NamedConfig> _configMatrix = [
     ruleConfigs: {
       for (final CheckType check in RuleRegistry.allChecks)
         if (check.name != PublishedSkillNameRule.ruleName)
-          check.name: const RuleConfig(severity: AnalysisSeverity.error),
+          check.name: RuleConfig(
+            severity: AnalysisSeverity.error,
+            parameters: _requiredParameters[check.name],
+          ),
     },
   ),
   (
@@ -74,7 +86,7 @@ final List<_NamedConfig> _configMatrix = [
             severity: AnalysisSeverity.error,
             parameters: check.name == RelativePathsRule.ruleName
                 ? CustomRuleParameters(const {RelativePathsRule.withinSkillParameter: true})
-                : null,
+                : _requiredParameters[check.name],
           ),
     },
   ),
@@ -82,7 +94,10 @@ final List<_NamedConfig> _configMatrix = [
     label: 'published-skill-name',
     ruleConfigs: {
       for (final CheckType check in RuleRegistry.allChecks)
-        check.name: const RuleConfig(severity: AnalysisSeverity.error),
+        check.name: RuleConfig(
+          severity: AnalysisSeverity.error,
+          parameters: _requiredParameters[check.name],
+        ),
     },
   ),
 ];
@@ -204,6 +219,7 @@ Future<void> _verifyRuleProperties(SkillRule rule) async {
       for (final CheckType check in RuleRegistry.allChecks)
         check.name: RuleConfig(
           severity: check.name == rule.name ? AnalysisSeverity.error : AnalysisSeverity.disabled,
+          parameters: _requiredParameters[check.name],
         ),
     },
   );

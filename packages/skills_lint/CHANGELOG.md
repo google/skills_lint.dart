@@ -1,5 +1,9 @@
 ## 0.5.3+2-wip
 
+### New rules
+
+- Added the `skill-name-prefix` rule, disabled by default. It reports a skill whose `name` isn't the prefix set by its `value` parameter and doesn't start with `<prefix>-`. `--fix` renames the skill. [#231](https://github.com/google/skills_lint.dart/issues/231)
+
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
