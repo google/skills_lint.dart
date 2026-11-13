@@ -3,6 +3,8 @@
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
+- Configuration errors show the `<file>:<line>:<column>` of each problem and suggest a close name, and the CLI lists them in one block with a count.
+- `--format=sarif` (and `OutputFormat.sarif`) prints errors and warnings to standard error in addition to writing the SARIF document to standard output.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
 - The CLI exits with code `78` when the configuration has errors or the file given to `--config` does not exist, and `skills_lint` did not check any skill. It used to exit with `1`, the code for skills that have errors.
 

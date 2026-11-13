@@ -14,6 +14,7 @@ import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
 
 import 'config_parser.dart';
+import 'config_problem_report.dart';
 import 'missing_defaults_exception.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
@@ -369,14 +370,9 @@ Future<Configuration?> _loadConfig(
       _log.warning(
         'DEPRECATION WARNING: --allow-misconfigured-keys is deprecated and will be removed in a future release. Fix misconfigured configuration keys rather than bypassing validation.',
       );
-      for (final String error in config.parsingErrors) {
-        _log.warning('Configuration warning: $error');
-      }
+      _log.warning(configProblemReport(configProblemsOf(config), ignored: true));
     } else {
-      for (final String error in config.parsingErrors) {
-        _log.severe('Configuration error: $error');
-      }
-      _log.severe('Fix or remove these entries in the configuration file.');
+      _log.severe(configProblemReport(configProblemsOf(config), ignored: false));
       return null;
     }
   }

@@ -1144,9 +1144,11 @@ Body with trailing space
 
       final TestProcess process = await startCli(['-s', skillDir.path, '--format=sarif']);
 
+      final Future<String> stdoutFuture = process.stdoutStream().join('\n');
+      final Future<String> stderrFuture = process.stderrStream().join('\n');
       await process.shouldExit(0);
-      final List<String> stdout = await process.stdout.rest.toList();
-      final String output = stdout.join('\n');
+      final String output = await stdoutFuture;
+      expect(await stderrFuture, isEmpty);
       final jsonMap = jsonDecode(output) as Map<String, dynamic>;
 
       expect(
@@ -1168,30 +1170,63 @@ Body with trailing space
       expect(output, isNot(contains('Skill is valid.')));
     });
 
-    test('--format=sarif exits 1 and emits SARIF findings for invalid skill', () async {
-      final Directory skillDir = await Directory('${tempDir.path}/invalid-skill').create();
-      await File('${skillDir.path}/SKILL.md').writeAsString('No frontmatter here');
+    test(
+      '--format=sarif exits 1 and emits SARIF findings to stdout and summary to stderr',
+      () async {
+        final Directory skillDir = await Directory('${tempDir.path}/invalid-skill').create();
+        await File('${skillDir.path}/SKILL.md').writeAsString('No frontmatter here');
 
-      final TestProcess process = await startCli(['-s', skillDir.path, '--format=sarif']);
+        final TestProcess process = await startCli(['-s', skillDir.path, '--format=sarif']);
 
-      await process.shouldExit(1);
-      final List<String> stdout = await process.stdout.rest.toList();
-      final String output = stdout.join('\n');
-      final jsonMap = jsonDecode(output) as Map<String, dynamic>;
+        final Future<String> stdoutFuture = process.stdoutStream().join('\n');
+        final Future<String> stderrFuture = process.stderrStream().join('\n');
+        await process.shouldExit(1);
+        final String output = await stdoutFuture;
+        final String stderrOutput = await stderrFuture;
+        final jsonMap = jsonDecode(output) as Map<String, dynamic>;
 
-      expect(jsonMap['version'], equals('2.1.0'));
-      final runs = jsonMap['runs'] as List<dynamic>;
-      final run = runs.first as Map<String, dynamic>;
-      final results = run['results'] as List<dynamic>;
-      expect(results, isNotEmpty);
-      final firstResult = results.first as Map<String, dynamic>;
-      expect(firstResult['ruleId'], equals('valid-yaml-metadata'));
-      expect(firstResult['level'], equals('error'));
-      expect(firstResult['locations'], isNotEmpty);
-      expect(output, isNot(contains('Evaluating directory:')));
-      expect(output, isNot(contains('Validating skill:')));
-      expect(output, isNot(contains('Skill is invalid:')));
-    });
+        expect(jsonMap['version'], equals('2.1.0'));
+        final runs = jsonMap['runs'] as List<dynamic>;
+        final run = runs.first as Map<String, dynamic>;
+        final results = run['results'] as List<dynamic>;
+        expect(results, isNotEmpty);
+        final firstResult = results.first as Map<String, dynamic>;
+        expect(firstResult['ruleId'], equals('valid-yaml-metadata'));
+        expect(firstResult['level'], equals('error'));
+        expect(firstResult['locations'], isNotEmpty);
+        expect(output, isNot(contains('Evaluating directory:')));
+        expect(output, isNot(contains('Validating skill:')));
+        expect(output, isNot(contains('Skill is invalid:')));
+        expect(stderrOutput, isNot(contains('Evaluating directory:')));
+        expect(stderrOutput, contains('--- Validating skill: invalid-skill ---'));
+        expect(stderrOutput, contains('Skill is invalid:'));
+        expect(stderrOutput, contains('Missing YAML metadata in SKILL.md'));
+      },
+    );
+
+    test(
+      '--format=sarif with --generate-baseline exits 0 and does not print errors to stderr',
+      () async {
+        final Directory skillDir = await Directory('${tempDir.path}/baseline-sarif-skill').create();
+        await File('${skillDir.path}/SKILL.md').writeAsString('No frontmatter here');
+
+        final TestProcess process = await startCli([
+          '-s',
+          skillDir.path,
+          '--format=sarif',
+          '--generate-baseline',
+        ]);
+
+        final Future<String> stdoutFuture = process.stdoutStream().join('\n');
+        final Future<String> stderrFuture = process.stderrStream().join('\n');
+        await process.shouldExit(0);
+        final String output = await stdoutFuture;
+        final String stderrOutput = await stderrFuture;
+
+        expect(jsonDecode(output), isA<Map<String, dynamic>>());
+        expect(stderrOutput, isNot(contains('Skill is invalid:')));
+      },
+    );
 
     test('--format=json exits 0 and emits JSON array for valid skill', () async {
       final Directory skillDir = await Directory('${tempDir.path}/valid-skill').create();
@@ -1458,10 +1493,12 @@ skills_lint:
 
           expect(
             result.stderr,
-            contains('Configuration error: Global rules: Unknown rule "check-relative-path".'),
+            reportsConfigProblem(
+              'unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+            ),
           );
           expect(result.stderr, contains('"check-relative-paths"'));
-          expect(result.stderr, contains('Fix or remove'));
+          expect(result.stderr, contains('skills_lint did not run.'));
           expect(result.stdout, isNot(contains('"ruleId"')));
         });
       }
@@ -1479,9 +1516,12 @@ skills_lint:
 
         expect(
           result.stderr,
-          contains('Configuration warning: Global rules: Unknown rule "check-relative-path"'),
+          reportsConfigProblem(
+            'unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+            level: ConfigProblemLevel.warning,
+          ),
         );
-        expect('Unknown rule'.allMatches(result.stderr), hasLength(1));
+        expect('unknown rule'.allMatches(result.stderr), hasLength(1));
       });
 
       test('fails on an unknown rule in the file given to --config', () async {
@@ -1497,7 +1537,9 @@ skills_lint:
 
         expect(
           result.stderr,
-          contains('Configuration error: Global rules: Unknown rule "check-relative-path".'),
+          reportsConfigProblem(
+            'unknown rule "check-relative-path". Did you mean "check-relative-paths"?',
+          ),
         );
       });
 
@@ -1514,8 +1556,8 @@ skills_lint:
 
         expect(
           result.stderr,
-          contains(
-            'Configuration error: Directory entry rules for ".": Unknown rule "valid-yaml-metadat"',
+          reportsConfigProblem(
+            'unknown rule "valid-yaml-metadat". Did you mean "valid-yaml-metadata"?',
           ),
         );
       });
@@ -1563,7 +1605,10 @@ skills_lint:
         );
         expect(
           stderrString,
-          contains('Configuration warning: Unrecognized top-level key "unrecognized_key"'),
+          reportsConfigProblem(
+            'unknown key "unrecognized_key" in "skills_lint".',
+            level: ConfigProblemLevel.warning,
+          ),
         );
         expect(() => jsonDecode(stdoutString), returnsNormally);
         final jsonMap = jsonDecode(stdoutString) as Map<String, dynamic>;

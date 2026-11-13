@@ -30,16 +30,23 @@ abstract class Reporter {
     bool printWarnings = true,
     bool pretty = true,
     String? toolVersion,
-  }) {
-    switch (format) {
-      case OutputFormat.text:
-        return TextReporter(out: out, err: err, quiet: quiet, printWarnings: printWarnings);
-      case OutputFormat.json:
-        return JsonReporter(out: out, err: err, pretty: pretty);
-      case OutputFormat.sarif:
-        return SarifReporter(out: out, err: err, pretty: pretty, toolVersion: toolVersion);
-    }
-  }
+  }) => switch (format) {
+    OutputFormat.text => TextReporter(
+      out: out,
+      err: err,
+      quiet: quiet,
+      printWarnings: printWarnings,
+    ),
+    OutputFormat.json => JsonReporter(out: out, err: err, pretty: pretty),
+    OutputFormat.sarif => SarifReporter(
+      out: out,
+      err: err,
+      pretty: pretty,
+      quiet: quiet,
+      printWarnings: printWarnings,
+      toolVersion: toolVersion,
+    ),
+  };
 
   /// Prefix used for internal tool failure messages routed to stderr.
   static const String toolErrorPrefix = 'skills_lint internal error:';
