@@ -9,6 +9,7 @@
 - The CLI prints configuration errors under one header per file, such as `skills_lint.yaml has 2 configuration errors:`, and ends with a line that says how many errors to fix and that skills_lint did not run.
 - `--format=sarif` (and `OutputFormat.sarif`) prints errors and warnings to standard error in addition to writing the SARIF document to standard output.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
+- The CLI exits with code `78` when the configuration has errors or the file given to `--config` does not exist, and `skills_lint` did not check any skill. It used to exit with `1`, the code for skills that have errors.
 
 ### Bug fixes
 
