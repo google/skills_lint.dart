@@ -4,10 +4,8 @@
 
 import 'dart:io';
 
-import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:pubspec_parse/pubspec_parse.dart';
-import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
 import '../fixable_rule.dart';
@@ -16,7 +14,7 @@ import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
-import '../path_utils.dart';
+import '../name_prefix.dart';
 
 /// Enforces that published package skills follow the naming convention required
 /// by `package:skills`.
@@ -82,28 +80,17 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
       return errors;
     }
 
-    final String hyphenPkg = resolvedPackageName.replaceAll('_', '-').toLowerCase();
-    final String rawPkg = resolvedPackageName.toLowerCase();
-    final hyphenPrefix = '$hyphenPkg-';
-    final rawPrefix = '$rawPkg-';
-
-    final bool isNameValid =
-        skillName == hyphenPkg ||
-        skillName == rawPkg ||
-        skillName.startsWith(hyphenPrefix) ||
-        skillName.startsWith(rawPrefix);
-
-    if (!isNameValid) {
+    if (!_hasPackagePrefix(skillName, resolvedPackageName)) {
       final SourceRegion? region = context.yamlNodeToRegion(nameNode);
-      final String suggestedName = suggestValidName(
+      final String suggestedName = suggestPrefixedName(
         currentName: skillName,
-        packageName: resolvedPackageName,
+        prefix: resolvedPackageName,
       );
       errors.add(
         _buildNamingConventionError(
           skillName: skillName,
           packageName: resolvedPackageName,
-          hyphenPrefix: hyphenPrefix,
+          hyphenPrefix: '${_hyphenatedPackageName(resolvedPackageName)}-',
           suggestedName: suggestedName,
           region: region,
         ),
@@ -257,85 +244,17 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     return name.isNotEmpty ? name : null;
   }
 
-  /// Suggests a valid skill name complying with the package published skill naming convention.
-  ///
-  /// Examples:
-  /// * `suggestValidName(currentName: 'setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
-  /// * `suggestValidName(currentName: 'dart-skills-lint-setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
-  /// * `suggestValidName(currentName: 'skills_lint_setup', packageName: 'skills_lint')` -> `'skills-lint-setup'`
-  /// * `suggestValidName(currentName: 'skills_lint', packageName: 'skills_lint')` -> `'skills-lint'`
-  @visibleForTesting
-  static String suggestValidName({required String currentName, required String packageName}) {
-    final List<String> pkgTokens = _tokenize(packageName);
-    final List<String> skillTokens = _tokenize(currentName);
+  /// Whether [skillName] starts with [packageName], as written or with its
+  /// underscores replaced by hyphens.
+  static bool _hasPackagePrefix(String skillName, String packageName) =>
+      hasNamePrefix(skillName, _hyphenatedPackageName(packageName)) ||
+      hasNamePrefix(skillName, packageName.toLowerCase());
 
-    if (pkgTokens.isEmpty) {
-      return normalizeSkillNameToken(currentName);
-    }
-
-    var matchStart = -1;
-    for (var i = 0; i <= skillTokens.length - pkgTokens.length; i++) {
-      var match = true;
-      for (var j = 0; j < pkgTokens.length; j++) {
-        if (skillTokens[i + j] != pkgTokens[j]) {
-          match = false;
-          break;
-        }
-      }
-      if (match) {
-        matchStart = i;
-        break;
-      }
-    }
-
-    final List<String> suffixTokens;
-    if (matchStart >= 0) {
-      final int matchEnd = matchStart + pkgTokens.length;
-      final List<String> after = skillTokens.sublist(matchEnd);
-      final List<String> before = skillTokens.sublist(0, matchStart);
-      suffixTokens = after.isNotEmpty ? after : before;
-    } else {
-      suffixTokens = skillTokens;
-    }
-
-    final resultTokens = [...pkgTokens, ...suffixTokens];
-    final String candidate = resultTokens.join('-');
-    return normalizeSkillNameToken(candidate);
-  }
-
-  static List<String> _tokenize(String input) =>
-      input.toLowerCase().split(RegExp(r'[^a-z0-9]+')).where((token) => token.isNotEmpty).toList();
+  static String _hyphenatedPackageName(String packageName) =>
+      packageName.replaceAll('_', '-').toLowerCase();
 
   @override
   Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
-    final String currentContent = context.rawContent;
-
-    final RegExpMatch? match = SkillContext.skillStartRegex.firstMatch(currentContent);
-    if (match == null) {
-      return currentContent;
-    }
-    final String yamlStr = match.group(1)!;
-
-    final Object? yamlObj;
-    try {
-      yamlObj = loadYaml(yamlStr);
-    } on YamlException {
-      return currentContent;
-    }
-
-    if (yamlObj is! YamlMap) {
-      return currentContent;
-    }
-
-    final YamlMap yaml = yamlObj;
-    final YamlNode? nameNode = yaml.nodes['name'];
-    if (nameNode == null ||
-        nameNode is! YamlScalar ||
-        nameNode.value == null ||
-        nameNode.value.toString().trim().isEmpty) {
-      return currentContent;
-    }
-
     final String? resolvedPackageName = resolvePackageName(
       startDirectory: context.directory,
       explicitPackageName: packageName,
@@ -343,31 +262,14 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     );
 
     if (resolvedPackageName == null || resolvedPackageName.isEmpty) {
-      return currentContent;
+      return context.rawContent;
     }
 
-    final String currentSkillName = nameNode.value.toString().trim();
-    final String hyphenPkg = resolvedPackageName.replaceAll('_', '-').toLowerCase();
-    final String rawPkg = resolvedPackageName.toLowerCase();
-    final hyphenPrefix = '$hyphenPkg-';
-    final rawPrefix = '$rawPkg-';
-
-    if (currentSkillName == hyphenPkg ||
-        currentSkillName == rawPkg ||
-        currentSkillName.startsWith(hyphenPrefix) ||
-        currentSkillName.startsWith(rawPrefix)) {
-      return currentContent;
-    }
-
-    final String suggestedName = suggestValidName(
-      currentName: currentSkillName,
-      packageName: resolvedPackageName,
+    return renameSkillInFrontmatter(
+      context.rawContent,
+      (String currentName) => _hasPackagePrefix(currentName, resolvedPackageName)
+          ? null
+          : suggestPrefixedName(currentName: currentName, prefix: resolvedPackageName),
     );
-    final int yamlOffset = currentContent.indexOf(yamlStr, match.start);
-    final SourceSpan span = nameNode.span;
-    final String before = currentContent.substring(0, yamlOffset + span.start.offset);
-    final String after = currentContent.substring(yamlOffset + span.end.offset);
-
-    return '$before$suggestedName$after';
   }
 }

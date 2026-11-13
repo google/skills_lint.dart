@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
+import 'package:skills_lint/src/name_prefix.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:test/test.dart';
 
@@ -260,89 +261,62 @@ void main() {
       expect(third, isNull);
     });
 
-    group('suggestValidName', () {
+    group('suggestPrefixedName', () {
       test('replaces prefix when skill contains package name', () {
         expect(
-          PublishedSkillNameRule.suggestValidName(
-            currentName: 'dart-skills-lint-setup',
-            packageName: 'skills_lint',
-          ),
+          suggestPrefixedName(currentName: 'dart-skills-lint-setup', prefix: 'skills_lint'),
           'skills-lint-setup',
         );
         expect(
-          PublishedSkillNameRule.suggestValidName(
-            currentName: 'dart-skills_lint-validation',
-            packageName: 'skills_lint',
-          ),
+          suggestPrefixedName(currentName: 'dart-skills_lint-validation', prefix: 'skills_lint'),
           'skills-lint-validation',
         );
       });
 
       test('normalizes underscores in suffix', () {
         expect(
-          PublishedSkillNameRule.suggestValidName(
-            currentName: 'skills_lint_setup',
-            packageName: 'skills_lint',
-          ),
+          suggestPrefixedName(currentName: 'skills_lint_setup', prefix: 'skills_lint'),
           'skills-lint-setup',
         );
         expect(
-          PublishedSkillNameRule.suggestValidName(
-            currentName: 'setup_tool',
-            packageName: 'skills_lint',
-          ),
+          suggestPrefixedName(currentName: 'setup_tool', prefix: 'skills_lint'),
           'skills-lint-setup-tool',
         );
       });
 
       test('avoids false-positive substring matches inside unrelated words', () {
+        expect(suggestPrefixedName(currentName: 'splinter', prefix: 'lint'), 'lint-splinter');
         expect(
-          PublishedSkillNameRule.suggestValidName(currentName: 'splinter', packageName: 'lint'),
-          'lint-splinter',
-        );
-        expect(
-          PublishedSkillNameRule.suggestValidName(currentName: 'author-tools', packageName: 'auth'),
+          suggestPrefixedName(currentName: 'author-tools', prefix: 'auth'),
           'auth-author-tools',
         );
       });
 
       test('clamps long suggested names to max 64 characters', () {
         final String longName = 'a' * 60;
-        final String suggested = PublishedSkillNameRule.suggestValidName(
-          currentName: longName,
-          packageName: 'my_pkg',
-        );
+        final String suggested = suggestPrefixedName(currentName: longName, prefix: 'my_pkg');
         expect(suggested.length, lessThanOrEqualTo(64));
         expect(suggested, startsWith('my-pkg-'));
       });
 
       test('prepends prefix when skill does not contain package name', () {
         expect(
-          PublishedSkillNameRule.suggestValidName(currentName: 'setup', packageName: 'skills_lint'),
+          suggestPrefixedName(currentName: 'setup', prefix: 'skills_lint'),
           'skills-lint-setup',
         );
         expect(
-          PublishedSkillNameRule.suggestValidName(
-            currentName: 'code-generation',
-            packageName: 'serverpod',
-          ),
+          suggestPrefixedName(currentName: 'code-generation', prefix: 'serverpod'),
           'serverpod-code-generation',
         );
       });
 
       test('returns hyphenated package name when currentName matches package name', () {
         expect(
-          PublishedSkillNameRule.suggestValidName(
-            currentName: 'skills_lint',
-            packageName: 'skills_lint',
-          ),
+          suggestPrefixedName(currentName: 'skills_lint', prefix: 'skills_lint'),
           'skills-lint',
         );
         expect(
-          PublishedSkillNameRule.suggestValidName(
-            currentName: 'skills-lint',
-            packageName: 'skills_lint',
-          ),
+          suggestPrefixedName(currentName: 'skills-lint', prefix: 'skills_lint'),
           'skills-lint',
         );
       });
