@@ -75,7 +75,7 @@ class ValidationSession {
   /// * [generateBaseline] controls whether the validation should output/update baseline ignores.
   /// * [fix] controls whether to apply fixable rule modifications directly to files.
   /// * [fixApply] is the deprecated flag indicating if fixes should be automatically applied.
-  // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump. https://github.com/google/skills_lint.dart/issues/73
+  // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump. #73
   /// * [format] specifies the output format for diagnostics ([OutputFormat.text], [OutputFormat.json], [OutputFormat.sarif]).
   /// * [pubArchiveLoader] lists the files pub publishes. Tests pass one with a
   ///   fake process runner.
@@ -94,7 +94,7 @@ class ValidationSession {
     required this.quiet,
     required this.generateBaseline,
     required this.fix,
-    // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump. https://github.com/google/skills_lint.dart/issues/73
+    // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump. #73
     required this.fixApply,
     this.format = OutputFormat.text,
     @visibleForTesting PubArchiveLoader? pubArchiveLoader,
@@ -160,7 +160,7 @@ class ValidationSession {
   final bool quiet;
   final bool generateBaseline;
   final bool fix;
-  // TODO(reidbaker): Remove deprecated fixApply field on next major version bump. https://github.com/google/skills_lint.dart/issues/73
+  // TODO(reidbaker): Remove deprecated fixApply field on next major version bump. #73
   final bool fixApply;
   final OutputFormat format;
   final Reporter _reporter;
