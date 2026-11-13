@@ -5,6 +5,7 @@
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
 - `check-absolute-paths`, `check-relative-paths`, and `pub-archive-includes-skill` also validate reference-style links (`[text][ref]`, `[ref][]`, and `[ref]`), and `check-absolute-paths --fix` rewrites `[ref]:` definitions in place.
+- The CLI exits with code `78` when the configuration has errors or the file given to `--config` does not exist, and `skills_lint` did not check any skill. It used to exit with `1`, the code for skills that have errors.
 
 ### New features
 
