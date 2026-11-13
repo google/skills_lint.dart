@@ -1,4 +1,8 @@
-## 0.5.3+2-wip
+## 0.5.4-wip
+
+### New rules
+
+- Added the `frontmatter-truncated-by-comment` rule, disabled by default. The rule reports unquoted frontmatter strings cut short by `#`, such as `description: Use when asked "fix #123"` (which YAML reads as `Use when asked "fix`), while leaving trailing `# comments` alone. `--fix` quotes the value.
 
 ### Behavior changes
 

@@ -131,6 +131,7 @@ _CorpusFixture _buildMutatedFixture(Random rng, int index) {
   final bool carriageReturn = rng.nextBool();
   final bool insideAbsLink = rng.nextBool();
   final bool outsideAbsLink = rng.nextBool();
+  final bool commentInDescription = rng.nextBool();
   return (
     label: 'mutated-$index ($dirName / $fmName)',
     dirName: dirName,
@@ -143,6 +144,7 @@ _CorpusFixture _buildMutatedFixture(Random rng, int index) {
       carriageReturn: carriageReturn,
       insideAbsLink: insideAbsLink,
       outsideAbsLink: outsideAbsLink,
+      commentInDescription: commentInDescription,
     ),
   );
 }
@@ -156,9 +158,15 @@ String _renderMutatedSkill({
   required bool carriageReturn,
   required bool insideAbsLink,
   required bool outsideAbsLink,
+  required bool commentInDescription,
 }) {
+  // ` #` in the unquoted description starts a YAML comment, which
+  // frontmatter-truncated-by-comment reports and fixes.
+  final description = commentInDescription
+      ? 'Mutated skill $index. Fix #$index first.'
+      : 'Mutated skill $index.';
   final buffer = StringBuffer()
-    ..write(buildFrontmatter(name: fmName, description: 'Mutated skill $index.'))
+    ..write(buildFrontmatter(name: fmName, description: description))
     ..write('# Heading${trailingSpaces ? '   ' : ''}\n');
   if (carriageReturn) {
     buffer.write('Line before CR   \rAfter CR\n');
