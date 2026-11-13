@@ -12,7 +12,9 @@ import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/pub_archive_loader.dart';
 import 'package:skills_lint/src/rule_registry.dart';
+import 'package:skills_lint/src/rules/description_length_rule.dart';
 import 'package:skills_lint/src/rules/path_does_not_exist_rule.dart';
+import 'package:skills_lint/src/rules/valid_yaml_metadata_rule.dart';
 import 'package:skills_lint/src/validation_session.dart';
 import 'package:test/test.dart';
 
@@ -75,8 +77,8 @@ Future<List<ValidationError>> _validateFixture() async {
         '---\n'
         // Not the directory name, for invalid-skill-name.
         'name: Bad\n'
-        'description: ${'x' * 1025}\n'
-        'compatibility: ${'x' * 501}\n'
+        'description: ${'x' * (DescriptionLengthRule.maxDescriptionLength + 1)}\n'
+        'compatibility: ${'x' * (ValidYamlMetadataRule.maxCompatibilityLength + 1)}\n'
         'owner: me\n'
         // No `metadata: internal: true`, for prevent-skills-sh-publishing.
         '---\n'
