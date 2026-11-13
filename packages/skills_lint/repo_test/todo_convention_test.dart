@@ -14,8 +14,9 @@ import 'src/todos.dart';
 /// google/skills_lint.dart issue that tracks the work.
 ///
 /// Without an issue, deferred work has no place to be discussed, scheduled
-/// or closed, and the comment outlives the reason for it. The `flutter_style_todos` lint checks the owner and colon but not the
-/// link. `checkers/todos_test.dart` pins what the detector reports.
+/// or closed, and the comment outlives the reason for it. The
+/// `flutter_style_todos` lint checks the owner and colon but not the link.
+/// `checkers/todos_test.dart` pins what the detector reports.
 ///
 /// Change this check if the repository moves its issue tracker away from
 /// GitHub.
