@@ -34,8 +34,8 @@ of a rule's subject is part of its contract.
 A rule that throws while it checks a skill doesn't stop the run. The skill
 gets an `unexpected-error` finding at `error` severity, in the report with
 its other findings. The message starts with `skills_lint internal error:`
-and names the rule. `unexpected-error` isn't a rule, so no flag or
-configuration turns it on or off.
+and names the rule. `unexpected-error` does not have a flag or
+configuration that turns it on or off.
 
 See [`CONTRIBUTING.md`](../../CONTRIBUTING.md#rule-stability-policy-semver) for the SemVer policy that
 governs how changes to these rules ship.
@@ -284,23 +284,20 @@ governs how changes to these rules ship.
 - **What it checks:**
   - `SKILL.md` contains a YAML frontmatter block delimited by `---`
     that parses without errors.
-  - The frontmatter stays within the size limits: at most 64 KiB
-    (65,536 bytes) of UTF-8 text, at most 10,000 values once aliases
-    are expanded, at most 64 levels of nesting, and at most 10,000 `[` and
-    `{` characters. Frontmatter over a limit counts as a parse error, and
-    the rules that read the frontmatter skip it. The YAML parser builds the
-    whole document in memory before the value and nesting limits run, so
-    its memory grows with the size of the input. The byte limit rejects
-    larger input before parsing, so that memory stays bounded. It also
-    applies to `skills_lint.yaml` and `pubspec.yaml`.
+  - The frontmatter stays within the limits in
+    [`YamlLimits`](lib/src/yaml_limits.dart): `maxBytes` bytes of UTF-8,
+    checked before parsing so memory stays bounded; `maxNodes` values with
+    aliases expanded; `maxDepth` levels of nesting; and
+    `maxFlowCollectionStarts` `[` and `{` characters.
   - Every mapping key is a plain or quoted scalar. Explicit (`? key`),
-    alias (`*name: value`) and collection (`[a, b]: value`) mapping keys
-    count as a parse error.
-  - The frontmatter has no YAML anchors (`&name`) or aliases (`*name`).
-    The check reads the text before parsing it, and skips quoted text,
-    block scalars, plain text such as `*bold*`, and comments. A value that
-    starts with `*` or `&`, such as `*Important*`, reads as an alias or
-    anchor; quote it.
+    alias (`*name: value`) and collection (`[a, b]: value`) keys fail.
+  - The frontmatter has no YAML anchors (`&name`) or aliases (`*name`). A
+    scan before parsing skips quoted text, block scalars, plain text such
+    as `*bold*`, and comments. Quote values that start with `*` or `&`,
+    such as `"*Important*"`.
+  - Frontmatter that fails one of the three checks above counts as a parse
+    error, and the rules that read the frontmatter skip it. The limits and
+    mapping key check also apply to `skills_lint.yaml` and `pubspec.yaml`.
   - Required fields `name` and `description` are both present.
   - If `compatibility:` is present, it is at most 500 characters.
 - **Diagnostic shape:**

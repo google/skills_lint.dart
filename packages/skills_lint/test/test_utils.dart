@@ -14,6 +14,7 @@ import 'package:skills_lint/src/models/skill_rule.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/suggestions/did_you_mean.dart';
 import 'package:skills_lint/src/validator.dart';
+import 'package:skills_lint/src/yaml_limits.dart';
 import 'package:tar/tar.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
@@ -277,6 +278,13 @@ final Matcher hasNoErrorsOrWarnings = isA<ValidationResult>()
     .having((ValidationResult r) => r.isValid, 'isValid', isTrue)
     .having((ValidationResult r) => r.errors, 'errors', isEmpty)
     .having((ValidationResult r) => r.warnings, 'warnings', isEmpty);
+
+/// A flow list nested one level deeper than [YamlLimits.maxDepth] allows
+/// under a mapping key.
+String tooDeepFlowList() {
+  const int levels = YamlLimits.maxDepth + 1;
+  return '${'[' * levels}${']' * levels}';
+}
 
 /// A frontmatter whose `description` expands to 10^9 values through nine
 /// levels of ten aliases each.

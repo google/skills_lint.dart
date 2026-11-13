@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:math';
+
 import 'package:skills_lint/src/yaml_limits.dart';
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
@@ -118,10 +120,10 @@ void main() {
     });
 
     test('rejects a very large document quickly', () {
-      // 64 MiB of flow collections would take package:yaml far longer than
-      // the timeout to parse, and the other limits would also need a full
-      // pass over the text.
-      final String yaml = '[' * (64 * 1024 * 1024);
+      // A thousand times the byte limit in flow collections would take
+      // package:yaml far longer than the timeout to parse, and the other
+      // limits would also need a full pass over the text.
+      final String yaml = '[' * (YamlLimits.maxBytes * 1000);
       final stopwatch = Stopwatch()..start();
       expect(
         () => YamlLimits.loadYaml(yaml),
@@ -138,13 +140,22 @@ void main() {
 
     test('reports a pubspec over the limits before Pubspec.parse reads it', () {
       expect(
-        () => YamlLimits.loadPubspec('name: my_pkg\nnested: ${'[' * 70}${']' * 70}\n'),
+        () => YamlLimits.loadPubspec('name: my_pkg\nnested: ${tooDeepFlowList()}\n'),
         throwsYamlMessage(contains('levels deep')),
       );
     });
   });
 }
 
-/// Writes [count] with a comma between each group of three digits.
-String _withCommas(int count) =>
-    count.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+$)'), (_) => ',');
+/// Writes [count] with a comma between each group of three digits, so
+/// 1234567 becomes `1,234,567`.
+String _withCommas(int count) {
+  final digits = count.toString();
+  final groups = <String>[];
+  // Takes three digits at a time from the right; the leftmost group may be
+  // shorter.
+  for (int end = digits.length; end > 0; end -= 3) {
+    groups.insert(0, digits.substring(max(0, end - 3), end));
+  }
+  return groups.join(',');
+}

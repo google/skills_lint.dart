@@ -129,7 +129,7 @@ void main() {
     test('a pubspec.yaml over the YAML size limits', () async {
       final Directory root = await createPackage(
         'my_pkg',
-        pubspecExtra: 'nested: ${'[' * 70}${']' * 70}\n',
+        pubspecExtra: 'nested: ${tooDeepFlowList()}\n',
       );
       final pub = FakePub();
 

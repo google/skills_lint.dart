@@ -24,7 +24,7 @@ abstract final class YamlLimits {
   /// [maxDepth] are checked, so the memory a parse takes grows with the size
   /// of the input. This limit rejects a larger document before any scan or
   /// parse, so that memory stays bounded. Real `SKILL.md` frontmatter is a
-  /// few kilobytes at most, so 64 KiB leaves room for long `metadata` and
+  /// few kilobytes at most, so this limit leaves room for long `metadata` and
   /// `hooks` blocks.
   static const int maxBytes = 64 * 1024;
 
@@ -32,7 +32,7 @@ abstract final class YamlLimits {
   ///
   /// Each flow collection starts with one of them, so this bounds flow
   /// nesting before parsing. `package:yaml` slows down with the square of
-  /// that nesting: 10,000 levels take under a second.
+  /// that nesting: [maxFlowCollectionStarts] levels take under a second.
   static const int maxFlowCollectionStarts = 10000;
 
   /// The most nodes a parsed document may hold, counting each alias as a full

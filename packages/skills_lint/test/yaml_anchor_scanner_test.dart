@@ -162,7 +162,9 @@ void main() {
 /// document and shares a node between two places, the document used an
 /// alias, so the scanner must report something.
 ({int aliased, List<String> missed}) _scanGeneratedAliases() {
-  const owners = [
+  // Block indicators that place the scalar inside zero to three levels of
+  // lists, explicit keys and mappings.
+  const nestingPrefixes = [
     '',
     '- ',
     '? ',
@@ -185,12 +187,12 @@ void main() {
   ];
   final missed = <String>[];
   var aliased = 0;
-  for (final owner in owners) {
+  for (final nestingPrefix in nestingPrefixes) {
     for (final scalar in scalars) {
       for (final key in keys) {
         for (var indent = 0; indent <= 6; indent++) {
           final String i = ' ' * indent;
-          final String yaml = 'name: x\nl:\n$owner$scalar\n$i${key.replaceAll('{i}', i)}'
+          final String yaml = 'name: x\nl:\n$nestingPrefix$scalar\n$i${key.replaceAll('{i}', i)}'
               .replaceFirst('$scalar\n\n', '$scalar\n');
           if (!_hasSharedNode(yaml)) {
             continue;

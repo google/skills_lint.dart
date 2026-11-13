@@ -134,7 +134,7 @@ void main() {
       final innerDir = Directory(p.join(pkgDir.path, 'inner'))..createSync(recursive: true);
       File(
         p.join(innerDir.path, 'pubspec.yaml'),
-      ).writeAsStringSync('name: inner_pkg\nnested: ${'[' * 70}${']' * 70}\n');
+      ).writeAsStringSync('name: inner_pkg\nnested: ${tooDeepFlowList()}\n');
       final skillDir = Directory(p.join(innerDir.path, 'skills', 'setup'))
         ..createSync(recursive: true);
 
