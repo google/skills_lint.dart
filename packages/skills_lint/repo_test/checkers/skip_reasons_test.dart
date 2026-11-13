@@ -97,6 +97,76 @@ void main() {
       expect(_lines(findTestOnWithoutComment(source)), [3, 6]);
     });
   });
+
+  group('findTimeoutsWithoutComment', () {
+    test('accepts a comment inside the call', () {
+      final source = Source.snippet('''
+void main() {
+  test('a', () {
+    // Compiles the CLI, which takes over 30 seconds on CI.
+  }, timeout: const Timeout(Duration(minutes: 2)));
+  group(
+    'b',
+    () {},
+    timeout: const Timeout.factor(2), // Each test starts a subprocess.
+  );
+}
+''');
+      expect(findTimeoutsWithoutComment(source), isEmpty);
+    });
+
+    test('reports a timeout: argument with no comment inside the call', () {
+      final source = Source.snippet('''
+// Compiles the CLI, which takes over 30 seconds on CI.
+void main() {
+  test('a', () {}, timeout: const Timeout(Duration(minutes: 2)));
+}
+''');
+      final ConventionViolation violation = findTimeoutsWithoutComment(source).single;
+      expect(violation.line, 3);
+      expect(
+        violation.problem,
+        'timeout: const Timeout(Duration(minutes: 2)) has no comment saying why',
+      );
+    });
+
+    test('accepts an @Timeout annotation with a comment on the line above', () {
+      final source = Source.snippet('''
+// Copyright header.
+
+// Every test in this file compiles the CLI, which takes over 30 seconds on CI.
+@Timeout(Duration(minutes: 2))
+library;
+
+// Starts a subprocess.
+@test.Timeout.factor(2)
+void main() {}
+''');
+      expect(findTimeoutsWithoutComment(source), isEmpty);
+    });
+
+    test('reports an @Timeout annotation whose comment is separated by a blank line', () {
+      final source = Source.snippet('''
+// Copyright header.
+
+@Timeout.factor(2)
+library;
+''');
+      final ConventionViolation violation = findTimeoutsWithoutComment(source).single;
+      expect(violation.line, 3);
+      expect(violation.problem, '@Timeout.factor(2) has no comment saying why');
+    });
+
+    test('ignores a positional timeout and other annotations', () {
+      final source = Source.snippet('''
+@TestOn('vm')
+library;
+
+Future<void> run(Future<void> work) => work.timeout(const Duration(seconds: 1));
+''');
+      expect(findTimeoutsWithoutComment(source), isEmpty);
+    });
+  });
 }
 
 List<int> _lines(Iterable<ConventionViolation> violations) => [for (final v in violations) v.line];

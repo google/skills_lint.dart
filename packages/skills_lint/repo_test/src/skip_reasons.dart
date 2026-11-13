@@ -2,18 +2,21 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Detectors for `skip:` and `testOn:` arguments that don't say why a test
-/// is skipped.
+/// Detectors for `skip:`, `testOn:` and `timeout:` arguments that don't say
+/// why a test is skipped or needs a different timeout.
 ///
 /// A skipped test is a gap in coverage. With the reason next to it, a reader
 /// can tell a platform limit from a bug that someone should fix, and can
-/// check whether the reason still holds.
+/// check whether the reason still holds. A timeout changes how long a test
+/// may run before it fails. Its reason lets a reader tell a slow step from a
+/// hang that someone should fix.
 ///
 /// Change these rules if `package:test` gains a way to attach a reason to
 /// `testOn:`, or if a reason needs a form that they reject.
 library;
 
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/token.dart';
 
 import 'models/convention_violation.dart';
 import 'models/source.dart';
@@ -51,6 +54,49 @@ List<ConventionViolation> findTestOnWithoutComment(Source source) {
     }
   }
   return violations;
+}
+
+/// Reports each `timeout:` argument in [source] that has no comment inside
+/// the same argument list, and each `@Timeout` annotation that has no comment
+/// on the line directly above it.
+List<ConventionViolation> findTimeoutsWithoutComment(Source source) {
+  final List<ConventionViolation> violations = [];
+  for (final NamedArgument argument in _namedArguments(source, 'timeout')) {
+    final AstNode arguments = argument.parent!;
+    final bool commented = source.comments.any(
+      (comment) => comment.offset > arguments.offset && comment.end < arguments.end,
+    );
+    if (!commented) {
+      violations.add(
+        source.violationAt(argument.offset, '${argument.toSource()} has no comment saying why'),
+      );
+    }
+  }
+  for (final Annotation annotation in source.nodes.whereType<Annotation>()) {
+    if (_namesTimeout(annotation) && !_hasCommentDirectlyAbove(source, annotation)) {
+      violations.add(
+        source.violationAt(annotation.offset, '${annotation.toSource()} has no comment saying why'),
+      );
+    }
+  }
+  return violations;
+}
+
+/// Whether [annotation] is `@Timeout`, `@Timeout.factor`, or either one
+/// behind an import prefix.
+bool _namesTimeout(Annotation annotation) => annotation.name.name.split('.').contains('Timeout');
+
+/// Whether the last comment before [node] ends on the line directly above it.
+bool _hasCommentDirectlyAbove(Source source, AstNode node) {
+  Token? comment = node.beginToken.precedingComments;
+  if (comment == null) {
+    return false;
+  }
+  while (comment!.next != null) {
+    comment = comment.next;
+  }
+  final String gap = source.content.substring(comment.end, node.offset);
+  return '\n'.allMatches(gap).length == 1;
 }
 
 /// The named arguments called [name] in any argument list of [source].
