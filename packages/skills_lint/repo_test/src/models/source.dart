@@ -36,7 +36,8 @@ class Source {
         comment,
   ];
 
-  /// The 1-based line number of [offset].
+  /// The line that contains character [offset] of [content]. [offset] counts
+  /// from 0 and the returned line counts from 1.
   int lineOf(int offset) => _parsed.lineInfo.getLocation(offset).lineNumber;
 
   ConventionViolation violationAt(int offset, String problem) =>
