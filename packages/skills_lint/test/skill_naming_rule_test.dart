@@ -68,6 +68,7 @@ void main() {
         );
         expect(error.markdownMessage, contains('* **Suggested:** `myproject-my-foobar`'));
         expect(error.region?.startLine, 2);
+        expect(error.subject, SkillNamingRule.prefixParameter);
       });
 
       test('reports a name that starts with the prefix but no hyphen', () async {
@@ -114,6 +115,14 @@ void main() {
           'Shorten the `name:` field in SKILL.md.',
         );
         expect(errors.single.region?.startLine, 2);
+        expect(errors.single.subject, SkillNamingRule.maxLengthParameter);
+      });
+
+      test('accepts a max-length from 1 to 64', () {
+        expect(SkillNamingRule.maxLengthConstraint.accepts(1), isTrue);
+        expect(SkillNamingRule.maxLengthConstraint.accepts(64), isTrue);
+        expect(SkillNamingRule.maxLengthConstraint.accepts(0), isFalse);
+        expect(SkillNamingRule.maxLengthConstraint.accepts(65), isFalse);
       });
 
       test('reports both conventions when a name breaks both', () async {
@@ -208,6 +217,32 @@ void main() {
         expect(outcome.result.validationErrors, isEmpty);
       });
 
+      test('renames to a suggested name of exactly the max-length', () async {
+        final FixOutcome outcome = await fixSkill(
+          'my-foobar',
+          namingConfig({
+            SkillNamingRule.prefixParameter: 'myproject',
+            SkillNamingRule.maxLengthParameter: 19,
+          }),
+        );
+
+        expect(outcome.directoryName, 'myproject-my-foobar');
+        expect(outcome.result.validationErrors, isEmpty);
+      });
+
+      test('skips the rename when an ignore entry covers the prefix finding', () async {
+        final rule = SkillNamingRule(severity: AnalysisSeverity.error, prefix: 'myproject');
+        final String content = buildFrontmatter(name: 'my-foobar');
+
+        expect(
+          await rule.fix(
+            SkillContext(directory: tempDir, rawContent: content),
+            ignoredSubjects: {SkillNamingRule.prefixParameter},
+          ),
+          content,
+        );
+      });
+
       test('skips a rename to a name longer than the max-length', () async {
         final rule = SkillNamingRule(
           severity: AnalysisSeverity.error,
@@ -227,6 +262,10 @@ void main() {
 
         expect(outcome.directoryName, 'my-long-skill');
         expect(outcome.appliedRuleNames, isEmpty);
+        expect(
+          outcome.result.validationErrors.single.message,
+          startsWith('Skill "my-long-skill" is 13 characters'),
+        );
       });
 
       test('leaves the skill unchanged when no prefix is set', () async {

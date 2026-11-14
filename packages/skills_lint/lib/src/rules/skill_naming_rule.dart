@@ -147,6 +147,7 @@ class SkillNamingRule extends SkillRule implements FixableRule {
         severity: severity,
         file: SkillContext.skillFileName,
         message: 'Skill "$skillName" must be "$prefix" or start with "$prefix-". $byHand',
+        subject: prefixParameter,
         markdownMessage:
             '**Skill name must be `$prefix` or start with `$prefix-`.**\n\n'
             '* **Current:** `$skillName`\n\n'
@@ -163,6 +164,7 @@ class SkillNamingRule extends SkillRule implements FixableRule {
           'Skill "$skillName" must be "$prefix" or start with "$prefix-". '
           'Suggested name: "$suggestedName".\n'
           'Fix by re-running your validation command with `--fix`.',
+      subject: prefixParameter,
       markdownMessage:
           '**Skill name must be `$prefix` or start with `$prefix-`.**\n\n'
           '* **Current:** `$skillName`\n'
@@ -188,6 +190,7 @@ class SkillNamingRule extends SkillRule implements FixableRule {
       message:
           'Skill "$skillName" is ${skillName.length} characters; '
           'the $maxLengthParameter is $maxLength. Shorten the `name:` field in SKILL.md.',
+      subject: maxLengthParameter,
       markdownMessage:
           "**Skill name is longer than the project's $maxLengthParameter.**\n\n"
           '* **Current:** `$skillName` (**${skillName.length}** characters)\n'
@@ -200,14 +203,15 @@ class SkillNamingRule extends SkillRule implements FixableRule {
 
   /// Renames the skill to start with [prefix].
   ///
-  /// Leaves the skill unchanged when no prefix is set, or when the suggested
-  /// name is longer than [maxLength].
+  /// Leaves the skill unchanged when no prefix is set, when [ignoredSubjects]
+  /// holds [prefixParameter], or when the suggested name is longer than
+  /// [maxLength].
   @override
   Future<String> fix(SkillContext context, {Set<String> ignoredSubjects = const {}}) async {
     // Names longer than maxLength aren't shortened: the shorter name is the
     // author's choice.
     final String? prefix = _prefixOrNull;
-    if (prefix == null) {
+    if (prefix == null || ignoredSubjects.contains(prefixParameter)) {
       return context.rawContent;
     }
     return renameSkillInFrontmatter(context.rawContent, (String currentName) {
