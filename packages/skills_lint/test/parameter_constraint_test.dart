@@ -12,6 +12,7 @@ import 'package:skills_lint/src/models/parameter_constraint.dart';
 import 'package:skills_lint/src/models/rule_parameter_type.dart';
 import 'package:skills_lint/src/rule_registry.dart';
 import 'package:skills_lint/src/rules/description_length_rule.dart';
+import 'package:skills_lint/src/rules/skill_naming_rule.dart';
 import 'package:test/test.dart';
 
 // A constraint that no built-in rule uses, so these tests exercise the
@@ -36,6 +37,10 @@ const _mockCheck = CheckType(
 /// end-to-end checks.
 const Map<String, Map<String, Object>> _rejectedValues = {
   DescriptionLengthRule.ruleName: {DescriptionLengthRule.maxLengthParameter: 0},
+  SkillNamingRule.ruleName: {
+    SkillNamingRule.prefixParameter: 'my_project',
+    SkillNamingRule.maxLengthParameter: 65,
+  },
 };
 
 List<(CheckType, String)> _builtInConstrainedParameters() => [

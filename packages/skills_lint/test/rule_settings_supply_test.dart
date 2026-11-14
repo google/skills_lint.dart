@@ -49,7 +49,7 @@ typedef Setting = ({AnalysisSeverity? severity, Map<String, Object?> parameters}
 /// [Layer], the second for a higher one.
 const Map<RuleParameterType, List<Object>> _values = {
   RuleParameterType.string: ['lower-value', 'higher-value'],
-  RuleParameterType.integer: [100, 200],
+  RuleParameterType.integer: [10, 20],
   RuleParameterType.boolean: [true, false],
   RuleParameterType.regExp: [r'^lower', r'^higher'],
   RuleParameterType.stringList: [

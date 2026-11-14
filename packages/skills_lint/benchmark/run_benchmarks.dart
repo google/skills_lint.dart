@@ -127,7 +127,10 @@ Future<Target> _build(String label, String packageDir, String work) async {
     '-o',
     exe,
   ], packageDir);
-  return Target(label: label, command: [exe]);
+  // A baseline built before a rule existed reads that rule in the fixture's
+  // skills_lint.yaml as an unknown rule, a configuration error. This flag
+  // makes it a warning, so the baseline still runs.
+  return Target(label: label, command: [exe, '--allow-misconfigured-keys']);
 }
 
 Future<void> _dart(List<String> arguments, String workingDirectory) async {

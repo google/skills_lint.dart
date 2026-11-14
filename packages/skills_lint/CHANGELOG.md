@@ -1,5 +1,9 @@
 ## 0.5.3+2-wip
 
+### New rules
+
+- Added the `skill-naming` rule, disabled by default, for naming conventions a project chooses: a name `prefix`, which `--fix` adds, and a `max-length` for names, up to the spec's 64 characters. [#231](https://github.com/google/skills_lint.dart/issues/231)
+
 ### Behavior changes
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.

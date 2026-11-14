@@ -271,6 +271,40 @@ governs how changes to these rules ship.
   `within-skill: true` for the same directory.
 - **Disable:** `--no-published-skill-name` (also the default state).
 
+## skill-naming
+
+- **Default severity:** disabled
+- **Fixable:** yes, for `prefix`
+- **What it checks:** [`invalid-skill-name`](#invalid-skill-name) enforces what the Agent Skills spec requires; `skill-naming` enforces conventions a project chooses. It checks the frontmatter `name:` against each parameter that is set:
+  - `prefix`: the name equals the prefix or starts with the prefix followed by a hyphen. For prefix `myproject`, `myproject` and `myproject-setup` pass and `my-foobar` fails.
+  - `max-length`: the name has at most this many characters.
+
+  Set the parameters for each directory in `skills_lint.yaml`:
+
+  ```yaml
+  skills_lint:
+    directories:
+      - path: "skills"
+        rules:
+          skill-naming:
+            severity: error
+            prefix: myproject
+            max-length: 40
+  ```
+- **Diagnostic shape:**
+  - `Skill "<name>" must be "<prefix>" or start with "<prefix>-". Suggested name: "<suggestion>".`
+    `Fix by re-running your validation command with --fix.`
+    When the suggestion is longer than `max-length`, the message says to rename the skill by hand instead, and that `--fix` skips the rename.
+  - `Skill "<name>" is <N> characters; the max-length is <max-length>. Shorten the name: field in SKILL.md.`
+  - With the rule enabled and neither parameter set, each skill reports:
+    `The skill-naming rule has no convention to check. Set its prefix or max-length parameter in skills_lint.yaml or pass --skill-naming-prefix or --skill-naming-max-length, or disable the rule.`
+- **Parameters:**
+  - `prefix` (string): the prefix every skill name must start with. Must be a valid skill name.
+  - `max-length` (integer): the most characters a skill name can have, from 1 to 64.
+- **Auto-fix behavior:** for `prefix`, updates the frontmatter `name:` in `SKILL.md` to the suggested name and aligns the parent directory name on disk when run via `--fix`. `--fix` skips the rename when the suggested name is longer than `max-length`, or when the directory can't be renamed, for example because the name is taken.
+- **Ignore subject:** `prefix` or `max-length`, the parameter the finding is about. The fixer skips the rename when an ignore entry with subject `prefix` covers it.
+- **Disable:** `--no-skill-naming` (also the default state).
+
 ## valid-yaml-metadata
 
 - **Default severity:** error

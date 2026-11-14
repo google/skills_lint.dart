@@ -17,6 +17,7 @@ import 'rules/prevent_skills_sh_publishing_rule.dart';
 import 'rules/pub_archive_includes_skill_rule.dart';
 import 'rules/published_skill_name_rule.dart';
 import 'rules/relative_paths_rule.dart';
+import 'rules/skill_naming_rule.dart';
 import 'rules/trailing_whitespace_rule.dart';
 import 'rules/valid_yaml_metadata_rule.dart';
 
@@ -84,6 +85,19 @@ class RuleRegistry {
       parameterSchema: {RelativePathsRule.withinSkillParameter: RuleParameterType.boolean},
     ),
     const CheckType(
+      name: SkillNamingRule.ruleName,
+      defaultSeverity: SkillNamingRule.defaultSeverity,
+      help: 'Check if skill name follows the naming conventions set by its parameters.',
+      parameterSchema: {
+        SkillNamingRule.prefixParameter: RuleParameterType.string,
+        SkillNamingRule.maxLengthParameter: RuleParameterType.integer,
+      },
+      parameterConstraints: {
+        SkillNamingRule.prefixParameter: SkillNamingRule.prefixConstraint,
+        SkillNamingRule.maxLengthParameter: SkillNamingRule.maxLengthConstraint,
+      },
+    ),
+    const CheckType(
       name: TrailingWhitespaceRule.ruleName,
       defaultSeverity: TrailingWhitespaceRule.defaultSeverity,
       help: 'Check for trailing whitespace (allows exactly 2 spaces for line breaks).',
@@ -142,6 +156,12 @@ class RuleRegistry {
         return RelativePathsRule(
           severity: severity,
           withinSkill: parameters?.getBool(RelativePathsRule.withinSkillParameter),
+        );
+      case SkillNamingRule.ruleName:
+        return SkillNamingRule(
+          severity: severity,
+          prefix: parameters?.getString(SkillNamingRule.prefixParameter),
+          maxLength: parameters?.getInt(SkillNamingRule.maxLengthParameter),
         );
       case TrailingWhitespaceRule.ruleName:
         return TrailingWhitespaceRule(severity: severity);
