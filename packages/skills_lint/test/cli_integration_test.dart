@@ -1504,8 +1504,24 @@ skills_lint:
       }
 
       failsWithFormat('text');
-      failsWithFormat('json');
       failsWithFormat('sarif');
+
+      test('fails as a configuration error on stdout with --format=json', () async {
+        final ({String stdout, String stderr}) result = await run([
+          '--format=json',
+          '-d',
+          tempDir.path,
+        ], ExitCode.config.code);
+
+        expect(result.stderr, isEmpty);
+        expect(result.stdout, contains('"ruleId": "invalid-configuration"'));
+        expect(
+          result.stdout,
+          contains(
+            'unknown rule \\"check-relative-path\\". Did you mean \\"check-relative-paths\\"?',
+          ),
+        );
+      });
 
       test('is a warning with --allow-misconfigured-keys', () async {
         final ({String stdout, String stderr}) result = await run([

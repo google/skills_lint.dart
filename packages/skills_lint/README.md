@@ -350,7 +350,9 @@ Notes:
   step fails; drop it and keep `--format=sarif` output as a build
   artifact instead.
 - Use `--format=json` for a plain array of results when feeding a
-  consumer other than Code Scanning.
+  consumer other than Code Scanning. When the configuration has errors,
+  the array has one result whose errors have `ruleId`
+  `invalid-configuration`, and the exit code is `78`.
 
 
 ### Recipe: Dart-native pre-commit hook

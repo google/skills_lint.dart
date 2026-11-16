@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:io/io.dart' show ExitCode;
@@ -501,6 +502,58 @@ skills_lint:
         reportsConfigProblem('unknown key "invalid-dir-key" in a directory entry.'),
       );
       await process.shouldExit(ExitCode.config.code);
+    });
+
+    test('--format=json writes configuration errors to stdout with their location', () async {
+      await File('${tempDir.path}/skills_lint.yaml').writeAsString('''
+skills_lint:
+  directories:
+    - path: "test-skill"
+      invalid-dir-key: value
+''');
+
+      final TestProcess process = await startCli([
+        '--format=json',
+        '-s',
+        'test-skill',
+      ], workingDirectory: tempDir.path);
+
+      final String stdout = (await process.stdout.rest.toList()).join('\n');
+      final List<String> stderr = await process.stderr.rest.toList();
+      await process.shouldExit(ExitCode.config.code);
+
+      expect(stderr, isEmpty);
+      final List<ValidationResult> results = [
+        for (final Object? json in jsonDecode(stdout) as List<Object?>)
+          ValidationResult.fromJson(json! as Map<String, Object?>),
+      ];
+      final ValidationError error = results.single.validationErrors.single;
+      expect(error.ruleId, 'invalid-configuration');
+      expect(error.severity, AnalysisSeverity.error);
+      expect(p.basename(error.file), 'skills_lint.yaml');
+      expect(error.message, 'unknown key "invalid-dir-key" in a directory entry.');
+      expect(error.region?.startLine, 4);
+      expect(error.region?.startColumn, 7);
+    });
+
+    test('--format=json writes a missing --config file to stdout', () async {
+      final TestProcess process = await startCli([
+        '--format=json',
+        '--config',
+        'missing.yaml',
+      ], workingDirectory: tempDir.path);
+
+      final String stdout = (await process.stdout.rest.toList()).join('\n');
+      final List<String> stderr = await process.stderr.rest.toList();
+      await process.shouldExit(ExitCode.config.code);
+
+      expect(stderr, isEmpty);
+      final ValidationError error = ValidationResult.fromJson(
+        (jsonDecode(stdout) as List<Object?>).single! as Map<String, Object?>,
+      ).validationErrors.single;
+      expect(error.ruleId, 'invalid-configuration');
+      expect(error.file, endsWith('missing.yaml'));
+      expect(error.region, isNull);
     });
 
     test('fails on unrecognized parameter key in YAML rule definition by default', () async {

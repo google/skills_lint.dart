@@ -108,7 +108,8 @@ class TextReporter extends Reporter {
       SkippedFix(reason: final String reason) => reason,
       SkippedFix(needsRename: true) => 'it needs a directory rename that cannot happen',
       SkippedFix(grownRuleNames: []) => 'it would not lower the number of errors or warnings',
-      SkippedFix(:final grownRuleNames) => 'it would add ${grownRuleNames.join(', ')} diagnostics',
+      SkippedFix(:final List<String> grownRuleNames) =>
+        'it would add ${grownRuleNames.join(', ')} diagnostics',
     };
     out.writeln('  Skipped the ${skipped.ruleName} fix: $reason.');
   }

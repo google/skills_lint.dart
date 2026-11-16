@@ -396,7 +396,11 @@ void main() {
       );
     });
 
-    test('JsonReporter writes nothing for directory and discovery errors', () {
+    // ValidationSession also records each of these errors as a
+    // path-does-not-exist result, which JsonReporter writes to stdout in
+    // onSessionComplete. These callbacks would only print a second,
+    // human-readable copy.
+    test('JsonReporter does not print a second copy of directory and discovery errors', () {
       final out = StringBuffer();
       final err = StringBuffer();
       JsonReporter(out: out, err: err)
