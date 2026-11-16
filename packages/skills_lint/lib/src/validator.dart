@@ -9,6 +9,7 @@ import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import 'feature/yaml/yaml_limits.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/pub_archive.dart';
@@ -17,6 +18,7 @@ import 'models/skill_context.dart';
 import 'models/skill_rule.dart';
 import 'models/validation_error.dart';
 import 'models/validation_result.dart';
+import 'reporters/tool_error_messages.dart';
 import 'rule_registry.dart';
 import 'rules/path_does_not_exist_rule.dart';
 
@@ -140,7 +142,23 @@ class Validator {
     final validationErrors = <ValidationError>[];
 
     for (final rule in rules) {
-      final List<ValidationError> errors = await rule.validate(context);
+      final List<ValidationError> errors;
+      try {
+        errors = await rule.validate(context);
+      } on Object catch (error, stackTrace) {
+        _log.severe('Rule "${rule.name}" threw: $error\n$stackTrace');
+        // One failing rule must not abort the run: report it with this skill
+        // and keep going, so other skills and machine-readable output survive.
+        validationErrors.add(
+          ValidationError(
+            ruleId: unexpectedError,
+            file: p.join(context.directory.path, SkillContext.skillFileName),
+            message: ToolErrorMessages.ruleFailedMessage(ruleName: rule.name, error: error),
+            severity: AnalysisSeverity.error,
+          ),
+        );
+        continue;
+      }
       _checkSeverityWarnings(rule, errors);
       validationErrors.addAll(errors);
     }
@@ -196,9 +214,9 @@ class Validator {
         yamlParsingError = 'Missing YAML metadata in ${SkillContext.skillFileName}';
       } else {
         final String yamlStr = match.group(1)!;
-        final Object? doc = loadYaml(yamlStr);
-        if (doc is YamlMap) {
-          parsedYaml = doc;
+        final Object? frontmatter = YamlLimits.loadFrontmatter(yamlStr);
+        if (frontmatter is YamlMap) {
+          parsedYaml = frontmatter;
         } else {
           yamlParsingError = 'YAML frontmatter is not a map';
         }

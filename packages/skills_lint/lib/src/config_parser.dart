@@ -11,6 +11,7 @@ import 'package:yaml/yaml.dart';
 
 import 'config_serializer.dart';
 import 'config_source.dart';
+import 'feature/yaml/yaml_limits.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/custom_rule_parameters.dart';
@@ -86,9 +87,9 @@ class ConfigParser {
   }) {
     _checkSourceArguments(configSource, sourcePath, baseDirectory);
     try {
-      final Object? yaml = loadYaml(content);
+      final Object? document = YamlLimits.loadYaml(content);
       return fromYaml(
-        yaml,
+        document,
         configSource: configSource,
         sourcePath: sourcePath,
         baseDirectory: baseDirectory,
