@@ -2,10 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-// declarationOf reads where a configuration target was declared. It exists
-// so the tool can explain a missing target; hiding it keeps that data out of
-// the public API, so its shape can change without a breaking release.
-export 'src/config_parser.dart' hide declarationOf;
+// declarationOf reads where a configuration target was declared, and
+// configProblemsOf reads the structured problems behind parsingErrors. They
+// exist so the tool can explain a missing target and print configuration
+// errors; hiding them keeps that data out of the public API, so its shape can
+// change without a breaking release.
+export 'src/config_parser.dart' hide configProblemsOf, declarationOf;
 export 'src/config_source.dart';
 // createArgParser lets tests use the CLI's flags. Hiding it keeps it out of
 // the public API.

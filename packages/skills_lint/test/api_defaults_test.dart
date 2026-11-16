@@ -138,7 +138,7 @@ skills_lint:
       final Configuration config = await ConfigParser.loadConfig(path: configFile.path);
 
       expect(config.parsingErrors, isNotEmpty);
-      expect(config.parsingErrors.first, contains('Failed to parse'));
+      expect(config.parsingErrors.first, contains('invalid YAML'));
     });
   });
 
@@ -187,8 +187,8 @@ skills_lint:
       expect(
         err,
         contains(
-          'Configuration warning: Global rules: Unrecognized parameter "within-skil" '
-          'for rule "check-relative-paths".',
+          'Configuration warning: Global rules: unknown parameter "within-skil" '
+          'for "check-relative-paths". Did you mean "within-skill"?',
         ),
       );
       expect(passed, isTrue);
@@ -256,7 +256,7 @@ skills_lint:
 
       expect(err, contains('Configuration warning:'));
       expect(err, reportsUnknownRule('check-relative-path', suggestions: ['check-relative-paths']));
-      expect('Unknown rule'.allMatches(err), hasLength(1));
+      expect('unknown rule'.allMatches(err), hasLength(1));
       expect(passed, isTrue);
     });
 

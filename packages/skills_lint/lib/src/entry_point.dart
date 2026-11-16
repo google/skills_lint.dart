@@ -14,16 +14,23 @@ import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
 
 import 'config_parser.dart';
+import 'config_problem_report.dart';
 import 'missing_defaults_exception.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
+import 'models/config_location.dart';
+import 'models/config_problem.dart';
 import 'models/custom_rule_parameters.dart';
 import 'models/output_format.dart';
 import 'models/rule_config.dart';
 import 'models/rule_parameter_type.dart';
 import 'models/skill_rule.dart';
+import 'models/source_region.dart';
+import 'models/validation_error.dart';
+import 'models/validation_result.dart';
 import 'models/validation_target.dart';
 import 'path_utils.dart';
+import 'reporters/json_reporter.dart';
 import 'rule_registry.dart';
 import 'validation_session.dart';
 import 'version.dart';
@@ -355,7 +362,11 @@ Future<Configuration?> _loadConfig(
       final configPath = results[_configOption] as String?;
       config = await ConfigParser.loadConfig(path: configPath);
     } on FileSystemException catch (e) {
-      _log.severe('Error: ${e.message} (${e.path})');
+      if (format == OutputFormat.json) {
+        _writeConfigErrorsJson([ConfigProblem(e.message)], fallbackFile: e.path ?? '');
+      } else {
+        _log.severe('Error: ${e.message} (${e.path})');
+      }
       return null;
     }
   }
@@ -369,19 +380,57 @@ Future<Configuration?> _loadConfig(
       _log.warning(
         'DEPRECATION WARNING: --allow-misconfigured-keys is deprecated and will be removed in a future release. Fix misconfigured configuration keys rather than bypassing validation.',
       );
-      for (final String error in config.parsingErrors) {
-        _log.warning('Configuration warning: $error');
-      }
+      _log.warning(configProblemReport(configProblemsOf(config), ignored: true));
+    } else if (format == OutputFormat.json) {
+      _writeConfigErrorsJson(
+        configProblemsOf(config),
+        // The same absolute path that ConfigParser.loadConfig reads and puts
+        // in the location of every other problem.
+        fallbackFile: canonicalizePath(
+          results[_configOption] as String? ?? 'skills_lint.yaml',
+          baseDirectory: Directory.current.path,
+        ),
+      );
+      return null;
     } else {
-      for (final String error in config.parsingErrors) {
-        _log.severe('Configuration error: $error');
-      }
-      _log.severe('Fix or remove these entries in the configuration file.');
+      _log.severe(configProblemReport(configProblemsOf(config), ignored: false));
       return null;
     }
   }
   return config;
 }
+
+/// Writes one [invalidConfigurationRuleId] error per problem in [problems] to
+/// standard output as `--format=json` results, so JSON consumers see why
+/// `skills_lint` exited 78 without reading standard error.
+///
+/// A problem without a location is reported against [fallbackFile].
+void _writeConfigErrorsJson(List<ConfigProblem> problems, {required String fallbackFile}) {
+  final result = ValidationResult(
+    validationErrors: [
+      for (final problem in problems)
+        ValidationError(
+          ruleId: invalidConfigurationRuleId,
+          file: problem.location?.file ?? fallbackFile,
+          message: problem.message,
+          severity: AnalysisSeverity.error,
+          region: switch (problem.location) {
+            null => null,
+            final ConfigLocation location => SourceRegion(
+              startLine: location.line,
+              startColumn: location.column,
+            ),
+          },
+        ),
+    ],
+  );
+  JsonReporter(out: stdout, err: stderr).onSessionComplete([result]);
+}
+
+/// The `ruleId` of each `--format=json` result for a configuration error.
+///
+/// It names no rule, so it can't be disabled or ignored.
+const String invalidConfigurationRuleId = 'invalid-configuration';
 
 /// Validates skills based on the provided configuration.
 ///

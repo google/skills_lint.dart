@@ -267,6 +267,6 @@ CI runs every test on Windows, macOS, and Linux.
 ## 📺 Standard Output & Error Hygiene
 
 - **Stdout:** Reserved exclusively for standard human-readable lint reports (`--format=text`) and valid, parseable machine documents (`--format=json`, `--format=sarif`).
-- **Stderr:** Reserved for operational failures, runtime error messages, usage help on bad arguments, and deprecation notices.
+- **Stderr:** Reserved for operational failures, runtime error messages, usage help on bad arguments, deprecation notices, and human-readable violation summaries when standard output carries a SARIF document (`--format=sarif`).
 - All internal tool errors must be prefixed with `${Reporter.toolErrorPrefix}` (`skills_lint internal error:`).
 - Failures caused by the user's files or environment, such as a `--fix` rename onto an existing directory or a read-only `SKILL.md`, are user errors, not tool errors. Start them with `${Reporter.userErrorPrefix}` (`Error:`) and leave out the bug notice.

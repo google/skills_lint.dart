@@ -50,7 +50,8 @@ void main() {
         ': invalid: [',
         configSource: ConfigSource.file(file),
       );
-      expect(invalid.parsingErrors.single, contains(file));
+      // The file is inside the working directory, so diagnostics show it relative.
+      expect(invalid.parsingErrors.single, startsWith('${p.relative(file, from: cwd)}:'));
     });
 
     test('accepts a directory source for in-memory content', () {
@@ -178,7 +179,8 @@ void main() {
         sourcePath: file,
         baseDirectory: projectRoot,
       );
-      expect(invalid.parsingErrors.single, contains(file));
+      // The file is inside the working directory, so diagnostics show it relative.
+      expect(invalid.parsingErrors.single, startsWith('${p.relative(file, from: cwd)}:'));
     });
 
     test('accepts both deprecated arguments for decoded YAML', () {
@@ -245,7 +247,7 @@ skills_lint:
 
       expect(
         config.parsingErrors.single,
-        'Unrecognized key "unknown_key" in directory entry for "relative/dir".',
+        'Directory entry "relative/dir": unknown key "unknown_key" in a directory entry.',
       );
     });
 
@@ -314,7 +316,7 @@ skills_lint:
 
       final Configuration config = await ConfigParser.loadConfig(path: configFile.path);
 
-      expect(config.parsingErrors.single, contains('Failed to parse'));
+      expect(config.parsingErrors.single, contains('invalid YAML'));
     });
   });
 
@@ -354,6 +356,8 @@ skills_lint:
       expect(directory?.source?.file, expectedFile);
       // Line 6: `directories:` on line 5 is followed by its entry.
       expect(directory?.source?.line, 6);
+      // Column 13: the quoted path value after `    - path: `.
+      expect(directory?.source?.column, 13);
       expect(directory?.anchorDirectory, expectedAnchor);
 
       final TargetDeclaration? skill = declarationOf(config.individualSkillConfigs.single);
@@ -370,6 +374,8 @@ skills_lint:
       );
 
       expect(config.directoryConfigs.map((t) => declarationOf(t)?.source?.line), [2, 2]);
+      // Columns of `a` and `b`, the two path values on that line.
+      expect(config.directoryConfigs.map((t) => declarationOf(t)?.source?.column), [24, 35]);
     });
 
     test('names no file for content parsed without a source path', () {
