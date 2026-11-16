@@ -10,8 +10,10 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/pub_archive.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
+import 'package:skills_lint/src/models/source_region.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
 import 'package:skills_lint/src/rules/pub_archive_includes_skill_rule.dart';
+import 'package:skills_lint/src/unpublished_links.dart';
 import 'package:test/test.dart';
 
 import '../test_utils.dart';
@@ -109,11 +111,12 @@ void main() {
       archive: archiveOf({_skillFile}),
     );
 
-    expect(errors.map((e) => (e.message, e.region?.startLine)), [
+    expect(errors.map((e) => (e.message, e.region?.startLine, e.region?.startColumn)), [
       (
         'skills/$_skillName/references/ is not in the package pub publishes, so neither are '
             'the 12 files $_skillFile links to in it. $_howToFix',
         6,
+        1,
       ),
     ]);
   });
@@ -259,5 +262,72 @@ void main() {
     );
 
     expect(errors.single.message, contains('needs the list of files pub publishes'));
+  });
+
+  test('checks reference-style links and skips link syntax in code', () async {
+    final List<ValidationError> errors = await validate(
+      directory: skillDir,
+      body:
+          'Use `[example](references/guide.md)` in code, or see [the guide][ref].\n'
+          '\n'
+          '[ref]: references/guide.md\n',
+      archive: archiveOf({_skillFile}),
+    );
+
+    expect(
+      errors.map(
+        (e) => (
+          e.message,
+          e.region?.startLine,
+          e.region?.startColumn,
+          e.region?.endLine,
+          e.region?.endColumn,
+        ),
+      ),
+      [
+        (
+          '$_referenceFile, linked from $_skillFile, is not in the package pub publishes. '
+              '$_howToFix',
+          5,
+          54,
+          5,
+          70,
+        ),
+      ],
+    );
+  });
+
+  group('findUnpublishedLinks', () {
+    const region = SourceRegion(startLine: 3);
+    test('sorts links into outside, wrong case and missing, keeping the first region', () {
+      final UnpublishedLinks unpublished = findUnpublishedLinks(
+        [
+          (path: '/pkg/skills/s/a.md', region: region),
+          (path: '/pkg/skills/s/Guide.md', region: region),
+          (path: '/pkg/skills/s/gone.md', region: region),
+          (path: '/pkg/skills/s/gone.md', region: const SourceRegion(startLine: 9)),
+          (path: '/other/x.md', region: region),
+        ],
+        packageRoot: '/pkg',
+        files: {'skills/s/a.md', 'skills/s/guide.md'},
+      );
+      expect(unpublished.outside.keys, ['../other/x.md']);
+      expect(unpublished.wrongCase['skills/s/Guide.md']?.actualFile, 'skills/s/guide.md');
+      expect(unpublished.missing, {'skills/s/gone.md': region});
+    });
+  });
+
+  test('groupByExcludedDirectory groups files under the highest unpublished directory', () {
+    expect(
+      PubArchiveIncludesSkillRule.groupByExcludedDirectory(
+        ['skills/s/refs/a.md', 'skills/s/refs/b.md', 'skills/s/c.md'],
+        skillFile: 'skills/s/SKILL.md',
+        files: {'skills/s/SKILL.md'},
+      ),
+      {
+        'skills/s/refs': ['skills/s/refs/a.md', 'skills/s/refs/b.md'],
+        'skills/s/c.md': ['skills/s/c.md'],
+      },
+    );
   });
 }
