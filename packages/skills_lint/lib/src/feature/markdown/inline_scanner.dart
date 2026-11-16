@@ -10,9 +10,9 @@ import 'link_models.dart';
 
 /// The most characters a link label can hold between its brackets.
 ///
-/// CommonMark sets this limit (https://spec.commonmark.org/0.31.2/#link-label)
-/// so that a `[` with no matching `]` cannot make a parser scan the rest of
-/// the document.
+/// CommonMark sets this limit (https://spec.commonmark.org/0.31.2/#link-label).
+/// Longer bracketed text is not a label, so it cannot name a reference link
+/// or a definition.
 @visibleForTesting
 const int maxLinkLabelLength = 999;
 
