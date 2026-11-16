@@ -16,13 +16,31 @@ void main() {
       final source = Source.snippet('''
 // TODO(reidbaker): #75
 // TODO(reidbaker): Remove the flag in 0.6.0 (#73).
-// TODO(reidbaker): https://github.com/flutter/flutter/issues/12345
 // TODO(reidbaker): https://github.com/google/skills_lint.dart/issues/75
 // TODO(reidbaker-agent): Remove the flag in 0.6.0. https://github.com/google/skills_lint.dart/issues/73
 /// TODO(Vaishnavi220506): https://github.com/google/skills_lint.dart/issues/71 - remove sourcePath.
 void main() {}
 ''');
       expect(findTodosWithoutIssue(source), isEmpty);
+    });
+
+    test('accepts issue URLs in other repositories', () {
+      final source = Source.snippet('''
+// TODO(reidbaker): https://github.com/flutter/flutter/issues/12345
+// TODO(reidbaker): Drop the shim, https://github.com/dart-lang/sdk/issues/56789.
+// TODO(reidbaker): https://github.com/my-org/my.repo_name/issues/1
+void main() {}
+''');
+      expect(findTodosWithoutIssue(source), isEmpty);
+    });
+
+    test('reports an issue in another repository that is not a URL', () {
+      final source = Source.snippet('''
+// TODO(reidbaker): flutter/flutter#12345
+// TODO(reidbaker): https://gitlab.com/owner/repo/issues/1
+void main() {}
+''');
+      expect(_lines(findTodosWithoutIssue(source)), [1, 2]);
     });
 
     test('ignores comments without TODO and TODO in a string', () {

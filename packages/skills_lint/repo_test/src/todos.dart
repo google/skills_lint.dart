@@ -11,20 +11,12 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'models/convention_violation.dart';
 import 'models/source.dart';
 
-/// Reports each comment in [source] that contains the deferred-work marker
-/// but doesn't have the owner and an issue link on the same line.
-///
-/// A line passes when it has the marker, an owner in parentheses, a colon,
-/// and then either `#<n>`, an issue in this repository, or a
-/// `https://github.com/<owner>/<repo>/issues/<n>` URL, an issue in any
-/// repository. The detector doesn't check who the owner is, or that the issue
-/// exists.
+/// Reports each deferred-work comment in [source] that lacks an owner in
+/// parentheses followed on the same line by `#<n>` or a GitHub issue URL.
 List<ConventionViolation> findTodosWithoutIssue(Source source) => [
   for (final Token comment in source.comments)
     if (comment.lexeme.contains('TODO') && !_linkedTodo.hasMatch(comment.lexeme))
       source.violationAt(comment.offset, 'TODO has no issue link'),
 ];
 
-final RegExp _linkedTodo = RegExp(
-  r'TODO\([\w-]+\): .*(?:\B#\d+\b|https://github\.com/[\w.-]+/[\w.-]+/issues/\d+)',
-);
+final RegExp _linkedTodo = RegExp(r'TODO\([\w-]+\): .*(?:\B#\d+\b|https://github\.com/[\w.-]+/[\w.-]+/issues/\d+)');
