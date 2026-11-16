@@ -8,8 +8,8 @@ import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/skill_context.dart';
 import 'package:skills_lint/src/models/validation_error.dart';
-import 'package:skills_lint/src/skill_name/name_prefix.dart';
 import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
+import 'package:skills_lint/src/skill_name/name_prefix.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
