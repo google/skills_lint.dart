@@ -17,6 +17,10 @@ import '../reporters/fix_io_messages.dart';
 /// frontmatter `name` values, symlinks, and the target's `skills_lint.yaml`.
 /// Every such write and rename is checked here, after symlinks are resolved,
 /// so that content in a scanned repository can't reach files outside it.
+///
+/// The check runs before the write, so a process that swaps in a symlink in
+/// between can still redirect it. Guarding against other local processes is
+/// not a goal; the threat is the content of the scanned files.
 @immutable
 final class WriteBoundary {
   /// A boundary at the absolute path [directory], widened to the absolute
@@ -61,6 +65,10 @@ final class WriteBoundary {
   /// outside [configDirectory] (for example `individual_skills: [{path: .}]`),
   /// the boundary stays at [configDirectory] so writes cannot escape the
   /// configuration file's directory.
+  ///
+  /// When [skill] was named on the command line or through the API (no
+  /// [configDirectory]) and is a symlink, the directory that holds the link
+  /// is allowed too, so that `--fix` can rename the skill next to the link.
   factory WriteBoundary.forSkill(
     String skill, {
     String? configDirectory,
@@ -78,7 +86,7 @@ final class WriteBoundary {
       boundary: p.dirname(resolvedSkill),
       configDirectory: configDirectory,
       configAllowed: configAllowed,
-      allowed: allowed,
+      allowed: [...allowed, if (configDirectory == null) p.dirname(skill)],
     );
   }
 

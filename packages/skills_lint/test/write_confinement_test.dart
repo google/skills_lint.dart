@@ -380,6 +380,26 @@ void defineCliTests() {
       expect(File(p.join(skill.path, 'SKILL.md')).readAsStringSync(), contains('Trailing space\n'));
     });
 
+    test('--fix renames a symlinked skill named with -s next to the link', () async {
+      File(p.join(repo.path, 'pubspec.yaml')).writeAsStringSync('name: test_pkg\n');
+      final Directory real = await createDummySkill(
+        Directory(p.join(repo.path, 'real')),
+        name: 'dart-test-pkg-setup',
+        skillContent: _skillNamed('dart-test-pkg-setup'),
+      );
+      final links = Directory(p.join(repo.path, 'links'))..createSync();
+      Link(p.join(links.path, 'dart-test-pkg-setup')).createSync(real.path);
+
+      await run([
+        '--fix',
+        '--published-skill-name',
+        '-s',
+        p.join('links', 'dart-test-pkg-setup'),
+      ], exitCode: 0);
+
+      expect(File(p.join(links.path, 'test-pkg-setup', 'SKILL.md')).existsSync(), isTrue);
+    });
+
     // End-to-end defense-in-depth check (`test/skill_writer_test.dart` tests
     // `SkillWriter`'s own `directoryNameRefusal` directly).
     test(
