@@ -31,7 +31,7 @@ const Map<String, ({int matches, String owns})> boundaryFiles =
         owns: 'anchors paths read from a configuration file',
       ),
       'lib/src/entry_point.dart': (
-        matches: 4,
+        matches: 5,
         owns: 'anchors paths supplied by the CLI or an API caller',
       ),
       'lib/src/validation_session.dart': (
