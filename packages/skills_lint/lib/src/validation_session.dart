@@ -938,28 +938,23 @@ class ValidationSession {
     final SkillWriter writer = _skillWriterFor(_reporter);
     final String currentDirectoryName = p.basename(skillDir.path);
 
-    // Plan as if the directory can follow a changed `name`. If it can't, plan
-    // again under the current name: the fixes that need the rename drop out,
-    // and the others still land.
-    FixOutcome outcome = await fixer.fix(result);
-    // A plan that changes nothing writes nothing, so no boundary applies.
-    ApplyResult applied = outcome.content == context.rawContent
-        ? Applied(skillDir, renamed: false)
-        : writer.preflight(skillDir, outcome.directoryName, boundary);
-    if (applied is WriteRefused) {
-      // SkillWriter reported why. Nothing is written for this skill, and the
-      // run fails, with or without --dry-run.
-      _fixWriteRefused = true;
+    final (FixOutcome, ApplyResult)? planned = await _planFixes(
+      fixer: fixer,
+      writer: writer,
+      result: result,
+      rawContent: context.rawContent,
+      skillDir: skillDir,
+      boundary: boundary,
+    );
+    if (planned == null) {
       return result;
     }
-    if (applied is RenameBlocked) {
-      outcome = await _planWithoutRename(fixer, result, applied);
-    }
+    var (FixOutcome outcome, ApplyResult applied) = planned;
     if (fixApply && outcome.content != context.rawContent) {
       applied = await writer.apply(skillDir, outcome.content, outcome.directoryName, boundary);
       if (applied is RenameBlocked) {
         // Only the rename failed, before anything was written.
-        outcome = await _planWithoutRename(fixer, result, applied);
+        outcome = await _planWithoutRename(fixer, result, applied.reason);
         if (outcome.content != context.rawContent) {
           // The new plan keeps the directory name, so this apply only writes.
           applied = await writer.apply(skillDir, outcome.content, outcome.directoryName, boundary);
@@ -998,6 +993,46 @@ class ValidationSession {
       skillIgnores: skillIgnores,
       ignoreTargetFor: ignoreTargetFor,
     );
+  }
+
+  /// Plans the fixes for [result] and checks the plan against [boundary]
+  /// without writing.
+  ///
+  /// Plans as if the directory can follow a changed `name`. If the rename is
+  /// blocked or refused, plans again under the current name: the fixes that
+  /// need the rename drop out, and the others still land. Returns `null` when
+  /// `SKILL.md` itself may not be written.
+  Future<(FixOutcome, ApplyResult)?> _planFixes({
+    required SkillFixer fixer,
+    required SkillWriter writer,
+    required ValidationResult result,
+    required String rawContent,
+    required Directory skillDir,
+    required WriteBoundary boundary,
+  }) async {
+    FixOutcome outcome = await fixer.fix(result);
+    // A plan that changes nothing writes nothing, so no boundary applies.
+    ApplyResult preflight() => outcome.content == rawContent
+        ? Applied(skillDir, renamed: false)
+        : writer.preflight(skillDir, outcome.directoryName, boundary);
+    ApplyResult applied = preflight();
+    if (applied is WriteRefused && applied.renameOnly) {
+      // SkillWriter reported why. The run fails, but the fixes that keep the
+      // directory name may still land.
+      _fixWriteRefused = true;
+      outcome = await _planWithoutRename(fixer, result, applied.reason);
+      applied = preflight();
+    }
+    if (applied is WriteRefused) {
+      // SkillWriter reported why. Nothing is written for this skill, and the
+      // run fails, with or without --dry-run.
+      _fixWriteRefused = true;
+      return null;
+    }
+    if (applied is RenameBlocked) {
+      outcome = await _planWithoutRename(fixer, result, applied.reason);
+    }
+    return (outcome, applied);
   }
 
   /// Updates the session after [SkillWriter.apply] returned [applied] for
@@ -1083,13 +1118,11 @@ class ValidationSession {
   }
 
   /// The fixer for the skill in [skillDir], which counts only diagnostics
-  /// that [skillIgnores] don't cover, and runs only the fixes enabled in
-  /// [validator].
+  /// that [skillIgnores] don't cover.
   SkillFixer _fixerFor(Validator validator, List<IgnoreEntry> skillIgnores, Directory skillDir) {
     final failedRuleNames = <String>{};
     return SkillFixer(
       validator: validator,
-      mayFix: validator.fixEnabledFor,
       applyIgnores: (ValidationResult candidate) =>
           _applyIgnores(candidate, skillIgnores, skillDir),
       // A broken fixer throws on every pass and in every plan. Report it
@@ -1103,19 +1136,18 @@ class ValidationSession {
   }
 
   /// Plans the fixes for [result] again under the current directory name,
-  /// after [blocked] stopped a planned rename.
+  /// after a planned rename was blocked or refused because of [reason].
   ///
-  /// Each fix dropped because it needs the rename carries the reason from
-  /// [blocked].
+  /// Each fix dropped because it needs the rename carries [reason].
   static Future<FixOutcome> _planWithoutRename(
     SkillFixer fixer,
     ValidationResult result,
-    RenameBlocked blocked,
+    String reason,
   ) async {
     final FixOutcome replanned = await fixer.fix(result, canRename: false);
     return replanned.withSkippedFixes([
       for (final SkippedFix skipped in replanned.skippedFixes)
-        if (skipped.needsRename) skipped.withReason(blocked.reason) else skipped,
+        if (skipped.needsRename) skipped.withReason(reason) else skipped,
     ]);
   }
 

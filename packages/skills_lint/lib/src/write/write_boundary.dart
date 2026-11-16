@@ -12,8 +12,8 @@ import '../reporters/fix_io_messages.dart';
 
 /// The directory that skills_lint may write in for one scan target.
 ///
-/// The files under a scan target choose paths that `--fix`,
-/// `--generate-baseline` and ignore-file creation write to: directory names,
+/// The files under a scan target choose paths that `--fix` and
+/// `--generate-baseline` write to: directory names,
 /// frontmatter `name` values, symlinks, and the target's `skills_lint.yaml`.
 /// Every such write and rename is checked here, after symlinks are resolved,
 /// so that content in a scanned repository can't reach files outside it.
@@ -69,7 +69,7 @@ final class WriteBoundary {
   }) {
     final String resolvedSkill;
     try {
-      resolvedSkill = resolve(skill);
+      resolvedSkill = resolveSymlinks(skill);
     } on FileSystemException catch (e) {
       return WriteBoundary._unresolvable(_cannotResolve(skill, e));
     }
@@ -94,14 +94,14 @@ final class WriteBoundary {
     required List<String> configAllowed,
     required List<String> allowed,
   }) {
-    final List<String> allAllowed = [...allowed, ..._inside(configDirectory, configAllowed)];
+    final allAllowed = [...allowed, ...configAllowed];
     if (configDirectory == null) {
       return WriteBoundary(boundary, allowed: allAllowed);
     }
     try {
-      final String realConfigDirectory = resolve(configDirectory);
-      final String realTarget = resolve(target);
-      final String realBoundary = resolve(boundary);
+      final String realConfigDirectory = resolveSymlinks(configDirectory);
+      final String realTarget = resolveSymlinks(target);
+      final String realBoundary = resolveSymlinks(boundary);
       if (isAtOrWithin(realConfigDirectory, realTarget) &&
           isAtOrWithin(realConfigDirectory, realBoundary)) {
         return WriteBoundary(boundary, allowed: allAllowed);
@@ -109,44 +109,6 @@ final class WriteBoundary {
       return WriteBoundary(configDirectory, allowed: allAllowed);
     } on FileSystemException catch (e) {
       return WriteBoundary._unresolvable(_cannotResolve(target, e));
-    }
-  }
-
-  /// The directories in [configAllowed] that are inside [configDirectory]
-  /// after symlinks are resolved.
-  static List<String> _inside(String? configDirectory, List<String> configAllowed) {
-    if (configDirectory == null) {
-      return configAllowed;
-    }
-    final String realConfigDirectory;
-    try {
-      realConfigDirectory = resolve(configDirectory);
-    } on FileSystemException {
-      return const [];
-    }
-    final result = <String>[];
-    for (final directory in configAllowed) {
-      try {
-        if (isAtOrWithin(realConfigDirectory, resolve(directory))) {
-          result.add(directory);
-        }
-      } on FileSystemException {
-        // Skip unresolvable entries such as symlink loops.
-      }
-    }
-    return result;
-  }
-
-  /// Problem description when [directory] is not at or inside [configDirectory]
-  /// after symlinks are resolved, or `null` when it stays inside.
-  static String? configDirectoryEscapeReason(String configDirectory, String directory) {
-    try {
-      if (isAtOrWithin(resolve(configDirectory), resolve(directory))) {
-        return null;
-      }
-      return 'a symlink leads outside the directory of the configuration file';
-    } on FileSystemException catch (e) {
-      return 'could not resolve symlinks (${FixIoMessages.describe(e)})';
     }
   }
 
@@ -159,12 +121,6 @@ final class WriteBoundary {
   final List<String> allowed;
 
   final String? _unresolvableReason;
-
-  /// What a user does to write outside a boundary on purpose.
-  static const String hint =
-      'skills_lint writes only inside the directories it scans. To write to that '
-      'path anyway, name it with -s, -d or --ignore-file, or pass --allow-write <dir>. '
-      'write_allow in skills_lint.yaml also works for directories next to that file.';
 
   /// Why writing or creating [path] is refused, readable as the end of a
   /// sentence, or `null` when [path] is inside the boundary.
@@ -179,8 +135,8 @@ final class WriteBoundary {
     final String realRoot;
     final String realPath;
     try {
-      realRoot = resolve(root);
-      realPath = resolve(path);
+      realRoot = resolveSymlinks(root);
+      realPath = resolveSymlinks(path);
     } on FileSystemException catch (e) {
       return _cannotResolve(path, e);
     }
@@ -196,7 +152,7 @@ final class WriteBoundary {
   bool _isWithinAllowed(String realPath) {
     for (final String directory in allowed) {
       try {
-        if (isAtOrWithin(resolve(directory), realPath)) {
+        if (isAtOrWithin(resolveSymlinks(directory), realPath)) {
           return true;
         }
       } on FileSystemException {
@@ -228,50 +184,5 @@ final class WriteBoundary {
       return "the skill name '$name' contains a path separator";
     }
     return null;
-  }
-
-  /// The longest chain of symlinks [resolve] follows.
-  ///
-  /// Matches the usual operating system limit, so a loop of links ends.
-  static const int _maxLinks = 40;
-
-  /// The real location of the absolute path [path], with every symlink in it
-  /// resolved, including a dangling one at the end.
-  ///
-  /// [path] or its last segments may not exist yet, such as a rename target
-  /// or an ignore file that is about to be created. Those segments are kept
-  /// as they are. Each segment is resolved before the `..` after it applies,
-  /// as the operating system does.
-  static String resolve(String path) {
-    int linksLeft = _maxLinks;
-    String walk(String path) {
-      final List<String> segments = p.split(path);
-      // Every prefix of `real` is resolved, so `..` can drop its last segment
-      // as text.
-      String real = segments.first;
-      for (final String segment in segments.skip(1)) {
-        if (segment == '.') {
-          continue;
-        }
-        if (segment == '..') {
-          real = p.dirname(real);
-          continue;
-        }
-        final String next = p.join(real, segment);
-        if (FileSystemEntity.typeSync(next, followLinks: false) != FileSystemEntityType.link) {
-          real = next;
-          continue;
-        }
-        if (--linksLeft < 0) {
-          throw FileSystemException('Too many levels of symbolic links', path);
-        }
-        // Follow the link by hand: resolveSymbolicLinksSync fails on a
-        // dangling link, and writing through one creates its target.
-        real = walk(p.join(real, Link(next).targetSync()));
-      }
-      return real;
-    }
-
-    return walk(p.absolute(path));
   }
 }

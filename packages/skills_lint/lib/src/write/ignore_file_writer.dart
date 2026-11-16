@@ -4,7 +4,6 @@
 
 import 'dart:io';
 
-import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
@@ -13,34 +12,29 @@ import '../reporters/reporter.dart';
 import 'skills_ignores_storage.dart';
 import 'write_boundary.dart';
 
-final _log = Logger('skills_lint');
-
 /// Default filename for the per-run ignore baseline file.
 ///
 /// Referenced both by production code (the `--generate-baseline` help text in
 /// the CLI) and by tests, so this is intentionally not `@visibleForTesting`.
 const defaultIgnoreFileName = 'skills_lint_ignore.json';
 
-/// An ignore file path paired with its [WriteBoundary] and how missing files
-/// behave.
+/// An ignore file path paired with the [WriteBoundary] that saving it must
+/// stay inside.
+///
+/// A missing ignore file means no ignores; only `--generate-baseline` creates
+/// one.
 @immutable
 sealed class IgnoreFileTarget {
   const IgnoreFileTarget._({required this.path, required this.boundary});
 
   /// The default `skills_lint_ignore.json` inside [directory], confined to
   /// [targetBoundary].
-  ///
-  /// When absent on disk, validation loads empty ignores without creating the
-  /// file.
   factory IgnoreFileTarget.defaultIn(Directory directory, {required WriteBoundary targetBoundary}) =
       _DefaultIgnoreFileTarget;
 
   /// An ignore file named in a configuration file, confined to
   /// [configDirectory] (plus [allowWrite]) when the configuration came from a
   /// file.
-  ///
-  /// When absent on disk, validation initializes an empty baseline file if
-  /// [boundary] permits it.
   factory IgnoreFileTarget.fromConfiguration(
     String path, {
     required String? configDirectory,
@@ -49,19 +43,13 @@ sealed class IgnoreFileTarget {
 
   /// An ignore file passed on the command line (`--ignore-file`) or through
   /// the API, which has no [WriteBoundary].
-  ///
-  /// When absent on disk, validation initializes an empty baseline file.
   const factory IgnoreFileTarget.fromOverride(String path) = _ExplicitIgnoreFileTarget.fromOverride;
 
   /// The absolute path to the ignore file.
   final String path;
 
-  /// The boundary that creating or saving [path] must stay inside.
+  /// The boundary that saving [path] must stay inside.
   final WriteBoundary boundary;
-
-  /// Whether validation initializes an empty file on disk when [path] does not
-  /// exist yet.
-  bool get createWhenMissing;
 
   /// The target for [skillDir] after a skill rename.
   IgnoreFileTarget afterSkillRename(Directory skillDir);
@@ -70,9 +58,6 @@ sealed class IgnoreFileTarget {
 final class _DefaultIgnoreFileTarget extends IgnoreFileTarget {
   _DefaultIgnoreFileTarget(Directory directory, {required WriteBoundary targetBoundary})
     : super._(path: p.join(directory.path, defaultIgnoreFileName), boundary: targetBoundary);
-
-  @override
-  bool get createWhenMissing => false;
 
   @override
   IgnoreFileTarget afterSkillRename(Directory skillDir) =>
@@ -95,14 +80,11 @@ final class _ExplicitIgnoreFileTarget extends IgnoreFileTarget {
     : super._(path: path, boundary: const WriteBoundary.none());
 
   @override
-  bool get createWhenMissing => true;
-
-  @override
   IgnoreFileTarget afterSkillRename(Directory skillDir) => this;
 }
 
 /// Loads and saves ignore files for one validation session, enforcing each
-/// target's [WriteBoundary] before creating or replacing a file.
+/// target's [WriteBoundary] before writing a file.
 class IgnoreFileWriter {
   IgnoreFileWriter(this._reporter);
 
@@ -115,11 +97,6 @@ class IgnoreFileWriter {
   /// must stay inside all of their boundaries.
   final Map<String, List<WriteBoundary>> _boundariesByPath = {};
 
-  /// Maps each ignore file path initialized during [load] in this session to
-  /// the resolved destination file created on disk, so a narrower boundary
-  /// recorded later removes the created file (never a pre-existing symlink).
-  final Map<String, String> _createdInSession = {};
-
   /// Malformed entries found the first time each ignore file was loaded, so
   /// [saveBaseline] can report what is dropped before replacing the file.
   final Map<String, List<IgnoreProblem>> _problemsByPath = {};
@@ -130,13 +107,12 @@ class IgnoreFileWriter {
 
   bool _writeRefused = false;
 
-  /// Whether creating or saving an ignore file was refused because the path
+  /// Whether saving an ignore file was refused because the path
   /// fell outside its [WriteBoundary].
   bool get writeRefused => _writeRefused;
 
-  /// Records [target]'s boundary, loads [SkillsIgnores] if the file exists, or
-  /// initializes an empty file on disk when [IgnoreFileTarget.createWhenMissing]
-  /// is true.
+  /// Records [target]'s boundary and loads its [SkillsIgnores], which are
+  /// empty when the file does not exist. Never writes to disk.
   ///
   /// Reports malformed entries the first time a file is loaded.
   Future<SkillsIgnores> load(IgnoreFileTarget target) async {
@@ -156,41 +132,12 @@ class IgnoreFileWriter {
       return loaded.ignores;
     }
 
-    if (target.createWhenMissing && !_refuseWrite(target.path)) {
-      _log.warning('File not found generating-baseline');
-      try {
-        final String resolvedTarget = WriteBoundary.resolve(target.path);
-        await _storage.save(target.path, SkillsIgnores(skills: {}));
-        _createdInSession[target.path] = resolvedTarget;
-      } on FileSystemException {
-        // Ignore write errors and return empty ignores.
-      }
-    }
-
     return SkillsIgnores(skills: {});
   }
 
   /// Records [target]'s boundary against its path without reading the file.
-  ///
-  /// If an earlier target in the same session initialized a missing file at
-  /// [target]'s path and the newly added boundary refuses it, deletes that
-  /// initialized file and records the refusal.
   void recordBoundary(IgnoreFileTarget target) {
     (_boundariesByPath[target.path] ??= []).add(target.boundary);
-    final String? createdFile = _createdInSession[target.path];
-    if (createdFile != null) {
-      final String? reason = target.boundary.refusal(target.path);
-      if (reason != null) {
-        _createdInSession.remove(target.path);
-        try {
-          File(createdFile).deleteSync();
-        } on FileSystemException {
-          // Best-effort cleanup of the file created earlier in this session.
-        }
-        _reporter.onWriteRefused(action: "write ignore file '${target.path}'", reason: reason);
-        _writeRefused = true;
-      }
-    }
   }
 
   /// Moves recorded load problems from [oldIgnorePath] to [newTarget] and

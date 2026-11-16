@@ -56,10 +56,14 @@ final class WriteFailed extends ApplyResult {
 /// The plan would write or rename outside the scan target's
 /// [WriteBoundary]. Nothing was written.
 final class WriteRefused extends ApplyResult {
-  WriteRefused({required this.reason});
+  WriteRefused({required this.reason, this.renameOnly = false});
 
   /// Why the write was refused, readable as the end of a sentence.
   final String reason;
+
+  /// Whether only the rename was refused, so that a plan that keeps the
+  /// directory name may still write `SKILL.md`.
+  final bool renameOnly;
 }
 
 /// Does all of the file I/O for `--fix`: renames a skill directory, then
@@ -180,6 +184,7 @@ class SkillWriter {
         return _refused(
           action: "rename skill directory '$currentName' to '$wantedName'",
           reason: badName,
+          renameOnly: true,
         );
       }
     }
@@ -194,16 +199,20 @@ class SkillWriter {
     final String renamedPath = p.join(p.dirname(skill.path), wantedName);
     final String? renameRefusal = boundary.refusal(renamedPath);
     if (renameRefusal != null) {
-      return _refused(action: "rename '${skill.path}' to '$renamedPath'", reason: renameRefusal);
+      return _refused(
+        action: "rename '${skill.path}' to '$renamedPath'",
+        reason: renameRefusal,
+        renameOnly: true,
+      );
     }
     return null;
   }
 
   /// Reports that skills_lint did not [action] because of [reason], and
   /// returns the matching [WriteRefused].
-  WriteRefused _refused({required String action, required String reason}) {
+  WriteRefused _refused({required String action, required String reason, bool renameOnly = false}) {
     _reporter.onWriteRefused(action: action, reason: reason);
-    return WriteRefused(reason: reason);
+    return WriteRefused(reason: reason, renameOnly: renameOnly);
   }
 
   /// Reports and returns a [RenameBlocked] when a directory other than

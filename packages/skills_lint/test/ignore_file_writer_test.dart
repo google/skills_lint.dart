@@ -48,106 +48,31 @@ void main() {
       expect(writer.writeRefused, isFalse);
     });
 
-    test('creates a missing configured ignore file inside the configuration directory', () async {
-      final String ignorePath = p.join(repo.path, 'custom_ignore.json');
-      final target = IgnoreFileTarget.fromConfiguration(
-        ignorePath,
-        configDirectory: repo.path,
-        allowWrite: const [],
-      );
+    for (final (String kind, IgnoreFileTarget Function(String path) targetFor) in [
+      (
+        'configured',
+        (String path) => IgnoreFileTarget.fromConfiguration(
+          path,
+          configDirectory: repo.path,
+          allowWrite: const [],
+        ),
+      ),
+      ('override', IgnoreFileTarget.fromOverride),
+    ]) {
+      test('does not create a missing $kind ignore file', () async {
+        for (final String ignorePath in [
+          p.join(repo.path, '${kind}_ignore.json'),
+          p.join(outside.path, '${kind}_ignore.json'),
+        ]) {
+          final SkillsIgnores ignores = await writer.load(targetFor(ignorePath));
 
-      final SkillsIgnores ignores = await writer.load(target);
-
-      expect(ignores.skills, isEmpty);
-      expect(File(ignorePath).existsSync(), isTrue);
-      expect(writer.writeRefused, isFalse);
-    });
-
-    test('refuses creating a missing configured ignore file outside its boundary', () async {
-      final String ignorePath = p.join(outside.path, 'custom_ignore.json');
-      final target = IgnoreFileTarget.fromConfiguration(
-        ignorePath,
-        configDirectory: repo.path,
-        allowWrite: const [],
-      );
-
-      await writer.load(target);
-
-      expect(File(ignorePath).existsSync(), isFalse);
-      expect(writer.writeRefused, isTrue);
-      expect(err.toString(), contains("Error: did not write ignore file '$ignorePath'"));
-    });
-
-    test('creates a missing override ignore file outside the repository', () async {
-      final String ignorePath = p.join(outside.path, 'override_ignore.json');
-      final target = IgnoreFileTarget.fromOverride(ignorePath);
-
-      await writer.load(target);
-
-      expect(File(ignorePath).existsSync(), isTrue);
-      expect(writer.writeRefused, isFalse);
-    });
-
-    test(
-      'removes and refuses a created shared ignore file when a later target narrows the boundary',
-      () async {
-        final subdir = Directory(p.join(repo.path, 'sub'))..createSync();
-        final String sharedPath = p.join(repo.path, 'shared_ignore.json');
-
-        await writer.load(
-          IgnoreFileTarget.fromConfiguration(
-            sharedPath,
-            configDirectory: repo.path,
-            allowWrite: const [],
-          ),
-        );
-        expect(File(sharedPath).existsSync(), isTrue);
-
-        writer.recordBoundary(
-          IgnoreFileTarget.fromConfiguration(
-            sharedPath,
-            configDirectory: subdir.path,
-            allowWrite: const [],
-          ),
-        );
-
-        expect(File(sharedPath).existsSync(), isFalse);
-        expect(writer.writeRefused, isTrue);
-        expect(err.toString(), contains("Error: did not write ignore file '$sharedPath'"));
-      },
-    );
-
-    test(
-      'preserves a pre-existing dangling symlink and deletes the created target when narrowed',
-      () async {
-        final subdir = Directory(p.join(repo.path, 'sub'))..createSync();
-        final siblingDir = Directory(p.join(repo.path, 'other'))..createSync();
-        final String targetFile = p.join(siblingDir.path, 'created.json');
-        final String linkPath = p.join(subdir.path, 'ignore.json');
-        Link(linkPath).createSync(targetFile);
-
-        await writer.load(
-          IgnoreFileTarget.fromConfiguration(
-            linkPath,
-            configDirectory: repo.path,
-            allowWrite: const [],
-          ),
-        );
-        expect(File(targetFile).existsSync(), isTrue);
-
-        writer.recordBoundary(
-          IgnoreFileTarget.fromConfiguration(
-            linkPath,
-            configDirectory: subdir.path,
-            allowWrite: const [],
-          ),
-        );
-
-        expect(File(targetFile).existsSync(), isFalse);
-        expect(FileSystemEntity.typeSync(linkPath, followLinks: false), FileSystemEntityType.link);
-        expect(writer.writeRefused, isTrue);
-      },
-    );
+          expect(ignores.skills, isEmpty);
+          expect(File(ignorePath).existsSync(), isFalse, reason: '$ignorePath was created');
+        }
+        expect(writer.writeRefused, isFalse);
+        expect(err.toString(), isEmpty);
+      });
+    }
   });
 
   group('saveBaseline', () {

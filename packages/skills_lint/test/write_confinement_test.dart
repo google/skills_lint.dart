@@ -2,8 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Tests that `--fix`, `--generate-baseline` and ignore-file creation write
-/// only inside the directories skills_lint scans, after symlinks are
+/// Tests that `--fix` and `--generate-baseline` write only inside the directories skills_lint scans, after symlinks are
 /// resolved.
 ///
 /// Each group builds a repository with real files next to an `outside`
@@ -133,26 +132,29 @@ void defineCliTests() {
       await run(['--fix', '-d', 'skills'], exitCode: 0);
     });
 
-    test('validation does not create an ignore_file through a link followed by ..', () async {
-      final deep = Directory(p.join(outside.path, 'far', 'deep'))..createSync(recursive: true);
-      Directory(p.join(outside.path, 'far', 'vdir')).createSync();
-      Link(p.join(repo.path, 'l')).createSync(deep.path);
-      // Create `vdir` before `sub` so Windows creates a directory symlink;
-      // `sub` resolves to `outside/far/vdir`, though `l/..` reads as `repo`.
-      Link(p.join(repo.path, 'sub')).createSync(p.join('l', '..', 'vdir'));
-      await createDummySkill(
-        Directory(p.join(repo.path, 'skills')),
-        name: 'foo',
-        skillContent: _skillNamed('foo'),
-      );
-      writeConfig(['- path: skills', '  ignore_file: sub/created.json']);
+    test(
+      '--generate-baseline does not create an ignore_file through a link followed by ..',
+      () async {
+        final deep = Directory(p.join(outside.path, 'far', 'deep'))..createSync(recursive: true);
+        Directory(p.join(outside.path, 'far', 'vdir')).createSync();
+        Link(p.join(repo.path, 'l')).createSync(deep.path);
+        // Create `vdir` before `sub` so Windows creates a directory symlink;
+        // `sub` resolves to `outside/far/vdir`, though `l/..` reads as `repo`.
+        Link(p.join(repo.path, 'sub')).createSync(p.join('l', '..', 'vdir'));
+        await createDummySkill(
+          Directory(p.join(repo.path, 'skills')),
+          name: 'foo',
+          skillContent: _skillNamed('foo'),
+        );
+        writeConfig(['- path: skills', '  ignore_file: sub/created.json']);
 
-      final String stderr = await run([], exitCode: 1);
+        final String stderr = await run(['--generate-baseline'], exitCode: 1);
 
-      final String created = p.join(outside.path, 'far', 'vdir', 'created.json');
-      expect(File(created).existsSync(), isFalse, reason: '$created was created');
-      expect(stderr, refused(p.join(repo.path, 'sub', 'created.json')));
-    });
+        final String created = p.join(outside.path, 'far', 'vdir', 'created.json');
+        expect(File(created).existsSync(), isFalse, reason: '$created was created');
+        expect(stderr, refused(p.join(repo.path, 'sub', 'created.json')));
+      },
+    );
 
     test('--generate-baseline does not create the target of a dangling symlink', () async {
       final String target = p.join(outside.path, 'created.json');
@@ -212,7 +214,7 @@ void defineCliTests() {
       expect(stderr, refused(victim.path));
     });
 
-    test('validation does not create a missing ignore_file outside the configuration', () async {
+    test('validation does not create a missing ignore_file', () async {
       final String victim = p.join(outside.path, 'created.json');
       await createDummySkill(
         Directory(p.join(repo.path, 'skills')),
@@ -221,10 +223,10 @@ void defineCliTests() {
       );
       writeConfig(['- path: skills', '  ignore_file: ${_yamlString(victim)}']);
 
-      final String stderr = await run([], exitCode: 1);
+      final String stderr = await run([], exitCode: 0);
 
       expect(File(victim).existsSync(), isFalse, reason: '$victim was created');
-      expect(stderr, refused(victim));
+      expect(stderr, isNot(contains('Error:')));
     });
 
     test(
@@ -304,20 +306,6 @@ void defineCliTests() {
       expect(skillMd.readAsStringSync(), _skillNamed('foo'));
     });
 
-    test('write_allow does not turn on a fix that fix: false turns off', () async {
-      final File skillMd = vendoredSkill();
-      writeConfig([
-        '- path: skills',
-        '  write_allow: [vendor]',
-        '  rules:',
-        '    invalid-skill-name: {fix: false}',
-      ]);
-
-      await run(['--fix'], exitCode: 1);
-
-      expect(skillMd.readAsStringSync(), _skillNamed('bar'));
-    });
-
     test('a write_allow directory outside the configuration is a configuration error', () async {
       vendoredSkill();
       writeConfig(['- path: skills', '  write_allow: [${_yamlString(outside.path)}]']);
@@ -365,92 +353,33 @@ void defineCliTests() {
     });
   });
 
-  group('fix: in rules', () {
-    /// Creates `skills/foo` in [repo] with a `name` that `--fix` changes, and
-    /// returns its `SKILL.md`.
-    Future<File> mismatchedSkill() async {
-      final Directory skill = await createDummySkill(
-        Directory(p.join(repo.path, 'skills')),
-        name: 'foo',
-        skillContent: _skillNamed('bar'),
-      );
-      return File(p.join(skill.path, 'SKILL.md'));
-    }
-
-    /// Writes a configuration whose global rules set `fix` for the name rule
-    /// to [global], and whose `skills` target sets it to [target].
-    void writeFixConfig({required bool global, bool? target}) {
-      File(p.join(repo.path, 'skills_lint.yaml')).writeAsStringSync(
-        'skills_lint:\n'
-        '  rules:\n'
-        '    invalid-skill-name: {severity: error, fix: $global}\n'
-        '  directories:\n'
-        '    - path: skills\n'
-        '${target == null ? '' : '      rules:\n        invalid-skill-name: {fix: $target}\n'}',
-      );
-    }
-
-    test('fix: false in the global rules keeps --fix from running the fix', () async {
-      final File skillMd = await mismatchedSkill();
-      writeFixConfig(global: false);
-
-      await run(['--fix'], exitCode: 1);
-
-      expect(skillMd.readAsStringSync(), _skillNamed('bar'));
-    });
-
-    test('fix: true on a target overrides fix: false in the global rules', () async {
-      final File skillMd = await mismatchedSkill();
-      writeFixConfig(global: false, target: true);
-
-      await run(['--fix'], exitCode: 0);
-
-      expect(skillMd.readAsStringSync(), _skillNamed('foo'));
-      await run([], exitCode: 0);
-    });
-
-    test('--no-<rule>-fix overrides fix: true on a target', () async {
-      final File skillMd = await mismatchedSkill();
-      writeFixConfig(global: false, target: true);
-
-      await run(['--fix', '--no-invalid-skill-name-fix'], exitCode: 1);
-
-      expect(skillMd.readAsStringSync(), _skillNamed('bar'));
-    });
-
-    test('--<rule>-fix overrides fix: false in the global rules', () async {
-      final File skillMd = await mismatchedSkill();
-      writeFixConfig(global: false);
-
-      await run(['--fix', '--invalid-skill-name-fix'], exitCode: 0);
-
-      expect(skillMd.readAsStringSync(), _skillNamed('foo'));
-    });
-
-    test('fix: on a rule without a fix is a configuration error', () async {
-      await mismatchedSkill();
-      File(
-        p.join(repo.path, 'skills_lint.yaml'),
-      ).writeAsStringSync('skills_lint:\n  rules:\n    path-does-not-exist: {fix: false}\n');
-
-      final String stderr = await run(['--fix'], exitCode: ExitCode.config.code);
-
-      expect(stderr, contains('rule "path-does-not-exist" has no fix'));
-    });
-
-    test('a fix value that is not true or false is a configuration error', () async {
-      await mismatchedSkill();
-      File(
-        p.join(repo.path, 'skills_lint.yaml'),
-      ).writeAsStringSync('skills_lint:\n  rules:\n    invalid-skill-name: {fix: maybe}\n');
-
-      final String stderr = await run(['--fix'], exitCode: ExitCode.config.code);
-
-      expect(stderr, contains('"fix" for rule "invalid-skill-name" must be true or false'));
-    });
-  });
-
   group('directory names', () {
+    test('--fix still writes the other fixes when only the rename is refused', () async {
+      File(p.join(repo.path, 'pubspec.yaml')).writeAsStringSync('name: test_pkg\n');
+      final skills = Directory(p.join(repo.path, 'skills'))..createSync();
+      final Directory skill = await createDummySkill(
+        skills,
+        name: 'dart-test-pkg-setup',
+        skillContent: '${_skillNamed('dart-test-pkg-setup')}Trailing space \n',
+      );
+      // --published-skill-name renames the skill to test-pkg-setup, which is a
+      // dangling link out of the repository.
+      final String escaped = p.join(outside.path, 'test-pkg-setup');
+      Link(p.join(skills.path, 'test-pkg-setup')).createSync(escaped);
+
+      final String stderr = await run([
+        '--fix',
+        '--published-skill-name',
+        '--check-trailing-whitespace',
+        '-d',
+        'skills',
+      ], exitCode: 1);
+
+      expect(stderr, refused(p.join(skills.path, 'test-pkg-setup')));
+      expect(Directory(escaped).existsSync(), isFalse);
+      expect(File(p.join(skill.path, 'SKILL.md')).readAsStringSync(), contains('Trailing space\n'));
+    });
+
     // End-to-end defense-in-depth check (`test/skill_writer_test.dart` tests
     // `SkillWriter`'s own `directoryNameRefusal` directly).
     test(

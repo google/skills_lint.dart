@@ -19,7 +19,6 @@ import 'models/target_declaration.dart';
 import 'path_utils.dart';
 import 'rule_registry.dart';
 import 'unknown_rule_names.dart';
-import 'write/write_boundary.dart';
 
 final Logger _log = Logger('skills_lint');
 
@@ -43,7 +42,6 @@ class ConfigParser {
   static const String pathKey = 'path';
   static const String ignoreFileKey = 'ignore_file';
   static const String severityKey = 'severity';
-  static const String fixKey = 'fix';
   static const String writeAllowKey = 'write_allow';
 
   static const Set<String> _allowedTopLevelKeys = {rulesKey, directoriesKey, individualSkillsKey};
@@ -236,8 +234,17 @@ class ConfigParser {
       return const Configuration();
     }
 
-    final String content = await configFile.readAsString();
-    return parse(content, configSource: ConfigSource.file(resolvedPath));
+    try {
+      final String content = await configFile.readAsString();
+      return parse(content, configSource: ConfigSource.file(resolvedPath));
+    } catch (e) {
+      if (e is FileSystemException) {
+        rethrow;
+      }
+      final message = 'Failed to parse $resolvedPath: $e';
+      _log.severe(message);
+      return Configuration(parsingErrors: <String>[message]);
+    }
   }
 
   /// Validates that all keys at the top level of the `skills_lint` configuration map are recognized.
@@ -349,8 +356,6 @@ class ConfigParser {
       return RuleConfigPatch(severity: severity);
     }
 
-    final bool? fix = _parseFix(value, ruleName, contextLabel, parsingErrors);
-
     final AnalysisSeverity? severity = _parseSeverity(
       value[severityKey],
       ruleName,
@@ -360,7 +365,7 @@ class ConfigParser {
 
     final parameters = <String, Object?>{
       for (final Object? key in value.keys)
-        if (key.toString() != severityKey && key.toString() != fixKey) key.toString(): value[key],
+        if (key.toString() != severityKey) key.toString(): value[key],
     };
 
     final CustomRuleParameters? customParams = parameters.isNotEmpty
@@ -379,7 +384,7 @@ class ConfigParser {
       }
     }
 
-    return RuleConfigPatch(severity: severity, parameters: customParams, fix: fix);
+    return RuleConfigPatch(severity: severity, parameters: customParams);
   }
 
   /// Iterates a top-level YAML target list (`directories` or `individual_skills`)
@@ -539,31 +544,6 @@ class ConfigParser {
     return const <String, RuleConfigPatch>{};
   }
 
-  /// The `fix` value in the rule map [value] for [ruleName].
-  ///
-  /// Is `null` when `fix` is absent, not a boolean, or set on a rule without a
-  /// fix; the invalid cases append an error to [parsingErrors].
-  static bool? _parseFix(
-    YamlMap value,
-    String ruleName,
-    String contextLabel,
-    List<String> parsingErrors,
-  ) {
-    final Object? fix = value[fixKey];
-    if (fix != null && !RuleRegistry.fixableRuleNames.contains(ruleName)) {
-      parsingErrors.add('$contextLabel: rule "$ruleName" has no fix, so "$fixKey" does not apply.');
-      return null;
-    }
-    if (fix == null || fix is bool) {
-      return fix as bool?;
-    }
-    parsingErrors.add(
-      '$contextLabel: "$fixKey" for rule "$ruleName" must be true or false; '
-      'got "$fix" (${fix.runtimeType}). Using the inherited value.',
-    );
-    return null;
-  }
-
   /// Parses the directories under a target entry's `write_allow` key, each
   /// anchored to [anchorDirectory].
   ///
@@ -591,14 +571,16 @@ class ConfigParser {
       return (authored: authored, resolved: resolved);
     }
     for (final Object? entry in value) {
-      final String? anchored = entry is String
-          ? canonicalizePath(entry, baseDirectory: anchorDirectory)
-          : null;
-      if (entry is String && anchored != null && isAtOrWithin(anchorDirectory, anchored)) {
-        final String? escapeReason = WriteBoundary.configDirectoryEscapeReason(
-          anchorDirectory,
-          anchored,
+      if (entry is! String) {
+        parsingErrors.add(
+          '$entryLabelCap "$writeAllowKey" for "$path" has $entry, which must be a string. '
+          'Ignoring it.',
         );
+        continue;
+      }
+      final String anchored = canonicalizePath(entry, baseDirectory: anchorDirectory);
+      if (isAtOrWithin(anchorDirectory, anchored)) {
+        final String? escapeReason = configDirectoryEscapeReason(anchorDirectory, anchored);
         if (escapeReason != null) {
           parsingErrors.add(
             '$entryLabelCap "$writeAllowKey" for "$path" has "$entry", which $escapeReason. '

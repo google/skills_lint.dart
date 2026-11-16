@@ -13,30 +13,21 @@ import 'custom_rule_parameters.dart';
 /// bundling both orchestration (severity) and execution parameters.
 @immutable
 class RuleConfig {
-  const RuleConfig({required this.severity, CustomRuleParameters? parameters, bool? fix})
-    : parameters = parameters ?? const CustomRuleParameters.empty(),
-      fix = fix ?? defaultFix;
+  const RuleConfig({required this.severity, CustomRuleParameters? parameters})
+    : parameters = parameters ?? const CustomRuleParameters.empty();
 
   final AnalysisSeverity severity;
   final CustomRuleParameters parameters;
 
-  /// Whether `--fix` may run this rule's fix.
-  final bool fix;
-
-  /// The value of [fix] when no configuration sets it.
-  static const bool defaultFix = true;
-
   /// Converts this rule configuration into its YAML representation (String severity or Map).
   Object toYaml() {
-    if (parameters.isEmpty && fix == defaultFix) {
+    if (parameters.isEmpty) {
       return severity.name;
     }
     return <String, Object?>{
       ConfigParser.severityKey: severity.name,
-      if (fix != defaultFix) ConfigParser.fixKey: fix,
       for (final MapEntry<String, Object?> entry in parameters.params.entries)
-        if (entry.key != ConfigParser.severityKey && entry.key != ConfigParser.fixKey)
-          entry.key: entry.value,
+        if (entry.key != ConfigParser.severityKey) entry.key: entry.value,
     };
   }
 
@@ -49,7 +40,7 @@ class RuleConfig {
 /// overrides without wiping out unspecified base/global parameters.
 @immutable
 class RuleConfigPatch {
-  const RuleConfigPatch({this.severity, this.parameters, this.fix});
+  const RuleConfigPatch({this.severity, this.parameters});
 
   /// The overridden severity value. If null, the base configuration's severity is preserved.
   final AnalysisSeverity? severity;
@@ -58,24 +49,16 @@ class RuleConfigPatch {
   /// the parameter from the base configuration during merging.
   final CustomRuleParameters? parameters;
 
-  /// The overridden [RuleConfig.fix] setting.
-  ///
-  /// Is `null` when the base configuration's value should be preserved.
-  final bool? fix;
-
   /// Converts this rule configuration patch into its YAML representation (String severity or Map).
   Object? toYaml() {
     final CustomRuleParameters? params = parameters;
-    if ((params == null || params.isEmpty) && fix == null) {
+    if (params == null || params.isEmpty) {
       return severity?.name ?? <String, Object?>{};
     }
     return <String, Object?>{
       if (severity != null) ConfigParser.severityKey: severity!.name,
-      if (fix != null) ConfigParser.fixKey: fix,
-      for (final MapEntry<String, Object?> entry
-          in params?.params.entries ?? const <MapEntry<String, Object?>>[])
-        if (entry.key != ConfigParser.severityKey && entry.key != ConfigParser.fixKey)
-          entry.key: entry.value,
+      for (final MapEntry<String, Object?> entry in params.params.entries)
+        if (entry.key != ConfigParser.severityKey) entry.key: entry.value,
     };
   }
 
@@ -89,7 +72,6 @@ class RuleConfigPatch {
       parameters: parameters != null
           ? _mergeParameters(base.parameters, parameters!)
           : base.parameters,
-      fix: fix ?? base.fix,
     );
   }
 
