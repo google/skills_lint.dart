@@ -221,7 +221,7 @@ An error message is a user interface. Someone reads it at a bad moment, often in
 - **Make similar problems look alike.** The same kind of problem has the same shape everywhere, so a reader who learns one message can read the rest.
 - **Keep layout separate from content.** Humans get layout. APIs and machine formats get self-contained, structured data that tools can parse and tests can check without depending on wording.
 
-Before you ship a new or changed message, trigger it with real bad input and read the output where users will see it. If you have to read it twice to find the problem, rewrite it.
+Before you ship a new or changed message, trigger it with real bad input and read the output where users will see it. Do this for text, JSON and SARIF. If you have to read it twice to find the problem, rewrite it.
 
 ---
 
