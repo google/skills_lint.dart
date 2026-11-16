@@ -536,6 +536,30 @@ skills_lint:
       expect(error.region?.startColumn, 7);
     });
 
+    test(
+      '--format=json reports a problem without a location against the absolute config path',
+      () async {
+        await File('${tempDir.path}/c.yaml').writeAsString('hello\n');
+
+        final TestProcess process = await startCli([
+          '--format=json',
+          '--config',
+          './c.yaml',
+        ], workingDirectory: tempDir.path);
+
+        final String stdout = (await process.stdout.rest.toList()).join('\n');
+        await process.shouldExit(ExitCode.config.code);
+
+        final ValidationError error = ValidationResult.fromJson(
+          (jsonDecode(stdout) as List<Object?>).single! as Map<String, Object?>,
+        ).validationErrors.single;
+        expect(error.ruleId, 'invalid-configuration');
+        expect(p.isAbsolute(error.file), isTrue, reason: error.file);
+        expect(p.basename(error.file), 'c.yaml');
+        expect(error.region, isNull);
+      },
+    );
+
     test('--format=json writes a missing --config file to stdout', () async {
       final TestProcess process = await startCli([
         '--format=json',

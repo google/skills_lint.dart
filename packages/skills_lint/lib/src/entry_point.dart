@@ -384,7 +384,12 @@ Future<Configuration?> _loadConfig(
     } else if (format == OutputFormat.json) {
       _writeConfigErrorsJson(
         configProblemsOf(config),
-        fallbackFile: results[_configOption] as String? ?? 'skills_lint.yaml',
+        // The same absolute path that ConfigParser.loadConfig reads and puts
+        // in the location of every other problem.
+        fallbackFile: canonicalizePath(
+          results[_configOption] as String? ?? 'skills_lint.yaml',
+          baseDirectory: Directory.current.path,
+        ),
       );
       return null;
     } else {
