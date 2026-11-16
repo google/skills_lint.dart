@@ -7,8 +7,8 @@ import 'dart:io';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
+import '../feature/markdown/markdown_links.dart';
 import '../fixable_rule.dart';
-import '../markdown_links.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
@@ -69,19 +69,34 @@ class AbsolutePathsRule extends SkillRule implements FixableRule {
       logical: context.directory.path,
       physical: _physicalPath(context.directory),
     );
-    return replaceBodyLinkTargets(context, (String target) {
-      if (ignoredSubjects.contains(target) || !isAbsoluteLink(target)) {
-        return null;
+    final replacements = <LinkDestination, String>{};
+    for (final MarkdownLink link in bodyLinksOf(context)) {
+      final String? relative = _relativeReplacement(link.target, skillLocation, ignoredSubjects);
+      if (relative != null) {
+        replacements[link.destination] = relative;
       }
-      final file = File(target);
-      if (!file.existsSync()) {
-        return null;
-      }
-      return relativeSkillLink(
-        skillDirectory: skillLocation,
-        targetFile: (logical: target, physical: _physicalPath(file)),
-      );
-    });
+    }
+    return replaceLinkDestinations(context.rawContent, replacements);
+  }
+
+  /// The relative link to write in place of [target], or `null` when
+  /// [target] is ignored, is not absolute, or names no file.
+  String? _relativeReplacement(
+    String target,
+    SkillPathPair skillLocation,
+    Set<String> ignoredSubjects,
+  ) {
+    if (ignoredSubjects.contains(target) || !isAbsoluteLink(target)) {
+      return null;
+    }
+    final file = File(target);
+    if (!file.existsSync()) {
+      return null;
+    }
+    return relativeSkillLink(
+      skillDirectory: skillLocation,
+      targetFile: (logical: target, physical: _physicalPath(file)),
+    );
   }
 
   /// Forward-slash relative link text to write into `SKILL.md` for [targetFile].

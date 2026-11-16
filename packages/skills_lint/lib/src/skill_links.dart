@@ -4,35 +4,15 @@
 
 import 'package:path/path.dart' as p;
 
-import 'markdown_links.dart';
+import 'feature/markdown/markdown_links.dart';
 import 'models/skill_context.dart';
 
 /// Links and images in the Markdown body of [context], after any YAML
-/// frontmatter, with 1-based regions in [SkillContext.rawContent].
+/// frontmatter, with spans in [SkillContext.rawContent].
 List<MarkdownLink> bodyLinksOf(SkillContext context) {
   final String rawContent = context.rawContent;
   final int bodyStart = SkillContext.skillStartRegex.firstMatch(rawContent)?.end ?? 0;
-  if (bodyStart >= rawContent.length) {
-    return const [];
-  }
-  return markdownLinksIn(
-    rawContent.substring(bodyStart),
-    startLine: context.offsetToLine(bodyStart),
-  );
-}
-
-/// Rewrites referenced link destinations in the Markdown body of [context]
-/// wherever [rewrite] returns a non-null replacement, preserving any YAML
-/// frontmatter untouched.
-String replaceBodyLinkTargets(SkillContext context, String? Function(String target) rewrite) {
-  final String rawContent = context.rawContent;
-  final int bodyStart = SkillContext.skillStartRegex.firstMatch(rawContent)?.end ?? 0;
-  if (bodyStart >= rawContent.length) {
-    return rawContent;
-  }
-  final String frontmatter = rawContent.substring(0, bodyStart);
-  final String rewrittenBody = replaceMarkdownLinkTargets(rawContent.substring(bodyStart), rewrite);
-  return '$frontmatter$rewrittenBody';
+  return markdownLinksIn(rawContent, start: bodyStart);
 }
 
 /// Whether the link target [path] is an empty self-link, a URL with a scheme

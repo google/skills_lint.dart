@@ -14,7 +14,7 @@
 ### Bug fixes
 
 - `check-absolute-paths --fix` writes a link that stays inside the skill when the skill directory or the linked path goes through a symlink. [#142](https://github.com/google/skills_lint.dart/issues/142)
-- `check-absolute-paths`, `check-relative-paths`, and `pub-archive-includes-skill` ignore link syntax in inline code and fenced code blocks, and parse `<...>` and parenthesized destinations in full. [#106](https://github.com/google/skills_lint.dart/issues/106)
+- The link rules (`check-absolute-paths`, `check-relative-paths`, `pub-archive-includes-skill`) skip link syntax in inline code and code blocks, follow CommonMark blockquote and list nesting, and read `<...>` destinations. [#106](https://github.com/google/skills_lint.dart/issues/106)
 
 ## 0.5.3+1
 

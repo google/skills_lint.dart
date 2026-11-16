@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:meta/meta.dart';
+import 'package:source_span/source_span.dart';
 
 import 'sarif/sarif_constants.dart';
 
@@ -22,6 +23,14 @@ class SourceRegion {
     startColumn: json[keyStartColumn] as int?,
     endLine: json[keyEndLine] as int?,
     endColumn: json[keyEndColumn] as int?,
+  );
+
+  /// The region of [span], whose lines and columns count from 0.
+  factory SourceRegion.fromSpan(SourceSpan span) => SourceRegion(
+    startLine: span.start.line + 1,
+    startColumn: span.start.column + 1,
+    endLine: span.end.line + 1,
+    endColumn: span.end.column + 1,
   );
 
   /// JSON key for [startLine].

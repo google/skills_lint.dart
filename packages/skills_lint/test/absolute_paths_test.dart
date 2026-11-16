@@ -5,7 +5,7 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:skills_lint/src/markdown_links.dart';
+import 'package:skills_lint/src/feature/markdown/markdown_links.dart';
 import 'package:skills_lint/src/models/analysis_severity.dart';
 import 'package:skills_lint/src/models/rule_config.dart';
 import 'package:skills_lint/src/models/skill_context.dart';

@@ -4,9 +4,10 @@
 
 import 'dart:io';
 
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
-import '../markdown_links.dart';
+import '../feature/markdown/markdown_links.dart';
 import '../models/analysis_severity.dart';
 import '../models/pub_archive.dart';
 import '../models/skill_context.dart';
@@ -14,6 +15,7 @@ import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
 import '../skill_links.dart';
+import '../unpublished_links.dart';
 
 /// Checks that `dart pub publish` uploads each skill in a package's `skills/`
 /// directory, and every file in the package that its `SKILL.md` links to.
@@ -77,81 +79,87 @@ class PubArchiveIncludesSkillRule extends SkillRule {
       return const [];
     }
     final String skillPath = p.normalize(context.directory.absolute.path);
-    final String skillName = p.basename(skillPath);
-
     final String skillFile = _archivePath(
       packageRoot,
       p.join(skillPath, SkillContext.skillFileName),
     );
     if (!files.contains(skillFile)) {
       // Without SKILL.md nothing is installed, so its links don't matter.
-      return [
-        _error(
-          '$skillFile is not in the package pub publishes, so the published package has no '
-          '$skillName skill. $_howToFix',
-        ),
-      ];
+      return [_skillFileMissingError(skillFile, skillName: p.basename(skillPath))];
     }
+    final UnpublishedLinks unpublished = findUnpublishedLinks(
+      _existingLinkedFiles(context, skillPath),
+      packageRoot: packageRoot,
+      files: files,
+    );
+    return [
+      for (final MapEntry<String, SourceRegion> entry in unpublished.outside.entries)
+        _outsideError(entry.key, skillFile: skillFile, region: entry.value),
+      for (final MapEntry<String, ({String actualFile, SourceRegion region})> entry
+          in unpublished.wrongCase.entries)
+        _wrongCaseError(
+          entry.key,
+          entry.value.actualFile,
+          skillFile: skillFile,
+          region: entry.value.region,
+        ),
+      for (final MapEntry<String, List<String>> group in groupByExcludedDirectory(
+        unpublished.missing.keys,
+        skillFile: skillFile,
+        files: files,
+      ).entries)
+        _missingGroupError(
+          group,
+          skillFile: skillFile,
+          region: unpublished.missing[group.value.first]!,
+        ),
+    ];
+  }
 
-    // Each archive file keyed by lowercase path, so a case mismatch on a
-    // case-insensitive filesystem can be told apart from an ignored file.
-    final Map<String, String> filesByLowerCase = {
-      for (final String file in files) file.toLowerCase(): file,
-    };
-    // Each link inside the package whose target exists but is not published,
-    // keyed by archive path, with the region of its first link.
-    final missing = <String, SourceRegion>{};
-    // Each link whose target is in the archive under different casing, keyed by
-    // the linked archive path, with the archive path and the region of its
-    // first link.
-    final wrongCase = <String, ({String actualFile, SourceRegion region})>{};
-    // Each link outside the package whose target exists, keyed by the path
-    // relative to the package root, with the region of its first link.
-    final outside = <String, SourceRegion>{};
+  /// The absolute path and link region of each relative link in the body of
+  /// [context] whose target exists. `check-relative-paths` reports links to
+  /// files that don't exist.
+  static Iterable<({String path, SourceRegion region})> _existingLinkedFiles(
+    SkillContext context,
+    String skillPath,
+  ) sync* {
     for (final MarkdownLink link in bodyLinksOf(context)) {
       final String target = link.target;
       if (isAbsoluteLink(target) || isUrlOrAnchor(target)) {
         continue;
       }
-      final String linkedPath = p.normalize(p.join(skillPath, linkFilePath(target)));
-      // check-relative-paths reports links to files that don't exist.
-      if (!File(linkedPath).existsSync()) {
-        continue;
-      }
-      final String linkedFile = _archivePath(packageRoot, linkedPath);
-      if (!p.isWithin(packageRoot, linkedPath)) {
-        outside.putIfAbsent(linkedFile, () => link.region);
-      } else if (!files.contains(linkedFile)) {
-        final String? actualFile = filesByLowerCase[linkedFile.toLowerCase()];
-        if (actualFile != null) {
-          wrongCase.putIfAbsent(linkedFile, () => (actualFile: actualFile, region: link.region));
-        } else {
-          missing.putIfAbsent(linkedFile, () => link.region);
-        }
+      final String path = p.normalize(p.join(skillPath, linkFilePath(target)));
+      if (File(path).existsSync()) {
+        yield (path: path, region: link.region);
       }
     }
-    return [
-      for (final MapEntry<String, SourceRegion> entry in outside.entries)
-        _error(
-          '${entry.key}, linked from $skillFile, is outside the package, so pub does not '
-          'publish it. Move the file into the package, or link to an absolute URL.',
-          region: entry.value,
-        ),
-      for (final MapEntry<String, ({String actualFile, SourceRegion region})> entry
-          in wrongCase.entries)
-        _error(
-          '${entry.key}, linked from $skillFile, is ${entry.value.actualFile} in the package pub '
-          'publishes. Match the file name case so the link works on case-sensitive file systems.',
-          region: entry.value.region,
-        ),
-      for (final MapEntry<String, List<String>> group in _groupByExcludedDirectory(
-        missing.keys,
-        skillFile: skillFile,
-        files: files,
-      ).entries)
-        _missingGroupError(group, skillFile: skillFile, region: missing[group.value.first]!),
-    ];
   }
+
+  ValidationError _skillFileMissingError(String skillFile, {required String skillName}) => _error(
+    '$skillFile is not in the package pub publishes, so the published package has no '
+    '$skillName skill. $_howToFix',
+  );
+
+  ValidationError _outsideError(
+    String linkedFile, {
+    required String skillFile,
+    required SourceRegion region,
+  }) => _error(
+    '$linkedFile, linked from $skillFile, is outside the package, so pub does not '
+    'publish it. Move the file into the package, or link to an absolute URL.',
+    region: region,
+  );
+
+  ValidationError _wrongCaseError(
+    String linkedFile,
+    String actualFile, {
+    required String skillFile,
+    required SourceRegion region,
+  }) => _error(
+    '$linkedFile, linked from $skillFile, is $actualFile in the package pub '
+    'publishes. Match the file name case so the link works on case-sensitive file systems.',
+    region: region,
+  );
 
   ValidationError _missingGroupError(
     MapEntry<String, List<String>> group, {
@@ -174,7 +182,8 @@ class PubArchiveIncludesSkillRule extends SkillRule {
   /// A `.pubignore` pattern often drops a whole directory, such as
   /// `references/`, and one diagnostic for it is easier to act on than one
   /// per file.
-  static Map<String, List<String>> _groupByExcludedDirectory(
+  @visibleForTesting
+  static Map<String, List<String>> groupByExcludedDirectory(
     Iterable<String> missingFiles, {
     required String skillFile,
     required Set<String> files,
