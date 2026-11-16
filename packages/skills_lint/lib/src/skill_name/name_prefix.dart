@@ -5,8 +5,8 @@
 import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
-import 'models/skill_context.dart';
-import 'path_utils.dart';
+import '../models/skill_context.dart';
+import '../path_utils.dart';
 
 /// Whether [skillName] is [prefix] or starts with [prefix] followed by a
 /// hyphen.

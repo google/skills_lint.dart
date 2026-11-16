@@ -11,7 +11,7 @@ import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
-import '../name_prefix.dart';
+import '../skill_name/name_prefix.dart';
 import 'name_format_rule.dart';
 
 /// Enforces the naming conventions a project chooses for its skills.
@@ -40,10 +40,9 @@ class SkillNamingRule extends SkillRule implements FixableRule {
     accepts: _isValidSkillName,
   );
 
-  /// Restricts [maxLengthParameter] to integers from 1 to
-  /// [NameFormatRule.maxNameLength].
+  /// Restricts [maxLengthParameter] to positive integers.
   static const maxLengthConstraint = ParameterConstraint(
-    description: 'an integer from 1 to ${NameFormatRule.maxNameLength}',
+    description: 'a positive integer',
     accepts: _isNameLength,
   );
 
@@ -226,5 +225,4 @@ class SkillNamingRule extends SkillRule implements FixableRule {
 
 bool _isValidSkillName(Object value) => value is String && NameFormatRule.isValidSkillName(value);
 
-bool _isNameLength(Object value) =>
-    value is int && value >= 1 && value <= NameFormatRule.maxNameLength;
+bool _isNameLength(Object value) => value is int && value >= 1;

@@ -39,7 +39,7 @@ const Map<String, Map<String, Object>> _rejectedValues = {
   DescriptionLengthRule.ruleName: {DescriptionLengthRule.maxLengthParameter: 0},
   SkillNamingRule.ruleName: {
     SkillNamingRule.prefixParameter: 'my_project',
-    SkillNamingRule.maxLengthParameter: 65,
+    SkillNamingRule.maxLengthParameter: 0,
   },
 };
 

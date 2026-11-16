@@ -16,7 +16,7 @@ import 'package:skills_lint/src/skill_fixer.dart';
 import 'package:skills_lint/src/validator.dart';
 import 'package:test/test.dart';
 
-import 'test_utils.dart';
+import '../test_utils.dart';
 
 void main() {
   group('SkillNamingRule', () {
@@ -118,11 +118,11 @@ void main() {
         expect(errors.single.subject, SkillNamingRule.maxLengthParameter);
       });
 
-      test('accepts a max-length from 1 to 64', () {
+      test('accepts any positive max-length', () {
         expect(SkillNamingRule.maxLengthConstraint.accepts(1), isTrue);
         expect(SkillNamingRule.maxLengthConstraint.accepts(64), isTrue);
+        expect(SkillNamingRule.maxLengthConstraint.accepts(100), isTrue);
         expect(SkillNamingRule.maxLengthConstraint.accepts(0), isFalse);
-        expect(SkillNamingRule.maxLengthConstraint.accepts(65), isFalse);
       });
 
       test('reports both conventions when a name breaks both', () async {

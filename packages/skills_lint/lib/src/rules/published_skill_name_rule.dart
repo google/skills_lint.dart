@@ -14,7 +14,7 @@ import '../models/skill_context.dart';
 import '../models/skill_rule.dart';
 import '../models/source_region.dart';
 import '../models/validation_error.dart';
-import '../name_prefix.dart';
+import '../skill_name/name_prefix.dart';
 
 /// Enforces that published package skills follow the naming convention required
 /// by `package:skills`.
