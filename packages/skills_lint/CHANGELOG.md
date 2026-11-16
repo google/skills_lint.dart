@@ -4,7 +4,7 @@
 
 - `check-relative-paths` accepts links to directories that exist. It used to report them as missing files.
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
-- `--fix` and `--generate-baseline` write only inside the scanned directories. A write that would land anywhere else, for example through a symlinked skill directory, is skipped with an `Error:` message, and the run fails.
+- `--fix` and `--generate-baseline` write only inside the scanned directories. A write that would land anywhere else, for example through a symlinked skill directory, is skipped with an `Error:` message, and the run fails. To keep writing an `ignore_file` outside the directory of `skills_lint.yaml`, pass `--allow-write <dir>`.
 - Only `--generate-baseline` creates a missing ignore file. A lint run treats a missing `ignore_file` or `--ignore-file` as empty and writes nothing.
 - The CLI exits with code `78` when the configuration has errors or the file given to `--config` does not exist, and `skills_lint` did not check any skill. It used to exit with `1`, the code for skills that have errors.
 

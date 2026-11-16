@@ -154,8 +154,12 @@ class IgnoreFileWriter {
   /// permits the write.
   ///
   /// Before replacing a file that had unreadable entries on [load], reports
-  /// that those entries are not carried over.
+  /// that those entries are not carried over. A refused write reports only
+  /// the refusal.
   Future<void> saveBaseline(String ignoreFilePath, SkillsIgnores ignores) async {
+    if (_refuseWrite(ignoreFilePath)) {
+      return;
+    }
     final List<IgnoreProblem>? problems = _problemsByPath[ignoreFilePath];
     if (problems != null && _reportedDroppedPaths.add(ignoreFilePath)) {
       _reporter.onIgnoreEntriesDropped(
@@ -163,9 +167,6 @@ class IgnoreFileWriter {
         entryCount: problems.length,
         skills: {for (final IgnoreProblem(:skill) in problems) ?skill}.toList()..sort(),
       );
-    }
-    if (_refuseWrite(ignoreFilePath)) {
-      return;
     }
     try {
       await _storage.save(ignoreFilePath, ignores);
