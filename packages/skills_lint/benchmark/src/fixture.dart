@@ -27,7 +27,8 @@ const String skillsDirectoryName = 'skills';
 /// Directory of the sample skills, relative to `packages/skills_lint`.
 final String sampleSkillsDirectory = p.join('benchmark', 'sample_skills');
 
-/// Package name that the fixture passes to `published-skill-name`.
+/// Package name that the fixture passes to `published-skill-name`, and the
+/// prefix it passes to `skill-naming`.
 const String fixturePackageName = 'skill';
 
 /// Contents of the `pubspec.yaml` written at the fixture root, so the
@@ -51,6 +52,9 @@ skills_lint:
       # Without package_name, the rule looks for a pubspec.yaml above each
       # skill, so its result would depend on where the fixture is written.
       package_name: $fixturePackageName
+    skill-naming:
+      severity: error
+      prefix: $fixturePackageName
   directories:
     - path: "$skillsDirectoryName"
 ''';
@@ -80,6 +84,9 @@ final Map<String, SkillEdit> violations = {
   'published-skill-name': (s) => s
     ..directoryName = 'tool-${s.directoryName}'
     ..name = 'tool-${s.name}',
+  'skill-naming': (s) => s
+    ..directoryName = 'other-${s.directoryName}'
+    ..name = 'other-${s.name}',
   // A near miss of a real file, so that the rule also runs its search for
   // a suggestion.
   'check-relative-paths': (s) =>
@@ -103,6 +110,7 @@ const List<List<String>> plantedViolations = [
   ['valid-yaml-metadata', 'check-relative-paths'],
   ['path-does-not-exist'],
   ['pub-archive-includes-skill', 'disallowed-field'],
+  ['skill-naming', 'check-trailing-whitespace'],
 ];
 
 /// A checked-in sample skill that the fixture copies.
