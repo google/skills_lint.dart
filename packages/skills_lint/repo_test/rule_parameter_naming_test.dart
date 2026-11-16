@@ -21,6 +21,7 @@
 /// parameter name.
 library;
 
+import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/models/check_type.dart';
 import 'package:skills_lint/src/rule_registry.dart';
 import 'package:test/test.dart';
@@ -84,6 +85,8 @@ String? _problem(CheckType check, String param) {
   final String firstWord = _words(param).first;
   final problems = [
     if (!_kebabCase.hasMatch(param)) 'not kebab-case',
+    if (param == ConfigParser.severityKey || param == ConfigParser.fixKey)
+      'collides with reserved rule configuration key "$param"',
     if (_words(check.name).contains(firstWord))
       '--${check.parameterFlag(param)} restates "$firstWord" from the rule name',
   ];

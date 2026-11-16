@@ -6,6 +6,10 @@
 - `--fix` rewrites `check-absolute-paths` links that have no ignore entry, even when an ignore entry for a different link exists in the ignore file.
 - The CLI exits with code `78` when the configuration has errors or the file given to `--config` does not exist, and `skills_lint` did not check any skill. It used to exit with `1`, the code for skills that have errors.
 
+### New features
+
+- `fix: true|false` in a rule entry, and `--[no-]<rule-name>-fix`, turn one rule's fix on or off, with the same precedence as severity.
+
 ### Bug fixes
 
 - `check-absolute-paths --fix` writes a link that stays inside the skill when the skill directory or the linked path goes through a symlink. [#142](https://github.com/google/skills_lint.dart/issues/142)

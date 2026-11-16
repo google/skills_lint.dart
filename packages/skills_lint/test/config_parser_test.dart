@@ -318,6 +318,66 @@ skills_lint:
     });
   });
 
+  group('fix', () {
+    Configuration parse(String yaml) => ConfigParser.parse(
+      yaml,
+      configSource: ConfigSource.file(p.join(p.current, 'project', 'skills_lint.yaml')),
+    );
+
+    const yaml =
+        'skills_lint:\n'
+        '  rules:\n'
+        '    check-absolute-paths: {severity: error, fix: false}\n'
+        '  directories:\n'
+        '    - path: skills\n'
+        '      rules:\n'
+        '        check-absolute-paths: {fix: true}\n';
+
+    test('parses fix as a bool', () {
+      final Configuration config = parse(yaml);
+
+      expect(config.parsingErrors, isEmpty);
+      expect(config.ruleConfigs['check-absolute-paths']?.fix, isFalse);
+      expect(config.ruleConfigs['check-absolute-paths']?.parameters, isNull);
+      expect(config.directoryConfigs.single.ruleConfigs['check-absolute-paths']?.fix, isTrue);
+    });
+
+    test('round-trips through toYamlString', () {
+      final Configuration reparsed = parse(parse(yaml).toYamlString());
+
+      expect(reparsed.parsingErrors, isEmpty);
+      expect(reparsed.ruleConfigs['check-absolute-paths']?.fix, isFalse);
+      expect(reparsed.directoryConfigs.single.ruleConfigs['check-absolute-paths']?.fix, isTrue);
+    });
+
+    test('rejects an integer fix value', () {
+      final Configuration config = parse(
+        'skills_lint:\n  rules:\n    check-absolute-paths: {fix: 1}\n',
+      );
+      expect(config.parsingErrors, [
+        contains('"fix" for rule "check-absolute-paths" must be true or false'),
+      ]);
+    });
+
+    test('rejects a string fix value', () {
+      final Configuration config = parse(
+        'skills_lint:\n  rules:\n    check-absolute-paths: {fix: "no"}\n',
+      );
+      expect(config.parsingErrors, [
+        contains('"fix" for rule "check-absolute-paths" must be true or false'),
+      ]);
+    });
+
+    test('rejects fix on a rule without a fix', () {
+      final Configuration config = parse(
+        'skills_lint:\n  rules:\n    description-too-long: {fix: false}\n',
+      );
+      expect(config.parsingErrors, [
+        contains('rule "description-too-long" has no fix, so "fix" does not apply'),
+      ]);
+    });
+  });
+
   group('declarationOf', () {
     late Directory tempDir;
 

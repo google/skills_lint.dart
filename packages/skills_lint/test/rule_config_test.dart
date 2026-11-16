@@ -190,5 +190,24 @@ void main() {
       final Map<String, Object?> map = (yamlObj as Map<String, Object?>?)!;
       expect(map[ConfigParser.severityKey], equals('error'));
     });
+
+    test('CustomRuleParameters key named fix does not overwrite rule fix', () {
+      final patch = RuleConfigPatch(
+        fix: false,
+        parameters: CustomRuleParameters(const {'fix': 'ignored_param'}),
+      );
+      final Object? patchYaml = patch.toYaml();
+      expect(patchYaml, isA<Map<String, Object?>>());
+      expect((patchYaml! as Map<String, Object?>)[ConfigParser.fixKey], isFalse);
+
+      final config = RuleConfig(
+        severity: AnalysisSeverity.error,
+        fix: false,
+        parameters: CustomRuleParameters(const {'fix': 'ignored_param'}),
+      );
+      final Object configYaml = config.toYaml();
+      expect(configYaml, isA<Map<String, Object?>>());
+      expect((configYaml as Map<String, Object?>)[ConfigParser.fixKey], isFalse);
+    });
   });
 }

@@ -252,6 +252,14 @@ ArgParser createArgParser(String helpFlag) {
       help: check.help,
     );
 
+    if (RuleRegistry.fixableRuleNames.contains(check.name)) {
+      parser.addFlag(
+        check.parameterFlag(ConfigParser.fixKey),
+        defaultsTo: RuleConfig.defaultFix,
+        help: "Let --fix change files for rule '${check.name}'.",
+      );
+    }
+
     // Register namespaced delegated parameters
     for (final String paramName in check.parameterSchema.keys) {
       final RuleParameterType expectedType = check.parameterSchema[paramName]!;
@@ -650,11 +658,19 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
     }
   }
 
-  // 3. Combine into RuleConfigPatch overrides
-  final Set<String> allRuleNames = {...severityOverrides.keys, ...parameterOverrides.keys};
+  // 3. Resolve fix overrides from CLI flags (e.g. --no-check-absolute-paths-fix)
+  final Map<String, bool> fixOverrides = _resolveFixOverrides(results);
+
+  // 4. Combine into RuleConfigPatch overrides
+  final Set<String> allRuleNames = {
+    ...severityOverrides.keys,
+    ...parameterOverrides.keys,
+    ...fixOverrides.keys,
+  };
   for (final ruleName in allRuleNames) {
     configs[ruleName] = RuleConfigPatch(
       severity: severityOverrides[ruleName],
+      fix: fixOverrides[ruleName],
       parameters: parameterOverrides.containsKey(ruleName)
           ? CustomRuleParameters(parameterOverrides[ruleName])
           : null,
@@ -662,6 +678,22 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
   }
 
   return configs;
+}
+
+/// The `fix` setting of each fixable rule whose `--[no-]<rule>-fix` flag was
+/// passed in [results].
+Map<String, bool> _resolveFixOverrides(ArgResults results) {
+  final overrides = <String, bool>{};
+  for (final CheckType check in RuleRegistry.allChecks) {
+    if (!RuleRegistry.fixableRuleNames.contains(check.name)) {
+      continue;
+    }
+    final String flag = check.parameterFlag(ConfigParser.fixKey);
+    if (results.options.contains(flag) && results.wasParsed(flag)) {
+      overrides[check.name] = results[flag] as bool;
+    }
+  }
+  return overrides;
 }
 
 Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults results) {
