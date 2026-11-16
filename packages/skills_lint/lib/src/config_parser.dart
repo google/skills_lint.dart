@@ -42,6 +42,7 @@ class ConfigParser {
   static const String pathKey = 'path';
   static const String ignoreFileKey = 'ignore_file';
   static const String severityKey = 'severity';
+  static const String fixKey = 'fix';
 
   static const Set<String> _allowedTopLevelKeys = {rulesKey, directoriesKey, individualSkillsKey};
   static const Set<String> _allowedDirectoryKeys = {pathKey, rulesKey, ignoreFileKey};
@@ -350,6 +351,8 @@ class ConfigParser {
       return RuleConfigPatch(severity: severity);
     }
 
+    final bool? fix = _parseFix(value, ruleName, contextLabel, parsingErrors);
+
     final AnalysisSeverity? severity = _parseSeverity(
       value[severityKey],
       ruleName,
@@ -359,7 +362,7 @@ class ConfigParser {
 
     final parameters = <String, Object?>{
       for (final Object? key in value.keys)
-        if (key.toString() != severityKey) key.toString(): value[key],
+        if (key.toString() != severityKey && key.toString() != fixKey) key.toString(): value[key],
     };
 
     final CustomRuleParameters? customParams = parameters.isNotEmpty
@@ -378,7 +381,7 @@ class ConfigParser {
       }
     }
 
-    return RuleConfigPatch(severity: severity, parameters: customParams);
+    return RuleConfigPatch(severity: severity, parameters: customParams, fix: fix);
   }
 
   /// Iterates a top-level YAML target list (`directories` or `individual_skills`)
@@ -526,6 +529,31 @@ class ConfigParser {
       'got "$localRules" (${localRules.runtimeType}). Ignoring local rules.',
     );
     return const <String, RuleConfigPatch>{};
+  }
+
+  /// The `fix` value in the rule map [value] for [ruleName].
+  ///
+  /// Is `null` when `fix` is absent, not a boolean, or set on a rule without a
+  /// fix; the invalid cases append an error to [parsingErrors].
+  static bool? _parseFix(
+    YamlMap value,
+    String ruleName,
+    String contextLabel,
+    List<String> parsingErrors,
+  ) {
+    final Object? fix = value[fixKey];
+    if (fix != null && !RuleRegistry.fixableRuleNames.contains(ruleName)) {
+      parsingErrors.add('$contextLabel: rule "$ruleName" has no fix, so "$fixKey" does not apply.');
+      return null;
+    }
+    if (fix == null || fix is bool) {
+      return fix as bool?;
+    }
+    parsingErrors.add(
+      '$contextLabel: "$fixKey" for rule "$ruleName" must be true or false; '
+      'got "$fix" (${fix.runtimeType}). Using the inherited value.',
+    );
+    return null;
   }
 
   /// Parses the custom ignore file path under a target entry's `ignore_file` key.

@@ -1087,6 +1087,7 @@ class ValidationSession {
     final failedRuleNames = <String>{};
     return SkillFixer(
       validator: validator,
+      mayFix: validator.fixEnabledFor,
       applyIgnores: (ValidationResult candidate) =>
           _applyIgnores(candidate, skillIgnores, skillDir),
       // A broken fixer throws on every pass and in every plan. Report it
