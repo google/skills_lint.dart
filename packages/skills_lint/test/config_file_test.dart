@@ -314,7 +314,7 @@ description: A test skill
       await process.shouldExit(1);
     });
 
-    test('writes empty ignore-file if missing and specified in config', () async {
+    test('does not create a missing ignore-file named in config', () async {
       await Directory('${tempDir.path}/test-skill').create();
       await File('${tempDir.path}/test-skill/SKILL.md').writeAsString('''
 ---
@@ -335,14 +335,9 @@ Body''');
         'test-skill',
       ], workingDirectory: tempDir.path);
 
-      final List<String> stderr = await process.stderr.rest.toList();
-      expect(stderr.join('\n'), contains('File not found generating-baseline'));
       await process.shouldExit(0);
 
-      final writtenFile = File('${tempDir.path}/$ignorePath');
-      expect(writtenFile.existsSync(), isTrue);
-      final String fileContent = await writtenFile.readAsString();
-      expect(fileContent, contains('"skills":'));
+      expect(File('${tempDir.path}/$ignorePath').existsSync(), isFalse);
     });
 
     test('ignores config when --ignore-config is passed', () async {

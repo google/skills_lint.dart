@@ -25,6 +25,21 @@ abstract final class FixIoMessages {
       "${Reporter.userErrorPrefix} could not write '$skillMdPath': ${describe(error)}.\n"
       '  The skill was left unchanged.';
 
+  /// Message for a write or rename that would land outside the directories
+  /// skills_lint scans.
+  ///
+  /// [action] says what was not done, such as `write '<path>'`, and [reason]
+  /// says why, readable as the end of a sentence.
+  static String writeRefused({required String action, required String reason}) =>
+      '${Reporter.userErrorPrefix} did not $action: $reason.\n'
+      '  $writeOutsideHint';
+
+  /// What a user does to write outside a boundary on purpose.
+  static const String writeOutsideHint =
+      'skills_lint writes only inside the directories it scans. To write to that '
+      'path anyway, name it with -s, -d or --ignore-file, or pass --allow-write <dir>. '
+      'write_allow in skills_lint.yaml also works for directories next to that file.';
+
   /// Message for a skill directory that `--fix` renamed, then couldn't write
   /// or rename back.
   static String renamedButNotWritten({

@@ -31,8 +31,9 @@ import 'package:skills_lint/src/rules/published_skill_name_rule.dart';
 import 'package:skills_lint/src/rules/relative_paths_rule.dart';
 import 'package:skills_lint/src/rules/trailing_whitespace_rule.dart';
 import 'package:skills_lint/src/skill_fixer.dart';
-import 'package:skills_lint/src/skill_writer.dart';
 import 'package:skills_lint/src/validator.dart';
+import 'package:skills_lint/src/write/skill_writer.dart';
+import 'package:skills_lint/src/write/write_boundary.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -90,7 +91,12 @@ class _RenamesThenFailsWriter extends SkillWriter {
   _RenamesThenFailsWriter(super.reporter);
 
   @override
-  Future<ApplyResult> apply(Directory skill, String content, String wantedName) async {
+  Future<ApplyResult> apply(
+    Directory skill,
+    String content,
+    String wantedName,
+    WriteBoundary boundary,
+  ) async {
     final Directory renamed = await skill.rename(p.join(skill.parent.path, wantedName));
     return WriteFailed(const FileSystemException('Cannot open file'), dir: renamed);
   }

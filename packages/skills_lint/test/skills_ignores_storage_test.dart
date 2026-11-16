@@ -4,7 +4,7 @@
 
 import 'dart:io';
 
-import 'package:skills_lint/src/skills_ignores_storage.dart';
+import 'package:skills_lint/src/write/skills_ignores_storage.dart';
 import 'package:test/test.dart';
 
 void main() {

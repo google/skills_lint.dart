@@ -210,8 +210,24 @@ Then you can simply run:
 dart run skills_lint
 ```
 
+`skills_lint` reads `~/.agents/skills` and its ignore file but doesn't write there, because the path comes from `skills_lint.yaml` and is outside the repository. A missing ignore file means no ignores; only `--generate-baseline` creates one. To let `--fix` or `--generate-baseline` write there, pass `--allow-write ~/.agents/skills`.
+
 A rule name that matches no built-in rule is a configuration error. Custom
 rules can't be configured in `skills_lint.yaml`.
+
+### Controlling where `--fix` writes
+
+`--fix` and `--generate-baseline` write only inside the write boundary. A write outside it is skipped with an `Error:` message, and the run fails. The boundary holds the directory being scanned, or for an individual skill, the skill's parent directory. `write_allow:` on a `directories` or `individual_skills` entry adds directories to that entry's boundary. Each must be inside the directory that holds `skills_lint.yaml`; a path outside that directory, including one reached through a symlink, is a configuration error. `--allow-write` adds directories for every target in the run, including the targets named on the command line, and for a configured `ignore_file`.
+
+```yaml
+skills_lint:
+  directories:
+    - path: .claude/skills
+      # The skills here are symlinks to skills in skills/.
+      write_allow: [skills]
+```
+
+`write_allow` is only allowed on a target, not at the top level, so a configuration can't widen the boundary of a directory named on the command line.
 
 ### Rule Precedence
 
