@@ -19,4 +19,6 @@ List<ConventionViolation> findTodosWithoutIssue(Source source) => [
       source.violationAt(comment.offset, 'TODO has no issue link'),
 ];
 
-final RegExp _linkedTodo = RegExp(r'TODO\([\w-]+\): .*(?:\B#\d+\b|https://github\.com/[\w.-]+/[\w.-]+/issues/\d+)');
+final RegExp _linkedTodo = RegExp(
+  r'TODO\([\w-]+\): .*(?:\B#\d+\b|https://github\.com/[\w.-]+/[\w.-]+/issues/\d+)',
+);
