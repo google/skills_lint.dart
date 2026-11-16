@@ -1517,9 +1517,7 @@ skills_lint:
         expect(result.stdout, contains('"ruleId": "invalid-configuration"'));
         expect(
           result.stdout,
-          contains(
-            'unknown rule \\"check-relative-path\\". Did you mean \\"check-relative-paths\\"?',
-          ),
+          contains(r'unknown rule \"check-relative-path\". Did you mean \"check-relative-paths\"?'),
         );
       });
 
