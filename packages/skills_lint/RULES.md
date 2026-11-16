@@ -26,6 +26,12 @@ All rules are enabled / disabled / escalated the same three ways:
 The "Disable" line under each rule below names the negated CLI flag for
 quick reference.
 
+`--fix` runs the fix of a fixable rule unless its resolved `fix` setting is
+`false`. `fix:` in a `rules:` entry and `--[no-]<rule-name>-fix` set it, with
+the same precedence as severity. Only fixable rules accept `fix:`. The README's
+[Controlling what `--fix` writes](README.md#controlling-what---fix-writes)
+section explains how this combines with where a fix may write.
+
 An entry in an ignore file covers every finding of one rule in one file.
 A rule with an "Ignore subject" line names what each finding is about, and
 an entry with that `subject` covers only the findings about it. The format

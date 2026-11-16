@@ -31,12 +31,13 @@ The core analysis engine responsible for inspecting individual skills.
 The extensible framework for authoring and running skill checks.
 - **Diagnostic Rules:** Independent rule checkers that validate specific constraints (such as metadata schemas, directory layout, path portability, and naming conventions).
 - **Auto-Fix Interface:** Rules that support automated remediation define pure transformation operations. Each takes a `SkillContext` and returns the modified `SKILL.md` content without touching the filesystem.
-- **Fix Planning and Writing:** [`SkillFixer`](../../lib/src/skill_fixer.dart) plans the fixes for one skill in memory, keeping a fix only if it lowers the errors, then warnings. [`SkillWriter`](../../lib/src/skill_writer.dart) does all `--fix` file I/O: it renames the skill directory, then writes `SKILL.md`, and returns every failure as an `ApplyResult`.
+- **Fix Planning and Writing:** [`SkillFixer`](../../lib/src/skill_fixer.dart) plans the fixes for one skill in memory, keeping a fix only if it lowers the errors, then warnings. [`SkillWriter`](../../lib/src/write/skill_writer.dart) does all `--fix` file I/O: it renames the skill directory, then writes `SKILL.md`, and returns every failure as an `ApplyResult`.
 
-### 5. [Baseline & Suppression Subsystem](../../lib/src/skills_ignores_storage.dart)
-The persistent suppression mechanism enabling incremental adoption and baseline suppression management.
-- **Structured Suppressions:** Stores and matches ignored diagnostics using structured identifiers and file paths rather than brittle free-form string matching.
+### 5. [Baseline & Write Confinement Subsystem](../../lib/src/write/)
+The persistent suppression and confined file-writing subsystem.
+- **Structured Suppressions:** [`SkillsIgnoresStorage`](../../lib/src/write/skills_ignores_storage.dart) stores and matches ignored diagnostics using structured identifiers and file paths rather than brittle free-form string matching.
 - **Lifecycle Tracking:** Records generated baseline entries when requested and tracks active suppression usage during lint runs to report stale or obsolete entries.
+- **Write Confinement:** [`WriteBoundary`](../../lib/src/write/write_boundary.dart) gates every file mutation in [`SkillWriter`](../../lib/src/write/skill_writer.dart) and [`IgnoreFileWriter`](../../lib/src/write/ignore_file_writer.dart).
 
 ### 6. [Reporter Subsystem](../../lib/src/reporters/)
 The multi-format output streaming subsystem.
@@ -131,6 +132,9 @@ The codebase applies the [SOLID principles](https://en.wikipedia.org/wiki/SOLID)
 
 9. **Single Source of Truth**  
    Each decision has one owner. The component that owns a default value, schema key or set of allowed values defines it once, and every other component references that definition instead of repeating the literal. A value defined in two places drifts silently when only one of them changes.
+
+10. **Writes Stay Inside the Scanned Directories**  
+   The files being scanned choose the paths that `--fix`, `--generate-baseline` and ignore-file creation write: directory names, frontmatter `name` values, symlinks and `skills_lint.yaml`. So every write and rename is checked against the scan target's [`WriteBoundary`](../../lib/src/write/write_boundary.dart) after symlinks are resolved, and a name that becomes a directory cannot contain path separators or `.` / `..` segments. A path typed on the command line is its own boundary. A path from `skills_lint.yaml` must also stay inside the directory that holds `skills_lint.yaml`, because it comes from the repository being scanned, not from the user running `skills_lint`. Canonicalization (pattern 7) doesn't resolve symlinks, so it can't do this check.
 
 ---
 

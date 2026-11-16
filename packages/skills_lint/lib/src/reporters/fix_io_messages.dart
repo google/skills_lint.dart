@@ -4,6 +4,7 @@
 
 import 'dart:io';
 
+import '../write/write_boundary.dart';
 import 'reporter.dart';
 
 /// Stderr messages for `--fix` file operations that the user's files or
@@ -24,6 +25,15 @@ abstract final class FixIoMessages {
   static String writeFailed({required String skillMdPath, required Object error}) =>
       "${Reporter.userErrorPrefix} could not write '$skillMdPath': ${describe(error)}.\n"
       '  The skill was left unchanged.';
+
+  /// Message for a write or rename that would land outside the directories
+  /// skills_lint scans.
+  ///
+  /// [action] says what was not done, such as `write '<path>'`, and [reason]
+  /// says why, readable as the end of a sentence.
+  static String writeRefused({required String action, required String reason}) =>
+      '${Reporter.userErrorPrefix} did not $action: $reason.\n'
+      '  ${WriteBoundary.hint}';
 
   /// Message for a skill directory that `--fix` renamed, then couldn't write
   /// or rename back.

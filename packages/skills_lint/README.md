@@ -192,7 +192,6 @@ skills_lint:
     check-absolute-paths: error
   directories:
     - path: "~/.agents/skills"
-      ignore_file: "~/.agents/skills/ignore.json"
     - path: "skills"
       rules:
         check-relative-paths:
@@ -210,8 +209,31 @@ Then you can simply run:
 dart run skills_lint
 ```
 
+`skills_lint` reads `~/.agents/skills` but doesn't write there, because the path comes from `skills_lint.yaml` and is outside the repository. To let `--fix` or `--generate-baseline` write there, pass `--allow-write ~/.agents/skills`.
+
 A rule name that matches no built-in rule is a configuration error. Custom
 rules can't be configured in `skills_lint.yaml`.
+
+### Controlling what `--fix` writes
+
+Two settings decide what `--fix` writes. A fix is written only when both allow it, and a denial from either one wins:
+
+- **`fix:` in a rule entry** turns one fixable rule's fix on or off. On a rule without a fix, it is a configuration error. The default is `true`. It follows the same precedence as severity: `--[no-]<rule-name>-fix`, then the target's `rules:`, then the global `rules:`. It doesn't depend on paths.
+- **The write boundary** is the directories a write may land in. A write outside it is skipped with an `Error:` message, and the run fails. The boundary holds the directory being scanned, or for an individual skill, the skill's parent directory. `write_allow:` on a `directories` or `individual_skills` entry adds directories to that entry's boundary. Each must be inside the directory that holds `skills_lint.yaml`; a path outside that directory, including one reached through a symlink, is a configuration error. `--allow-write` adds directories for every target in the run, including the targets named on the command line, and for a configured `ignore_file`. Neither one turns a fix on.
+
+```yaml
+skills_lint:
+  rules:
+    check-absolute-paths: {severity: error, fix: false}
+  directories:
+    - path: .claude/skills
+      # The skills here are symlinks to skills in skills/.
+      write_allow: [skills]
+      rules:
+        check-absolute-paths: {fix: true}
+```
+
+`write_allow` is only allowed on a target, not at the top level, so a configuration can't widen the boundary of a directory named on the command line.
 
 ### Rule Precedence
 

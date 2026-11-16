@@ -39,6 +39,7 @@ const _quietFlag = 'quiet';
 const _skillsDirectoryFlag = 'skills-directory';
 const _skillOption = 'skill';
 const _ignoreFileOption = 'ignore-file';
+const _allowWriteOption = 'allow-write';
 const _ignoreConfigFlag = 'ignore-config';
 const _generateBaselineFlag = 'generate-baseline';
 const _fixFlag = 'fix';
@@ -199,6 +200,8 @@ Future<void> runApp(List<String> args) async {
       ? results[_ignoreFileOption] as String?
       : null;
 
+  final allowWrite = results[_allowWriteOption] as List<String>;
+
   var success = false;
   try {
     success = await validateSkillsInternal(
@@ -212,6 +215,7 @@ Future<void> runApp(List<String> args) async {
       fix: fix,
       fixApply: fixApply,
       ignoreFileOverride: ignoreFileOverride,
+      allowWrite: allowWrite,
       config: config,
       format: format,
     );
@@ -251,6 +255,14 @@ ArgParser createArgParser(String helpFlag) {
       defaultsTo: check.defaultSeverity != AnalysisSeverity.disabled,
       help: check.help,
     );
+
+    if (RuleRegistry.fixableRuleNames.contains(check.name)) {
+      parser.addFlag(
+        check.parameterFlag(ConfigParser.fixKey),
+        defaultsTo: RuleConfig.defaultFix,
+        help: "Let --fix change files for rule '${check.name}'.",
+      );
+    }
 
     // Register namespaced delegated parameters
     for (final String paramName in check.parameterSchema.keys) {
@@ -292,6 +304,12 @@ ArgParser createArgParser(String helpFlag) {
       help: 'Path to an individual skill directory to validate. Can be specified multiple times.',
     )
     ..addOption(_ignoreFileOption, help: 'Path to a JSON file listing lints to ignore for the run.')
+    ..addMultiOption(
+      _allowWriteOption,
+      help:
+          'A directory that --fix and --generate-baseline may write in, in addition to '
+          'the directories being scanned.',
+    )
     ..addFlag(
       _generateBaselineFlag,
       negatable: false,
@@ -405,6 +423,8 @@ Future<Configuration?> _loadConfig(
 /// [quiet] suppresses non-error/warning output.
 /// [generateBaseline] writes current errors to a baseline file instead of reporting them.
 /// [ignoreFileOverride] is an optional path to a baseline file to use.
+/// [allowWrite] lists directories that baseline and configured ignore-file
+/// writes may also land in beyond the scanned directories.
 /// [config] is the loaded configuration. Each entry in its
 /// [Configuration.parsingErrors], and each rule name in a [Configuration]
 /// built in code that names no built-in rule, is printed to standard error as
@@ -417,7 +437,8 @@ Future<Configuration?> _loadConfig(
 ///
 /// Returns a [Future] that resolves to `true` if all skills validated successfully
 /// (or if [generateBaseline] is true), and `false` if any validation failures
-/// were encountered.
+/// were encountered. It is `false` whenever a write was refused because it
+/// would land outside the directories being scanned.
 Future<bool> validateSkills({
   List<String> skillDirPaths = const [],
   List<String> individualSkillPaths = const [],
@@ -429,6 +450,7 @@ Future<bool> validateSkills({
   bool quiet = false,
   bool generateBaseline = false,
   String? ignoreFileOverride,
+  List<String> allowWrite = const [],
   Configuration? config,
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
@@ -442,6 +464,7 @@ Future<bool> validateSkills({
     quiet: quiet,
     generateBaseline: generateBaseline,
     ignoreFileOverride: ignoreFileOverride,
+    allowWrite: allowWrite,
     config: config,
     customRules: customRules,
     format: format,
@@ -457,7 +480,8 @@ Future<bool> validateSkills({
 /// [ValidationSession.reportConfigurationWarnings] reports configuration and
 /// unknown-rule warnings.
 ///
-/// Returns `true` if all validations passed (or if generating a baseline), `false` otherwise.
+/// Returns `true` if all validations passed (or if generating a baseline
+/// without a refused write), `false` otherwise.
 @visibleForTesting
 Future<bool> validateSkillsInternal({
   List<String> skillDirPaths = const [],
@@ -471,6 +495,7 @@ Future<bool> validateSkillsInternal({
   // TODO(reidbaker): Remove deprecated fixApply parameter on next major version bump.
   bool fixApply = false,
   String? ignoreFileOverride,
+  List<String> allowWrite = const [],
   Configuration? config,
   List<SkillRule> customRules = const [],
   OutputFormat format = OutputFormat.text,
@@ -497,6 +522,10 @@ Future<bool> validateSkillsInternal({
   );
   final String? canonicalIgnoreFileOverride = canonicalizePathOrNull(
     ignoreFileOverride,
+    baseDirectory: workingDirectory,
+  );
+  final List<String> canonicalAllowWrite = canonicalizePaths(
+    allowWrite,
     baseDirectory: workingDirectory,
   );
 
@@ -528,6 +557,7 @@ Future<bool> validateSkillsInternal({
     fix: fix,
     fixApply: fixApply,
     format: format,
+    allowWrite: canonicalAllowWrite,
   );
   _reportConfigurationWarnings(session, enabled: warnOnParsingErrors);
 
@@ -567,7 +597,8 @@ Future<bool> validateSkillsInternal({
   }
 
   if (generateBaseline) {
-    return true;
+    // A baseline run passes even with findings, unless a write was refused.
+    return !writeRefusedInSession(session);
   }
   return !session.anyFailed;
 }
@@ -650,11 +681,19 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
     }
   }
 
-  // 3. Combine into RuleConfigPatch overrides
-  final Set<String> allRuleNames = {...severityOverrides.keys, ...parameterOverrides.keys};
+  // 3. Resolve fix overrides from CLI flags (e.g. --no-check-absolute-paths-fix)
+  final Map<String, bool> fixOverrides = _resolveFixOverrides(results);
+
+  // 4. Combine into RuleConfigPatch overrides
+  final Set<String> allRuleNames = {
+    ...severityOverrides.keys,
+    ...parameterOverrides.keys,
+    ...fixOverrides.keys,
+  };
   for (final ruleName in allRuleNames) {
     configs[ruleName] = RuleConfigPatch(
       severity: severityOverrides[ruleName],
+      fix: fixOverrides[ruleName],
       parameters: parameterOverrides.containsKey(ruleName)
           ? CustomRuleParameters(parameterOverrides[ruleName])
           : null,
@@ -662,6 +701,22 @@ Map<String, RuleConfigPatch> resolveRuleConfigsFromCli(ArgResults results) {
   }
 
   return configs;
+}
+
+/// The `fix` setting of each fixable rule whose `--[no-]<rule>-fix` flag was
+/// passed in [results].
+Map<String, bool> _resolveFixOverrides(ArgResults results) {
+  final overrides = <String, bool>{};
+  for (final CheckType check in RuleRegistry.allChecks) {
+    if (!RuleRegistry.fixableRuleNames.contains(check.name)) {
+      continue;
+    }
+    final String flag = check.parameterFlag(ConfigParser.fixKey);
+    if (results.options.contains(flag) && results.wasParsed(flag)) {
+      overrides[check.name] = results[flag] as bool;
+    }
+  }
+  return overrides;
 }
 
 Map<String, Object?> _resolveParametersForCheck(CheckType check, ArgResults results) {
