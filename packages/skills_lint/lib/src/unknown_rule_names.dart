@@ -10,7 +10,6 @@ library;
 import 'models/rule_config.dart';
 import 'models/skill_rule.dart';
 import 'rule_registry.dart';
-import 'suggestions/closest_name.dart';
 import 'suggestions/did_you_mean.dart';
 import 'validator.dart';
 
@@ -26,25 +25,24 @@ Set<String> get configurableRuleNames => {
 /// Describes [name], a configured rule name that is not in
 /// [configurableRuleNames], for `Configuration.parsingErrors`.
 ///
-/// [context] labels where [name] is, such as `Global rules`. The message offers
-/// the closest configurable names. When none is close, it says the name may
-/// come from a newer skills_lint.
-String unknownRuleNameMessage(String name, {required String context}) {
-  final List<String> suggestions = closestNames(
-    name,
-    configurableRuleNames,
-    maxDistance: oneThirdDistanceLimit(name),
-  );
-  final hint = suggestions.isEmpty
-      ? ' If it is a rule from a newer skills_lint, upgrade skills_lint.'
-      : ' ${didYouMean(suggestions)}';
-  return '$context: Unknown rule "$name".$hint';
+/// The message offers the closest configurable names. When none is close, it
+/// says the name may come from a newer skills_lint.
+///
+/// [context] labels where [name] is, such as `Global rules`. Leave it out
+/// when the message carries a file location instead.
+String unknownRuleNameMessage(String name, {String? context}) {
+  final String hint =
+      didYouMeanClosest(name, configurableRuleNames) ??
+      'If it is a rule from a newer skills_lint, upgrade skills_lint.';
+  return '${_prefix(context)}unknown rule "$name". $hint';
 }
 
 /// Describes a plain `<<` key in a rules map. package:yaml does not support
 /// YAML merge keys, so it reads `<<` as a rule name.
-String mergeKeyMessage({required String context}) =>
-    '$context: YAML merge keys ("<<") are not supported; '
+///
+/// [context] labels where the key is, as for [unknownRuleNameMessage].
+String mergeKeyMessage({String? context}) =>
+    '${_prefix(context)}YAML merge keys ("<<") are not supported; '
     "write out each rule's settings.";
 
 /// Describes each name in [rules] that is not in [configurableRuleNames].
@@ -69,3 +67,5 @@ List<String> unknownRuleMessages(
         unknownRuleNameMessage(name, context: context),
   ];
 }
+
+String _prefix(String? context) => context == null ? '' : '$context: ';

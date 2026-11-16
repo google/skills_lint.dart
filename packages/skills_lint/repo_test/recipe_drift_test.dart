@@ -123,29 +123,43 @@ void main() {
       );
 
       final steps = scanJob['steps'] as YamlList;
-      expect(
-        reader.stepsUsing(steps).any((u) => u.startsWith('github/codeql-action/upload-sarif@')),
-        isTrue,
-        reason: 'recipe no longer uploads the report to Code Scanning',
-      );
+      final List<YamlMap> stepMaps = steps.whereType<YamlMap>().toList(growable: false);
 
-      final YamlMap lintStep = steps.whereType<YamlMap>().firstWhere(
-        (s) => s['id'] == 'lint',
-        orElse: () => fail('recipe lost the identified lint step'),
-      );
+      final int lintIndex = stepMaps.indexWhere((s) => s['id'] == 'lint');
+      expect(lintIndex, isNonNegative, reason: 'recipe lost the identified lint step');
+      final YamlMap lintStep = stepMaps[lintIndex];
       expect(
         lintStep['continue-on-error'],
-        isTrue,
-        reason: 'without continue-on-error the job dies before findings are uploaded',
+        isNull,
+        reason: 'the lint step itself fails the job while !cancelled() uploads the SARIF report',
       );
       expect(lintStep['run'] as String, contains('--format=sarif'));
 
+      final int uploadIndex = stepMaps.indexWhere(
+        (s) => (s['uses'] as String? ?? '').startsWith('github/codeql-action/upload-sarif@'),
+      );
+      expect(uploadIndex, isNonNegative, reason: 'recipe no longer uploads to Code Scanning');
       expect(
-        steps.whereType<YamlMap>().any(
-          (s) => (s['if'] as String? ?? '').contains("steps.lint.outcome != 'success'"),
-        ),
-        isTrue,
-        reason: 'recipe no longer fails the job when the linter reports violations',
+        uploadIndex,
+        greaterThan(lintIndex),
+        reason: 'the upload step must run after the lint step generates the SARIF file',
+      );
+      final YamlMap uploadStep = stepMaps[uploadIndex];
+      final String uploadIf = uploadStep['if'] as String? ?? '';
+      expect(
+        uploadIf,
+        contains('!cancelled()'),
+        reason: 'without !cancelled() the upload step is skipped when the lint step fails',
+      );
+      expect(
+        uploadIf,
+        contains("steps.lint.conclusion != 'skipped'"),
+        reason: 'upload must be skipped when setup failed before lint ran',
+      );
+      expect(
+        uploadIf,
+        contains('!github.event.pull_request.head.repo.fork'),
+        reason: 'fork PRs lack security-events: write permission',
       );
     });
 
@@ -165,6 +179,11 @@ void main() {
         run.exitCode,
         1,
         reason: 'the invalid fixture should report violations so the recipe fails the job',
+      );
+      expect(
+        run.stderr as String,
+        contains('Skill is invalid:'),
+        reason: 'the failing lint step log should show human-readable findings on stderr',
       );
 
       final Object? decoded = jsonDecode(run.stdout as String);

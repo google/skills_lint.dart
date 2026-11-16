@@ -42,7 +42,7 @@ void main() {
           declaration: TargetDeclaration(
             declaredPath: '.agents/skills',
             anchorDirectory: tool,
-            source: (file: configFile, line: 3),
+            source: (file: configFile, line: 3, column: 5),
           ),
         );
       });
@@ -69,6 +69,7 @@ void main() {
       test('points the location at the declaring line of the configuration file', () {
         expect(diagnostic.file, configFile);
         expect(diagnostic.region?.startLine, 3);
+        expect(diagnostic.region?.startColumn, 5);
       });
 
       test('explains in markdown that the path is not relative to the working directory', () {
@@ -103,7 +104,7 @@ void main() {
         declaration: TargetDeclaration(
           declaredPath: 'no-such-dir-for-skills-lint',
           anchorDirectory: root,
-          source: (file: p.join(root, 'skills_lint.yaml'), line: 3),
+          source: (file: p.join(root, 'skills_lint.yaml'), line: 3, column: 5),
         ),
       );
 

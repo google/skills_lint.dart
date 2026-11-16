@@ -436,7 +436,7 @@ $rule
 
       await process.shouldExit(ExitCode.config.code);
       final String stderr = (await process.stderr.rest.toList()).join('\n');
-      expect(stderr, contains('Configuration error'));
+      expect(stderr, contains('configuration error'));
       expect(stderr, contains('Expected a positive integer'));
     });
   });
