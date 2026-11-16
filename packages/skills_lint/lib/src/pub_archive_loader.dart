@@ -4,10 +4,13 @@
 
 import 'dart:io';
 
+import 'package:checked_yaml/checked_yaml.dart';
 import 'package:path/path.dart' as p;
 import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:tar/tar.dart';
+import 'package:yaml/yaml.dart';
 
+import 'feature/yaml/yaml_limits.dart';
 import 'models/pub_archive.dart';
 import 'rules/pub_archive_includes_skill_rule.dart';
 
@@ -100,13 +103,15 @@ class PubArchiveLoader {
     final String pubspecPath = p.join(packageRoot, _pubspecFileName);
     final Pubspec pubspec;
     try {
-      pubspec = Pubspec.parse(
+      pubspec = YamlLimits.loadPubspec(
         await File(pubspecPath).readAsString(),
         sourceUrl: Uri.file(pubspecPath),
       );
-    } on Exception catch (e) {
-      // Pubspec.parse throws ParsedYamlException from package:checked_yaml,
-      // which is not a direct dependency, so match on Exception.
+    } on FileSystemException catch (e) {
+      return PubArchiveUnavailable('Could not read $pubspecPath: $e');
+    } on YamlException catch (e) {
+      return PubArchiveUnavailable('Could not read $pubspecPath: $e');
+    } on ParsedYamlException catch (e) {
       return PubArchiveUnavailable('Could not read $pubspecPath: $e');
     }
     if (pubspec.publishTo == _publishToNone) {

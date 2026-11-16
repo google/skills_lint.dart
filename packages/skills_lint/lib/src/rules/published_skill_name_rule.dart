@@ -4,12 +4,14 @@
 
 import 'dart:io';
 
+import 'package:checked_yaml/checked_yaml.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
 
+import '../feature/yaml/yaml_limits.dart';
 import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
@@ -245,12 +247,12 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     }
     final Pubspec pubspec;
     try {
-      pubspec = Pubspec.parse(content);
-    } on Exception {
-      // Pubspec.parse reports malformed YAML and invalid fields as
-      // ParsedYamlException from package:checked_yaml. That package is not a
-      // direct dependency, so match on Exception, which still lets Errors
-      // from bugs escape.
+      pubspec = YamlLimits.loadPubspec(content);
+    } on YamlException {
+      // YAML over the limits.
+      return null;
+    } on ParsedYamlException {
+      // Malformed YAML, or a pubspec with missing or invalid fields.
       return null;
     }
     final String name = pubspec.name.trim();
@@ -316,19 +318,18 @@ class PublishedSkillNameRule extends SkillRule implements FixableRule {
     }
     final String yamlStr = match.group(1)!;
 
-    final Object? yamlObj;
+    final Object? frontmatter;
     try {
-      yamlObj = loadYaml(yamlStr);
+      frontmatter = YamlLimits.loadFrontmatter(yamlStr);
     } on YamlException {
       return currentContent;
     }
 
-    if (yamlObj is! YamlMap) {
+    if (frontmatter is! YamlMap) {
       return currentContent;
     }
 
-    final YamlMap yaml = yamlObj;
-    final YamlNode? nameNode = yaml.nodes['name'];
+    final YamlNode? nameNode = frontmatter.nodes['name'];
     if (nameNode == null ||
         nameNode is! YamlScalar ||
         nameNode.value == null ||

@@ -5,6 +5,8 @@
 import 'package:meta/meta.dart';
 import 'package:source_span/source_span.dart';
 import 'package:yaml/yaml.dart';
+
+import '../feature/yaml/yaml_limits.dart';
 import '../fixable_rule.dart';
 import '../models/analysis_severity.dart';
 import '../models/skill_context.dart';
@@ -187,22 +189,22 @@ class NameFormatRule extends SkillRule implements FixableRule {
       return currentContent;
     }
 
-    final String frontmatter = match.group(1)!;
+    final String frontmatterText = match.group(1)!;
 
-    final Object? yaml;
+    final Object? frontmatter;
     try {
-      yaml = loadYaml(frontmatter);
+      frontmatter = YamlLimits.loadFrontmatter(frontmatterText);
     } on YamlException {
       // Malformed frontmatter has no name node to rewrite. The validator
       // reports the YAML error, so leave the content unchanged.
       return currentContent;
     }
-    if (yaml is! YamlMap) {
+    if (frontmatter is! YamlMap) {
       return currentContent;
     }
 
     // Replace the name node span while preserving comments and formatting precisely
-    final YamlNode? nameNode = getNameNode(yaml);
+    final YamlNode? nameNode = getNameNode(frontmatter);
     if (nameNode == null ||
         nameNode is! YamlScalar ||
         nameNode.value == null ||
@@ -211,22 +213,22 @@ class NameFormatRule extends SkillRule implements FixableRule {
     }
 
     final SourceSpan span = nameNode.span;
-    final String beforeNameNode = frontmatter.substring(0, span.start.offset);
-    final String afterNameNode = frontmatter.substring(span.end.offset);
+    final String beforeNameNode = frontmatterText.substring(0, span.start.offset);
+    final String afterNameNode = frontmatterText.substring(span.end.offset);
 
     // Unquoted, YAML reads some valid names as another type: `123` as a
     // number, `false` as a boolean. Valid names hold only letters, digits and
-    // hyphens, so they never need escaping, and loadYaml parses any of them.
+    // hyphens, so they never need escaping, and YAML parses any of them.
     final String quote = switch (nameNode.style) {
       ScalarStyle.SINGLE_QUOTED => "'",
       ScalarStyle.DOUBLE_QUOTED => '"',
-      _ => loadYaml(directoryName) == directoryName ? '' : '"',
+      _ => YamlLimits.loadYaml(directoryName) == directoryName ? '' : '"',
     };
     final fixedFrontmatter = '$beforeNameNode$quote$directoryName$quote$afterNameNode';
-    final int yamlOffset = currentContent.indexOf(frontmatter, match.start);
+    final int yamlOffset = currentContent.indexOf(frontmatterText, match.start);
     return currentContent.replaceRange(
       yamlOffset,
-      yamlOffset + frontmatter.length,
+      yamlOffset + frontmatterText.length,
       fixedFrontmatter,
     );
   }
@@ -266,13 +268,13 @@ class NameFormatRule extends SkillRule implements FixableRule {
     if (match == null) {
       return null;
     }
-    final Object? yaml;
+    final Object? frontmatter;
     try {
-      yaml = loadYaml(match.group(1)!);
+      frontmatter = YamlLimits.loadFrontmatter(match.group(1)!);
     } on YamlException {
       return null;
     }
-    return yaml is YamlMap ? getNameNode(yaml) : null;
+    return frontmatter is YamlMap ? getNameNode(frontmatter) : null;
   }
 
   /// Whether [skillName] is a valid skill name: lowercase ASCII letters,

@@ -12,6 +12,7 @@ Static Analysis Results Interchange Format (SARIF) is an OASIS standard JSON for
   - `name`: `skills_lint`
   - `informationUri`: `https://github.com/google/skills_lint.dart`
   - `rules`: Full catalog of registered diagnostic rules with stable identifiers, descriptions, help URIs, and default configuration levels.
+- **Rule failures**: A rule that throws while it checks a skill adds a result with `ruleId` `unexpected-error` and level `error` to the same run, so the SARIF document stays complete. `unexpected-error` isn't a registered rule, so `rules` doesn't list it.
 
 ## Diagnostic Severity Mapping
 

@@ -14,6 +14,7 @@ import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
 
 import 'config_parser.dart';
+import 'feature/yaml/yaml_limits.dart';
 import 'missing_defaults_exception.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
@@ -709,7 +710,7 @@ Object? _parseParameterValue(String paramFlag, Object? rawValue, RuleParameterTy
   );
   final Object? value;
   try {
-    value = loadYaml(rawValue.toString());
+    value = YamlLimits.loadYaml(rawValue.toString());
   } on YamlException {
     throw invalid;
   }
