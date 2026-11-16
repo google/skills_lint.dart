@@ -43,7 +43,12 @@ final class MarkdownLink {
   String get target => destination.text;
 
   /// The 1-based region of [span], for diagnostics.
-  SourceRegion get region => SourceRegion.fromSpan(span);
+  SourceRegion get region => SourceRegion(
+    startLine: span.start.line + 1,
+    startColumn: span.start.column + 1,
+    endLine: span.end.line + 1,
+    endColumn: span.end.column + 1,
+  );
 }
 
 /// A link reference definition, `[label]: destination "title"`.
